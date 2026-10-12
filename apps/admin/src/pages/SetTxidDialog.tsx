@@ -1,35 +1,31 @@
-import { useMemo, useState } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@repo/ui";
-import { Button } from "@repo/ui";
-import { AlertTriangle, Loader2, Search } from "lucide-react";
-import { trpc } from "@repo/ui";
-import { trpcClient } from "@repo/ui";
+import { useEffect, useState } from "react";
+import { Search } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  Input,
+  trpc,
+  trpcClient,
+} from "@repo/ui";
+import { Spinner } from "../kit/parts";
+import { TX_HASH, TX_HASH_ERROR } from "../kit/format";
 
-const txidSchema = z
-  .string()
-  .regex(/^0x[0-9a-fA-F]{64}$/, "Invalid format — must be 0x followed by 64 hex characters");
-
-const formSchema = z.object({
-  txid: txidSchema,
-});
-
-type FormValues = z.infer<typeof formSchema>;
+// Screen Review 089 I13. Set creation tx on the shared Dialog: the hash well
+// checked on blur, Find on chain (fills the well from the pool address and
+// network) and Save transaction. Results show inline above the footer.
 
 interface SetTxidDialogProps {
   isOpen: boolean;
   onClose: () => void;
   poolId: number;
+  poolName: string;
   poolAddress: string | null;
   chainId: string;
   currentTxid: string | null;
@@ -40,133 +36,99 @@ export default function SetTxidDialog({
   isOpen,
   onClose,
   poolId,
+  poolName,
   poolAddress,
   chainId,
   currentTxid,
   onSuccess,
 }: SetTxidDialogProps) {
-  const {
-    register,
-    handleSubmit,
-    formState: { errors, isValid },
-    reset,
-    setValue,
-  } = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
-    defaultValues: { txid: currentTxid || "" },
-    mode: "onChange",
-  });
+  const [hash, setHash] = useState(currentTxid ?? "");
+  const [error, setError] = useState<string | undefined>();
+  const [finding, setFinding] = useState(false);
 
-  // Reset form when dialog opens with a different txid
-  const resetKey = useMemo(() => currentTxid ?? "", [currentTxid]);
+  useEffect(() => {
+    if (isOpen) {
+      setHash(currentTxid ?? "");
+      setError(undefined);
+    }
+  }, [isOpen, currentTxid]);
 
-  const [isFetchingTxid, setIsFetchingTxid] = useState(false);
-
-  const setTxidMutation = useMutation({
+  const save = useMutation({
     mutationFn: trpc.admin.pools.setCreationTxid.mutationOptions().mutationFn,
-    onSuccess: data => {
-      toast.success(data.message);
+    onSuccess: () => {
+      toast.success(`Creation transaction saved for ${poolName}`);
       onSuccess();
       onClose();
     },
-    onError: err => {
-      toast.error(`Failed to set txid: ${err.message}`);
-    },
+    onError: () => setError("The transaction was not saved. Check the hash and try again."),
   });
 
-  const onSubmit = (data: FormValues) => {
-    setTxidMutation.mutate({ poolId, creationTxid: data.txid });
-  };
+  const check = (value: string) => (TX_HASH.test(value.trim()) ? undefined : TX_HASH_ERROR);
 
-  const handleFetchTxid = async () => {
-    if (!poolAddress || !chainId) {
-      toast.error("Pool address and chain ID are required to fetch the txid.");
-      return;
-    }
-
-    setIsFetchingTxid(true);
+  const find = async () => {
+    if (!poolAddress) return;
+    setFinding(true);
+    setError(undefined);
     try {
       const result = await trpcClient.admin.pools.fetchCreationTxid.query({
         poolAddress,
         chainId: parseInt(chainId),
       });
-      setValue("txid", result.creationTxid);
-      // Save automatically so the admin doesn't need a second click
-      setTxidMutation.mutate({ poolId, creationTxid: result.creationTxid });
-    } catch (err: any) {
-      toast.error(`Failed to fetch txid: ${err.message}`);
+      setHash(result.creationTxid);
+    } catch {
+      setError("The creation transaction was not found on chain. Paste it instead.");
     } finally {
-      setIsFetchingTxid(false);
+      setFinding(false);
     }
   };
 
-  return (
-    <Dialog
-      open={isOpen}
-      onOpenChange={open => {
-        if (!open) onClose();
-        else reset({ txid: currentTxid || "" });
-      }}
-    >
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>Set Pool Creation Txid</DialogTitle>
-        </DialogHeader>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" key={resetKey}>
-          <div>
-            <label htmlFor="txid" className="block text-sm font-medium mb-1">
-              Transaction Hash (Txid)
-            </label>
-            <input
-              id="txid"
-              type="text"
-              placeholder="0x..."
-              {...register("txid")}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
-            />
-            {errors.txid && (
-              <div className="flex items-center gap-1 mt-1 text-amber-600 dark:text-amber-400 text-xs">
-                <AlertTriangle className="h-3 w-3 flex-shrink-0" />
-                <span>{errors.txid.message}</span>
-              </div>
-            )}
-            {!errors.txid && (
-              <p className="text-xs text-gray-500 mt-1">
-                The transaction hash of the pool creation transaction on-chain.
-              </p>
-            )}
-          </div>
+  const submit = (event: React.FormEvent) => {
+    event.preventDefault();
+    const problem = check(hash);
+    setError(problem);
+    if (!problem) save.mutate({ poolId, creationTxid: hash.trim() });
+  };
 
-          {poolAddress && chainId && (
+  const busy = save.isPending || finding;
+
+  return (
+    <Dialog open={isOpen} onOpenChange={open => !open && !busy && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Set creation tx</DialogTitle>
+          <DialogDescription>
+            {poolName} needs its creation transaction before it can sync.
+          </DialogDescription>
+        </DialogHeader>
+        <form noValidate onSubmit={submit} className="space-y-5">
+          <Input
+            label="Transaction hash"
+            value={hash}
+            spellCheck={false}
+            autoComplete="off"
+            onChange={event => setHash(event.target.value)}
+            onBlur={() => hash && setError(check(hash))}
+            error={error}
+            className="font-prism-mono text-prism-code-sm"
+          />
+          {poolAddress && (
             <Button
               type="button"
-              variant="outline"
-              size="sm"
-              onClick={handleFetchTxid}
-              disabled={isFetchingTxid || setTxidMutation.isPending}
-              className="w-full"
+              variant="secondary"
+              onClick={() => void find()}
+              disabled={busy}
+              aria-busy={finding || undefined}
             >
-              {isFetchingTxid ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Search className="mr-2 h-4 w-4" />
-              )}
-              Auto-fetch Txid
+              {finding ? <Spinner /> : <Search aria-hidden />}
+              Find on chain
             </Button>
           )}
-
           <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={onClose}
-              disabled={setTxidMutation.isPending}
-            >
+            <Button type="button" variant="secondary" onClick={onClose} disabled={busy}>
               Cancel
             </Button>
-            <Button type="submit" disabled={setTxidMutation.isPending || !isValid}>
-              {setTxidMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Save
+            <Button type="submit" disabled={busy} aria-busy={save.isPending || undefined}>
+              Save transaction
             </Button>
           </DialogFooter>
         </form>

@@ -5,11 +5,9 @@ import { useEditor } from "../contexts/EditorContext";
 import { MyPoolDestination } from "./panels/broadcast/MyPoolDestination";
 import { InboxPanel } from "./panels/broadcast/InboxPanel";
 import { BROADCAST_ON } from "./panels/broadcast/utils";
-import { LeaderboardPanel } from "./panels/leaderboard/LeaderboardPanel";
 import { RNSPanel } from "./panels/rns/RNSPanel";
 import { HomePanel } from "./panels/home/HomePanel";
 import { MyWalletPanel } from "./panels/wallet/MyWalletPanel";
-import RewardPanel from "./panels/reward/RewardPanel.tsx";
 import PayRedirect from "./panels/wallet/send/PayRedirect";
 import ExplorePage from "./panels/explore/ExplorePanel.tsx";
 import { AnalyticsPanel } from "./panels/analytics/AnalyticsPanel";
@@ -22,8 +20,8 @@ import { MobileDock } from "./shell/MobileDock";
 import { MobileTopBar, TopBar } from "./shell/TopBar";
 import { ShellNavigationProvider } from "./shell/ShellNavigation";
 import { useSupportWidget } from "./shell/useSupportWidget";
-import { cn } from "@repo/ui";
-import RNSHeader from "./rns/RNSHeader.tsx";
+import { useLayoutEffect } from "react";
+import { cn, markTransitionCommitted } from "@repo/ui";
 import type { EditorPanelType } from "@/types/editor.ts";
 
 interface LayoutProps {
@@ -39,8 +37,16 @@ interface LayoutProps {
 const PREVIEW_PANELS: EditorPanelType[] = ["page", "design"];
 
 // Destinations whose screens are restyled sit directly on the room (PR 3a Design,
-// 3b Page, 3c Account, 5b Home)
-const RESTYLED_PANELS: EditorPanelType[] = ["design", "page", "people", "inbox", "account", "home"];
+// 3b Page, 3c Account, 5b Home, 14b Explore)
+const RESTYLED_PANELS: EditorPanelType[] = [
+  "design",
+  "page",
+  "people",
+  "inbox",
+  "account",
+  "home",
+  "explore",
+];
 
 function ActivePanel({ panel }: { panel: EditorPanelType }) {
   switch (panel) {
@@ -68,20 +74,9 @@ function ActivePanel({ panel }: { panel: EditorPanelType }) {
     case "account":
       return <AccountPanel />;
     case "rns":
-      // RNS navigation is the destination's own header, not the top bar (002 I08, D06)
-      return import.meta.env.VITE_SHOW_RNS === "true" ? (
-        <>
-          <div className="flex items-center gap-4 border-b border-gray-200 px-6 py-3">
-            <RNSHeader />
-            <RNSHeader mobile />
-          </div>
-          <RNSPanel />
-        </>
-      ) : null;
-    case "reward":
-      return <RewardPanel />;
-    case "leaderboard":
-      return <LeaderboardPanel />;
+      // 077 I03: no RNS header in the top bar. The legacy rns panel only
+      // redirects old /rns?t= links to the Wallet RNS tab.
+      return import.meta.env.VITE_SHOW_RNS === "true" ? <RNSPanel /> : null;
     default:
       return null;
   }
@@ -105,6 +100,8 @@ function ActivePanel({ panel }: { panel: EditorPanelType }) {
 export function Layout({ bannerData, bannerLoading }: LayoutProps) {
   const { activePanel } = useEditor();
   const showPreview = PREVIEW_PANELS.includes(activePanel);
+  // The room transition waits for the new destination to render (#26)
+  useLayoutEffect(() => markTransitionCommitted(), [activePanel]);
   // Below 1024 the preview is a tab: ?view=preview (006 I01)
   const [params, setParams] = useSearchParams();
   const view = showPreview && params.get("view") === "preview" ? "preview" : "edit";
@@ -144,6 +141,7 @@ export function Layout({ bannerData, bannerLoading }: LayoutProps) {
             )}
             <main
               id="editor-content"
+              data-prism-vt-name="room"
               className={cn(
                 RESTYLED_PANELS.includes(activePanel)
                   ? "min-w-0"

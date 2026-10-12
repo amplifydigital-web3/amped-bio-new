@@ -1,5 +1,7 @@
 "use client";
 
+// Must stay the first import (QA-010)
+import "@/lib/installStorageGuard";
 import { ReactNode } from "react";
 import { Web3AuthProvider } from "@web3auth/modal/react";
 import web3AuthContextConfig from "@/lib/web3authContext";

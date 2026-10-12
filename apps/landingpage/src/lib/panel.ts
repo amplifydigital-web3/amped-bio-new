@@ -33,7 +33,7 @@ export function getPanelPoolUrl(poolAddress: string): string {
 
 /**
  * Validates a ?redirect= value before navigating to it after sign in.
- * Allowed: a same site URL or an absolute URL on the panel origin. The value is parsed
+ * Allowed: a same site URL or an absolute URL on the panel or admin origin. The value is parsed
  * before origins are compared, because URL parsers strip tabs and newlines, so a raw
  * string check on "/" can be bypassed ("/\t/evil.com" resolves to https://evil.com/).
  * Anything else returns null so callers fall back to their default destination.
@@ -45,6 +45,9 @@ export function getSafeRedirect(raw: string | null | undefined): string | null {
     const allowed = [window.location.origin];
     const panel = process.env.NEXT_PUBLIC_PANEL_URL;
     if (panel) allowed.push(new URL(panel).origin);
+    // Screen Review 081 I05, I10: the admin app sends signed out admins here too
+    const admin = process.env.NEXT_PUBLIC_ADMIN_URL;
+    if (admin) allowed.push(new URL(admin).origin);
     if (!allowed.includes(target.origin)) return null;
     // Same site targets are returned as a normalized path so router.push stays on site
     return target.origin === window.location.origin

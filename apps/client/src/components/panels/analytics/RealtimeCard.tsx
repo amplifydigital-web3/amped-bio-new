@@ -4,6 +4,7 @@ import { Button, ErrorCard, trpc } from "@repo/ui";
 import { formatDistanceToNowStrict } from "date-fns";
 import { Copy, Eye, MousePointerClick } from "lucide-react";
 import { toast } from "react-hot-toast";
+import { publicPageUrl } from "@/components/shell/pageLink";
 import { AnalyticsCard } from "./AnalyticsCard";
 import { DEFINITIONS, SOURCES } from "./definitions";
 import { capitalize, countryName, formatNumber } from "./format";
@@ -31,7 +32,7 @@ export function RealtimeCard({ handle, className }: { handle: string; className?
 
   const copyPageLink = () => {
     void navigator.clipboard
-      .writeText(`https://amped.bio/${handle}`)
+      .writeText(publicPageUrl(handle))
       .then(() => toast.success("Page link copied"))
       .catch(() => toast.error("Could not copy the link"));
   };

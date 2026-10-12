@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Ban,
   ChevronDown,
@@ -149,8 +149,16 @@ export function PeoplePanel() {
   const [filter, setFilter] = useState<Filter>("all");
   const [text, setText] = useState("");
   const q = useDebounce(text, 300).trim();
-  const [cursor, setCursor] = useState(0);
+  // The cursor belongs to one search and filter. When either changes, the
+  // cursor is 0 in the same render, so no stale page is fetched or appended
+  // (QA-016).
+  const listKey = `${filter}|${q}`;
+  const [paging, setPaging] = useState({ key: listKey, cursor: 0 });
+  const cursor = paging.key === listKey ? paging.cursor : 0;
+  const setCursor = (next: number) => setPaging({ key: listKey, cursor: next });
   const [rows, setRows] = useState<Follower[]>([]);
+  // Followers removed in this visit, until Undo brings them back
+  const removedIds = useRef(new Set<Follower["userId"]>());
   const [blockTarget, setBlockTarget] = useState<Follower | null>(null);
   const [blockedOpen, setBlockedOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -170,15 +178,16 @@ export function PeoplePanel() {
   });
   const blocked = useQuery(trpc.follow.listBlocked.queryOptions());
 
-  // A new query starts from the first page
-  useEffect(() => {
-    if (!q && filter === "all") return;
-    setCursor(0);
-    setRows([]);
-  }, [q, filter]);
   useEffect(() => {
     if (!list.data || list.isPlaceholderData) return;
-    setRows(previous => (cursor === 0 ? list.data.items : [...previous, ...list.data.items]));
+    // A refetched page can repeat people already shown, or still hold someone
+    // just removed while the server catches up. Neither is added (QA-017).
+    const page = list.data.items.filter(item => !removedIds.current.has(item.userId));
+    setRows(previous => {
+      if (cursor === 0) return page;
+      const seen = new Set(previous.map(item => item.userId));
+      return [...previous, ...page.filter(item => !seen.has(item.userId))];
+    });
   }, [list.data, list.isPlaceholderData, cursor]);
 
   const invalidate = async () => {
@@ -199,6 +208,7 @@ export function PeoplePanel() {
   const onRemove = async (row: Follower) => {
     try {
       const { restoreToken } = await remove.mutateAsync({ userId: row.userId });
+      removedIds.current.add(row.userId);
       setRows(previous => previous.filter(item => item.userId !== row.userId));
       toast.add({
         type: "success",
@@ -209,11 +219,16 @@ export function PeoplePanel() {
           onClick: () => {
             void restore
               .mutateAsync({ token: restoreToken })
-              .then(invalidate)
+              .then(() => {
+                removedIds.current.delete(row.userId);
+                return invalidate();
+              })
               .catch(() => toast.add({ type: "error", title: "Undo is no longer available." }));
           },
         },
       });
+      // The refetch starts again from the first page, so no page is appended twice
+      setCursor(0);
       void queryClient.invalidateQueries({ queryKey: trpc.follow.stats.queryKey() });
       void queryClient.invalidateQueries({ queryKey: trpc.follow.listFollowers.queryKey() });
     } catch {

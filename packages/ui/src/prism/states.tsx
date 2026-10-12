@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { cn } from "../utils";
 import { Button } from "../button";
+import { IdleDisc } from "./idle-disc";
 
 // Screen Review 085. Empty state on G0: 34 icon in a 55 disc, title 20/23 700,
 // one line 16/26 body, one next step. Say whether the list never had data or
@@ -32,9 +33,10 @@ export function EmptyState({
     <div
       className={cn("flex flex-col items-center gap-3 px-5 py-8 text-center font-prism", className)}
     >
-      <span className="prism-disc" aria-hidden>
+      {/* One slow idle loop, paused off screen and under reduced motion (#26, section 3.4) */}
+      <IdleDisc>
         <Icon className="h-[34px] w-[34px] text-prism-ink-3" strokeWidth={1.5} />
-      </span>
+      </IdleDisc>
       <h3 className="text-prism-panel-title text-prism-ink">{title}</h3>
       {description && (
         <p className="max-w-[42ch] text-prism-body text-prism-ink-2">{description}</p>

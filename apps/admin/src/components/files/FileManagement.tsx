@@ -1,588 +1,413 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
-  File,
-  Image,
-  Video,
   Download,
   Eye,
-  Calendar,
-  User,
-  HardDrive,
-  Search,
-  Filter,
-  ChevronDown,
-  Loader2,
-  AlertCircle,
+  File as FileIcon,
+  FileText,
+  FolderOpen,
+  Image as ImageIcon,
+  MoreHorizontal,
+  SearchX,
   Trash2,
+  Video,
 } from "lucide-react";
-import { FileData, FileStatus, FileType } from "../shared/fileTypes";
-import { trpc } from "@repo/ui";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { toast } from "react-hot-toast";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
+  Button,
+  EmptyState,
+  ErrorCard,
+  Menu,
+  MenuContent,
+  MenuItem,
+  MenuTrigger,
+  trpc,
 } from "@repo/ui";
+import type { FileData, FileStatus, FileType } from "../shared/fileTypes";
+import { ConfirmDialog, FilterChips, SearchWell, retryToast } from "../../kit/parts";
+import {
+  SlabPager,
+  SlabSkeletonRows,
+  rowClass,
+  stickyCell,
+  tdClass,
+  thClass,
+} from "../../kit/Slab";
+import { WordBadge } from "../../kit/WordBadge";
+import { formatBytes, formatCount, formatDay } from "../../kit/format";
+
+// Screen Review 088 I10 to I14. Files: always visible filters (search well,
+// Status chips, Type chips) over a G2 slab table with rows 55, word badges,
+// 44 Preview and Download, Delete in an overflow behind a destructive confirm,
+// the shared loading, error and empty states, and the slab footer pager.
+
+const COLUMNS = 6;
+type StatusChip = FileStatus | "ALL";
+type TypeChip = FileType | "ALL";
+
+const STATUS_BADGE: Record<FileStatus, { tone: "success" | "warning" | "ink"; label: string }> = {
+  COMPLETED: { tone: "success", label: "Completed" },
+  PENDING: { tone: "warning", label: "Pending" },
+  DELETED: { tone: "ink", label: "Deleted" },
+};
+
+/** Keeps the start and the extension: maya-lin-cove…-tide.jpg */
+function middleTruncate(name: string, max = 42) {
+  if (name.length <= max) return name;
+  const keep = max - 1;
+  return `${name.slice(0, Math.ceil(keep * 0.6))}…${name.slice(-Math.floor(keep * 0.4))}`;
+}
+
+function typeLabel(file: FileData) {
+  const extension = file.file_name.split(".").pop();
+  if (extension && extension !== file.file_name && extension.length <= 10) {
+    return extension === "ampedtheme" ? "Theme file" : extension.toUpperCase();
+  }
+  return file.file_type?.split("/")[1]?.toUpperCase() ?? "File";
+}
+
+function TypeIcon({ type }: { type: string | null }) {
+  const Icon = type?.startsWith("image/")
+    ? ImageIcon
+    : type?.startsWith("video/")
+      ? Video
+      : type?.includes("pdf") || type?.startsWith("text/")
+        ? FileText
+        : FileIcon;
+  return <Icon aria-hidden className="h-[21px] w-[21px] text-prism-ink-2" strokeWidth={1.5} />;
+}
+
+/** 34 thumbnail r8, or the type icon in a 34 block when there is none or it fails. */
+function FileThumb({ file }: { file: FileData }) {
+  const [failed, setFailed] = useState(false);
+  const previewable = file.file_type?.startsWith("image/") && file.preview_url;
+  return (
+    <span className="flex h-[34px] w-[34px] shrink-0 items-center justify-center overflow-hidden rounded-prism-8 bg-white/70 shadow-[inset_0_0_0_1px_rgba(22,21,43,0.10)]">
+      {previewable && !failed ? (
+        <img
+          src={file.preview_url!}
+          alt=""
+          onError={() => setFailed(true)}
+          className="h-full w-full object-cover"
+        />
+      ) : (
+        <TypeIcon type={file.file_type} />
+      )}
+    </span>
+  );
+}
+
+function useDebounced<T>(value: T, ms = 300) {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const timer = setTimeout(() => setDebounced(value), ms);
+    return () => clearTimeout(timer);
+  }, [value, ms]);
+  return debounced;
+}
+
+const iconButton =
+  "prism-focus inline-flex h-touch w-touch items-center justify-center rounded-full text-prism-ink-2 hover:bg-prism-nav-tint";
 
 export function FileManagement() {
   const queryClient = useQueryClient();
-  const [currentPage, setCurrentPage] = useState(1);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState<FileStatus | "ALL">("ALL");
-  const [typeFilter, setTypeFilter] = useState<FileType | "ALL">("ALL");
-  const [showFilters, setShowFilters] = useState(false);
-  const [deleteConfirmation, setDeleteConfirmation] = useState<{
-    isOpen: boolean;
-    file: FileData | null;
-    confirmText: string;
-  }>({
-    isOpen: false,
-    file: null,
-    confirmText: "",
-  });
-  const pageSize = 10;
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [search, setSearch] = useState("");
+  const [submitted, setSubmitted] = useState("");
+  const [status, setStatus] = useState<StatusChip>("ALL");
+  const [type, setType] = useState<TypeChip>("ALL");
+  const [deleting, setDeleting] = useState<FileData | null>(null);
+  const debounced = useDebounced(search.trim());
+  // Runs from 2 characters while typing, or on Enter (088 I10)
+  const term = submitted || (debounced.length >= 2 ? debounced : "");
 
-  // Fetch files from tRPC
-  const {
-    data: filesData,
-    isLoading,
-    error,
-    refetch,
-  } = useQuery(
-    trpc.admin.files.getFiles.queryOptions({
-      page: currentPage,
+  useEffect(() => {
+    if (search.trim() !== submitted) setSubmitted("");
+  }, [search, submitted]);
+  useEffect(() => setPage(1), [term, status, type, pageSize]);
+
+  const files = useQuery({
+    ...trpc.admin.files.getFiles.queryOptions({
+      page,
       limit: pageSize,
-      search: searchTerm || undefined,
-      status: statusFilter !== "ALL" ? statusFilter : undefined,
-      fileType: typeFilter !== "ALL" ? typeFilter : undefined,
-    })
-  );
+      search: term || undefined,
+      status: status === "ALL" ? undefined : status,
+      fileType: type === "ALL" ? undefined : type,
+    }),
+    placeholderData: keepPreviousData,
+  });
 
-  // Delete file mutation
-  const deleteFileMutation = useMutation({
+  const deleteFile = useMutation({
     ...trpc.admin.files.deleteFile.mutationOptions(),
-    onSuccess: data => {
-      toast.success(data.message);
-      queryClient.invalidateQueries({
-        queryKey: trpc.admin.files.getFiles.queryKey(),
-      });
+    onSuccess: () => {
+      toast.success(`${deleting?.file_name ?? "File"} deleted`);
+      setDeleting(null);
+      void queryClient.invalidateQueries({ queryKey: trpc.admin.files.getFiles.queryKey() });
     },
-    onError: error => {
-      toast.error(`Failed to delete file: ${error.message}`);
+    onError: (_error, variables) => {
+      setDeleting(null);
+      retryToast("The file was not deleted", () => deleteFile.mutate(variables));
     },
   });
 
-  const files = filesData?.files || [];
-  const pagination = filesData?.pagination;
-
-  // Helper functions
-  const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return "0 Bytes";
-    const k = 1024;
-    const sizes = ["Bytes", "KB", "MB", "GB"];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
-  };
-
-  const getFileTypeIcon = (fileType: string | null) => {
-    if (!fileType) return <File className="h-4 w-4" />;
-
-    if (fileType.startsWith("image/")) return <Image className="h-4 w-4 text-green-500" />;
-    if (fileType.startsWith("video/")) return <Video className="h-4 w-4 text-blue-500" />;
-    return <File className="h-4 w-4 text-gray-500" />;
-  };
-
-  const getFilePreview = (file: FileData) => {
-    // Show preview image for images and videos
-    if (
-      file.preview_url &&
-      (file.file_type?.startsWith("image/") || file.file_type?.startsWith("video/"))
-    ) {
-      return (
-        <div className="relative group">
-          <div className="w-10 h-10 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
-            <img
-              src={file.preview_url}
-              alt={file.file_name}
-              className="w-full h-full object-cover"
-              onError={e => {
-                // Fallback to icon if image fails to load
-                const target = e.target as HTMLImageElement;
-                target.style.display = "none";
-                target.parentElement!.innerHTML = `
-                  <div class="w-full h-full flex items-center justify-center">
-                    ${
-                      file.file_type?.startsWith("image/")
-                        ? '<svg class="h-5 w-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>'
-                        : '<svg class="h-5 w-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>'
-                    }
-                  </div>
-                `;
-              }}
-            />
-          </div>
-
-          {/* Hover preview */}
-          <div className="absolute left-12 top-0 invisible group-hover:visible z-50 transition-all duration-200">
-            <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-2">
-              <img
-                src={file.preview_url}
-                alt={file.file_name}
-                className="w-32 h-32 object-cover rounded"
-                onError={e => {
-                  const target = e.target as HTMLImageElement;
-                  target.parentElement!.innerHTML = `
-                    <div class="w-32 h-32 flex items-center justify-center bg-gray-100 rounded">
-                      <span class="text-gray-500 text-sm">Preview not available</span>
-                    </div>
-                  `;
-                }}
-              />
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    // Fallback to icon for non-previewable files
-    return (
-      <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0">
-        {getFileTypeIcon(file.file_type)}
-      </div>
-    );
-  };
-
-  const getStatusColor = (status: FileStatus) => {
-    switch (status) {
-      case "COMPLETED":
-        return "bg-green-100 text-green-800";
-      case "PENDING":
-        return "bg-yellow-100 text-yellow-800";
-      case "DELETED":
-        return "bg-red-100 text-red-800";
-      default:
-        return "bg-gray-100 text-gray-800";
-    }
-  };
-
-  // Filter files based on search and filters - now handled by server
-  const handleSearch = () => {
-    setCurrentPage(1); // Reset to first page when searching
-    refetch();
-  };
-
-  const handleFilterChange = () => {
-    setCurrentPage(1); // Reset to first page when filtering
-    refetch();
-  };
-
-  const handlePreviewFile = async (file: FileData) => {
+  const preview = async (file: FileData) => {
+    // Open the tab during the click so the browser does not block it
+    const tab = window.open("about:blank", "_blank");
     try {
-      const previewData = await queryClient.fetchQuery(
+      const data = await queryClient.fetchQuery(
         trpc.admin.files.getFilePreviewUrl.queryOptions({ fileId: file.id })
       );
-      // Open preview in a new window/tab
-      window.open(previewData.previewUrl, "_blank");
-    } catch (error: any) {
-      toast.error(`Failed to generate preview: ${error.message}`);
+      if (tab) {
+        tab.opener = null;
+        tab.location.href = data.previewUrl;
+      } else {
+        window.open(data.previewUrl, "_blank", "noopener");
+      }
+    } catch {
+      tab?.close();
+      retryToast(`The preview for ${file.file_name} did not open`, () => void preview(file));
     }
   };
 
-  const handleDownloadFile = async (file: FileData) => {
+  const download = async (file: FileData) => {
     try {
-      const downloadData = await queryClient.fetchQuery(
+      const data = await queryClient.fetchQuery(
         trpc.admin.files.getFileDownloadUrl.queryOptions({ fileId: file.id })
       );
-      // Create a temporary link and trigger download
       const link = document.createElement("a");
-      link.href = downloadData.downloadUrl;
-      link.download = downloadData.fileName;
+      link.href = data.downloadUrl;
+      link.download = data.fileName;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-    } catch (error: any) {
-      toast.error(`Failed to download file: ${error.message}`);
+    } catch {
+      retryToast(`${file.file_name} did not download`, () => void download(file));
     }
   };
 
-  const handleDeleteFile = (file: FileData) => {
-    setDeleteConfirmation({
-      isOpen: true,
-      file,
-      confirmText: "",
-    });
+  const list = (files.data?.files ?? []) as FileData[];
+  const pagination = files.data?.pagination;
+  const filtered = term !== "" || status !== "ALL" || type !== "ALL";
+  const showAll = () => {
+    setSearch("");
+    setSubmitted("");
+    setStatus("ALL");
+    setType("ALL");
   };
-
-  const confirmDeleteFile = () => {
-    if (deleteConfirmation.file && deleteConfirmation.confirmText.toLowerCase() === "delete") {
-      deleteFileMutation.mutate({ fileId: deleteConfirmation.file.id });
-      setDeleteConfirmation({
-        isOpen: false,
-        file: null,
-        confirmText: "",
-      });
-    }
-  };
-
-  const cancelDeleteFile = () => {
-    setDeleteConfirmation({
-      isOpen: false,
-      file: null,
-      confirmText: "",
-    });
-  };
-
-  const handlePageChange = (newPage: number) => {
-    setCurrentPage(newPage);
-  };
-
-  // Loading state
-  if (isLoading) {
-    return (
-      <div className="p-6">
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-          <span className="ml-2 text-gray-600">Loading files...</span>
-        </div>
-      </div>
-    );
-  }
-
-  // Error state
-  if (error) {
-    return (
-      <div className="p-6">
-        <div className="flex items-center justify-center py-12">
-          <AlertCircle className="h-8 w-8 text-red-600" />
-          <div className="ml-2">
-            <h3 className="text-lg font-medium text-red-600">Error loading files</h3>
-            <p className="text-red-500">{error.message}</p>
-            <button
-              onClick={() => refetch()}
-              className="mt-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-            >
-              Try Again
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
-    <div className="p-6">
-      {/* Delete Confirmation Modal */}
-      <Dialog open={deleteConfirmation.isOpen} onOpenChange={cancelDeleteFile}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <AlertCircle className="h-5 w-5 text-red-600" />
-              Delete File
-            </DialogTitle>
-            <DialogDescription>This action cannot be undone</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <p className="text-sm text-gray-600">
-              You are about to delete:{" "}
-              <span className="font-medium text-gray-900">
-                {deleteConfirmation.file?.file_name}
-              </span>
-            </p>
-            <div className="bg-gray-50 rounded-md p-3">
-              <p className="text-xs text-gray-500 mb-1">File Key:</p>
-              <p className="text-sm font-mono text-gray-700 break-all">
-                {deleteConfirmation.file?.s3_key}
-              </p>
-            </div>
-            <p className="text-sm text-gray-600">
-              To confirm, please type{" "}
-              <span className="font-mono bg-gray-100 px-1 rounded">delete</span> below:
-            </p>
-            <input
-              type="text"
-              value={deleteConfirmation.confirmText}
-              onChange={e =>
-                setDeleteConfirmation(prev => ({
-                  ...prev,
-                  confirmText: e.target.value,
-                }))
-              }
-              placeholder="Type 'delete' to confirm"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-red-500 focus:border-red-500"
-              autoFocus
-            />
-          </div>
-
-          <div className="flex space-x-3 pt-4">
-            <button
-              onClick={cancelDeleteFile}
-              className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={confirmDeleteFile}
-              disabled={
-                deleteConfirmation.confirmText.toLowerCase() !== "delete" ||
-                deleteFileMutation.isPending
-              }
-              className="flex-1 px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {deleteFileMutation.isPending ? (
-                <div className="flex items-center justify-center">
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  Deleting...
-                </div>
-              ) : (
-                "Delete File"
-              )}
-            </button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900">File Management</h2>
-          <p className="text-gray-600 mt-1">Total: {pagination?.total || 0} files</p>
-        </div>
-
-        {/* Storage Summary */}
-        <div className="flex items-center space-x-4 text-sm text-gray-600">
-          <div className="flex items-center space-x-2">
-            <HardDrive className="h-4 w-4" />
-            <span>
-              {formatFileSize(files.reduce((acc, file) => acc + file.size, 0))} total storage
-            </span>
-          </div>
-        </div>
+    <div className="space-y-[13px] font-prism">
+      <div className="flex flex-wrap items-end gap-3">
+        <SearchWell
+          label="Search files"
+          placeholder="Name, path or owner"
+          value={search}
+          onChange={setSearch}
+          onSubmit={() => setSubmitted(search.trim())}
+          className="w-full md:w-[508px]"
+        />
+        <p className="pb-3 text-prism-meta tabular-nums text-prism-ink-2">
+          {pagination ? `${formatCount(pagination.total)} files` : ""}
+        </p>
+      </div>
+      <div className="flex flex-wrap items-center gap-x-8 gap-y-3">
+        <FilterChips
+          label="Status"
+          value={status}
+          onChange={setStatus}
+          options={[
+            { value: "ALL", label: "All" },
+            { value: "COMPLETED", label: "Completed" },
+            { value: "PENDING", label: "Pending" },
+            { value: "DELETED", label: "Deleted" },
+          ]}
+        />
+        <FilterChips
+          label="Type"
+          value={type}
+          onChange={setType}
+          options={[
+            { value: "ALL", label: "All" },
+            { value: "image", label: "Images" },
+            { value: "video", label: "Videos" },
+            { value: "document", label: "Documents" },
+            { value: "other", label: "Other" },
+          ]}
+        />
       </div>
 
-      {/* Search and Filters */}
-      <div className="space-y-4 mb-6">
-        {/* Search Bar */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Search files by name, path, or user..."
-            value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)}
-            onKeyPress={e => e.key === "Enter" && handleSearch()}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          />
-          <button
-            onClick={handleSearch}
-            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-          >
-            <Search className="h-4 w-4" />
-          </button>
-        </div>
-
-        {/* Filter Toggle */}
-        <button
-          onClick={() => setShowFilters(!showFilters)}
-          className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 transition-colors"
-        >
-          <Filter className="h-4 w-4" />
-          <span>Filters</span>
-          <ChevronDown
-            className={`h-4 w-4 transition-transform ${showFilters ? "rotate-180" : ""}`}
-          />
-        </button>
-
-        {/* Filters */}
-        {showFilters && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg">
-            {/* Status Filter */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
-              <select
-                value={statusFilter}
-                onChange={e => {
-                  setStatusFilter(e.target.value as FileStatus | "ALL");
-                  handleFilterChange();
-                }}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              >
-                <option value="ALL">All Statuses</option>
-                <option value="COMPLETED">Completed</option>
-                <option value="PENDING">Pending</option>
-                <option value="DELETED">Deleted</option>
-              </select>
-            </div>
-
-            {/* Type Filter */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">File Type</label>
-              <select
-                value={typeFilter}
-                onChange={e => {
-                  setTypeFilter(e.target.value as FileType | "ALL");
-                  handleFilterChange();
-                }}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              >
-                <option value="ALL">All Types</option>
-                <option value="image">Images</option>
-                <option value="video">Videos</option>
-                <option value="document">Documents</option>
-                <option value="other">Other</option>
-              </select>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Files Table */}
-      <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  File
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Type & Size
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Owner
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Uploaded
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {files.map(file => (
-                <tr key={file.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center space-x-3">
-                      {getFilePreview(file)}
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">{file.file_name}</p>
-                        <p className="text-sm text-gray-500 truncate max-w-xs">{file.s3_key}</p>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div>
-                      <p className="text-sm text-gray-900">{file.file_type || "Unknown"}</p>
-                      <p className="text-sm text-gray-500">{formatFileSize(file.size)}</p>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center space-x-2">
-                      <User className="h-4 w-4 text-gray-400" />
-                      <span className="text-sm text-gray-900">{file.userName}</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span
-                      className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(file.status)}`}
-                    >
-                      {file.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center space-x-2 text-sm text-gray-500">
-                      <Calendar className="h-4 w-4" />
-                      <span>{new Date(file.uploaded_at).toLocaleDateString()}</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center space-x-2">
-                      {(file.file_type?.startsWith("image/") ||
-                        file.file_type?.startsWith("video/")) && (
-                        <button
-                          onClick={() => handlePreviewFile(file)}
-                          className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
-                          title="Preview file"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </button>
-                      )}
-                      <button
-                        onClick={() => handleDownloadFile(file)}
-                        className="p-1 text-gray-400 hover:text-green-600 transition-colors"
-                        title="Download file"
-                      >
-                        <Download className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteFile(file)}
-                        disabled={deleteFileMutation.isPending}
-                        className="p-1 text-gray-400 hover:text-red-600 transition-colors disabled:opacity-50"
-                        title="Delete file"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </td>
+      {files.isError && !files.data ? (
+        <ErrorCard
+          title="Files did not load"
+          cause="Check your connection, then try again."
+          retryLabel="Retry"
+          onRetry={() => void files.refetch()}
+        />
+      ) : (
+        <div className="prism-slab overflow-hidden">
+          <div className="overflow-x-auto">
+            <table aria-label="Files" className="w-full min-w-[900px] text-left">
+              <thead>
+                <tr>
+                  <th scope="col" className={`${thClass} ${stickyCell}`}>
+                    File
+                  </th>
+                  <th scope="col" className={thClass}>
+                    Type and size
+                  </th>
+                  <th scope="col" className={thClass}>
+                    Owner
+                  </th>
+                  <th scope="col" className={thClass}>
+                    Status
+                  </th>
+                  <th scope="col" className={thClass}>
+                    Uploaded
+                  </th>
+                  <th scope="col" className={`${thClass} text-right`}>
+                    Actions
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Empty State */}
-        {files.length === 0 && (
-          <div className="text-center py-12">
-            <div className="mx-auto w-24 h-24 bg-gray-100 rounded-lg flex items-center justify-center mb-4">
-              <File className="h-8 w-8 text-gray-400" />
-            </div>
-            <h3 className="mt-2 text-sm font-medium text-gray-900">No files found</h3>
-            <p className="mt-1 text-sm text-gray-500">
-              {searchTerm || statusFilter !== "ALL" || typeFilter !== "ALL"
-                ? "Try adjusting your search or filters."
-                : "No files have been uploaded yet."}
-            </p>
+              </thead>
+              {files.isPending ? (
+                <SlabSkeletonRows columns={COLUMNS} />
+              ) : list.length === 0 ? (
+                <tbody>
+                  <tr className="border-t border-prism-line">
+                    <td colSpan={COLUMNS}>
+                      {filtered ? (
+                        <EmptyState
+                          icon={SearchX}
+                          title="No files match these filters"
+                          action={
+                            <Button variant="ghost" onClick={showAll}>
+                              Show all
+                            </Button>
+                          }
+                        />
+                      ) : (
+                        <EmptyState
+                          icon={FolderOpen}
+                          title="No files yet"
+                          description="Files people upload appear here."
+                        />
+                      )}
+                    </td>
+                  </tr>
+                </tbody>
+              ) : (
+                <tbody>
+                  {list.map(file => {
+                    const badge = STATUS_BADGE[file.status];
+                    const canPreview =
+                      file.file_type?.startsWith("image/") || file.file_type?.startsWith("video/");
+                    return (
+                      <tr key={file.id} className={rowClass}>
+                        <td className={`${tdClass} ${stickyCell}`}>
+                          <div className="flex items-center gap-3">
+                            <FileThumb file={file} />
+                            <div className="min-w-0">
+                              <p
+                                title={file.file_name}
+                                className="whitespace-nowrap text-prism-label font-semibold text-prism-ink"
+                              >
+                                {middleTruncate(file.file_name)}
+                              </p>
+                              <p
+                                title={file.s3_key}
+                                className="max-w-[377px] truncate text-prism-meta text-prism-ink-2"
+                              >
+                                {file.s3_key}
+                              </p>
+                            </div>
+                          </div>
+                        </td>
+                        <td
+                          className={`${tdClass} whitespace-nowrap text-prism-meta tabular-nums text-prism-ink`}
+                        >
+                          {typeLabel(file)} · {formatBytes(file.size)}
+                        </td>
+                        <td className={`${tdClass} text-prism-label text-prism-ink`}>
+                          {file.userName}
+                        </td>
+                        <td className={tdClass}>
+                          <WordBadge tone={badge.tone}>{badge.label}</WordBadge>
+                        </td>
+                        <td
+                          className={`${tdClass} whitespace-nowrap text-prism-meta tabular-nums text-prism-ink`}
+                        >
+                          {formatDay(file.uploaded_at)}
+                        </td>
+                        <td className={`${tdClass} whitespace-nowrap text-right`}>
+                          <span className="inline-flex items-center gap-1">
+                            {canPreview ? (
+                              <button
+                                type="button"
+                                aria-label={`Preview ${file.file_name} (opens in a new tab)`}
+                                onClick={() => void preview(file)}
+                                className={iconButton}
+                              >
+                                <Eye aria-hidden className="h-5 w-5" strokeWidth={1.5} />
+                              </button>
+                            ) : (
+                              <span className="inline-block w-touch" />
+                            )}
+                            <button
+                              type="button"
+                              aria-label={`Download ${file.file_name}`}
+                              onClick={() => void download(file)}
+                              className={iconButton}
+                            >
+                              <Download aria-hidden className="h-5 w-5" strokeWidth={1.5} />
+                            </button>
+                            <Menu>
+                              <MenuTrigger
+                                aria-label={`More actions for ${file.file_name}`}
+                                className={iconButton}
+                              >
+                                <MoreHorizontal aria-hidden className="h-5 w-5" />
+                              </MenuTrigger>
+                              <MenuContent align="end">
+                                <MenuItem destructive onSelect={() => setDeleting(file)}>
+                                  <Trash2 aria-hidden />
+                                  Delete
+                                </MenuItem>
+                              </MenuContent>
+                            </Menu>
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              )}
+            </table>
           </div>
-        )}
-      </div>
-
-      {/* Pagination */}
-      {pagination && pagination.total > 0 && (
-        <div className="mt-6 flex items-center justify-between">
-          <div className="text-sm text-gray-700">
-            Showing <span className="font-medium">{(currentPage - 1) * pageSize + 1}</span> to{" "}
-            <span className="font-medium">
-              {Math.min(currentPage * pageSize, pagination.total)}
-            </span>{" "}
-            of <span className="font-medium">{pagination.total}</span> results
-          </div>
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={() => handlePageChange(currentPage - 1)}
-              disabled={currentPage <= 1}
-              className="px-3 py-1 text-sm border border-gray-300 rounded-md bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Previous
-            </button>
-            <span className="text-sm text-gray-700">
-              Page {currentPage} of {pagination.pages}
-            </span>
-            <button
-              onClick={() => handlePageChange(currentPage + 1)}
-              disabled={currentPage >= pagination.pages}
-              className="px-3 py-1 text-sm border border-gray-300 rounded-md bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Next
-            </button>
-          </div>
+          {pagination && (
+            <SlabPager
+              page={page}
+              pages={pagination.pages}
+              total={pagination.total}
+              pageSize={pageSize}
+              onPage={setPage}
+              onPageSize={setPageSize}
+              noun="Files"
+            />
+          )}
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!deleting}
+        onOpenChange={open => !open && setDeleting(null)}
+        title={`Delete ${deleting?.file_name ?? "this file"}?`}
+        body="This removes the file from storage and cannot be undone."
+        confirmLabel="Delete file"
+        destructive
+        busy={deleteFile.isPending}
+        onConfirm={() => deleting && deleteFile.mutate({ fileId: deleting.id })}
+      />
     </div>
   );
 }

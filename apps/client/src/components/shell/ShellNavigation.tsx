@@ -7,6 +7,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  roomTransition,
 } from "@repo/ui";
 import { useEditor } from "@/contexts/EditorContext";
 import type { EditorPanelType } from "@/types/editor";
@@ -24,13 +25,20 @@ const ShellNavigationContext = createContext<ShellNavigationValue | null>(null);
  * the shared Dialog asks before leaving: Retry save or Leave anyway.
  */
 export function ShellNavigationProvider({ children }: { children: ReactNode }) {
-  const { setActivePanelAndNavigate, flushSave, saveStatus, hasUnsavedChanges } = useEditor();
+  const { activePanel, setActivePanelAndNavigate, flushSave, saveStatus, hasUnsavedChanges } =
+    useEditor();
   const [pending, setPending] = useState<{ panel: EditorPanelType; tab?: string } | null>(null);
   const [retrying, setRetrying] = useState(false);
 
   const navigate = useCallback(
-    (panel: EditorPanelType, tab?: string) => setActivePanelAndNavigate(panel, undefined, { tab }),
-    [setActivePanelAndNavigate]
+    (panel: EditorPanelType, tab?: string) => {
+      const commit = () => setActivePanelAndNavigate(panel, undefined, { tab });
+      // A new destination plays the 610 ms room transition (#26, section 3.4).
+      // Layout marks the commit; a tab change in the same destination does not transition.
+      if (panel !== activePanel) roomTransition(commit);
+      else commit();
+    },
+    [activePanel, setActivePanelAndNavigate]
   );
 
   const go = useCallback(

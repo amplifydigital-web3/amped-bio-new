@@ -149,7 +149,8 @@ const envSchema = z.object({
   REDIS_TLS: boolSchema(false),
 
   // Creator Pool Broadcast (Build Board #1). While true, only pool owners an
-  // admin has invited can send. Default true for the pilot.
+  // admin has invited can send. Defaults to true in production for the pilot
+  // and to false everywhere else, so staging can test sends (QA-056, below).
   BROADCAST_INVITE_ONLY: boolSchema(true),
 
   // URL for the RNS subgraph to validate name ownership and expiry
@@ -161,6 +162,13 @@ const envSchema = z.object({
   AUTHBASE_API_KEY: z.string().default(""),
   // Authbase API secret (Basic auth password)
   AUTHBASE_API_SECRET: z.string().default(""),
+  // Screen Review 109 I01: the public page may show the Verified chip and the
+  // check dates. Off: the page shows the RNS name only and never calls Authbase.
+  RNS_PUBLIC_IDENTITY: boolSchema(false),
+  // Screen Review 079 D2: a name page may show the attributes a Verified owner
+  // shared through Authbase. Off by default: the published Privacy Policy says
+  // only the owner sees them. Turn on only after the policy is updated.
+  RNS_PUBLIC_ATTRIBUTES: boolSchema(false),
 
 // Daily Airdrop Batch Configuration
   // Hour (UTC) when the daily airdrop batch is sent (0-23)
@@ -184,6 +192,28 @@ const envSchema = z.object({
   TRACKING_TOKEN_SECRET: z.string().default(""),
   // Meta Graph API version used for the Conversions API
   META_GRAPH_API_VERSION: z.string().default("v24.0"),
+
+  // Messaging on Telegram (Build Board #2), spec 3.14. Secrets never live in committed .env files.
+  // Master switch: starts the sender loop and accepts webhook updates. Off everywhere until the
+  // staging bot exists.
+  TELEGRAM_ENABLED: boolSchema(false),
+  // Bot token from BotFather (@AmpedBioStagingBot on staging, @AmpedBioBot in production)
+  TELEGRAM_BOT_TOKEN: z.string().default(""),
+  // Optional override for the bot username. The runtime resolves it from the Bot
+  // API getMe() (services/telegram/client.ts), so it always matches the token in
+  // use; set this only in tests or a split environment the token cannot reach.
+  TELEGRAM_BOT_USERNAME: z.string().default(""),
+  // Value passed as secret_token to setWebhook; the webhook route rejects requests without it
+  TELEGRAM_WEBHOOK_SECRET: z.string().default(""),
+  // Log In with Telegram (OIDC) client credentials from BotFather, Login Widget
+  TELEGRAM_OIDC_CLIENT_ID: z.string().default(""),
+  TELEGRAM_OIDC_CLIENT_SECRET: z.string().default(""),
+  // Encrypts username, firstName and photoUrl on telegram_accounts. Falls back to BETTER_AUTH_SECRET.
+  TELEGRAM_SECRET_BOX_KEY: z.string().default(""),
+  // While true, only creators an admin has invited can turn on Fan messages (phase 1 pilot)
+  MESSAGING_INVITE_ONLY: boolSchema(true),
+  // Gated creator groups (phase 2)
+  TELEGRAM_GROUPS: boolSchema(false),
 });
 
 // ================ parse & export ================
@@ -200,3 +230,10 @@ if (!result.success) {
 }
 
 export const env = result.data;
+
+// QA-056: the pilot gate is on by default in production only. Staging, testing
+// and local runs open Broadcast to every pool owner unless the variable is set.
+if (process.env.BROADCAST_INVITE_ONLY === undefined && env.APP_ENV !== "production") {
+  env.BROADCAST_INVITE_ONLY = false;
+}
+

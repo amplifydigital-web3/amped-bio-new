@@ -8,6 +8,7 @@ import { useEditor } from "@/contexts/EditorContext";
 import { useDestinationTab } from "@/hooks/useDestinationTab";
 import { PHONE_QUERY, useMediaQuery } from "@/hooks/useMediaQuery";
 import { requestAddBlock } from "@/components/preview/addBlockRequest";
+import { publicPageAddress, publicPageUrl } from "@/components/shell/pageLink";
 import { ActivityHeatmap } from "./ActivityHeatmap";
 import { AnalyticsCard } from "./AnalyticsCard";
 import { ExportMenu, RangeSelect } from "./AnalyticsHeader";
@@ -118,12 +119,12 @@ function Freshness({
           {updatedAt ? ` Updated ${updatedAgo(updatedAt)}.` : ""}
         </span>
         <a
-          href={`https://amped.bio/${handle}`}
+          href={publicPageUrl(handle)}
           target="_blank"
           rel="noopener noreferrer"
           className="prism-focus inline-flex min-h-touch items-center gap-1 rounded-prism-8 font-semibold text-prism-nav hover:underline"
         >
-          amped.bio/{handle}
+          {publicPageAddress(handle)}
           <ExternalLink aria-hidden className="h-[13px] w-[13px]" />
           <span className="sr-only"> (opens in a new tab)</span>
         </a>

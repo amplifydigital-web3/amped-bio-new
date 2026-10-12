@@ -45,8 +45,8 @@ function addToast(options: ToastOptions): string {
         onDismiss={() => hotToast.dismiss(t.id)}
         className={
           t.visible
-            ? "animate-in fade-in slide-in-from-bottom-2 duration-200 motion-reduce:animate-none"
-            : "animate-out fade-out duration-150"
+            ? "animate-in fade-in slide-in-from-bottom-2 duration-prism-control ease-prism motion-reduce:animate-none"
+            : "animate-out fade-out duration-prism-hover ease-prism motion-reduce:animate-none"
         }
       />
     ),

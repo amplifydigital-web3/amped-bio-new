@@ -360,25 +360,41 @@ export function ReviewSlab({
 }
 
 // Section 8 checkbox: 24 box r5; checked is value deep with a white check.
+// `helper` adds a 13/16 line under the label, linked by aria-describedby.
+// `ariaLabel` replaces the accessible name when the visible label is short
+// (for example "On" in a table row named "<client name> on").
 export function Checkbox({
   checked,
   onCheckedChange,
   children,
   id,
   required,
+  disabled,
+  helper,
+  ariaLabel,
+  className,
 }: {
   checked: boolean;
   onCheckedChange: (checked: boolean) => void;
   children: React.ReactNode;
   id?: string;
   required?: boolean;
+  disabled?: boolean;
+  helper?: React.ReactNode;
+  ariaLabel?: string;
+  className?: string;
 }) {
   const autoId = React.useId();
   const boxId = id ?? autoId;
+  const helperId = `${boxId}-helper`;
   return (
     <label
       htmlFor={boxId}
-      className="flex min-h-touch cursor-pointer items-start gap-3 py-2 font-prism"
+      className={cn(
+        "flex min-h-touch items-start gap-3 py-2 font-prism",
+        disabled ? "cursor-not-allowed" : "cursor-pointer",
+        className
+      )}
     >
       <span className="relative mt-px inline-flex h-6 w-6 shrink-0">
         <input
@@ -386,8 +402,11 @@ export function Checkbox({
           type="checkbox"
           checked={checked}
           required={required}
+          disabled={disabled}
+          aria-label={ariaLabel}
+          aria-describedby={helper ? helperId : undefined}
           onChange={event => onCheckedChange(event.target.checked)}
-          className="prism-focus peer h-6 w-6 cursor-pointer appearance-none rounded-prism-5 border-[1.5px] border-[rgba(22,21,43,0.4)] bg-white checked:border-prism-value-deep checked:bg-prism-value-deep"
+          className="prism-focus peer h-6 w-6 cursor-pointer appearance-none rounded-prism-5 border-[1.5px] border-[rgba(22,21,43,0.4)] bg-white checked:border-prism-value-deep checked:bg-prism-value-deep disabled:cursor-not-allowed disabled:opacity-50"
         />
         <Check
           aria-hidden
@@ -395,7 +414,18 @@ export function Checkbox({
           strokeWidth={3}
         />
       </span>
-      <span className="text-prism-body text-prism-ink">{children}</span>
+      <span className="min-w-0">
+        <span
+          className={cn("block text-prism-body text-prism-ink", disabled && "text-prism-ink-2")}
+        >
+          {children}
+        </span>
+        {helper && (
+          <span id={helperId} className="mt-0.5 block text-prism-meta text-prism-ink-2">
+            {helper}
+          </span>
+        )}
+      </span>
     </label>
   );
 }

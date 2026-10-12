@@ -19,7 +19,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   ];
 
   const [posts, pools] = await Promise.all([
-    getBlogPosts(BLOG_POST_LIMIT).catch(() => []),
+    getBlogPosts(BLOG_POST_LIMIT)
+      .then(result => result.posts)
+      .catch(() => []),
     fetchPoolsPageData(),
   ]);
 

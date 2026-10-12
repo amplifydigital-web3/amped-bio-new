@@ -14,6 +14,14 @@ export const RNS_FLAGS = {
   attributes: on(import.meta.env.VITE_SHOW_RNS) && on(import.meta.env.VITE_RNS_ATTRIBUTES),
   /** Live Facets and facet requests (106, 107). The Soon tab shows without it (105 D1). */
   facets: on(import.meta.env.VITE_SHOW_RNS) && on(import.meta.env.VITE_RNS_FACETS),
+  /**
+   * Facet request dialog over the RNS name page (107). Off everywhere until the
+   * Authbase proof API, the facet scopes and the consent hook exist.
+   */
+  facetRequest:
+    on(import.meta.env.VITE_SHOW_RNS) &&
+    on(import.meta.env.VITE_RNS_IDENTITY) &&
+    on(import.meta.env.VITE_SHOW_FACET_REQUEST),
   /** USD by card through Authbase checkout (078 D1, 080 D1) */
   cardCheckout: on(import.meta.env.VITE_SHOW_RNS) && on(import.meta.env.VITE_RNS_CARD_CHECKOUT),
 } as const;

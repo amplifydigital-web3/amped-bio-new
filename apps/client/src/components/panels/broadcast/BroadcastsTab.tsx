@@ -11,6 +11,10 @@ import {
   XCircle,
 } from "lucide-react";
 import {
+  EMAIL_VERIFICATION_GRACE_BROADCASTS,
+  EMAIL_VERIFICATION_GRACE_DAYS,
+} from "@repo/constants";
+import {
   Button,
   EmptyState,
   ErrorCard,
@@ -232,6 +236,9 @@ export function BroadcastsTab({ chainId }: { chainId: string }) {
   const list = useQuery({
     ...trpc.broadcast.creator.list.queryOptions({ chainId }),
     enabled: !!overview.data?.pool,
+    // Keep chips current while a send is in flight (QA-031); stops once none is
+    refetchInterval: q =>
+      q.state.data?.some(b => b.status === "QUEUED" || b.status === "SENDING") ? 5000 : false,
   });
   const showSkeleton = useDelayed(overview.isLoading || list.isLoading, 400);
 
@@ -250,7 +257,8 @@ export function BroadcastsTab({ chainId }: { chainId: string }) {
     );
   }
 
-  const { pool, members, quota, canSend, paused, emailVerified, creatorName } = overview.data;
+  const { pool, members, quota, canSend, paused, verification, graceSendsLeft, creatorName } =
+    overview.data;
   const items = list.data ?? [];
   const selected = selectedParam ?? items[0]?.id ?? null;
 
@@ -274,12 +282,25 @@ export function BroadcastsTab({ chainId }: { chainId: string }) {
           title: "Broadcasting is paused",
           body: "Amped is reviewing reports on a recent broadcast. Support will contact you by email.",
         }
-      : !emailVerified
-        ? {
-            title: "Confirm your email to send",
-            body: "Open the confirmation email Amped sent you, then come back here.",
-          }
+      : // Verification grace (Rob, 2026-10-10): a new creator sends for 30 days
+        // or EMAIL_VERIFICATION_GRACE_BROADCASTS sends before this notice holds
+        verification.required
+        ? verification.reason === "milestone"
+          ? {
+              title: "Confirm your email to keep sending",
+              body: `You have sent ${EMAIL_VERIFICATION_GRACE_BROADCASTS} broadcasts without a verified email. Open the confirmation email Amped sent you, then come back here.`,
+            }
+          : {
+              title: "Confirm your email to send",
+              body: `Accounts send without a verified email for ${EMAIL_VERIFICATION_GRACE_DAYS} days. Open the confirmation email Amped sent you, then come back here.`,
+            }
         : null;
+
+  // Unverified but still inside the grace: say how much room is left
+  const graceLine =
+    !blocker && !verification.verified && graceSendsLeft !== null
+      ? `${graceSendsLeft} ${graceSendsLeft === 1 ? "send" : "sends"} left before Amped asks you to confirm your email.`
+      : null;
 
   if (composing && !blocker) {
     return (
@@ -323,10 +344,12 @@ export function BroadcastsTab({ chainId }: { chainId: string }) {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-prism-label text-prism-ink-2">
           {members.toLocaleString()} {members === 1 ? "member" : "members"} in{" "}
-          {pool.name ?? "your pool"}.{" "}
-          {quota.leftToday > 0
-            ? `${quota.leftToday} ${quota.leftToday === 1 ? "send" : "sends"} left today.`
-            : "No sends left today."}
+          {pool.name ?? "your pool"}.
+          {/* The quota means nothing until the creator is invited (QA-037) */}
+          {canSend &&
+            (quota.leftToday > 0
+              ? ` ${quota.leftToday} ${quota.leftToday === 1 ? "send" : "sends"} left today.`
+              : " No sends left today.")}
         </p>
         {newButton}
       </div>
@@ -336,13 +359,24 @@ export function BroadcastsTab({ chainId }: { chainId: string }) {
           {blocker.body}
         </Notice>
       )}
+      {graceLine && (
+        <Notice variant="info" title="Your email is not verified yet">
+          {graceLine}
+        </Notice>
+      )}
       {!blocker && members === 0 && (
         <Notice variant="info" title="Your pool has no members yet">
           Share your pool. When people join, you can send them updates here.
         </Notice>
       )}
 
-      {items.length === 0 ? (
+      {list.isError ? (
+        <ErrorCard
+          title="Your broadcasts did not load"
+          cause="Try again in a moment."
+          onRetry={() => void list.refetch()}
+        />
+      ) : items.length === 0 ? (
         <EmptyState
           icon={Megaphone}
           title="No broadcasts yet"

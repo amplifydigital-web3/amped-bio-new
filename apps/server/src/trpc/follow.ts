@@ -4,24 +4,43 @@ import type { Prisma } from "@repo/database";
 import { privateProcedure, publicProcedure, router } from "./trpc";
 import { prisma } from "../services/DB";
 import { enforceRateLimits } from "../utils/rateLimit";
+import { hasEmailTrust, trustedEmailWhere } from "../utils/verificationGrace";
 import { hexToId, idToHex } from "../services/analytics/ids";
 import { getFileUrl } from "../utils/fileUrlResolver";
+import { cache } from "../utils/cache";
 import {
   FOLLOWER_COUNT_FLOOR,
   csvCell,
   decodeRestoreToken,
   encodeRestoreToken,
   publicCount,
+  publicFollowerHandle,
+  type RemovedFollow,
 } from "../services/follow/rules";
+import { batchPoolFanCreatorIds } from "../services/follow/poolFans";
+import {
+  FACES_LOOKBACK_DAYS,
+  cumulativeSeries,
+  dayIndex,
+  numbersVisible,
+  publicFaces,
+  publicGrowth,
+  publicMilestone,
+  publicPoolFans,
+  publicSources,
+  type PublicFace,
+} from "../services/follow/blockRules";
 
 export { FOLLOWER_COUNT_FLOOR };
 
 /**
  * Fan Graph (Build Board #22). Spec: docs/features/fan-graph.md.
  *
- * A follow counts while the follower's email is verified and the account is
- * not suspended. That is checked at read time, so a follow from an unverified
- * account starts "pending" and counts on its own once the email is confirmed.
+ * A follow counts while the follower's account is not suspended and its email
+ * is trusted: verified, or inside the verification grace period (Rob,
+ * 2026-10-10, `utils/verificationGrace.ts`). That is checked at read time, so
+ * a follow from an account past the grace period is "pending" and counts on
+ * its own once the email is confirmed.
  * Nothing here ever returns a follower's email or wallet address.
  */
 
@@ -30,30 +49,61 @@ const RESTORE_TOKEN_TTL_MS = 8_000;
 const UNDO_WINDOW_MS = 10 * 60 * 1000;
 const PAGE_SIZE = 30;
 
-const FOLLOW_SOURCES = ["page", "explore", "pool", "broadcast", "qr"] as const;
+// `block` is a follow from the Follow block or the Followers card on the
+// creator's page (follow-blocks spec, decision 8). People shows it as "Your page".
+const FOLLOW_SOURCES = ["page", "explore", "pool", "broadcast", "qr", "block"] as const;
+/** Sources that count as a follow from the creator's own page, for the follow rate. */
+const PAGE_SOURCES = ["page", "block"] as const;
 const handleInput = z.string().trim().min(1).max(64);
 
-/** Only follows from accounts that count: verified email, not suspended. */
-const COUNTED_FOLLOWER: Prisma.UserWhereInput = { email_verified: true, block: "no" };
+/** Only follows from accounts that count: trusted email, not suspended. */
+function countedFollower(now = new Date()): Prisma.UserWhereInput {
+  // AND keeps the OR inside trustedEmailWhere clear of callers' own OR filters
+  return { block: "no", AND: [trustedEmailWhere(now)] };
+}
 
 function rangeStart(range: "7d" | "30d" | "90d"): Date {
   const days = range === "7d" ? 7 : range === "30d" ? 30 : 90;
   return new Date(Date.now() - days * 24 * 60 * 60 * 1000);
 }
 
-/** A published, not suspended creator page, found by handle. */
-async function findCreator(handle: string) {
+/**
+ * A creator found by handle. By default only a published, not suspended page.
+ * Unfollow and the fan's own settings pass `anyStatus` so a fan can still leave
+ * or change a follow after the creator unpublishes or is suspended (QA-021).
+ */
+async function findCreator(handle: string, { anyStatus = false } = {}) {
   const lower = handle.replace(/^@/, "").toLowerCase();
   const creator = await prisma.user.findFirst({
-    where: { handle: lower, page_status: "PUBLISHED", block: "no" },
+    where: anyStatus ? { handle: lower } : { handle: lower, page_status: "PUBLISHED", block: "no" },
     select: { id: true, name: true, handle: true, show_follower_count: true },
   });
   if (!creator) throw new TRPCError({ code: "NOT_FOUND", message: "Page not found" });
   return creator;
 }
 
+// ===== follow.blockData cache (follow-blocks spec 3.3) =====
+// Responses cache for 60 seconds per creator and options. A version number
+// per creator, bumped by every mutation that changes what the card may show,
+// keeps the key free of any follower's own choices.
+const BLOCK_DATA_TTL_SECONDS = 60;
+const BLOCK_DATA_VERSION_TTL_SECONDS = 24 * 60 * 60;
+
+async function blockDataVersion(creatorId: number): Promise<number> {
+  return (await cache.get<number>(`follow:block:ver:${creatorId}`)) ?? 0;
+}
+
+/** Forget every cached card for a creator. Safe to call when nothing is cached. */
+async function invalidateBlockData(creatorId: number): Promise<void> {
+  try {
+    await cache.set(`follow:block:ver:${creatorId}`, Date.now(), BLOCK_DATA_VERSION_TTL_SECONDS);
+  } catch {
+    // The cache is best effort; a miss only costs a recompute
+  }
+}
+
 async function countFollowers(creatorId: number) {
-  return prisma.follow.count({ where: { creator_id: creatorId, follower: COUNTED_FOLLOWER } });
+  return prisma.follow.count({ where: { creator_id: creatorId, follower: countedFollower() } });
 }
 
 /** User ids among `userIds` with a stake above zero in any of the creator's pools. */
@@ -75,41 +125,60 @@ async function poolFanIds(creatorId: number, userIds?: number[]): Promise<Set<nu
   return new Set(stakes.map(stake => stake.userWallet.userId));
 }
 
-/**
- * Batch check: which of `creatorIds` has the viewer as a pool fan (stake > 0
- * in any of that creator's pools). Returns a Set of creator IDs.
- */
-async function batchPoolFanCreatorIds(
-  creatorIds: number[],
-  viewerId: number
-): Promise<Set<number>> {
-  const wallets = await prisma.userWallet.findMany({
-    where: { userId: { in: creatorIds } },
-    select: { userId: true, creatorPools: { select: { id: true } } },
+type FollowRow = {
+  follower_id: number;
+  creator_id: number;
+  show_publicly: boolean;
+  email_updates: boolean;
+  email_updates_at: Date | null;
+  source: string;
+  campaign_id: Uint8Array | null;
+  created_at: Date;
+};
+
+/** Signed, short lived token that lets Undo put a deleted follow back as it was. */
+function restoreTokenFor(row: FollowRow, extra: Pick<RemovedFollow, "u" | "r">) {
+  return encodeRestoreToken({
+    ...extra,
+    f: row.follower_id,
+    c: row.creator_id,
+    p: row.show_publicly,
+    e: row.email_updates,
+    ea: row.email_updates_at?.toISOString() ?? null,
+    s: row.source,
+    k: row.campaign_id ? idToHex(row.campaign_id) : null,
+    t: row.created_at.toISOString(),
+    x: Date.now() + RESTORE_TOKEN_TTL_MS,
   });
-  const poolToCreator = new Map<number, number>();
-  const allPoolIds: number[] = [];
-  for (const wallet of wallets) {
-    for (const pool of wallet.creatorPools) {
-      allPoolIds.push(pool.id);
-      poolToCreator.set(pool.id, wallet.userId);
-    }
-  }
-  if (allPoolIds.length === 0) return new Set();
-  const stakes = await prisma.stakedPool.findMany({
-    where: {
-      poolId: { in: allPoolIds },
-      NOT: { stakeAmount: "0" },
-      userWallet: { userId: viewerId },
+}
+
+const undoUnavailable = () =>
+  new TRPCError({ code: "BAD_REQUEST", message: "Undo is no longer available." });
+
+/** Put a follow back from a restore token. Safe to run twice. */
+async function restoreFollow(row: RemovedFollow) {
+  const blocked = await prisma.followBlock.findUnique({
+    where: { creator_id_user_id: { creator_id: row.c, user_id: row.f } },
+  });
+  if (blocked) throw undoUnavailable();
+  await prisma.follow.upsert({
+    where: { follower_id_creator_id: { follower_id: row.f, creator_id: row.c } },
+    update: {},
+    create: {
+      follower_id: row.f,
+      creator_id: row.c,
+      show_publicly: row.p,
+      email_updates: row.e,
+      email_updates_at: row.ea ? new Date(row.ea) : null,
+      source: row.s,
+      campaign_id: row.k ? hexToId(row.k) : null,
+      created_at: new Date(row.t),
     },
-    select: { poolId: true },
   });
-  const fanCreators = new Set<number>();
-  for (const stake of stakes) {
-    const creatorId = poolToCreator.get(stake.poolId);
-    if (creatorId !== undefined) fanCreators.add(creatorId);
-  }
-  return fanCreators;
+  // The removal is undone, so it no longer counts as a departure. deleteMany
+  // keeps a repeated Undo (double click, retry) from failing (QA-020).
+  if (row.r) await prisma.followRemoval.deleteMany({ where: { id: row.r } });
+  await invalidateBlockData(row.c);
 }
 
 const followerFilterSchema = z.enum(["all", "new", "poolFans", "public"]).default("all");
@@ -122,7 +191,7 @@ async function followerWhere(
   const where: Prisma.FollowWhereInput = {
     creator_id: creatorId,
     follower: {
-      ...COUNTED_FOLLOWER,
+      ...countedFollower(),
       ...(q
         ? {
             OR: [
@@ -160,7 +229,7 @@ export const followRouter = router({
       }),
       prisma.user.findUnique({
         where: { id: viewerId },
-        select: { email_verified: true, follow_disclosure_seen_at: true },
+        select: { email_verified: true, created_at: true, follow_disclosure_seen_at: true },
       }),
     ]);
     return {
@@ -168,7 +237,7 @@ export const followRouter = router({
       isOwner: false,
       viewer: {
         following: !!row,
-        pending: !!row && !viewer?.email_verified,
+        pending: !!row && !!viewer && !hasEmailTrust(viewer),
         showPublicly: row?.show_publicly ?? false,
         emailUpdates: row?.email_updates ?? false,
         disclosureSeen: !!viewer?.follow_disclosure_seen_at,
@@ -234,6 +303,7 @@ export const followRouter = router({
           email_updates_at: emailUpdates ? new Date() : null,
         },
       });
+      await invalidateBlockData(creator.id);
       if (input.fromDisclosure) {
         await prisma.user.updateMany({
           where: { id: viewerId, follow_disclosure_seen_at: null },
@@ -242,9 +312,9 @@ export const followRouter = router({
       }
       const viewer = await prisma.user.findUnique({
         where: { id: viewerId },
-        select: { email_verified: true },
+        select: { email_verified: true, created_at: true },
       });
-      return { following: true, pending: !viewer?.email_verified };
+      return { following: true, pending: !viewer || !hasEmailTrust(viewer) };
     }),
 
   unfollow: privateProcedure
@@ -258,21 +328,37 @@ export const followRouter = router({
         ],
         "You're following too fast. Try again in a minute."
       );
-      const creator = await findCreator(input.handle);
+      const creator = await findCreator(input.handle, { anyStatus: true });
       const row = await prisma.follow.findUnique({
         where: { follower_id_creator_id: { follower_id: viewerId, creator_id: creator.id } },
-        select: { id: true, created_at: true },
       });
-      if (row) {
-        await prisma.follow.delete({ where: { id: row.id } });
-        // A follow undone within 10 minutes is not counted as someone leaving
-        if (Date.now() - row.created_at.getTime() > UNDO_WINDOW_MS) {
-          await prisma.followRemoval.create({
-            data: { creator_id: creator.id, reason: "unfollow" },
-          });
-        }
+      if (!row) return { following: false, restoreToken: null };
+      await prisma.follow.delete({ where: { id: row.id } });
+      await invalidateBlockData(creator.id);
+      // A follow undone within 10 minutes is not counted as someone leaving
+      let removalId: number | undefined;
+      if (Date.now() - row.created_at.getTime() > UNDO_WINDOW_MS) {
+        const removal = await prisma.followRemoval.create({
+          data: { creator_id: creator.id, reason: "unfollow" },
+        });
+        removalId = removal.id;
       }
-      return { following: false };
+      // Undo puts the follow back with its settings, source and date (QA-033)
+      return {
+        following: false,
+        restoreToken: restoreTokenFor(row, { u: "unfollow", r: removalId }),
+      };
+    }),
+
+  /** Undo for Unfollow, within 8 seconds. Restores the follow as it was. */
+  undoUnfollow: privateProcedure
+    .input(z.object({ token: z.string().min(10).max(2000) }))
+    .mutation(async ({ ctx, input }) => {
+      const viewerId = ctx.user!.sub;
+      const row = decodeRestoreToken(input.token);
+      if (!row || row.u !== "unfollow" || row.f !== viewerId) throw undoUnavailable();
+      await restoreFollow(row);
+      return { following: true };
     }),
 
   /** The fan's own per-creator settings. */
@@ -285,7 +371,7 @@ export const followRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const creator = await findCreator(input.handle);
+      const creator = await findCreator(input.handle, { anyStatus: true });
       const data: Prisma.FollowUpdateManyMutationInput = {};
       if (input.showPublicly !== undefined) data.show_publicly = input.showPublicly;
       if (input.emailUpdates !== undefined) {
@@ -298,6 +384,8 @@ export const followRouter = router({
       });
       if (result.count === 0)
         throw new TRPCError({ code: "NOT_FOUND", message: "You don't follow this creator." });
+      // A fan leaving or joining the public list changes the faces row
+      await invalidateBlockData(creator.id);
       return { ok: true };
     }),
 
@@ -415,7 +503,7 @@ export const followRouter = router({
     .query(async ({ ctx, input }) => {
       const creatorId = ctx.user!.sub;
       const since = rangeStart(input.range);
-      const counted = { creator_id: creatorId, follower: COUNTED_FOLLOWER };
+      const counted = { creator_id: creatorId, follower: countedFollower() };
       const [total, newInRange, unfollows, pageFollows, views, bySource, byCampaign, fans, me] =
         await Promise.all([
           prisma.follow.count({ where: counted }),
@@ -424,7 +512,7 @@ export const followRouter = router({
             where: { creator_id: creatorId, created_at: { gte: since } },
           }),
           prisma.follow.count({
-            where: { ...counted, source: "page", created_at: { gte: since } },
+            where: { ...counted, source: { in: [...PAGE_SOURCES] }, created_at: { gte: since } },
           }),
           prisma.analyticsEvent.count({
             where: { user_id: creatorId, type: "view", created_at: { gte: since } },
@@ -459,12 +547,22 @@ export const followRouter = router({
           })
         : [];
       const campaignName = new Map(campaigns.map(c => [idToHex(c.id), c.name]));
+      // Follows from the page capsule and from the page blocks are one
+      // "Your page" row (decision 8); the CSV keeps the raw value
+      const pageSourceCount = bySource
+        .filter(row => (PAGE_SOURCES as readonly string[]).includes(row.source))
+        .reduce((sum, row) => sum + row._count._all, 0);
       const sources = [
-        ...bySource.map(row => ({
-          label: row.source,
-          kind: "source" as const,
-          count: row._count._all,
-        })),
+        ...(pageSourceCount > 0
+          ? [{ label: "page", kind: "source" as const, count: pageSourceCount }]
+          : []),
+        ...bySource
+          .filter(row => !(PAGE_SOURCES as readonly string[]).includes(row.source))
+          .map(row => ({
+            label: row.source,
+            kind: "source" as const,
+            count: row._count._all,
+          })),
         ...byCampaign.map(row => ({
           label: (row.campaign_id && campaignName.get(idToHex(row.campaign_id))) || "Campaign",
           kind: "campaign" as const,
@@ -475,7 +573,7 @@ export const followRouter = router({
         total,
         newInRange,
         unfollowsInRange: unfollows,
-        // Follows from the page per page view, both counted for every visit
+        // Follows from the page (capsule or block) per page view
         followRate: views > 0 ? Math.round((pageFollows / views) * 1000) / 10 : null,
         poolFans: poolFanFollowers,
         poolFanShare: total > 0 ? Math.round((poolFanFollowers / total) * 100) : 0,
@@ -497,18 +595,8 @@ export const followRouter = router({
         prisma.follow.delete({ where: { id: row.id } }),
         prisma.followRemoval.create({ data: { creator_id: creatorId, reason: "removed" } }),
       ]);
-      const token = encodeRestoreToken({
-        r: removal.id,
-        f: row.follower_id,
-        c: row.creator_id,
-        p: row.show_publicly,
-        e: row.email_updates,
-        ea: row.email_updates_at?.toISOString() ?? null,
-        s: row.source,
-        k: row.campaign_id ? idToHex(row.campaign_id) : null,
-        t: row.created_at.toISOString(),
-        x: Date.now() + RESTORE_TOKEN_TTL_MS,
-      });
+      await invalidateBlockData(creatorId);
+      const token = restoreTokenFor(row, { r: removal.id });
       return { restoreToken: token };
     }),
 
@@ -517,30 +605,8 @@ export const followRouter = router({
     .input(z.object({ token: z.string().min(10).max(2000) }))
     .mutation(async ({ ctx, input }) => {
       const row = decodeRestoreToken(input.token);
-      if (!row || row.c !== ctx.user!.sub) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "Undo is no longer available." });
-      }
-      const blocked = await prisma.followBlock.findUnique({
-        where: { creator_id_user_id: { creator_id: row.c, user_id: row.f } },
-      });
-      if (blocked)
-        throw new TRPCError({ code: "BAD_REQUEST", message: "Undo is no longer available." });
-      await prisma.follow.upsert({
-        where: { follower_id_creator_id: { follower_id: row.f, creator_id: row.c } },
-        update: {},
-        create: {
-          follower_id: row.f,
-          creator_id: row.c,
-          show_publicly: row.p,
-          email_updates: row.e,
-          email_updates_at: row.ea ? new Date(row.ea) : null,
-          source: row.s,
-          campaign_id: row.k ? hexToId(row.k) : null,
-          created_at: new Date(row.t),
-        },
-      });
-      // The removal is undone, so it no longer counts as a departure
-      if (row.r) await prisma.followRemoval.delete({ where: { id: row.r } });
+      if (!row || row.u || row.c !== ctx.user!.sub) throw undoUnavailable();
+      await restoreFollow(row);
       return { ok: true };
     }),
 
@@ -551,6 +617,12 @@ export const followRouter = router({
       if (input.userId === creatorId) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "You can't block yourself." });
       }
+      // A missing account would fail the block's foreign key (P2003) (QA-033)
+      const target = await prisma.user.findUnique({
+        where: { id: input.userId },
+        select: { id: true },
+      });
+      if (!target) throw new TRPCError({ code: "NOT_FOUND", message: "Account not found." });
       const deleted = await prisma.follow.deleteMany({
         where: { follower_id: input.userId, creator_id: creatorId },
       });
@@ -561,6 +633,7 @@ export const followRouter = router({
       });
       if (deleted.count > 0) {
         await prisma.followRemoval.create({ data: { creator_id: creatorId, reason: "blocked" } });
+        await invalidateBlockData(creatorId);
       }
       return { ok: true };
     }),
@@ -643,18 +716,174 @@ export const followRouter = router({
         where: {
           creator_id: creator.id,
           show_publicly: true,
-          follower: COUNTED_FOLLOWER,
+          follower: countedFollower(),
         },
         orderBy: { id: "desc" },
         take: PAGE_SIZE + 1,
         ...(input.cursor ? { cursor: { id: input.cursor }, skip: 1 } : {}),
-        select: { id: true, follower: { select: { name: true, handle: true } } },
+        select: {
+          id: true,
+          follower: { select: { name: true, handle: true, page_status: true } },
+        },
       });
       const page = rows.slice(0, PAGE_SIZE);
       return {
-        items: page.map(row => ({ name: row.follower.name, handle: row.follower.handle })),
+        // Unpublished fans show by name only, never a link to a 404 (QA-008)
+        items: page.map(row => ({
+          name: row.follower.name,
+          handle: publicFollowerHandle(row.follower),
+        })),
         nextCursor: rows.length > PAGE_SIZE ? page[page.length - 1].id : null,
       };
+    }),
+
+  /**
+   * Followers block data (follow-blocks spec 3.3). Public. Every numeric
+   * field respects `show_follower_count` and the 10 floor, so the card never
+   * shows a number the capsule would not. Faces are opted-in followers only,
+   * at least three or none. Never an email, wallet, id or campaign.
+   */
+  blockData: publicProcedure
+    .input(
+      z.object({
+        handle: handleInput,
+        growthRange: z.enum(["7d", "30d"]).default("7d"),
+        facesOrder: z.enum(["newest", "longest", "poolFans"]).default("newest"),
+        facesMax: z.union([z.literal(6), z.literal(12)]).default(6),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      await enforceRateLimits(
+        [{ key: `follow:block:${ctx.req.ip ?? "unknown"}`, limit: 60, windowSeconds: 60 }],
+        "Too many requests. Try again in a minute."
+      );
+      const creator = await findCreator(input.handle);
+      const version = await blockDataVersion(creator.id);
+      const cacheKey = `follow:block:${creator.id}:${version}:${input.growthRange}:${input.facesOrder}:${input.facesMax}`;
+      type BlockData = {
+        showCount: boolean;
+        newOnAmped: boolean;
+        followerCount: number | null;
+        newInRange: number | null;
+        series: number[] | null;
+        faces: PublicFace[];
+        othersCount: number | null;
+        poolFans: number | null;
+        poolFanShare: number | null;
+        milestone: number | null;
+        sources: { kind: string; share: number }[] | null;
+        poolAddress: string | null;
+      };
+      const cached = await cache.get<BlockData>(cacheKey);
+      if (cached) return cached;
+
+      const counted = { creator_id: creator.id, follower: countedFollower() };
+      const since = rangeStart(input.growthRange);
+      const windowStart = new Date(Date.now() - FACES_LOOKBACK_DAYS * 24 * 60 * 60 * 1000);
+      const [count, newInRange, recent, bySource, wallet, optedIn] = await Promise.all([
+        countFollowers(creator.id),
+        prisma.follow.count({ where: { ...counted, created_at: { gte: since } } }),
+        prisma.follow.findMany({
+          where: { ...counted, created_at: { gte: windowStart } },
+          select: { created_at: true },
+        }),
+        prisma.follow.groupBy({ by: ["source"], where: counted, _count: { _all: true } }),
+        prisma.userWallet.findUnique({
+          where: { userId: creator.id },
+          select: {
+            creatorPools: {
+              where: { poolAddress: { not: null }, OR: [{ hidden: false }, { hidden: null }] },
+              orderBy: { id: "desc" },
+              take: 1,
+              select: { poolAddress: true },
+            },
+          },
+        }),
+        prisma.follow.findMany({
+          where: { ...counted, show_publicly: true },
+          // Newest first; "longest" reverses, "Pool fans first" sorts after the read
+          orderBy:
+            input.facesOrder === "longest"
+              ? [{ created_at: "asc" }, { id: "asc" }]
+              : [{ created_at: "desc" }, { id: "desc" }],
+          take: input.facesOrder === "poolFans" ? 60 : input.facesMax,
+          select: {
+            follower_id: true,
+            follower: {
+              select: {
+                name: true,
+                handle: true,
+                page_status: true,
+                image: true,
+                image_file_id: true,
+              },
+            },
+          },
+        }),
+      ]);
+
+      const visible = numbersVisible(count, creator.show_follower_count);
+      const pc = publicCount(count, creator.show_follower_count);
+      const poolAddress = wallet?.creatorPools[0]?.poolAddress ?? null;
+
+      // Growth series: counted follows per day over the last 30 days
+      const followsPerDay = new Array<number>(FACES_LOOKBACK_DAYS).fill(0);
+      for (const row of recent) {
+        const day = dayIndex(row.created_at);
+        if (day !== null) followsPerDay[day] += 1;
+      }
+
+      // Pool fan overlap, only when the creator has a pool and numbers show
+      let poolFanFollowers = 0;
+      let fanIds = new Set<number>();
+      if (poolAddress) {
+        fanIds = await poolFanIds(creator.id);
+        if (visible && fanIds.size > 0) {
+          poolFanFollowers = await prisma.follow.count({
+            where: { ...counted, follower_id: { in: [...fanIds] } },
+          });
+        }
+      }
+
+      // Faces: at least three opted-in followers, or none at all
+      const candidates = optedIn.map(row => ({ row, poolFan: fanIds.has(row.follower_id) }));
+      const chosen = publicFaces(candidates, input.facesOrder, input.facesMax);
+      const faces: PublicFace[] = await Promise.all(
+        chosen.map(async ({ row, poolFan }) => ({
+          name: row.follower.name,
+          handle: publicFollowerHandle(row.follower),
+          photo: await getFileUrl({
+            legacyImageField: row.follower.image,
+            imageFileId: row.follower.image_file_id,
+          }).catch(() => null),
+          poolFan,
+        }))
+      );
+
+      const data: BlockData = {
+        showCount: pc.showCount,
+        newOnAmped: pc.newOnAmped,
+        followerCount: pc.followerCount,
+        newInRange: publicGrowth(newInRange, visible),
+        series: cumulativeSeries(count, followsPerDay, visible),
+        faces,
+        othersCount:
+          visible && pc.followerCount !== null && faces.length > 0
+            ? Math.max(0, pc.followerCount - faces.length)
+            : null,
+        ...(publicPoolFans(poolFanFollowers, count, poolAddress !== null, visible) ?? {
+          poolFans: null,
+          poolFanShare: null,
+        }),
+        milestone: publicMilestone(count, visible),
+        sources: publicSources(
+          bySource.map(row => ({ source: row.source, count: row._count._all })),
+          visible
+        ),
+        poolAddress,
+      };
+      await cache.set(cacheKey, data, BLOCK_DATA_TTL_SECONDS);
+      return data;
     }),
 
   setCountVisibility: privateProcedure
@@ -664,6 +893,7 @@ export const followRouter = router({
         where: { id: ctx.user!.sub },
         data: { show_follower_count: input.show },
       });
+      await invalidateBlockData(ctx.user!.sub);
       return { show: input.show };
     }),
 });

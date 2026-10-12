@@ -7,11 +7,12 @@ import { AlertCircle, ArrowRight, Check, Coins, ExternalLink, Info, Share2 } fro
 import Decimal from "decimal.js";
 import { formatEther } from "viem";
 import { getChainConfig } from "@repo/web3";
-import { Button, EmptyState, Skeleton, TESTNET_NOTICE, cn } from "@repo/ui";
+import { Button, Skeleton, TESTNET_NOTICE, cn } from "@repo/ui";
 import { trpc, type trpcClient } from "@/lib/trpc";
 import { authClient } from "@/lib/auth-client";
 import { getPanelPoolUrl } from "@/lib/panel";
 import { formatHandle } from "@/lib/handle";
+import { NotFoundState } from "@/components/NotFoundState";
 
 // Screen Review 071 (D14, D20). The public pool page: the featured card with
 // the pool name as the h1, the About card, and the value panel at rest with
@@ -246,19 +247,15 @@ function ComplianceCard() {
 /* -------------------------------------------------------------------------- */
 
 export function PoolNotFound() {
+  // Screen Review 097 I05: the pool variant of the shared not found hero
   return (
-    <div className="prism-glass-clear mx-auto max-w-[610px] !rounded-prism-21">
-      <EmptyState
-        icon={Coins}
-        title="Pool not found"
-        description="This address has no pool on Amped.Bio."
-        action={
-          <Button asChild variant="secondary">
-            <Link href="/i/pools">Browse pools</Link>
-          </Button>
-        }
-      />
-    </div>
+    <NotFoundState
+      eyebrow="Pools"
+      title="Pool not found"
+      body="This address has no pool on Amped.Bio."
+      primary={{ label: "All pools", href: "/i/pools" }}
+      secondary={[{ label: "Go to Amped.Bio", href: "/" }]}
+    />
   );
 }
 

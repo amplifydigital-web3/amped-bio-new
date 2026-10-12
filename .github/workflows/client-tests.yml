@@ -95,9 +95,9 @@ jobs:
 
       - name: Run database migrations
         run: |
-          cd apps/server
-          pnpm prisma generate
-          pnpm prisma migrate deploy
+          cd packages/database
+          pnpm run prisma:generate
+          pnpm run prisma:migrate
 
       - name: Build and start backend
         run: |

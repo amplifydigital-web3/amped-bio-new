@@ -35,6 +35,14 @@ function shape<T extends { flaggedTerms: Prisma.JsonValue }>({ flaggedTerms, ...
   return { ...rest, flags };
 }
 
+/** Another admin already acted on the broadcast, or it never was in review. */
+function notInReview(action: "approved" | "rejected") {
+  return new TRPCError({
+    code: "CONFLICT",
+    message: `Only a broadcast in review can be ${action}. It may have been reviewed already.`,
+  });
+}
+
 /**
  * admin.broadcasts (spec section 3.4). Review of first sends, follow-up on
  * flagged sends (warn only), reports, and the invite-only pilot.
@@ -80,32 +88,29 @@ export const broadcastsAdminRouter = router({
   approve: adminProcedure
     .input(z.object({ id: z.number().int() }))
     .mutation(async ({ ctx, input }) => {
-      const b = await prisma.broadcast.findUnique({
-        where: { id: input.id },
-        select: { creatorUserId: true, status: true, reviewReason: true },
-      });
-      if (!b || b.status !== "IN_REVIEW") {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "Only a broadcast in review can be approved.",
-        });
-      }
-      await prisma.$transaction([
-        prisma.broadcast.update({
-          where: { id: input.id },
+      // Claim the row with a status guard so two admins cannot both approve
+      // (or approve and reject) the same broadcast. QA-019.
+      await prisma.$transaction(async tx => {
+        const claimed = await tx.broadcast.updateMany({
+          where: { id: input.id, status: "IN_REVIEW" },
           data: {
             status: "QUEUED",
             queuedAt: new Date(),
             reviewedById: ctx.user!.sub,
             reviewedAt: new Date(),
           },
-        }),
-        prisma.broadcastSenderStatus.upsert({
+        });
+        if (claimed.count === 0) throw notInReview("approved");
+        const b = await tx.broadcast.findUniqueOrThrow({
+          where: { id: input.id },
+          select: { creatorUserId: true },
+        });
+        await tx.broadcastSenderStatus.upsert({
           where: { userId: b.creatorUserId },
           create: { userId: b.creatorUserId, firstApprovedAt: new Date() },
           update: { firstApprovedAt: new Date() },
-        }),
-      ]);
+        });
+      });
       enqueueBroadcast(input.id);
       return { ok: true };
     }),
@@ -122,12 +127,7 @@ export const broadcastsAdminRouter = router({
           reviewedAt: new Date(),
         },
       });
-      if (updated.count === 0) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "Only a broadcast in review can be rejected.",
-        });
-      }
+      if (updated.count === 0) throw notInReview("rejected");
       const b = await prisma.broadcast.findUnique({
         where: { id: input.id },
         select: { creatorUserId: true },

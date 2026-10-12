@@ -10,6 +10,7 @@ import { useAccount, useWriteContract, usePublicClient } from "wagmi";
 
 import { TxStatus, TxStep } from "@/types/rns/common";
 import { useEditor } from "@/contexts/EditorContext";
+import { withWalletTimeout } from "@/utils/walletTimeout";
 
 export type StepState = {
   step: TxStep;
@@ -108,12 +109,15 @@ export function useTransferOwnership() {
         if (inPlace) {
           updateStep("approval", { status: "success", skipped: true });
         } else {
-          const hash = await writeContractAsync({
-            address: registrar,
-            abi: BASE_REGISTRAR_ABI,
-            functionName: "approve",
-            args: [controller, tokenId],
-          });
+          // QA-057: bounded wallet waits, so a silent wallet ends in the error state
+          const hash = await withWalletTimeout(
+            writeContractAsync({
+              address: registrar,
+              abi: BASE_REGISTRAR_ABI,
+              functionName: "approve",
+              args: [controller, tokenId],
+            })
+          );
           updateStep("approval", { hash });
           await waitFor(hash);
           updateStep("approval", { status: "success" });
@@ -122,12 +126,14 @@ export function useTransferOwnership() {
         // 2. Transfer the name to the recipient
         current = "transfer";
         updateStep("transfer", { status: "pending", error: undefined });
-        const hash = await writeContractAsync({
-          address: controller,
-          abi: REGISTRAR_CONTROLLER_ABI,
-          functionName: "transferRNSName",
-          args: [label, receiverAddress, networkConfig.contracts.L2_RESOLVER.address],
-        });
+        const hash = await withWalletTimeout(
+          writeContractAsync({
+            address: controller,
+            abi: REGISTRAR_CONTROLLER_ABI,
+            functionName: "transferRNSName",
+            args: [label, receiverAddress, networkConfig.contracts.L2_RESOLVER.address],
+          })
+        );
         updateStep("transfer", { hash });
         await waitFor(hash);
         updateStep("transfer", { status: "success" });

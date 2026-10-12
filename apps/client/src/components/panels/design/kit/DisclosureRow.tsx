@@ -80,6 +80,7 @@ export function DisclosureRow({
   value,
   swatch,
   warning = false,
+  status,
   children,
 }: {
   id: string;
@@ -90,6 +91,8 @@ export function DisclosureRow({
   swatch?: ReactNode;
   /** A contrast guard fails for this row */
   warning?: boolean;
+  /** Short state chip after the value, kept out of the truncation (QA-035) */
+  status?: ReactNode;
   children: ReactNode;
 }) {
   const { open, setOpen, readOnly, inset } = useDisclosureGroup();
@@ -119,6 +122,7 @@ export function DisclosureRow({
             {readOnly && <Lock aria-hidden className="h-4 w-4 shrink-0" />}
             {swatch}
             <span className="truncate">{value}</span>
+            {status}
             {warning && <span className="sr-only">, contrast warning</span>}
           </span>
           <ChevronDown

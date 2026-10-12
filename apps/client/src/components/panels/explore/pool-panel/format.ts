@@ -1,5 +1,6 @@
 import Decimal from "decimal.js";
 import { BaseError, formatEther } from "viem";
+import { formatNetworkRewardRate } from "@repo/constants";
 
 // tRPC has no transformer: the server's BigInt toJSON sends bigints as wei
 // strings, whatever the router type says. Null means the chain read failed.
@@ -53,9 +54,8 @@ export function toDecimal(value: string): Decimal | null {
 }
 
 // Network Reward Rate (J2). The server returns basis points (1250 = 12.5%).
-export function formatRewardRate(basisPoints: number): string {
-  return `${(basisPoints / 100).toLocaleString("en-US", { maximumFractionDigits: 1 })}% a year (est.)`;
-}
+// Shared with the public site so both show the same figure (QA-025).
+export const formatRewardRate = formatNetworkRewardRate;
 
 export type TxErrorKind = "rejected" | "cooldown" | "failed";
 
