@@ -62,12 +62,14 @@ export {
 } from "./prism/states";
 export {
   RnsIdentityChip,
+  RnsIdentityDialog,
   RnsVerifiedMark,
   RNS_IDENTITY_COPY,
   formatRnsDate,
   type RnsIdentity,
   type RnsIdentityCheck,
   type RnsIdentityChipProps,
+  type RnsIdentityDialogProps,
 } from "./prism/rns-identity";
 export {
   SidePanel,
@@ -117,6 +119,13 @@ export {
   type FollowersCardFace,
   type FollowersCardProps,
 } from "./creator/followers-card";
+export { FirstFollowSheet } from "./creator/first-follow-sheet";
+export {
+  RnsIdCard,
+  RNS_ID_COPY,
+  formatSinceMonth,
+  type RnsIdCardProps,
+} from "./creator/rns-id-card";
 export { ExternalRedirect } from "./external-redirect";
 
 // Auth
@@ -137,7 +146,11 @@ export { OAuthShell } from "./oauth/oauth-shell";
 export { OAuthLoginScreen, useOAuthClientName } from "./oauth/oauth-login-screen";
 export { OAuthConsentScreen } from "./oauth/oauth-consent-screen";
 export { OAuthDeviceScreen } from "./oauth/oauth-device-screen";
-export { describeOAuthScope, OAUTH_SCOPE_DESCRIPTIONS } from "./oauth/oauth-scopes";
+export {
+  consentSharesWallet,
+  describeOAuthScope,
+  OAUTH_SCOPE_DESCRIPTIONS,
+} from "./oauth/oauth-scopes";
 export {
   FacetRequestCard,
   type FacetRequestCardProps,

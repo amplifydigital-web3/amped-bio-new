@@ -107,7 +107,9 @@ export function HomePanel() {
 
   return (
     <div className="flex flex-col gap-[21px] px-4 pb-6 pt-5 font-prism md:px-6">
-      {data && !data.emailVerified && data.email && <VerifyEmailNotice email={data.email} />}
+      {data && !data.emailVerified && data.email && (
+        <VerifyEmailNotice email={data.email} verifyBy={data.verifyBy} />
+      )}
 
       <div className="grid gap-[21px] lg:grid-cols-[minmax(0,759fr)_minmax(0,508fr)] lg:gap-x-[21px] lg:gap-y-[34px]">
         <div className="prism-stagger flex min-w-0 flex-col gap-[21px] lg:col-start-1 lg:row-start-1">

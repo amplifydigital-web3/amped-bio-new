@@ -33,7 +33,16 @@
         "CAPTCHA_SECRET_KEY",
         "GOOGLE_CLIENT_SECRET",
         "GOOGLE_CLIENT_ID",
-        "BETTER_AUTH_SECRET"
+        "BETTER_AUTH_SECRET",
+        "TELEGRAM_ENABLED",
+        "TELEGRAM_BOT_TOKEN",
+        "TELEGRAM_BOT_USERNAME",
+        "TELEGRAM_WEBHOOK_SECRET",
+        "TELEGRAM_OIDC_CLIENT_ID",
+        "TELEGRAM_OIDC_CLIENT_SECRET",
+        "TELEGRAM_SECRET_BOX_KEY",
+        "MESSAGING_INVITE_ONLY",
+        "TELEGRAM_GROUPS"
       ]
     },
     "lint": {},

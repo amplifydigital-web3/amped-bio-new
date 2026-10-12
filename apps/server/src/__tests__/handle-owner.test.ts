@@ -18,6 +18,7 @@ vi.mock("../trpc/trackingPixels", () => ({ getPublicTrackingPixels: vi.fn(async 
 vi.mock("../services/rnsIdentity", () => ({
   computeRnsIdentity: vi.fn(async () => ({ identity: null })),
   parseRnsDisplay: vi.fn(() => ({})),
+  rnsIdBlockOptions: vi.fn(() => ({ nameOnId: false, visible: false })),
 }));
 
 import handleRouter from "../trpc/handle";
@@ -37,6 +38,7 @@ function fanAccount(page_status: "PUBLISHED" | "UNPUBLISHED") {
     theme: 1,
     page_status,
     wallet: null,
+    created_at: new Date("2026-03-14T10:00:00Z"),
   };
 }
 
@@ -44,6 +46,25 @@ function callerFor(sub?: number) {
   const user = sub === undefined ? undefined : { sub };
   return handleRouter.createCaller({ user } as never);
 }
+
+describe("handle.getHandle join month", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    db.theme.findUnique.mockResolvedValue({ id: 1, name: "Default", config: null });
+    db.block.findMany.mockResolvedValue([]);
+  });
+
+  it("leaves the server only when a visible RNS ID block asks for it", async () => {
+    const { rnsIdBlockOptions } = await import("../services/rnsIdentity");
+    db.user.findFirst.mockResolvedValue(fanAccount("PUBLISHED"));
+    (rnsIdBlockOptions as any).mockReturnValue({ nameOnId: false, visible: false });
+    const hidden = await callerFor(OWNER_ID).getHandle({ handle: "jordan-ellis-4821" });
+    expect(hidden.user.since).toBeNull();
+    (rnsIdBlockOptions as any).mockReturnValue({ nameOnId: true, visible: true });
+    const shown = await callerFor(OWNER_ID).getHandle({ handle: "jordan-ellis-4821" });
+    expect(shown.user.since).toBe("2026-03");
+  });
+});
 
 describe("handle.getHandle page visibility", () => {
   beforeEach(() => {

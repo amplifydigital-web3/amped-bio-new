@@ -20,6 +20,7 @@ import { LayoutGrid, Plus } from "lucide-react";
 import {
   DEFAULT_FOLLOW_CONFIG,
   DEFAULT_FOLLOWERS_CONFIG,
+  DEFAULT_RNSID_CONFIG,
   SINGLETON_BLOCK_TYPES,
   type BlockType,
 } from "@repo/constants";
@@ -60,6 +61,13 @@ function draftFor(kind: NewBlockKind): BlockType {
         type: "followers",
         order: 0,
         config: { ...DEFAULT_FOLLOWERS_CONFIG, show: { ...DEFAULT_FOLLOWERS_CONFIG.show } },
+      };
+    case "rnsid":
+      return {
+        id: DRAFT_ID,
+        type: "rnsid",
+        order: 0,
+        config: { ...DEFAULT_RNSID_CONFIG, show: { ...DEFAULT_RNSID_CONFIG.show } },
       };
     default:
       return { id: DRAFT_ID, type: "text", order: 0, config: { content: "", platform: "text" } };

@@ -317,6 +317,44 @@ describe("send", () => {
     expect(res.status).toBe("QUEUED");
   });
 
+  // Verification grace (Rob, 2026-10-10)
+  const daysAgo = (n: number) => new Date(Date.now() - n * 24 * 60 * 60 * 1000);
+
+  it("lets a new unverified creator send", async () => {
+    ready();
+    db.user.findUnique.mockResolvedValue({
+      email_verified: false,
+      block: "no",
+      created_at: daysAgo(3),
+    });
+    const res = await caller.send(input);
+    expect(res.status).toBe("QUEUED");
+  });
+
+  it("asks an unverified creator to confirm after 30 days", async () => {
+    ready();
+    db.user.findUnique.mockResolvedValue({
+      email_verified: false,
+      block: "no",
+      created_at: daysAgo(31),
+    });
+    await expect(caller.send(input)).rejects.toThrow("Confirm your email to send broadcasts.");
+  });
+
+  it("asks an unverified creator to confirm after 3 sends", async () => {
+    ready();
+    db.user.findUnique.mockResolvedValue({
+      email_verified: false,
+      block: "no",
+      created_at: daysAgo(3),
+    });
+    // The lifetime count has no date filter; the quota counts do
+    db.broadcast.count.mockImplementation(({ where }: { where: { createdAt?: unknown } }) =>
+      Promise.resolve(where.createdAt ? 0 : 3)
+    );
+    await expect(caller.send(input)).rejects.toThrow("sent 3 broadcasts");
+  });
+
   it("asks the creator to confirm flagged words, then sends with the flags stored", async () => {
     ready();
     const flagged = { ...input, body: "Stake more before Friday." };
