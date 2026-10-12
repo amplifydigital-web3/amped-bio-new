@@ -10,7 +10,9 @@ type BaseBlockType =
   | "referral"
   | "follow"
   | "followers"
-  | "rnsid";
+  | "rnsid"
+  | "telegram_message"
+  | "telegram_group";
 
 export type BaseBlock<type extends BaseBlockType = any, T = any> = {
   id: number;
@@ -129,6 +131,26 @@ export function rnsIdTapsFor(style: RnsIdBlockStyle): readonly RnsIdBlockTap[] {
   return style === "idcard" || style === "proofstrip" ? ["sheet", "inline"] : ["sheet", "none"];
 }
 
+// Messaging on Telegram (Build Board #2, spec decision 14, Screen Review 115):
+// Message me on Telegram and Join my Telegram group. One of each per page. The
+// config holds the label only: whether the door is open and its rule come from
+// the server (getHandle telegramDoor), so a creator never edits rule text and a
+// stake amount never reaches the page.
+export type TelegramMessageBlockConfig = { label: string };
+export type TelegramGroupBlockConfig = { label: string };
+export type TelegramMessageBlock = BaseBlock<"telegram_message", TelegramMessageBlockConfig>;
+export type TelegramGroupBlock = BaseBlock<"telegram_group", TelegramGroupBlockConfig>;
+
+export const TELEGRAM_BLOCK_LABEL_MAX = 40;
+export const DEFAULT_TELEGRAM_MESSAGE_LABEL = "Message me on Telegram";
+export const DEFAULT_TELEGRAM_GROUP_LABEL = "Join my Telegram group";
+export const DEFAULT_TELEGRAM_MESSAGE_CONFIG: TelegramMessageBlockConfig = {
+  label: DEFAULT_TELEGRAM_MESSAGE_LABEL,
+};
+export const DEFAULT_TELEGRAM_GROUP_CONFIG: TelegramGroupBlockConfig = {
+  label: DEFAULT_TELEGRAM_GROUP_LABEL,
+};
+
 export const FOLLOW_LABEL_MAX = 24;
 export const FOLLOWERS_TITLE_MAX = 40;
 
@@ -151,10 +173,19 @@ export type BlockType =
   | ReferralBlock
   | FollowBlock
   | FollowersBlock
-  | RnsIdBlock;
+  | RnsIdBlock
+  | TelegramMessageBlock
+  | TelegramGroupBlock;
 
 /** Block types a page holds at most once. The Add block dialog opens the existing row. */
-export const SINGLETON_BLOCK_TYPES = ["referral", "follow", "followers", "rnsid"] as const;
+export const SINGLETON_BLOCK_TYPES = [
+  "referral",
+  "follow",
+  "followers",
+  "rnsid",
+  "telegram_message",
+  "telegram_group",
+] as const;
 
 /**
  * Capsule rule (follow-blocks spec 3.8): a renderable block that carries its
@@ -277,6 +308,19 @@ export const rnsIdConfigSchema = z.object({
   hidden: z.boolean().optional(),
 });
 
+const telegramLabelSchema = (fallback: string) =>
+  z.string().trim().min(1, "Label is required").max(TELEGRAM_BLOCK_LABEL_MAX).default(fallback);
+
+export const telegramMessageConfigSchema = z.object({
+  label: telegramLabelSchema(DEFAULT_TELEGRAM_MESSAGE_LABEL),
+  hidden: z.boolean().optional(),
+});
+
+export const telegramGroupConfigSchema = z.object({
+  label: telegramLabelSchema(DEFAULT_TELEGRAM_GROUP_LABEL),
+  hidden: z.boolean().optional(),
+});
+
 /** The config schema for a block type. Unknown types fall back to the union. */
 const CONFIG_SCHEMAS: Record<string, z.ZodTypeAny> = {
   link: linkConfigSchema,
@@ -287,6 +331,8 @@ const CONFIG_SCHEMAS: Record<string, z.ZodTypeAny> = {
   follow: followConfigSchema,
   followers: followersConfigSchema,
   rnsid: rnsIdConfigSchema,
+  telegram_message: telegramMessageConfigSchema,
+  telegram_group: telegramGroupConfigSchema,
 };
 
 // The referral schema accepts any object, so it stays last in the fallback
