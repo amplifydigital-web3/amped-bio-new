@@ -16,6 +16,7 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix --exit-on-fatal-error",
     "typecheck": "tsc --noEmit",
+    "email:check": "tsx -r dotenv/config scripts/email-check.ts",
     "email:dev": "email dev --dir src/utils/email",
     "test": "vitest run",
         "test:watch": "vitest",

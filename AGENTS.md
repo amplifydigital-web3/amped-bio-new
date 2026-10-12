@@ -6,6 +6,17 @@ NEVER execute the 'dev' command under any circumstances! This starts the develop
 
 NEVER merge any branch into 'main' without explicit user authorization! Under no circumstances should you perform any git merge operations to the main branch unless the user clearly instructs you to do so. DO NOT ASSUME that merge operations are desired.
 
+## LOCAL DEV LOGS - READ THE RUNNING SERVER FROM FILE
+
+`pnpm run dev:full` runs `turbo dev --log-file=logs/dev-full.log`, so Turborepo writes structured JSON logs (one JSON object per line, ANSI stripped) to `logs/dev-full.log`. That file is gitignored (`logs` / `*.log`) and is overwritten on every run.
+
+To inspect the server that is running, read that file instead of asking for a paste. Each line is `{"source","level","timestamp","text"}` where `source` is `<package>#<task>` and `text` is the actual log line:
+
+- Server (`@repo/server`): `grep '"source":"@repo/server#dev"' logs/dev-full.log`
+- Auth server (`@repo/auth-server`): `grep '"source":"@repo/auth-server#dev"' logs/dev-full.log`
+- Both servers: `grep -E '"source":"@repo/(auth-)?server#dev"' logs/dev-full.log`
+- Live tail: `tail -f logs/dev-full.log`
+
 ## BRANCHES AND ENVIRONMENTS
 
 The `development` branch is the staging environment. Work merged or pushed to `development` is deployed to staging, so treat it as shared, non-production infrastructure:

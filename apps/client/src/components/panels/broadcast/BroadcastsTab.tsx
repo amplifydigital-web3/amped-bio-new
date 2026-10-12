@@ -11,6 +11,10 @@ import {
   XCircle,
 } from "lucide-react";
 import {
+  EMAIL_VERIFICATION_GRACE_BROADCASTS,
+  EMAIL_VERIFICATION_GRACE_DAYS,
+} from "@repo/constants";
+import {
   Button,
   EmptyState,
   ErrorCard,
@@ -253,7 +257,8 @@ export function BroadcastsTab({ chainId }: { chainId: string }) {
     );
   }
 
-  const { pool, members, quota, canSend, paused, emailVerified, creatorName } = overview.data;
+  const { pool, members, quota, canSend, paused, verification, graceSendsLeft, creatorName } =
+    overview.data;
   const items = list.data ?? [];
   const selected = selectedParam ?? items[0]?.id ?? null;
 
@@ -277,12 +282,25 @@ export function BroadcastsTab({ chainId }: { chainId: string }) {
           title: "Broadcasting is paused",
           body: "Amped is reviewing reports on a recent broadcast. Support will contact you by email.",
         }
-      : !emailVerified
-        ? {
-            title: "Confirm your email to send",
-            body: "Open the confirmation email Amped sent you, then come back here.",
-          }
+      : // Verification grace (Rob, 2026-10-10): a new creator sends for 30 days
+        // or EMAIL_VERIFICATION_GRACE_BROADCASTS sends before this notice holds
+        verification.required
+        ? verification.reason === "milestone"
+          ? {
+              title: "Confirm your email to keep sending",
+              body: `You have sent ${EMAIL_VERIFICATION_GRACE_BROADCASTS} broadcasts without a verified email. Open the confirmation email Amped sent you, then come back here.`,
+            }
+          : {
+              title: "Confirm your email to send",
+              body: `Accounts send without a verified email for ${EMAIL_VERIFICATION_GRACE_DAYS} days. Open the confirmation email Amped sent you, then come back here.`,
+            }
         : null;
+
+  // Unverified but still inside the grace: say how much room is left
+  const graceLine =
+    !blocker && !verification.verified && graceSendsLeft !== null
+      ? `${graceSendsLeft} ${graceSendsLeft === 1 ? "send" : "sends"} left before Amped asks you to confirm your email.`
+      : null;
 
   if (composing && !blocker) {
     return (
@@ -339,6 +357,11 @@ export function BroadcastsTab({ chainId }: { chainId: string }) {
       {blocker && (
         <Notice variant={paused ? "warning" : "info"} title={blocker.title}>
           {blocker.body}
+        </Notice>
+      )}
+      {graceLine && (
+        <Notice variant="info" title="Your email is not verified yet">
+          {graceLine}
         </Notice>
       )}
       {!blocker && members === 0 && (
