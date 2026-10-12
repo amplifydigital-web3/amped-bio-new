@@ -94,14 +94,28 @@ export function pkcePair() {
   return { verifier, challenge };
 }
 
-type PendingLink = { userId: number; verifier: string };
+/**
+ * Where the browser lands after Telegram (PR 4): Account, Connected apps (the
+ * default), the creator wizard on Home, or a creator's public page for the fan
+ * link sheet. Kept server side with the state, never read from the callback URL.
+ */
+export type LinkReturn = { to: "account" } | { to: "wizard" } | { to: "fan"; handle: string };
+
+type PendingLink = { userId: number; verifier: string; returnTo?: LinkReturn };
 
 /** Build the authorization URL for one link attempt by `userId`. */
-export async function startTelegramLink(userId: number): Promise<string> {
+export async function startTelegramLink(
+  userId: number,
+  returnTo: LinkReturn = { to: "account" }
+): Promise<string> {
   const discovery = await getDiscovery();
   const { verifier, challenge } = pkcePair();
   const state = base64url(randomBytes(24));
-  await cache.set<PendingLink>(`${STATE_PREFIX}${state}`, { userId, verifier }, STATE_TTL_SECONDS);
+  await cache.set<PendingLink>(
+    `${STATE_PREFIX}${state}`,
+    { userId, verifier, returnTo },
+    STATE_TTL_SECONDS
+  );
   const url = new URL(discovery.authorization_endpoint);
   url.search = new URLSearchParams({
     response_type: "code",
