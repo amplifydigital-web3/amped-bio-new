@@ -21,6 +21,7 @@ import { followRouter } from "./follow";
 import { broadcastRouter } from "./broadcast";
 import { onboardingRouter } from "./onboarding";
 import { telegramRouter } from "./telegram";
+import { messagingRouter } from "./messaging";
 import { inferRouterOutputs } from "@trpc/server";
 
 // Merge all routers
@@ -47,6 +48,7 @@ const mergedRouter = router({
   broadcast: broadcastRouter,
   onboarding: onboardingRouter,
   telegram: telegramRouter,
+  messaging: messagingRouter,
 });
 
 export type AppRouter = typeof mergedRouter;

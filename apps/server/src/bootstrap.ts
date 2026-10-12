@@ -3,6 +3,7 @@ import { verifySmtpTransport } from "./utils/email/email";
 import { startBroadcastSweeper } from "./services/broadcast";
 import { startTelegramLoop } from "./services/telegram/loop";
 import { registerTelegramOutboxHandlers } from "./services/telegram/broadcast";
+import { registerMessagingOutboxHandlers } from "./services/messaging/delivery";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
@@ -17,6 +18,7 @@ startBroadcastSweeper();
 
 // Messaging on Telegram (Build Board #2): drain the inbox and outbox tables. No-op until TELEGRAM_ENABLED.
 registerTelegramOutboxHandlers();
+registerMessagingOutboxHandlers();
 startTelegramLoop();
 
 // Log whether the SMTP relay (SMTP2GO on staging and production) accepts our
