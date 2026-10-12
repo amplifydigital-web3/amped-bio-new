@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
-import { ArrowDownUp, Check, ChevronDown, Search, X } from "lucide-react";
+import { ArrowDownUp, Check, ChevronDown, LayoutGrid, Rows3, Search, X } from "lucide-react";
 import {
   BottomSheet,
   BottomSheetClose,
@@ -17,7 +17,7 @@ import {
   TabsTrigger,
 } from "@repo/ui";
 import { useDebounce } from "@/hooks/useDebounce";
-import UsersTab from "./components/UsersTab";
+import UsersTab, { type UserView } from "./components/UsersTab";
 import PoolsTab from "./components/PoolsTab";
 import FollowingTab from "./components/FollowingTab";
 
@@ -36,7 +36,7 @@ const FAN_GRAPH = import.meta.env.VITE_FAN_GRAPH === "true";
 type Tab = "users" | "pools" | "following";
 type UserFilter = "all" | "active-7-days" | "has-creator-pool";
 type PoolFilter = "all" | "no-fans" | "more-than-10-fans" | "more-than-10k-stake";
-type UserSort = "newest" | "name-asc" | "name-desc";
+type UserSort = "newest" | "name-asc" | "name-desc" | "most-followers";
 type PoolSort = "newest" | "name-asc" | "name-desc" | "most-fans" | "most-staked";
 
 interface TabQuery<F extends string, S extends string> {
@@ -59,8 +59,10 @@ const POOL_FILTERS: Option<PoolFilter>[] = [
   { value: "more-than-10k-stake", label: "10,000+ tREVO staked" },
   { value: "no-fans", label: "No fans yet" },
 ];
+// Explore person cards build: Most followers is a sort, never a rank (086 D3).
 const USER_SORTS: Option<UserSort>[] = [
   { value: "newest", label: "Newest" },
+  { value: "most-followers", label: "Most followers" },
   { value: "name-asc", label: "Name A to Z" },
   { value: "name-desc", label: "Name Z to A" },
 ];
@@ -78,6 +80,13 @@ const DEFAULTS = {
   users: { q: "", filter: "all", sort: "newest" } as TabQuery<UserFilter, UserSort>,
   pools: { q: "", filter: "all", sort: "most-fans" } as TabQuery<PoolFilter, PoolSort>,
 };
+
+// Explore person cards build: cards (concept A) or rows (concept E), kept in
+// the URL as ?view=rows. Cards is the default and is not written.
+const USER_VIEWS: Option<UserView>[] = [
+  { value: "cards", label: "Cards" },
+  { value: "rows", label: "Rows" },
+];
 
 const PLACEHOLDER: Record<Exclude<Tab, "following">, string> = {
   users: "Search people by name or @handle",
@@ -100,6 +109,38 @@ function readTab(params: URLSearchParams, initialTab?: string): Tab {
   if (raw === "pools") return "pools";
   // 044 I04: nfts, unknown and missing values land on Users (rewritten to ?tab=users)
   return "users";
+}
+
+/** Cards or rows for the Users tab. Two 44 icon buttons in one group; the chosen one is pressed. */
+function ViewToggle({
+  view,
+  onChange,
+  className = "",
+}: {
+  view: UserView;
+  onChange: (view: UserView) => void;
+  className?: string;
+}) {
+  return (
+    <div role="group" aria-label="View" className={`flex shrink-0 gap-1 ${className}`}>
+      {USER_VIEWS.map(option => {
+        const Icon = option.value === "rows" ? Rows3 : LayoutGrid;
+        const selected = option.value === view;
+        return (
+          <button
+            key={option.value}
+            type="button"
+            aria-label={option.label}
+            aria-pressed={selected}
+            onClick={() => onChange(option.value)}
+            className={`prism-icon-btn prism-focus ${selected ? "!bg-prism-nav text-white" : "text-prism-ink-2"}`}
+          >
+            <Icon className="h-[21px] w-[21px]" aria-hidden />
+          </button>
+        );
+      })}
+    </div>
+  );
 }
 
 function countText(tab: Exclude<Tab, "following">, count: number) {
@@ -137,6 +178,7 @@ export default function ExplorePage({ initialTab, onTabChange }: ExplorePageProp
         }
       : DEFAULTS.pools
   );
+  const [view, setView] = useState<UserView>(() => pick(USER_VIEWS, params.get("view"), "cards"));
   const current = tab === "pools" ? pools : users;
   // The search, sort and filter controls belong to Users and Pools only
   const searchTab: Exclude<Tab, "following"> = tab === "pools" ? "pools" : "users";
@@ -174,11 +216,13 @@ export default function ExplorePage({ initialTab, onTabChange }: ExplorePageProp
           if (!isFollowing && value && value !== defaults[key]) next.set(key, value);
           else next.delete(key);
         }
+        if (tab === "users" && view !== "cards") next.set("view", view);
+        else next.delete("view");
         return next;
       },
       { replace: true }
     );
-  }, [tab, current, setParams, searchTab, isFollowing]);
+  }, [tab, current, setParams, searchTab, isFollowing, view]);
 
   const changeTab = (next: string) => {
     if (next === "following" && FAN_GRAPH) {
@@ -291,6 +335,7 @@ export default function ExplorePage({ initialTab, onTabChange }: ExplorePageProp
                 >
                   {result && (result.fetching ? "Searching" : countText(searchTab, result.count))}
                 </p>
+                {tab === "users" && <ViewToggle view={view} onChange={setView} />}
                 <Menu>
                   <MenuTrigger asChild>
                     <Button type="button" variant="secondary" className="shrink-0">
@@ -337,6 +382,9 @@ export default function ExplorePage({ initialTab, onTabChange }: ExplorePageProp
               >
                 {result && (result.fetching ? "Searching" : countText(searchTab, result.count))}
               </p>
+              {tab === "users" && (
+                <ViewToggle view={view} onChange={setView} className="sm:hidden" />
+              )}
               <BottomSheet>
                 <BottomSheetTrigger asChild>
                   <button
@@ -381,6 +429,7 @@ export default function ExplorePage({ initialTab, onTabChange }: ExplorePageProp
             searchQuery={users.q}
             userFilter={users.filter}
             userSort={users.sort}
+            view={view}
             onResult={setResult}
             emptyActions={emptyActions}
           />

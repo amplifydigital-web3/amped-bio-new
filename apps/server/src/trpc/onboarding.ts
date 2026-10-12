@@ -2,6 +2,7 @@ import { z } from "zod";
 import { privateProcedure, router } from "./trpc";
 import { prisma } from "@repo/database";
 import { uuidv7 } from "../utils/uuid-v7";
+import { graceEndsAt } from "../utils/verificationGrace";
 
 /**
  * First run setup checklist on Home (Screen Review 015 I08). The URL, share,
@@ -46,6 +47,7 @@ async function readStatus(userId: number) {
         handle: true,
         email: true,
         email_verified: true,
+        created_at: true,
         image: true,
         image_file_id: true,
         theme: true,
@@ -78,6 +80,9 @@ async function readStatus(userId: number) {
     handle: user?.handle ?? "",
     email: user?.email ?? "",
     emailVerified: !!user?.email_verified,
+    // Verification grace (Rob, 2026-10-10): when an unverified account must
+    // verify to keep using gated features. Null once verified.
+    verifyBy: user && !user.email_verified ? graceEndsAt(user).toISOString() : null,
     steps,
     dismissed: !!record.checklist_dismissed_at,
     // True only on the visit that finished the last step; later visits hide it

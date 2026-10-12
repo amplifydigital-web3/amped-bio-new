@@ -22,4 +22,5 @@ export * from "./amount";
 export * from "./block-validity";
 export * from "./html";
 export * from "./broadcast";
+export * from "./email-verification";
 export * from "./oauth-trust";

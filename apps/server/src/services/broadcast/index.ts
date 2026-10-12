@@ -53,6 +53,17 @@ const COUNTED: Prisma.BroadcastWhereInput["status"] = {
   in: ["IN_REVIEW", "QUEUED", "SENDING", "SENT"],
 };
 
+/**
+ * Every broadcast the creator has sent, for the email verification milestone
+ * (an unverified creator sends EMAIL_VERIFICATION_GRACE_BROADCASTS, then verifies).
+ */
+export async function countSentBroadcasts(
+  userId: number,
+  db: Pick<typeof prisma, "broadcast"> = prisma
+): Promise<number> {
+  return db.broadcast.count({ where: { creatorUserId: userId, status: COUNTED } });
+}
+
 export async function getQuota(
   userId: number,
   now = new Date(),

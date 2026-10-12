@@ -6,6 +6,7 @@ import {
   Copy,
   ExternalLink,
   Fingerprint,
+  IdCard,
   Send,
   ShieldCheck,
 } from "lucide-react";
@@ -37,6 +38,8 @@ export type RnsIdentity = {
   label?: string;
   wallet?: string;
   check?: RnsIdentityCheck;
+  /** 112 D1: the name Authbase checked, only when the owner's RNS ID block shows it */
+  nameOnId?: string;
 } | null;
 
 /**
@@ -57,6 +60,8 @@ export const RNS_IDENTITY_COPY = {
   caution: "Not verified. Check the address with the owner before you send. Names can look alike.",
   payTitle: "Pay by name",
   payLine: (name: string) => `Send tREVO to ${name} instead of a wallet address.`,
+  nameOnIdTitle: "Name on ID",
+  nameOnIdLine: (name: string) => `${name}, as checked by Authbase.`,
   detailsLabel: "Show details",
   detailsHelp: "The owner of this page chose to show them.",
   rnsLink: "View on Revolution Name Service",
@@ -178,66 +183,52 @@ function Fact({
   );
 }
 
+export interface RnsIdentityDialogProps {
+  identity: NonNullable<RnsIdentity>;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  /** Sheet heading. Never part of a verification claim (109 D1). */
+  displayName: string;
+  avatarUrl?: string | null;
+  /** Opens Send with this recipient (/wallet?send=1&to=<label>), through sign in */
+  sendHref?: string | null;
+  /** NEXT_PUBLIC_RNS_URL or VITE_RNS_URL */
+  rnsUrl?: string | null;
+  /** Editor preview: the same sheet, with Send inert (109 I14) */
+  readOnly?: boolean;
+}
+
 /**
- * 109 I06: one 44 pill button in the creator font and color, no hero effect.
- * Verified reads Verified; a linked name reads the RNS name. It opens the
- * identity sheet (I08): a bottom sheet on phones, a 508 dialog above.
+ * 109 I08: the identity sheet, a bottom sheet on phones and a 508 dialog
+ * above. Opened by the header chip and by the RNS ID block (112 D3), so the
+ * two never drift. Show details is never persisted (109 I11).
  */
-export function RnsIdentityChip({
+export function RnsIdentityDialog({
   identity,
+  open,
+  onOpenChange,
   displayName,
   avatarUrl,
-  fontFamily,
-  fontColor,
   sendHref,
   rnsUrl,
   readOnly = false,
-  className,
-}: RnsIdentityChipProps) {
-  const [open, setOpen] = useState(false);
+}: RnsIdentityDialogProps) {
   const [details, setDetails] = useState(false);
   const detailsId = useId();
 
-  // Show details is never persisted (109 I11)
   useEffect(() => {
     if (!open) setDetails(false);
   }, [open]);
 
-  if (!identity) return null;
   const verified = identity.chip === "verified";
   const check = identity.check;
   const verifiedOn = check ? formatRnsDate(check.verifiedAt) : null;
   const validUntil = check ? formatRnsDate(check.validUntil) : null;
   const hasDetails = !!(identity.name || identity.wallet || check);
   const profileUrl = rnsUrl && identity.label ? `${rnsUrl}/#/profile/${identity.label}` : null;
-  const chipStyle: CSSProperties = {
-    fontFamily,
-    color: fontColor,
-    boxShadow: ringFrom(fontColor),
-  };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <button
-        type="button"
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        onClick={() => setOpen(true)}
-        style={chipStyle}
-        className={cn(
-          "inline-flex h-touch min-w-0 max-w-full items-center gap-2 rounded-full pl-[13px] pr-4 text-[16px] font-semibold leading-[20px]",
-          "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current",
-          className
-        )}
-      >
-        {verified ? (
-          <ShieldCheck aria-hidden className="h-4 w-4 shrink-0" />
-        ) : (
-          <Fingerprint aria-hidden className="h-4 w-4 shrink-0" />
-        )}
-        <span className="truncate">{verified ? RNS_IDENTITY_COPY.chip : identity.name}</span>
-      </button>
-
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[70dvh] duration-[377ms] ease-[cubic-bezier(0.2,0,0,1)] sm:max-h-[calc(100dvh-2rem)]">
         <div className="flex items-center gap-[13px] pr-12">
           {avatarUrl ? (
@@ -276,6 +267,13 @@ export function RnsIdentityChip({
               icon={ShieldCheck}
               title={RNS_IDENTITY_COPY.factTitle}
               line={validUntil ? RNS_IDENTITY_COPY.factLine(validUntil) : undefined}
+            />
+          )}
+          {verified && identity.nameOnId && (
+            <Fact
+              icon={IdCard}
+              title={RNS_IDENTITY_COPY.nameOnIdTitle}
+              line={RNS_IDENTITY_COPY.nameOnIdLine(identity.nameOnId)}
             />
           )}
           {identity.name && (
@@ -364,5 +362,66 @@ export function RnsIdentityChip({
         )}
       </DialogContent>
     </Dialog>
+  );
+}
+
+/**
+ * 109 I06: one 44 pill button in the creator font and color, no hero effect.
+ * Verified reads Verified; a linked name reads the RNS name. It opens the
+ * identity sheet (I08).
+ */
+export function RnsIdentityChip({
+  identity,
+  displayName,
+  avatarUrl,
+  fontFamily,
+  fontColor,
+  sendHref,
+  rnsUrl,
+  readOnly = false,
+  className,
+}: RnsIdentityChipProps) {
+  const [open, setOpen] = useState(false);
+
+  if (!identity) return null;
+  const verified = identity.chip === "verified";
+  const chipStyle: CSSProperties = {
+    fontFamily,
+    color: fontColor,
+    boxShadow: ringFrom(fontColor),
+  };
+
+  return (
+    <>
+      <button
+        type="button"
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        onClick={() => setOpen(true)}
+        style={chipStyle}
+        className={cn(
+          "inline-flex h-touch min-w-0 max-w-full items-center gap-2 rounded-full pl-[13px] pr-4 text-[16px] font-semibold leading-[20px]",
+          "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current",
+          className
+        )}
+      >
+        {verified ? (
+          <ShieldCheck aria-hidden className="h-4 w-4 shrink-0" />
+        ) : (
+          <Fingerprint aria-hidden className="h-4 w-4 shrink-0" />
+        )}
+        <span className="truncate">{verified ? RNS_IDENTITY_COPY.chip : identity.name}</span>
+      </button>
+      <RnsIdentityDialog
+        identity={identity}
+        open={open}
+        onOpenChange={setOpen}
+        displayName={displayName}
+        avatarUrl={avatarUrl}
+        sendHref={sendHref}
+        rnsUrl={rnsUrl}
+        readOnly={readOnly}
+      />
+    </>
   );
 }
