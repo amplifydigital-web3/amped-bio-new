@@ -315,14 +315,15 @@ export const auth = betterAuth({
   emailVerification: {
     sendVerificationEmail: async ({ user, token }: { user: any; url: any; token: any }) => {
       console.info("Sending email verification to:", user.email);
-      // Awaited so an SMTP failure is logged here instead of becoming an
-      // unhandled rejection. It is not rethrown: sign up still completes and
-      // the person can resend from Home or Account.
-      try {
-        await sendEmailVerification(user.email, token);
-      } catch (error: any) {
+      // Not awaited: Better Auth runs this inside the sign up request, after
+      // the user row is written. Waiting on SMTP there let a slow relay hold
+      // the response until a proxy timed it out, and the sign up card said
+      // the account was not created when it was. The catch keeps a failure
+      // logged instead of an unhandled rejection; the person can resend from
+      // Home or Account.
+      void sendEmailVerification(user.email, token).catch((error: any) => {
         console.error("Email verification send failed for", user.email, error?.message ?? error);
-      }
+      });
     },
     sendOnSignUp: true,
     autoSignInAfterVerification: true,
