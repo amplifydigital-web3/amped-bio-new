@@ -34,11 +34,9 @@ function AuthPageContent({ initialForm }: { initialForm: "login" | "register" })
   if (isPending || signedIn) return showSkeleton ? <AuthCardSkeleton /> : null;
   if (initialForm === "register") {
     // Fan Graph (#22): sign up from Follow makes an account with no page
-    return params.get("intent") === "follow" && params.get("creator") ? (
-      <FanRegisterForm />
-    ) : (
-      <RegisterForm />
-    );
+    // Messaging on Telegram (#2): Message me on Telegram uses the same fan card
+    const fanIntent = params.get("intent") === "follow" || params.get("intent") === "message";
+    return fanIntent && params.get("creator") ? <FanRegisterForm /> : <RegisterForm />;
   }
   return <SignInForm />;
 }

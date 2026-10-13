@@ -7,6 +7,7 @@ import {
   Link2,
   Loader2,
   Plus,
+  Send,
   UserPlus,
   UsersRound,
   type LucideIcon,
@@ -15,6 +16,7 @@ import { BsTelegram } from "react-icons/bs";
 import type { IconType } from "react-icons/lib";
 import {
   SINGLETON_BLOCK_TYPES,
+  TELEGRAM_APP_STRINGS,
   TELEGRAM_LINK,
   type BlockType,
   type MediaBlockPlatform,
@@ -45,7 +47,8 @@ export type NewBlockKind =
   | { type: "referral" }
   | { type: "follow" }
   | { type: "followers" }
-  | { type: "rnsid" };
+  | { type: "rnsid" }
+  | { type: "telegram_message" };
 
 type SingletonType = (typeof SINGLETON_BLOCK_TYPES)[number];
 
@@ -55,8 +58,16 @@ function isSingleton(type: string): type is SingletonType {
 
 const fanGraphOn = import.meta.env.VITE_FAN_GRAPH === "true";
 const rnsOn = import.meta.env.VITE_SHOW_RNS === "true";
+// Messaging on Telegram (Build Board #2, row 115): Message me on Telegram in Utility
+const telegramOn = import.meta.env.VITE_SHOW_TELEGRAM === "true";
 
-type Tile = { label: string; icon: LucideIcon | IconType; kind: NewBlockKind };
+type Tile = {
+  label: string;
+  icon: LucideIcon | IconType;
+  kind: NewBlockKind;
+  /** One line read as the tile's description and shown as its tooltip */
+  description?: string;
+};
 
 const SECTIONS: { eyebrow: string; tiles: Tile[] }[] = [
   {
@@ -104,6 +115,16 @@ const SECTIONS: { eyebrow: string; tiles: Tile[] }[] = [
     tiles: [
       { label: "Text", icon: FileText, kind: { type: "text" } },
       { label: "Referral link", icon: Link2, kind: { type: "referral" } },
+      ...(telegramOn
+        ? [
+            {
+              label: TELEGRAM_APP_STRINGS.messageBlockTitle,
+              icon: Send,
+              kind: { type: "telegram_message" as const },
+              description: TELEGRAM_APP_STRINGS.blockPickerTile,
+            },
+          ]
+        : []),
     ],
   },
   ...(fanGraphOn
@@ -181,6 +202,8 @@ function TileGrid({
             type="button"
             tabIndex={index === focus ? 0 : -1}
             onClick={() => onPick(tile.kind)}
+            title={tile.description}
+            aria-description={tile.description}
             className="prism-btn-secondary prism-focus flex h-touch min-w-0 items-center gap-2 rounded-prism-13 px-[13px] text-left text-prism-label font-semibold text-prism-ink"
           >
             <tile.icon aria-hidden className="h-[21px] w-[21px] shrink-0 text-prism-ink-2" />

@@ -12,6 +12,7 @@ import {
   AdminNdauConversions,
   AdminOAuthClients,
   AdminBroadcasts,
+  AdminTelegram,
 } from "./pages";
 
 function AppRouter() {
@@ -36,6 +37,7 @@ function AppRouter() {
         <Route path="ndau-conversions" element={<AdminNdauConversions />} />
         <Route path="oauth-clients" element={<AdminOAuthClients />} />
         <Route path="broadcasts" element={<AdminBroadcasts />} />
+        <Route path="telegram" element={<AdminTelegram />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Pause, Pencil, Play } from "lucide-react";
+import { Pause, Pencil, Play, Send } from "lucide-react";
+import { TELEGRAM_APP_STRINGS } from "@repo/constants";
 import { getPlatformIcon } from "@/lib/platforms";
 import { trpcClient } from "@/lib/trpc";
 import { normalizeHandle } from "@/lib/handle";
@@ -23,6 +24,7 @@ import { ReferralBlock } from "@/components/blocks/ReferralBlock";
 import { FollowBlock } from "@/components/blocks/FollowBlock";
 import { FollowersBlock } from "@/components/blocks/FollowersBlock";
 import { RnsIdBlock } from "@/components/blocks/RnsIdBlock";
+import { TelegramMessageBlock } from "@/components/blocks/TelegramMessageBlock";
 import { FollowContext } from "@/components/follow/FollowContext";
 import { useReferralHandler } from "@/hooks/useReferralHandler";
 import { useAuth } from "@/contexts/AuthContext";
@@ -203,6 +205,7 @@ export function ProfileView({
     process.env.NEXT_PUBLIC_FAN_GRAPH === "true" && normalizedHandle !== DEFAULT_HANDLE;
   const followState = useFollow(normalizedHandle, !!authUser, authPending || !followEnabled);
   const showRns = process.env.NEXT_PUBLIC_SHOW_RNS === "true";
+  const telegramMarkOn = process.env.NEXT_PUBLIC_SHOW_TELEGRAM === "true";
 
   // Pause motion (041 I02): read the remembered choice once on the client
   useEffect(() => {
@@ -459,6 +462,16 @@ export function ProfileView({
             >
               {profile.name}
               {identity?.chip === "verified" && <RnsVerifiedMark className="ml-2 align-[-3px]" />}
+              {/* Messaging on Telegram (#2): a mark only, never the creator's username (spec 3.8) */}
+              {telegramMarkOn && profile.telegramMark && (
+                <span
+                  title={TELEGRAM_APP_STRINGS.publicMarkTooltip}
+                  className="ml-2 inline-flex align-[-2px]"
+                >
+                  <Send aria-hidden className="h-[18px] w-[18px]" strokeWidth={2} />
+                  <span className="sr-only">{TELEGRAM_APP_STRINGS.publicMarkTooltip}</span>
+                </span>
+              )}
             </h1>
             {/* 109 I06, I07: the RNS chip in the creator font and color, never animated */}
             {identity && (
@@ -537,7 +550,23 @@ export function ProfileView({
                         rnsUrl={process.env.NEXT_PUBLIC_RNS_URL}
                       />
                     )
-                  ) : (
+                  ) : block.type === "telegram_message" ? (
+                    // Row 115: live only while the creator takes Fan messages
+                    telegramMarkOn && (
+                      <TelegramMessageBlock
+                        block={block}
+                        theme={themeConfig}
+                        door={profile.telegramDoor}
+                        handle={normalizedHandle}
+                        creatorUserId={profile.id}
+                        creatorName={profile.name}
+                        creatorAvatar={photo || null}
+                        signedIn={!!authUser}
+                        authPending={authPending}
+                        isOwner={isOwner}
+                      />
+                    )
+                  ) : block.type === "telegram_group" ? null : (
                     <TextBlock block={block as any} theme={themeConfig as any} />
                   )}
                 </ErrorBoundary>

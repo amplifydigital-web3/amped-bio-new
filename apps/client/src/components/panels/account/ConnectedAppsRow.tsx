@@ -5,6 +5,7 @@ import { Button, EmptyState, ErrorCard, Skeleton, describeOAuthScope, trpc } fro
 import { toast } from "@/components/ui/toast";
 import { useDelayed } from "@/hooks/useDelayed";
 import { DisclosureRow } from "../design/kit/DisclosureRow";
+import { TELEGRAM_ON, TelegramConnection } from "./TelegramConnection";
 
 // D30, Screen Review 092 I16 to I18. Connected apps, row five of the Account
 // card: the apps this person allowed to use their Amped.Bio sign in. Moved out
@@ -211,7 +212,15 @@ export function ConnectedAppsRow() {
       label="Connected apps"
       value={count === undefined ? "" : countLabel(count)}
     >
-      <ConnectedAppsList />
+      {/* Messaging on Telegram (Build Board #2), row 112: the Telegram link sits first */}
+      {TELEGRAM_ON ? (
+        <div className="space-y-[21px]">
+          <TelegramConnection />
+          <ConnectedAppsList />
+        </div>
+      ) : (
+        <ConnectedAppsList />
+      )}
     </DisclosureRow>
   );
 }

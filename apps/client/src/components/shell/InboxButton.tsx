@@ -2,17 +2,18 @@ import { Bell } from "lucide-react";
 import { cn } from "@repo/ui";
 import { useEditor } from "@/contexts/EditorContext";
 import { useShellNavigation } from "./ShellNavigation";
-import { BROADCAST_ON, useInboxUnread } from "../panels/broadcast/utils";
+import { INBOX_ON, useInboxUnread } from "../panels/broadcast/utils";
 
 /**
  * Inbox entry in the top bar (Build Board #1, board br3): a 44 icon button
- * with an unread dot. Muted creators do not count. Behind VITE_SHOW_BROADCAST.
+ * with an unread dot. Muted creators do not count. Behind VITE_SHOW_BROADCAST, or
+ * VITE_SHOW_TELEGRAM for messages (Build Board #2).
  */
 export function InboxButton() {
   const { activePanel } = useEditor();
   const { go } = useShellNavigation();
   const unread = useInboxUnread();
-  if (!BROADCAST_ON) return null;
+  if (!INBOX_ON) return null;
   const label = unread > 0 ? `Inbox, ${unread} unread` : "Inbox";
   return (
     <button

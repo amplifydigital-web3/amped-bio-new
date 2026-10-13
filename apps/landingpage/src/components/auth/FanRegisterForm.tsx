@@ -31,6 +31,7 @@ import { useCaptcha } from "@/hooks/useCaptcha";
 import { goTo, toAbsoluteUrl } from "@/lib/panel";
 import { PRIVACY_POLICY_URL } from "@/components/layout/PublicFooter";
 import { EMAIL_FIX } from "./SignInForm";
+import { TELEGRAM_APP_STRINGS } from "@repo/constants";
 
 const emailSchema = z.string().email();
 const googleEnabled = Boolean(process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID);
@@ -49,12 +50,18 @@ const EMAIL_TAKEN = "This email already has an account.";
  * page URL field. The server makes a fan account with a handle from the name
  * and no published page, then the person returns to the creator's page with
  * ?follow=1, which finishes the follow.
+ *
+ * Messaging on Telegram (#2, row 122): the same card from Message me on Telegram
+ * (?intent=message) reads "Message {creator}" with the sign up line, and returns
+ * with ?message=1, which opens the fan link sheet. The account is the same fan
+ * account, so the server sees the follow intent.
  */
 export function FanRegisterForm() {
   const params = useSearchParams();
   const creatorHandle = normalizeHandle(params.get("creator") ?? "");
-  // Back to the creator page; it completes the follow on load
-  const returnTo = `/${creatorHandle}?follow=1`;
+  const intent = params.get("intent") === "message" ? "message" : "follow";
+  // Back to the creator page; it completes the follow, or opens the link sheet, on load
+  const returnTo = `/${creatorHandle}?${intent}=1`;
   const { executeCaptcha, isCaptchaEnabled } = useCaptcha();
   const [name, setName] = useState("");
   const [email, setEmail] = useState(params.get("email") ?? "");
@@ -148,7 +155,7 @@ export function FanRegisterForm() {
       callbackURL: toAbsoluteUrl(returnTo),
       newUserCallbackURL: toAbsoluteUrl(returnTo),
       errorCallbackURL: toAbsoluteUrl(
-        `/register?intent=follow&creator=${encodeURIComponent(creatorHandle)}&error=google`
+        `/register?intent=${intent}&creator=${encodeURIComponent(creatorHandle)}&error=google`
       ),
       intent: "follow",
     });
@@ -166,8 +173,12 @@ export function FanRegisterForm() {
 
   return (
     <AuthCard
-      title={`Follow ${creatorName}`}
-      subtitle="An account lets you follow creators and get their updates. You can make your own page later."
+      title={intent === "message" ? `Message ${creatorName}` : `Follow ${creatorName}`}
+      subtitle={
+        intent === "message"
+          ? TELEGRAM_APP_STRINGS.publicSignUpLine(creatorName)
+          : "An account lets you follow creators and get their updates. You can make your own page later."
+      }
       notice={
         cardError && (
           <Notice

@@ -10,6 +10,7 @@ import blocksSchemasRouter from "../routes/blocks-schemas";
 import healthRouter from "../routes/health";
 import analyticsRouter from "../routes/analytics";
 import telegramRouter from "../routes/telegram";
+import telegramOidcRouter from "../routes/telegramOidc";
 import mcpRouter from "../routes/mcp";
 
 const app: Application = express();
@@ -114,6 +115,8 @@ app.use("/.well-known", wellKnownRouter);
 app.use("/api/blocks/schemas", blocksSchemasRouter);
 app.use("/health", healthRouter);
 app.use("/api/analytics", analyticsRouter);
+// Log In with Telegram callback (Build Board #2). After cookieParser: it reads the session.
+app.use("/telegram", telegramOidcRouter);
 
 app.get("/", (req, res) => {
   res.redirect(env.APP_URL);

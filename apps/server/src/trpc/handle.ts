@@ -8,6 +8,8 @@ import { HANDLE_MIN_LENGTH, HANDLE_REGEX, sanitizeRichText } from "@repo/constan
 import { sanitizeBlockConfig } from "../utils/sanitizeBlockConfig";
 import { logger } from "better-auth";
 import { getPublicTrackingPixels } from "./trackingPixels";
+import { showsTelegramMark } from "../services/telegram/accounts";
+import { telegramDoor } from "../services/messaging/door";
 import { indexableUserWhere, isUserIndexable } from "../utils/indexable";
 import {
   computeRnsIdentity,
@@ -193,23 +195,34 @@ const appRouter = router({
       });
 
       const blockOptions = rnsIdBlockOptions(blockRows);
-      const [themeResult, imageResult, identityResult, trackingPixelsResult] =
-        await Promise.allSettled([
-          getPublicTheme(Number(theme_id)),
-          getFileUrl({
-            legacyImageField: image,
-            imageFileId: image_file_id,
-          }),
-          // 108 I02, 109 I01: the binding and the owner's limits are applied
-          // here, so a hidden field never reaches a visitor
-          computeRnsIdentity({
-            storedName: revo_name ?? null,
-            wallet: user.wallet?.address ?? null,
-            display: parseRnsDisplay(rns_display),
-            block: blockOptions,
-          }),
-          getPublicTrackingPixels(user_id),
-        ]);
+      const hasTelegramMessageBlock = blockRows.some(block => block.type === "telegram_message");
+      const [
+        themeResult,
+        imageResult,
+        identityResult,
+        trackingPixelsResult,
+        telegramResult,
+        doorResult,
+      ] = await Promise.allSettled([
+        getPublicTheme(Number(theme_id)),
+        getFileUrl({
+          legacyImageField: image,
+          imageFileId: image_file_id,
+        }),
+        // 108 I02, 109 I01: the binding and the owner's limits are applied
+        // here, so a hidden field never reaches a visitor
+        computeRnsIdentity({
+          storedName: revo_name ?? null,
+          wallet: user.wallet?.address ?? null,
+          display: parseRnsDisplay(rns_display),
+          block: blockOptions,
+        }),
+        getPublicTrackingPixels(user_id),
+        // Messaging on Telegram (#2): a mark only, never the creator's Telegram username (spec 3.8)
+        showsTelegramMark(user_id),
+        // Row 115: the Message me block's door, read only when the page carries the block
+        hasTelegramMessageBlock ? telegramDoor(user_id) : Promise.resolve(null),
+      ]);
 
       // The theme is the profile itself, so its failure is fatal
       if (themeResult.status === "rejected") throw themeResult.reason;
@@ -246,8 +259,11 @@ const appRouter = router({
           // 112: the month the page joined, for the RNS ID block (day dropped).
           // A privacy record, not an accident: the month only leaves the server
           // when the page carries a visible RNS ID block that asks for it.
-          since:
-            blockOptions.visible && created_at ? created_at.toISOString().slice(0, 7) : null,
+          since: blockOptions.visible && created_at ? created_at.toISOString().slice(0, 7) : null,
+          // Messaging on Telegram (#2): "Messages on Telegram" beside the name. Fails closed.
+          telegramMark: telegramResult.status === "fulfilled" && telegramResult.value,
+          // Row 115: open, the rule kind and the bot. Null without the block. Fails closed.
+          telegramDoor: doorResult.status === "fulfilled" ? doorResult.value : null,
         },
         theme: themeResult.value,
         blocks: publicBlocks,
