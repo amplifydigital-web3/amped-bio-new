@@ -163,9 +163,11 @@ export async function checkTransport(): Promise<{ ok: boolean; reason?: string }
     if (activeTransport() === "smtp2go-api") {
       if (!env.SMTP2GO_API_KEY) return { ok: false, reason: "SMTP2GO_API_KEY is not set" };
       const { status, json } = await smtp2go("/stats/email_summary", {});
-      // 403 means the key is valid but has no stats permission; sending can still work
-      if (status === 401) return { ok: false, reason: smtp2goReason(status, json) };
-      if (status >= 500) return { ok: false, reason: smtp2goReason(status, json) };
+      // 403 means the key is valid but has no stats permission; sending can still
+      // work. Everything outside 2xx is a failed check: 401 rejected keys, 429
+      // throttling, 404 a wrong endpoint, 3xx an unexpected redirect.
+      const accepted = (status >= 200 && status < 300) || status === 403;
+      if (!accepted) return { ok: false, reason: smtp2goReason(status, json) };
       return { ok: true };
     }
     await smtp.verify();

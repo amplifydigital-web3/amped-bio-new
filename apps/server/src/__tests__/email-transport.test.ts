@@ -145,6 +145,19 @@ describe("SMTP2GO API", () => {
     const t = await load();
     expect((await t.checkTransport()).ok).toBe(true);
   });
+
+  it("fails the boot check on any status outside 2xx and 403", async () => {
+    for (const status of [301, 404, 429, 502]) {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async () => reply(status, {}))
+      );
+      const t = await load();
+      const check = await t.checkTransport();
+      expect(check.ok).toBe(false);
+      expect(check.reason).toMatch(new RegExp(String(status)));
+    }
+  });
 });
 
 describe("SMTP relay", () => {
