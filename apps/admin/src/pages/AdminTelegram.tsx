@@ -393,7 +393,15 @@ export function AdminTelegram() {
           </div>
         ))}
 
-      <Dialog open={!!pauseFor} onOpenChange={open => !open && setPauseFor(null)}>
+      <Dialog
+        open={!!pauseFor}
+        onOpenChange={open => {
+          if (open) return;
+          setPauseFor(null);
+          // Closing without pausing (Esc, overlay) must not pre-fill the reason either
+          setReason("");
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>

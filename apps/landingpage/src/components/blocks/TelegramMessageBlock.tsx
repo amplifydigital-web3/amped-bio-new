@@ -41,11 +41,18 @@ type LinkPrefs = z.infer<typeof linkPrefsSchema>;
 function readPrefs(handle: string): LinkPrefs | null {
   try {
     const raw = sessionStorage.getItem(PREFS_KEY);
-    sessionStorage.removeItem(PREFS_KEY);
     const prefs = raw ? (linkPrefsSchema.safeParse(JSON.parse(raw)).data ?? null) : null;
     return prefs?.handle === handle ? prefs : null;
   } catch {
     return null;
+  }
+}
+
+function clearPrefs() {
+  try {
+    sessionStorage.removeItem(PREFS_KEY);
+  } catch {
+    /* noop */
   }
 }
 
@@ -146,15 +153,19 @@ export function TelegramMessageBlock({
     if (telegram === "linked") {
       const prefs = readPrefs(handle);
       if (prefs && (prefs.updates || prefs.username)) {
+        // The choices survive until the server confirms, so a failed save can be retried
         void trpcClient.telegram.link.setPreferences
           .mutate({
             ...(prefs.updates ? { telegramBroadcasts: true } : {}),
             ...(prefs.username ? { shareUsername: true } : {}),
           })
+          .then(clearPrefs)
           .catch(error => {
             console.error("[telegram] preference save failed", error);
             setLinkError(S.errors.declined);
           });
+      } else {
+        clearPrefs();
       }
       // A fan who tapped Message me before the link continues into the thread
       // instead of stopping at the linked sheet
@@ -170,9 +181,17 @@ export function TelegramMessageBlock({
   }, [open, authPending, signedIn, handle, status]);
   useEffect(() => {
     if (!resumeTap || !status.data) return;
+    if (!status.data.linked) {
+      setResumeTap(false);
+      setSheet("link");
+      return;
+    }
+    // Linked: wait for the messaging verdict before presenting the action
+    if (!verdict.data) return;
     setResumeTap(false);
-    if (!status.data.linked) setSheet("link");
-  }, [resumeTap, status.data]);
+    if (!verdict.data.allowed) setRefusal(verdict.data.message);
+    else if (dmLink) window.open(dmLink, "_blank", "noopener,noreferrer");
+  }, [resumeTap, status.data, verdict.data, dmLink]);
 
   if (!open) return null;
 
@@ -270,6 +289,7 @@ export function TelegramMessageBlock({
                   </a>
                 </Button>
               )}
+              {linkError && <Notice variant="error">{linkError}</Notice>}
             </>
           ) : (
             <>
