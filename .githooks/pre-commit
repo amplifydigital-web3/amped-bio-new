@@ -1,0 +1,46 @@
+#!/bin/sh
+# Pre-commit: run typecheck for every workspace package touched by staged files.
+# Installed via "prepare" script (git config core.hooksPath .githooks).
+# Skips silently when no workspace package is affected (e.g. docs-only commits).
+
+set -u
+
+root="$(git rev-parse --show-toplevel)"
+files=$(git diff --cached --name-only --diff-filter=ACMR)
+[ -z "$files" ] && exit 0
+
+pkgs=""
+for f in $files; do
+  dir="$root/$(dirname "$f")"
+  while [ "$dir" != "$root" ] && [ "$dir" != "/" ]; do
+    [ -f "$dir/package.json" ] && break
+    dir="$(dirname "$dir")"
+  done
+  # Skip the repo root package: its typecheck runs turbo across all workspaces
+  [ "$dir" = "$root" ] && continue
+  [ -f "$dir/package.json" ] || continue
+  name=$(node -e "
+    const p = require('$dir/package.json');
+    if (p.scripts && p.scripts.typecheck && p.name && p.name.startsWith('@repo/')) console.log(p.name);
+  " 2>/dev/null) || name=""
+  [ -z "$name" ] && continue
+  case " $pkgs " in
+    *" $name "*) ;;
+    *) pkgs="$pkgs $name" ;;
+  esac
+done
+
+pkgs=${pkgs# }
+[ -z "$pkgs" ] && exit 0
+
+status=0
+for pkg in $pkgs; do
+  echo "▶ pre-commit typecheck: $pkg"
+  pnpm --filter "$pkg" typecheck || status=1
+done
+
+if [ "$status" -ne 0 ]; then
+  echo ""
+  echo "✖ pre-commit: typecheck failed. Fix the errors or commit with --no-verify."
+fi
+exit $status
