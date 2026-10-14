@@ -1,4 +1,5 @@
 import { instrumentCaptchaVerification } from "./utils/captcha-observability";
+import { startCronJobs } from "./services/cron";
 import { verifySmtpTransport } from "./utils/email/email";
 import { startBroadcastSweeper } from "./services/broadcast";
 import { startTelegramLoop } from "./services/telegram/loop";
@@ -10,6 +11,7 @@ BigInt.prototype.toJSON = function () {
 };
 
 instrumentCaptchaVerification();
+startCronJobs();
 
 // Resume broadcasts left queued after a restart (Build Board #1)
 startBroadcastSweeper();

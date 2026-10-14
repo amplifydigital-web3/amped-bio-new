@@ -170,6 +170,14 @@ const envSchema = z.object({
   // only the owner sees them. Turn on only after the policy is updated.
   RNS_PUBLIC_ATTRIBUTES: boolSchema(false),
 
+// Daily Airdrop Batch Configuration
+  // Hour (UTC) when the daily airdrop batch is sent (0-23)
+  DAILY_AIRDROP_BATCH_HOUR: numSchema(14),
+  // Minimum number of queue entries before triggering the batch send
+  DAILY_AIRDROP_MIN_ENTRIES: numSchema(5),
+  // Maximum hours to wait before forcibly sending the batch
+  DAILY_AIRDROP_MAX_WAIT_HOURS: numSchema(6),
+
   // Creator analytics
   // Secret mixed into the daily visitor hash salt. Falls back to BETTER_AUTH_SECRET when empty.
   ANALYTICS_SALT_SECRET: z.string().default(""),

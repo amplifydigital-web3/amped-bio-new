@@ -247,6 +247,7 @@ model UserWallet {
   creatorPools         CreatorPool[]
   stakedPools          StakedPool[]
   stakeEvents          StakeEvent[]
+  airdropQueue         AirdropQueueEntry[]
 
   @@map("user_wallets")
 }
@@ -946,6 +947,20 @@ model NotificationPreference {
 
   @@unique([userId, creatorUserId])
   @@map("notification_preferences")
+}
+
+
+model AirdropQueueEntry {
+  id           Bytes     @id @db.Binary(16)
+  userWalletId Int       @unique
+  amount       String    @db.Text
+  txHash       String?   @db.Text
+  claimedAt    DateTime?
+  createdAt    DateTime  @default(now())
+
+  userWallet UserWallet @relation(fields: [userWalletId], references: [id], onDelete: Cascade)
+
+  @@map("airdrop_queue")
 }
 
 // ===== Messaging on Telegram (Build Board #2) =====

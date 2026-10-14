@@ -78,4 +78,59 @@ export const settingsRouter = router({
         },
       });
     }),
+
+  // Daily Airdrop Batch Settings
+  getDailyAirdropStatus: adminProcedure.query(async () => {
+    const [batchHour, minEntries, maxWaitHours] = await Promise.all([
+      prisma.siteSettings.findUnique({
+        where: { setting_key: "daily_airdrop_batch_hour" },
+      }),
+      prisma.siteSettings.findUnique({
+        where: { setting_key: "daily_airdrop_min_entries" },
+      }),
+      prisma.siteSettings.findUnique({
+        where: { setting_key: "daily_airdrop_max_wait_hours" },
+      }),
+    ]);
+
+    const queueCount = await prisma.airdropQueueEntry.count();
+
+    const parse = (row: { setting_value: string } | null, fallback: number): number => {
+      const value = Number(row?.setting_value);
+      return Number.isFinite(value) ? value : fallback;
+    };
+
+    return {
+      batchHour: parse(batchHour, 14),
+      minEntries: parse(minEntries, 5),
+      maxWaitHours: parse(maxWaitHours, 6),
+      queueCount,
+    };
+  }),
+
+  setDailyAirdropBatchHour: adminProcedure
+    .input(z.object({ hour: z.number().min(0).max(23) }))
+    .mutation(async ({ input }) => {
+      return prisma.siteSettings.upsert({
+        where: { setting_key: "daily_airdrop_batch_hour" },
+        update: { setting_value: input.hour.toString(), value_type: "NUMBER" },
+        create: { setting_key: "daily_airdrop_batch_hour", setting_value: input.hour.toString(), value_type: "NUMBER" },
+      });
+    }),
+
+  setDailyAirdropMinEntries: adminProcedure
+    .input(z.object({ count: z.number().min(1) }))
+    .mutation(async ({ input }) => {
+      return prisma.siteSettings.upsert({
+        where: { setting_key: "daily_airdrop_min_entries" },
+        update: { setting_value: input.count.toString(), value_type: "NUMBER" },
+        create: { setting_key: "daily_airdrop_min_entries", setting_value: input.count.toString(), value_type: "NUMBER" },
+      });
+    }),
+
+  triggerBatchNow: adminProcedure.mutation(async () => {
+    const { sendPendingBatch } = await import("../../services/dailyAirdrop");
+    await sendPendingBatch();
+    return { success: true, message: "Batch send triggered" };
+  }),
 });
