@@ -2,6 +2,7 @@ import { privateProcedure, publicProcedure, router } from "./trpc";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { s3Service, FileCategory } from "../services/S3Service";
+import { assertUploadVerified } from "../services/uploadVerification";
 import { uploadedFileService } from "../services/UploadedFileService";
 import {
   ALLOWED_AVATAR_IMAGE_FILE_EXTENSIONS,
@@ -79,7 +80,8 @@ export const uploadRouter = router({
           input.category as FileCategory,
           userId,
           input.contentType,
-          input.fileExtension
+          input.fileExtension,
+          input.fileSize
         );
 
         const uploadedFile = await uploadedFileService.createUploadedFile({
@@ -98,6 +100,9 @@ export const uploadRouter = router({
         };
       } catch (error) {
         console.error("Error generating presigned URL:", error);
+        if (error instanceof TRPCError) {
+          throw error;
+        }
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Failed to generate upload URL",
@@ -156,6 +161,7 @@ export const uploadRouter = router({
           userId,
           input.contentType,
           input.fileExtension,
+          input.fileSize,
           resolvedThemeId
         );
 
@@ -202,18 +208,11 @@ export const uploadRouter = router({
           });
         }
 
-        // Get fileKey and bucket from database
+        // Get fileKey from database
         const fileKey = uploadedFile.s3_key;
-        const bucket = uploadedFile.bucket;
 
-        // Verify that the file exists in S3 before proceeding
-        const fileExists = await s3Service.fileExists({ fileKey, bucket });
-        if (!fileExists) {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "File not found in S3. Please upload the file first.",
-          });
-        }
+        // Exists, size matches the declared size, and the real type is allowed
+        await assertUploadVerified(uploadedFile, ALLOWED_BACKGROUND_FILE_TYPES);
 
         // Update the file record with the actual filename and mark as completed
         await uploadedFileService.updateFileStatus({
@@ -365,18 +364,11 @@ export const uploadRouter = router({
           });
         }
 
-        // Get fileKey and bucket from database
+        // Get fileKey from database
         const fileKey = uploadedFile.s3_key;
-        const bucket = uploadedFile.bucket;
 
-        // Verify that the file exists in S3 before proceeding
-        const fileExists = await s3Service.fileExists({ fileKey, bucket });
-        if (!fileExists) {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "File not found in S3. Please upload the file first.",
-          });
-        }
+        // Exists, size matches the declared size, and the real type is allowed
+        await assertUploadVerified(uploadedFile, ALLOWED_AVATAR_FILE_TYPES);
 
         // Update the file record with the actual filename and mark as completed
         await uploadedFileService.updateFileStatus({
