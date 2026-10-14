@@ -1,0 +1,98 @@
+import { Router, type Request, type Response } from "express";
+import { env } from "../env";
+import { auth } from "../utils/auth";
+import { hitRateLimit } from "../utils/rateLimit";
+import { TelegramLinkConflictError, linkTelegram } from "../services/telegram/accounts";
+import { finishTelegramLink, isOidcConfigured, takePendingLink } from "../services/telegram/oidc";
+
+/**
+ * Messaging on Telegram (Build Board #2), spec 3.4.
+ *
+ * GET /telegram/oidc/callback
+ *
+ * Telegram sends the user here after Log In with Telegram. The state binds the
+ * callback to the Amped session that started the link: the pending link names
+ * a user, and the session cookie on this request must be that same user. On
+ * every outcome the user lands back on Account, Connected apps with a result
+ * the row turns into a message: linked, conflict, declined or error.
+ */
+
+export type LinkResult = "linked" | "conflict" | "declined" | "expired" | "error";
+
+export function accountRedirect(result: LinkResult): string {
+  const base = env.APP_URL.replace(/\/+$/, "");
+  return `${base}/account?open=connected-apps&telegram=${result}`;
+}
+
+async function sessionUserId(req: Request): Promise<number | null> {
+  try {
+    const session = await auth.api.getSession({ headers: req.headers as never });
+    const id = session?.user?.id;
+    return id ? parseInt(String(id), 10) : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function handleTelegramOidcCallback(req: Request, res: Response) {
+  if (!isOidcConfigured()) {
+    res.status(404).end();
+    return;
+  }
+  const address = req.ip || "unknown";
+  if ((await hitRateLimit(`tg-oidc:${address}`, 60)) > 30) {
+    res.status(429).end();
+    return;
+  }
+
+  const query = req.query as Record<string, string | undefined>;
+  // The user cancelled on Telegram's page, or Telegram refused
+  if (query.error) {
+    res.redirect(302, accountRedirect("declined"));
+    return;
+  }
+
+  const state = typeof query.state === "string" ? query.state : null;
+  const pending = await takePendingLink(state);
+  if (!pending || !state) {
+    res.redirect(302, accountRedirect("expired"));
+    return;
+  }
+
+  const userId = await sessionUserId(req);
+  if (userId !== pending.userId) {
+    // A callback opened in another browser or after signing out. Never link.
+    res.redirect(302, accountRedirect("expired"));
+    return;
+  }
+
+  const code = typeof query.code === "string" ? query.code : "";
+  if (!code || code.length > 2048) {
+    res.redirect(302, accountRedirect("error"));
+    return;
+  }
+
+  try {
+    const identity = await finishTelegramLink(code, pending);
+    await linkTelegram(userId, identity);
+    res.redirect(302, accountRedirect("linked"));
+  } catch (error) {
+    if (error instanceof TelegramLinkConflictError) {
+      res.redirect(302, accountRedirect("conflict"));
+      return;
+    }
+    console.error("[telegram] OIDC callback failed", error);
+    res.redirect(302, accountRedirect("error"));
+  }
+}
+
+const telegramOidcRouter: Router = Router();
+
+telegramOidcRouter.get("/oidc/callback", (req, res) => {
+  void handleTelegramOidcCallback(req, res).catch(error => {
+    console.error("[telegram] OIDC callback crashed", error);
+    if (!res.headersSent) res.redirect(302, accountRedirect("error"));
+  });
+});
+
+export default telegramOidcRouter;

@@ -38,6 +38,9 @@ vi.mock("grammy", () => ({
   },
 }));
 
+// The real handlers need a real grammY Bot; this suite stubs Bot, so stub them too
+vi.mock("../services/telegram/bot", () => ({ installBotHandlers: vi.fn() }));
+
 import {
   getBotUsername,
   resetTelegramBotForTests,

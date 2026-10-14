@@ -8,6 +8,7 @@ import { HANDLE_MIN_LENGTH, HANDLE_REGEX, sanitizeRichText } from "@repo/constan
 import { sanitizeBlockConfig } from "../utils/sanitizeBlockConfig";
 import { logger } from "better-auth";
 import { getPublicTrackingPixels } from "./trackingPixels";
+import { showsTelegramMark } from "../services/telegram/accounts";
 import { indexableUserWhere, isUserIndexable } from "../utils/indexable";
 import {
   computeRnsIdentity,
@@ -193,7 +194,7 @@ const appRouter = router({
       });
 
       const blockOptions = rnsIdBlockOptions(blockRows);
-      const [themeResult, imageResult, identityResult, trackingPixelsResult] =
+      const [themeResult, imageResult, identityResult, trackingPixelsResult, telegramResult] =
         await Promise.allSettled([
           getPublicTheme(Number(theme_id)),
           getFileUrl({
@@ -209,6 +210,8 @@ const appRouter = router({
             block: blockOptions,
           }),
           getPublicTrackingPixels(user_id),
+          // Messaging on Telegram (#2): a mark only, never the creator's Telegram username (spec 3.8)
+          showsTelegramMark(user_id),
         ]);
 
       // The theme is the profile itself, so its failure is fatal
@@ -246,8 +249,9 @@ const appRouter = router({
           // 112: the month the page joined, for the RNS ID block (day dropped).
           // A privacy record, not an accident: the month only leaves the server
           // when the page carries a visible RNS ID block that asks for it.
-          since:
-            blockOptions.visible && created_at ? created_at.toISOString().slice(0, 7) : null,
+          since: blockOptions.visible && created_at ? created_at.toISOString().slice(0, 7) : null,
+          // Messaging on Telegram (#2): "Messages on Telegram" beside the name. Fails closed.
+          telegramMark: telegramResult.status === "fulfilled" && telegramResult.value,
         },
         theme: themeResult.value,
         blocks: publicBlocks,

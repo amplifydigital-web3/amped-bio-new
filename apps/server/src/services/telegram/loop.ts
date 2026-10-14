@@ -51,21 +51,32 @@ export function clearOutboxHandlersForTests() {
   outboxHandlers.clear();
 }
 
+/** Anything that can write an outbox row: the client or a transaction client. */
+export type OutboxWriter = {
+  telegramOutbox: {
+    create(args: { data: Prisma.TelegramOutboxUncheckedCreateInput }): Promise<unknown>;
+  };
+};
+
 export type EnqueueOptions = {
   chatId?: bigint | number | null;
-  refId?: Buffer | null;
+  refId?: Uint8Array | null;
   deliveryId?: number | null;
   runAfter?: Date;
 };
 
-/** Queue one bot action. Returns the row id. */
+/**
+ * Queue one bot action. Returns the row id. Pass a transaction client as `db` to write
+ * the row in the same transaction as the record it delivers.
+ */
 export async function enqueueOutbox(
   kind: OutboxKind,
   payload: Prisma.InputJsonValue,
-  options: EnqueueOptions = {}
+  options: EnqueueOptions = {},
+  db: OutboxWriter = prisma
 ): Promise<Buffer> {
   const id = uuidv7();
-  await prisma.telegramOutbox.create({
+  await db.telegramOutbox.create({
     data: {
       id,
       kind,
@@ -277,6 +288,18 @@ export async function purgeTelegramLogs(now = new Date()): Promise<number> {
   return log.count + inbox.count;
 }
 
+/** Fan to creator messages are kept 12 months after a conversation's last message (spec decision 11). */
+export const MESSAGE_RETENTION_DAYS = 365;
+
+/** Delete messages in conversations idle past the retention window. Threads and reports stay. */
+export async function purgeStaleMessages(now = new Date()): Promise<number> {
+  const before = new Date(now.getTime() - MESSAGE_RETENTION_DAYS * 24 * 60 * 60 * 1000);
+  const result = await prisma.message.deleteMany({
+    where: { thread: { lastMessageAt: { lt: before } } },
+  });
+  return result.count;
+}
+
 const TICK_MS = 1000;
 const PURGE_MS = 60 * 60 * 1000;
 let ticker: NodeJS.Timeout | null = null;
@@ -299,10 +322,12 @@ export function startTelegramLoop() {
   };
   ticker = setInterval(() => void tick(), TICK_MS);
   ticker.unref();
-  purger = setInterval(
-    () => void purgeTelegramLogs().catch(error => console.error("[telegram] purge failed", error)),
-    PURGE_MS
-  );
+  purger = setInterval(() => {
+    void purgeTelegramLogs().catch(error => console.error("[telegram] purge failed", error));
+    void purgeStaleMessages().catch(error =>
+      console.error("[telegram] message purge failed", error)
+    );
+  }, PURGE_MS);
   purger.unref();
   console.log("[telegram] sender loop started");
 }

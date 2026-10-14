@@ -23,7 +23,7 @@ Operator: Oneiro N.A., Inc., dba Amplify Digital, Boston, Massachusetts. Contact
 ## Lifetimes
 
 - 24 months for all visitors, including EU and UK: the consent choice (`CONSENT_MAX_AGE_MS`), the return visit ID (`amped_vid`), and GA cookies (`cookie_expires` 63072000 seconds).
-- Retention: visit events 25 months, consent records 5 years (no IP address), accounts deleted within 30 days of closing, wallet and transaction records 5 years after close, ndau conversion records 7 years, connected app records 30 days after removal, support messages 2 years.
+- Retention: visit events 25 months, consent records 5 years (no IP address), accounts deleted within 30 days of closing, wallet and transaction records 5 years after close, ndau conversion records 7 years, connected app records 30 days after removal, support messages 2 years, Telegram link until unlink or account close, Telegram link and delivery choice history 5 years, messages between fans and creators 12 months after the last message in the conversation.
 
 ## Rules for new code
 
@@ -33,3 +33,6 @@ Operator: Oneiro N.A., Inc., dba Amplify Digital, Boston, Massachusetts. Contact
 - Minimum account age is 18.
 - Link the policy from new public surfaces and emails: `/privacy` on amped.bio, `new URL("/privacy", env.LANDINGPAGE_URL)` in server emails (so staging links to staging), `https://amped.bio/privacy` elsewhere.
 - Copy rules: no income, yield, APY or APR. Use the standard testnet line where tREVO appears.
+- Telegram (Build Board #2): store only the Telegram user ID, name, username and photo link from Log In with Telegram; never request the `phone` scope. Encrypt username, name and photo link at rest (`services/telegram/secret.ts`). Never return a Telegram ID to anyone but its owner, never show a creator's Telegram username on a public surface, and show a fan's username to a creator only with the fan's `shareUsername` choice.
+- Telegram delivery of creator updates is opt in on the global preference row, recorded in `telegram_link_events` with `CONSENT_POLICY_VERSION`; `/stop` and unlink turn it off everywhere. The bot writes only to a reachable link (`botAccess` true, `blockedAt` null).
+- Fan to creator messages (Build Board #2, phase 1): stored as plain text, never scanned. Staff read a conversation only after a report (`admin.telegram.reportedThread` refuses an unreported thread). Never send message text to analytics or AI providers. Purged 12 months after the thread's last message (`purgeStaleMessages`).

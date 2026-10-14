@@ -155,6 +155,49 @@ export const TELEGRAM_APP_STRINGS = {
     groupNotAdmin: "The bot is not an admin yet. Add it and try again.",
   },
   unlinkUndo: "Telegram unlinked.",
+  // PR 2: Account, Connected apps (row 112) and the Broadcast composer (row 117)
+  accountRowTitle: "Telegram",
+  accountLinkedAs: (username: string) => `Linked as @${username}.`,
+  accountLinkedNoUsername: "Linked. Your Telegram account has no username.",
+  accountBlockedNotice:
+    "You blocked the Amped.Bio bot in Telegram, so nothing reaches you there. Unblock it in Telegram and send /start.",
+  linkButton: "Link Telegram",
+  unlinkButton: "Unlink",
+  unlinkConfirmTitle: "Unlink Telegram?",
+  unlinkConfirmBody:
+    "Updates stop reaching your Telegram at once. Your Amped.Bio inbox keeps everything. You can link again any time.",
+  linkedToast: "Telegram linked.",
+  composerChannelLabel: "Telegram",
+  composerChannelHelper: "Members who linked Telegram and turned on updates get this there too.",
+  composerFlaggedNote:
+    "Broadcasts with words from the word list go to the Amped.Bio inbox only, not to Telegram.",
+  // PR 3: why a web send was refused. Keys are the canMessage reasons.
+  messagingRefusals: {
+    disabled: (creator: string) => `${creator} is not taking messages right now.`,
+    blocked: (creator: string) => `${creator} is not taking messages from you right now.`,
+    not_follower: (creator: string) =>
+      `${creator} takes messages from followers and members. Follow them to write.`,
+    not_member: (creator: string) =>
+      `${creator} takes messages from members. Membership is on their page.`,
+    not_pool_fan: (creator: string) =>
+      `${creator} takes messages from pool fans. Their pool is on their page.`,
+    stake_below: (creator: string) =>
+      `${creator} takes messages from fans above a minimum stake. The details are on their page.`,
+    cap_reached: (creator: string) =>
+      `${creator} has reached today's limit for new conversations. Try again tomorrow.`,
+    sender_cap: "You have reached the message limit for now. Try again later.",
+    sender_paused: "Sending is paused on your account for now. Try again tomorrow.",
+  },
+  messagingSettingsErrors: {
+    notPublished: "Publish your page before turning on messages.",
+    emailNotVerified: "Verify your email first.",
+    notLinked: "Link Telegram first.",
+    notInvited: "Fan messages are invite only for now.",
+    paused: "Fan messages are paused on your account while Amped reviews reports.",
+    needsPool: "Create your pool first. Then you can limit messages to pool fans.",
+    stakeMin: "Enter a whole number of tREVO above zero.",
+    paidMembers: "Memberships are not available yet.",
+  },
 } as const;
 
 // ----------------------------------------------------------------------------
@@ -252,6 +295,13 @@ export const TELEGRAM_BOT_STRINGS = {
     `${followers} followers on Amped.Bio. Messages on Telegram.`,
   unlinked:
     "Your Telegram is unlinked from Amped.Bio. This bot will not message you again unless you link it again.",
+  // PR 3: fan to creator messages
+  fanWrote: (fan: string, text: string) => `${fan}: ${text}`,
+  messageTooLong: "Messages are 2,000 characters or fewer. Send a shorter one.",
+  fanCapReached: "You have reached the message limit for now. Try again later.",
+  senderPaused: "Sending is paused on your account for now. Try again tomorrow.",
+  replyThreadClosed: "This conversation is closed. Your reply was not sent.",
+  dmNotFound: "That page is not on Amped.Bio. Check the link and try again.",
 } as const;
 
 /** Phrases the compliance check rejects on Telegram surfaces, beyond BROADCAST_BANNED_TERMS. */
