@@ -83,12 +83,14 @@ export function useFundWalletDialog(params: {
       });
       setIsInstant(result.isInstant ?? false);
 
-      // Sync claim status with server state
-      if (!result.canRequestNow && result.lastRequestDate) {
-        setClaimStatus("cooldown");
-      } else if (result.userQueueStatus) {
+      // Sync claim status with server state. The queue wins over the cooldown:
+      // a queued fan is inside the cooldown too, but the claim still waits in
+      // the batch and must not show as already sent
+      if (result.userQueueStatus) {
         setClaimStatus("queued");
         setQueueStatus(result.userQueueStatus);
+      } else if (!result.canRequestNow && result.lastRequestDate) {
+        setClaimStatus("cooldown");
       } else {
         setClaimStatus("idle");
       }

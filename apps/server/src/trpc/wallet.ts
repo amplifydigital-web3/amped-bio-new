@@ -1008,7 +1008,7 @@ export const walletRouter = router({
 
 // viem's publicKeyToAddress assumes the public key is uncompressed, but Web3Auth provides a compressed key.
 // This function converts a compressed secp256k1 public key to an Ethereum address.
-function web3AuthPublicKeyToAddress(publicKey: string) {
+export function web3AuthPublicKeyToAddress(publicKey: string) {
   // 1. Remove '0x' prefix if present
   const publicKeyHex = publicKey.startsWith("0x") ? publicKey.slice(2) : publicKey;
 

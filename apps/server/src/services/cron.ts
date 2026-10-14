@@ -25,9 +25,22 @@ export function startCronJobs(): void {
       if (!firstEntry) return;
 
       const now = new Date();
-      const batchHourUTC = env.DAILY_AIRDROP_BATCH_HOUR ?? 14;
-      const minEntries = env.DAILY_AIRDROP_MIN_ENTRIES ?? 5;
-      const maxWaitHours = env.DAILY_AIRDROP_MAX_WAIT_HOURS ?? 6;
+      // The admin panel writes these to site settings, so the cron reads them
+      // there first and falls back to the env defaults
+      const rows = await prisma.siteSettings.findMany({
+        where: {
+          setting_key: {
+            in: ["daily_airdrop_batch_hour", "daily_airdrop_min_entries", "daily_airdrop_max_wait_hours"],
+          },
+        },
+      });
+      const setting = (key: string, fallback: number): number => {
+        const value = Number(rows.find(row => row.setting_key === key)?.setting_value);
+        return Number.isFinite(value) ? value : fallback;
+      };
+      const batchHourUTC = setting("daily_airdrop_batch_hour", env.DAILY_AIRDROP_BATCH_HOUR ?? 14);
+      const minEntries = setting("daily_airdrop_min_entries", env.DAILY_AIRDROP_MIN_ENTRIES ?? 5);
+      const maxWaitHours = setting("daily_airdrop_max_wait_hours", env.DAILY_AIRDROP_MAX_WAIT_HOURS ?? 6);
 
       const isPastBatchHour = now.getUTCHours() >= batchHourUTC;
       const hasMinEntries = entryCount >= minEntries;

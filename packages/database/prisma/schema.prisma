@@ -951,9 +951,11 @@ model NotificationPreference {
 
 
 model AirdropQueueEntry {
-  id           Int       @id @default(autoincrement())
+  id           Bytes     @id @db.Binary(16)
   userWalletId Int       @unique
   amount       String    @db.Text
+  txHash       String?   @db.Text
+  claimedAt    DateTime?
   createdAt    DateTime  @default(now())
 
   userWallet UserWallet @relation(fields: [userWalletId], references: [id], onDelete: Cascade)

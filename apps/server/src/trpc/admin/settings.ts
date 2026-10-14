@@ -95,10 +95,15 @@ export const settingsRouter = router({
 
     const queueCount = await prisma.airdropQueueEntry.count();
 
+    const parse = (row: { setting_value: string } | null, fallback: number): number => {
+      const value = Number(row?.setting_value);
+      return Number.isFinite(value) ? value : fallback;
+    };
+
     return {
-      batchHour: Number(batchHour?.setting_value || 14),
-      minEntries: Number(minEntries?.setting_value || 5),
-      maxWaitHours: Number(maxWaitHours?.setting_value || 6),
+      batchHour: parse(batchHour, 14),
+      minEntries: parse(minEntries, 5),
+      maxWaitHours: parse(maxWaitHours, 6),
       queueCount,
     };
   }),

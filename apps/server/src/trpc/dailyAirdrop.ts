@@ -8,6 +8,7 @@ import { prisma } from "../services/DB";
 import { SITE_SETTINGS, DAILY_AIRDROP_COOLDOWN_MS } from "@repo/constants";
 import Decimal from "decimal.js";
 import { processDailyAirdropClaim, calculateNextBatchTime, sendPendingBatch } from "../services/dailyAirdrop";
+import { web3AuthPublicKeyToAddress } from "./wallet";
 import { getAddress } from "viem/utils";
 import * as jose from "jose";
 
@@ -111,13 +112,6 @@ async function verifyWeb3AuthIdToken(idToken: string, appPubKey: string) {
   }
 }
 
-function web3AuthPublicKeyToAddress(publicKey: string): `0x${string}` {
-  // Placeholder - same as in wallet.ts
-  // Converts a Web3Auth public key to an Ethereum address
-  const hash = publicKey.length >= 40 ? publicKey.substring(publicKey.length - 40) : publicKey;
-  return (`0x${hash.toLowerCase()}`) as `0x${string}`;
-}
-
 export const dailyAirdropRouter = router({
   getDailyAirdropInfo: privateProcedure
     .input(
@@ -213,8 +207,10 @@ export const dailyAirdropRouter = router({
           }
         }
 
-        // Check if user has entry in queue
-        if (userWallet && canRequestNow && hasSufficientFunds) {
+        // A queued entry is the source of truth for the fan's state: it is
+        // returned even during the cooldown, so the client never reports
+        // "already sent" while the claim still sits in the batch
+        if (userWallet) {
           const queueEntry = await prisma.airdropQueueEntry.findUnique({
             where: { userWalletId: userWallet.id },
           });
@@ -229,10 +225,8 @@ export const dailyAirdropRouter = router({
               totalInBatch,
               estimatedTime: calculateNextBatchTime(),
             };
-          }
-
-          // Check if user has zero balance (instant eligible)
-          if (!queueEntry) {
+          } else if (canRequestNow && hasSufficientFunds) {
+            // Check if user has zero balance (instant eligible)
             const publicClient = createPublicClient({
               chain,
               transport: http(chain.rpcUrls.default.http[0]),
@@ -311,6 +305,9 @@ export const dailyAirdropRouter = router({
         }
 
         let wallet = await prisma.userWallet.findFirst({ where: { userId } });
+        // The cooldown value the fan had before this claim, restored when the
+        // send fails so an infrastructure error never locks the fan out
+        let previousRequest: Date | null = null;
 
         if (!wallet) {
           const existingAddress = await prisma.userWallet.findUnique({
@@ -328,7 +325,6 @@ export const dailyAirdropRouter = router({
             data: {
               address: walletAddress,
               userId,
-              last_airdrop_request: now,
               created_at: now,
               updated_at: now,
             },
@@ -341,11 +337,13 @@ export const dailyAirdropRouter = router({
             });
           }
 
+          previousRequest = wallet.last_airdrop_request;
+
           const now = new Date();
-          if (wallet.last_airdrop_request) {
-            if (now.getTime() - wallet.last_airdrop_request.getTime() < DAILY_AIRDROP_COOLDOWN_MS) {
+          if (previousRequest) {
+            if (now.getTime() - previousRequest.getTime() < DAILY_AIRDROP_COOLDOWN_MS) {
               const nextAvailableTime = new Date(
-                wallet.last_airdrop_request.getTime() + DAILY_AIRDROP_COOLDOWN_MS
+                previousRequest.getTime() + DAILY_AIRDROP_COOLDOWN_MS
               );
               throw new TRPCError({
                 code: "TOO_MANY_REQUESTS",
@@ -354,24 +352,9 @@ export const dailyAirdropRouter = router({
               });
             }
           }
-
-          // Check faucet balance
-          if (env.FAUCET_MOCK_MODE !== "true" && env.FAUCET_PRIVATE_KEY) {
-            const { privateKeyToAccount } = await import("viem/accounts");
-            const publicClient = createPublicClient({ chain, transport: http(chain.rpcUrls.default.http[0]) });
-            const account = privateKeyToAccount(env.FAUCET_PRIVATE_KEY as `0x${string}`);
-            const balance = await publicClient.getBalance({ address: account.address });
-            const balanceInEther = new Decimal(balance.toString()).div(new Decimal("10").pow(18)).toNumber();
-            if (balanceInEther < Number(env.FAUCET_AMOUNT)) {
-              throw new TRPCError({
-                code: "FORBIDDEN",
-                message: "The faucet does not have enough funds. Please try again later.",
-              });
-            }
-          }
         }
 
-        // Check profile requirements
+        // Check profile requirements before anything is consumed
         const requirements = await getFaucetRequirements(userId);
         if (!requirements.photo || !requirements.background || !requirements.bio || !requirements.minLinks) {
           throw new TRPCError({
@@ -380,14 +363,51 @@ export const dailyAirdropRouter = router({
           });
         }
 
-        // Process the claim
-        const result = await processDailyAirdropClaim(userId, walletAddress, input.chainId);
-
-        // Update last_airdrop_request for both instant and queued
-        await prisma.userWallet.update({
-          where: { id: wallet.id },
-          data: { last_airdrop_request: new Date(), updated_at: new Date() },
+        // Claim the cooldown optimistically: the conditional update wins for
+        // exactly one concurrent request, so two racing claims cannot both
+        // pass the cooldown check and double the send
+        const now = new Date();
+        const claim = await prisma.userWallet.updateMany({
+          where: { id: wallet.id, last_airdrop_request: previousRequest },
+          data: { last_airdrop_request: now, updated_at: now },
         });
+        if (claim.count === 0) {
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: "You can claim the daily airdrop once daily",
+          });
+        }
+
+        // Check faucet balance for every claim, first time wallets included
+        if (env.FAUCET_MOCK_MODE !== "true" && env.FAUCET_PRIVATE_KEY) {
+          const { privateKeyToAccount } = await import("viem/accounts");
+          const publicClient = createPublicClient({ chain, transport: http(chain.rpcUrls.default.http[0]) });
+          const account = privateKeyToAccount(env.FAUCET_PRIVATE_KEY as `0x${string}`);
+          const balance = await publicClient.getBalance({ address: account.address });
+          const balanceInEther = new Decimal(balance.toString()).div(new Decimal("10").pow(18)).toNumber();
+          if (balanceInEther < Number(env.FAUCET_AMOUNT)) {
+            await prisma.userWallet.update({
+              where: { id: wallet.id },
+              data: { last_airdrop_request: previousRequest, updated_at: new Date() },
+            });
+            throw new TRPCError({
+              code: "FORBIDDEN",
+              message: "The faucet does not have enough funds. Please try again later.",
+            });
+          }
+        }
+
+        // Process the claim; a failed send gives the cooldown back
+        let result;
+        try {
+          result = await processDailyAirdropClaim(userId, walletAddress, input.chainId);
+        } catch (error) {
+          await prisma.userWallet.update({
+            where: { id: wallet.id },
+            data: { last_airdrop_request: previousRequest, updated_at: new Date() },
+          });
+          throw error;
+        }
 
         return {
           success: true,

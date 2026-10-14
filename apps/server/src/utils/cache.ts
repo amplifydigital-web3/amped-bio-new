@@ -71,6 +71,13 @@ class FallbackCache {
     return this.cache.delete(key);
   }
 
+  /** Atomic check-then-set: safe within one process (single event loop). */
+  async setIfAbsent<T>(key: string, value: T, ttl?: number): Promise<boolean> {
+    if (await this.has(key)) return false;
+    await this.set(key, value, ttl);
+    return true;
+  }
+
   async clear(): Promise<void> {
     this.cache.clear();
   }
@@ -245,6 +252,25 @@ class Cache {
 
     const fallback = getFallbackCache();
     return (await fallback.delete(key)) || deleted;
+  }
+
+  /**
+   * Atomic set-if-absent for distributed locks: returns true only for the
+   * caller that created the key. Redis uses SET NX; without Redis the fallback
+   * is per process, which still serializes a single instance.
+   */
+  async setIfAbsent<T>(key: string, value: T, ttl?: number): Promise<boolean> {
+    const redis = getRedisClient();
+    if (redis) {
+      try {
+        const ttlInSeconds = ttl ?? 60;
+        const stored = await redis.set(key, JSON.stringify(value), "EX", ttlInSeconds, "NX");
+        return stored === "OK";
+      } catch (error) {
+        console.warn(`[CACHE] Redis setIfAbsent failed for key "${key}", using fallback`);
+      }
+    }
+    return getFallbackCache().setIfAbsent(key, value, (ttl ?? 60) * 1000);
   }
 
   async clear(): Promise<void> {
