@@ -34,6 +34,8 @@ const twMerge = extendTailwindMerge({
         "prism-label",
         "prism-meta",
         "prism-eyebrow",
+        "prism-code-sm",
+        "prism-code",
       ],
     },
   },

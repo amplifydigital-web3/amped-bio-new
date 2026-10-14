@@ -4,6 +4,7 @@ import { parseEther } from "viem";
 import { L2_BASE_TOKEN_ABI, getChainConfig } from "@repo/web3";
 import { trpc } from "@repo/ui";
 import { useMutation } from "@tanstack/react-query";
+import { withWalletTimeout } from "@/utils/walletTimeout";
 
 interface StakingPoolData {
   id: number;
@@ -61,14 +62,17 @@ export function useStakingManager(pool: StakingPoolData | null, onStakeSuccess?:
       // The exact amount shown on Review is the amount signed
       const parsedAmount = parseEther(amount);
 
-      hash = await writeL2TokenContractAsync({
-        address: tokenAddress,
-        abi: L2_BASE_TOKEN_ABI,
-        functionName,
-        args: [pool.address as `0x${string}`, parsedAmount],
-        // Sign on the pool's chain; wagmi rejects a wallet on another network
-        chainId: chain?.id,
-      });
+      // QA-057: bounded, so a wallet that never answers ends on an error card
+      hash = await withWalletTimeout(
+        writeL2TokenContractAsync({
+          address: tokenAddress,
+          abi: L2_BASE_TOKEN_ABI,
+          functionName,
+          args: [pool.address as `0x${string}`, parsedAmount],
+          // Sign on the pool's chain; wagmi rejects a wallet on another network
+          chainId: chain?.id,
+        })
+      );
       options?.onHash?.(hash);
 
       // The server waits for the receipt before it records the stake change

@@ -1,7 +1,16 @@
+import { useRef } from "react";
 import { useNavigate } from "react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Check, ChevronRight, Circle } from "lucide-react";
-import { Button, ErrorCard, StatusDisc, cn, trpc, type RouterOutputs } from "@repo/ui";
+import { ChevronRight, Circle } from "lucide-react";
+import {
+  Button,
+  DrawnCheck,
+  ErrorCard,
+  SuccessMoment,
+  cn,
+  trpc,
+  type RouterOutputs,
+} from "@repo/ui";
 import { toast } from "@/components/ui/toast";
 import { publicPageUrl } from "@/components/shell/pageLink";
 
@@ -34,6 +43,11 @@ export function SetupChecklist({ status, welcome }: { status: Status; welcome: b
   const handle = status.handle;
   const pageAddress = `${pageHost}/${handle}`;
   const doneCount = STEP_ORDER.filter(key => status.steps[key]).length;
+  // Steps open at first render, so a step that completes later can play its check
+  const openAtStart = useRef(new Set(STEP_ORDER.filter(key => !status.steps[key])));
+  const justDone = new Set(
+    STEP_ORDER.filter(key => status.steps[key] && openAtStart.current.has(key))
+  );
   const current = STEP_ORDER.find(key => !status.steps[key]);
 
   const share = async () => {
@@ -110,8 +124,9 @@ export function SetupChecklist({ status, welcome }: { status: Status; welcome: b
         aria-labelledby="setup-title"
         className="prism-glass-clear rounded-prism-21 p-[21px] text-center font-prism sm:p-[34px]"
       >
+        {/* Prism success moment: the rim draws, then the check (#26, section 3.4) */}
         <div className="flex justify-center">
-          <StatusDisc icon={Check} tone="success" />
+          <SuccessMoment label="Setup complete" />
         </div>
         <h2 id="setup-title" className="mt-[21px] text-prism-panel-title text-prism-ink">
           Your page is set up
@@ -157,7 +172,7 @@ export function SetupChecklist({ status, welcome }: { status: Status; welcome: b
               <span
                 key={key}
                 className={cn(
-                  "h-[3px] flex-1 rounded-full",
+                  "h-[3px] flex-1 rounded-full transition-[background-color,box-shadow] duration-prism-panel ease-prism",
                   status.steps[key]
                     ? "bg-prism-success"
                     : key === current
@@ -181,10 +196,8 @@ export function SetupChecklist({ status, welcome }: { status: Status; welcome: b
                     className="prism-focus flex min-h-commit w-full items-center gap-3 rounded-prism-13 py-2 text-left"
                   >
                     {done ? (
-                      <Check
-                        className="h-[21px] w-[21px] shrink-0 text-prism-success"
-                        aria-hidden
-                      />
+                      // A step finished during this visit draws its check (233 ms)
+                      <DrawnCheck play={justDone.has(key)} className="text-prism-success" />
                     ) : (
                       <Circle
                         className={cn(

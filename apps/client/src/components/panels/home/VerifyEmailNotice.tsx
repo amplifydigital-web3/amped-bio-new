@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Info, X } from "lucide-react";
-import { Button, authClient, useCooldown } from "@repo/ui";
-import { toast } from "@/components/ui/toast";
+import { Button } from "@repo/ui";
+import { useResendVerification } from "@/hooks/useResendVerification";
 
 const DISMISS_KEY = "amped:verify-email-notice-hidden";
 
@@ -13,37 +13,34 @@ function readHidden() {
   }
 }
 
+/** "9 Nov" style date for the verification deadline */
+function shortDate(iso: string): string | null {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toLocaleDateString(undefined, { day: "numeric", month: "short" });
+}
+
 // Verify email reminder on Home (Screen Review 015 I11): informational notice
 // while the email is unverified, Resend email with the 60 second cooldown of
-// row 012, and a 44 dismiss that hides it for this session.
-export function VerifyEmailNotice({ email }: { email: string }) {
+// row 012, and a 44 dismiss that hides it for this session. The copy does not
+// claim a link was just sent (QA-035, wording approved by Rob 6 Oct). The
+// verification grace (Rob, 10 Oct) adds the date by which the email must be
+// verified to keep follows counted and broadcasts sending.
+export function VerifyEmailNotice({
+  email,
+  verifyBy,
+}: {
+  email: string;
+  verifyBy?: string | null;
+}) {
   const [hidden, setHidden] = useState(readHidden);
-  const [sending, setSending] = useState(false);
-  const { remaining, start } = useCooldown();
+  // The same resend as the Account email row (QA-058)
+  const { resend, sending, disabled, label } = useResendVerification(email);
+
+  const deadline = verifyBy ? shortDate(verifyBy) : null;
+  const expired = !!verifyBy && new Date(verifyBy).getTime() <= Date.now();
 
   if (hidden) return null;
-
-  const resend = async () => {
-    setSending(true);
-    try {
-      const response = await authClient.sendVerificationEmail({
-        email,
-        callbackURL: `${import.meta.env.VITE_LANDINGPAGE_URL}/auth/verify-email`,
-      });
-      if (response.error) throw response.error;
-      start();
-      toast.add({ type: "success", title: "Verification email sent" });
-    } catch (error) {
-      console.error("Verification email failed:", error);
-      toast.add({
-        type: "error",
-        title: "The email did not send",
-        description: "Wait a minute, then send again.",
-      });
-    } finally {
-      setSending(false);
-    }
-  };
 
   const dismiss = () => {
     setHidden(true);
@@ -62,16 +59,20 @@ export function VerifyEmailNotice({ email }: { email: string }) {
       <Info className="mt-[12px] h-[21px] w-[21px] shrink-0 text-prism-nav sm:mt-0" aria-hidden />
       <div className="flex min-w-0 flex-1 flex-col gap-x-3 sm:flex-row sm:items-center">
         <p className="min-w-0 flex-1 py-[10px] text-prism-body text-prism-ink sm:py-0">
-          Verify your email. We sent a link to <span className="break-words">{email}</span>.
+          Your email is not verified yet. Resend the link.
+          {deadline &&
+            (expired
+              ? " Verify it to count your follows and send broadcasts."
+              : ` Verify by ${deadline} to keep your follows and broadcasts.`)}
         </p>
         <Button
           variant="ghost"
           className="self-start tabular-nums sm:self-auto"
-          disabled={sending || remaining > 0}
+          disabled={disabled}
           aria-busy={sending || undefined}
           onClick={() => void resend()}
         >
-          {sending ? "Sending" : remaining > 0 ? `Resend in ${remaining}s` : "Resend email"}
+          {label("Resend email")}
         </Button>
       </div>
       <button

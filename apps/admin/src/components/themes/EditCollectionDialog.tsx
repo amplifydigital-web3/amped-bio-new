@@ -1,156 +1,118 @@
-import { useState, useEffect } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import { toast } from "react-hot-toast";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import {
+  Button,
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
-  DialogFooter,
+  Input,
+  Textarea,
+  trpcClient,
 } from "@repo/ui";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@repo/ui";
-import { Input } from "@repo/ui";
-import { Button } from "@repo/ui";
-import { Textarea } from "@repo/ui";
-import { trpcClient } from "@repo/ui";
-import { updateCategorySchema } from "@repo/ui";
-import { TRPCClientError } from "@trpc/client";
 
-interface Category {
+// Screen Review 088 I06. Edit collection on the shared Dialog: Title and
+// Description, Save changes enabled only when a value differs.
+
+export interface EditableCollection {
   id: number;
   title: string;
   description?: string | null;
 }
 
-interface EditCollectionDialogProps {
-  category: Category;
-  isOpen: boolean;
+export function EditCollectionDialog({
+  collection,
+  onClose,
+  onSuccess,
+}: {
+  collection: EditableCollection | null;
   onClose: () => void;
   onSuccess: () => void;
-}
-
-type FormData = z.infer<typeof updateCategorySchema>;
-
-export function useEditCollectionDialog() {
-  const [isOpen, setIsOpen] = useState(false);
-  const [category, setCategory] = useState<Category | null>(null);
-
-  const open = (cat: Category) => {
-    setCategory(cat);
-    setIsOpen(true);
-  };
-
-  const close = () => {
-    setIsOpen(false);
-    setCategory(null);
-  };
-
-  return {
-    isOpen,
-    category,
-    open,
-    close,
-  };
-}
-
-export function EditCollectionDialog({
-  isOpen,
-  onClose,
-  category,
-  onSuccess,
-}: EditCollectionDialogProps) {
-  const [loading, setLoading] = useState(false);
-
-  const form = useForm<FormData>({
-    resolver: zodResolver(updateCategorySchema),
-    defaultValues: {
-      id: category?.id,
-      title: category?.title || "",
-      description: category?.description || "",
-    },
-  });
+}) {
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [error, setError] = useState<{ title?: string; form?: string }>({});
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (isOpen && category) {
-      form.reset({
-        id: category.id,
-        title: category.title,
-        description: category.description || "",
-      });
-    }
-  }, [isOpen, category, form]);
+    if (!collection) return;
+    setTitle(collection.title);
+    setDescription(collection.description ?? "");
+    setError({});
+  }, [collection]);
 
-  const onSubmit = async (data: FormData) => {
-    setLoading(true);
+  if (!collection) return null;
+  const dirty =
+    title.trim() !== collection.title || description.trim() !== (collection.description ?? "");
+
+  const save = async () => {
+    if (!title.trim()) {
+      setError({ title: "Add a title." });
+      return;
+    }
+    setSaving(true);
     try {
-      await trpcClient.admin.themes.updateThemeCategory.mutate(data);
-      toast.success("Collection updated successfully!");
+      await trpcClient.admin.themes.updateThemeCategory.mutate({
+        id: collection.id,
+        title: title.trim(),
+        description: description.trim(),
+      });
+      toast.success("Collection updated");
       onSuccess();
       onClose();
-    } catch (error) {
-      if (error instanceof TRPCClientError) {
-        toast.error(`Failed to update collection: ${error.message}`);
-      }
+    } catch {
+      setError({ form: "The changes did not save. Try again." });
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[425px]">
+    <Dialog open onOpenChange={open => !open && !saving && onClose()}>
+      <DialogContent>
         <DialogHeader>
-          <DialogTitle>Edit Collection</DialogTitle>
-          <DialogDescription>
-            Make changes to the collection here. Click save when you're done.
-          </DialogDescription>
+          <DialogTitle>Edit {collection.title}</DialogTitle>
         </DialogHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 py-4">
-            <FormField
-              control={form.control}
-              name="title"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Title</FormLabel>
-                  <FormControl>
-                    <Input {...field} disabled={loading} placeholder="Enter collection title" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
-                <FormItem className="w-full">
-                  <FormLabel>Description</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      {...field}
-                      disabled={loading}
-                      placeholder="Enter collection description"
-                      className="min-h-[100px] w-full"
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <DialogFooter className="pt-4">
-              <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={loading}>
-                {loading ? "Saving..." : "Save changes"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </Form>
+        <form
+          noValidate
+          className="space-y-5"
+          onSubmit={event => {
+            event.preventDefault();
+            void save();
+          }}
+        >
+          <Input
+            label="Title"
+            value={title}
+            maxLength={100}
+            onChange={event => setTitle(event.target.value)}
+            onBlur={() =>
+              setError(e => ({ ...e, title: title.trim() ? undefined : "Add a title." }))
+            }
+            error={error.title}
+          />
+          <Textarea
+            label="Description"
+            value={description}
+            rows={3}
+            maxLength={240}
+            onChange={event => setDescription(event.target.value)}
+          />
+          {error.form && (
+            <p role="alert" className="text-prism-meta text-prism-danger">
+              {error.form}
+            </p>
+          )}
+          <DialogFooter>
+            <Button type="button" variant="secondary" onClick={onClose} disabled={saving}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={!dirty || saving} aria-busy={saving || undefined}>
+              Save changes
+            </Button>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   );

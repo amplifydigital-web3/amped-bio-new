@@ -33,10 +33,11 @@ export function publicCount(count: number, show: boolean) {
   return { followerCount: count, showCount: true, newOnAmped: false };
 }
 
-// ===== Restore token for Undo after Remove follower =====
+// ===== Restore token for Undo after Remove follower or Unfollow =====
 
 export type RemovedFollow = {
-  r: number; // follow_removal.id
+  u?: "unfollow"; // set when the fan unfollowed; absent when the creator removed them
+  r?: number; // follow_removal.id, when one was written
   f: number; // follower_id
   c: number; // creator_id
   p: boolean; // show_publicly
@@ -80,4 +81,16 @@ export function csvCell(value: string | number | boolean) {
   // Neutralize spreadsheet formulas and quote every cell
   const safe = /^[=+\-@\t\r]/.test(text) ? `'${text}` : text;
   return `"${safe.replace(/"/g, '""')}"`;
+}
+
+/**
+ * QA-008: the handle a public follower list may show. Fan accounts from Follow
+ * start with an unpublished page, and their handle would link to a 404, so the
+ * list shows them by name only until they publish.
+ */
+export function publicFollowerHandle(follower: {
+  handle: string | null;
+  page_status: "PUBLISHED" | "UNPUBLISHED";
+}): string | null {
+  return follower.page_status === "PUBLISHED" ? follower.handle : null;
 }

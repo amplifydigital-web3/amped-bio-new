@@ -32,7 +32,7 @@ export const BANNER_PANELS = [...BANNER_LIVE_PANELS, ...BANNER_LEGACY_PANELS] as
 export type BannerLivePanel = (typeof BANNER_LIVE_PANELS)[number];
 export type BannerPanelValue = (typeof BANNER_PANELS)[number];
 
-/** Where a legacy value now lands; reward is a hidden panel and gets none (D22). */
+/** Where a legacy value now lands; the deleted panels get none (086 D1). */
 export const BANNER_LEGACY_TO_LIVE: Record<
   (typeof BANNER_LEGACY_PANELS)[number],
   BannerLivePanel | null
@@ -43,8 +43,9 @@ export const BANNER_LEGACY_TO_LIVE: Record<
   createRewardPool: "my-pool",
   rns: "wallet",
   pay: "wallet",
-  rewardPools: "explore",
-  leaderboard: "explore",
+  // Screen Review 086 I02: deleted panels. A stored banner renders without its link.
+  rewardPools: null,
+  leaderboard: null,
   reward: null,
 };
 

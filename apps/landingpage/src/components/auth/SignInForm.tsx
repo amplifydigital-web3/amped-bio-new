@@ -26,7 +26,7 @@ import {
 import { authClient } from "@/lib/auth-client";
 import { useCaptcha } from "@/hooks/useCaptcha";
 import { useReferralHandler } from "@/hooks/useReferralHandler";
-import { getPostAuthDestination, goTo, toAbsoluteUrl } from "@/lib/panel";
+import { getPostAuthDestination, getSafeRedirect, goTo, toAbsoluteUrl } from "@/lib/panel";
 import { trackGAEvent } from "@/utils/ga";
 import { PRIVACY_POLICY_URL } from "@/components/layout/PublicFooter";
 
@@ -59,6 +59,10 @@ export function SignInForm() {
   const noticeRef = useRef<HTMLDivElement>(null);
 
   const destination = getPostAuthDestination(params);
+  // 081 I06: arriving from the editor or admin with a return address
+  const returning = Boolean(
+    getSafeRedirect(params.get("returnTo")) || getSafeRedirect(params.get("redirect"))
+  );
 
   // Email autofocus on desktop only (009 I05)
   useEffect(() => {
@@ -137,7 +141,9 @@ export function SignInForm() {
   return (
     <AuthCard
       title="Sign in"
-      subtitle="Welcome back. Your editor is one step away."
+      subtitle={
+        returning ? "Sign in to open your editor." : "Welcome back. Your editor is one step away."
+      }
       notice={
         cardError && (
           <Notice

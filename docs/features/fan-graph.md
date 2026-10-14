@@ -68,7 +68,7 @@ Made earlier (carried in): a full Amped account is required to follow; the creat
 Accepted by Rob on 2026-10-03, each as recommended:
 
 1. **Fan accounts have no page until they publish one, and their handle never comes from the email.** Recommended: sign-up from Follow creates the account with `pageStatus = UNPUBLISHED` and a handle built from the name plus 4 digits (jordan-ellis-4821), which the fan can change. `amped.bio/<handle>` returns the not-found card until they publish. Alternative: keep today's behavior (every fan gets a reachable URL, and creators see the fan's email prefix as their @handle).
-2. **Follow lives in the Amped frame capsule, not in the creator's blocks.** Recommended: the capsule shows the count, Follow (primary) and View pool. It is Amped's action, so it carries Prism styling and stays the same on every theme. Alternative: a creator-styled Follow button under the bio (theme contrast varies; harder to find; mixes Amped actions into creator content).
+2. **Follow lives in the Amped frame capsule, not in the creator's blocks.** Recommended: the capsule shows the count, Follow (primary) and View pool. It is Amped's action, so it carries Prism styling and stays the same on every theme. Alternative: a creator-styled Follow button under the bio (theme contrast varies; harder to find; mixes Amped actions into creator content). Amended 2026-10-08 by [follow-blocks.md](follow-blocks.md): creators may also add a Follow block or a Followers card. When a renderable block carries a Follow button, the capsule drops its count and Follow and keeps View pool and Edit page, so one Follow is on screen at a time.
 3. **One-time disclosure, then one tap.** Recommended: the first follow ever opens a sheet that says the creator sees your name, @handle and photo, with two unticked boxes (show me on public lists, email me updates from this creator). Later follows are one tap with a toast and Undo. Alternative: the sheet on every follow (slower, and fans stop reading it).
 4. **Word choice.** Recommended: Follow, Following, followers. Fans stays reserved for pool members. Alternative: call followers "fans" (collides with every approved pool board).
 5. **Creator destination.** Recommended: a new rail destination **People** in the Page group, with Followers as its first tab. Broadcasts move here from My Pool when this ships, because the Followers audience includes people with no stake. "Community" was the first name tried; it does not fit the 61 wide rail item at 13 bold. Alternative: a Followers tab inside Analytics (Analytics is about visits, not people) or inside My Pool (excludes creators without a pool).
@@ -112,7 +112,7 @@ Loading and error states follow the app-structure conventions (skeletons after 4
 Migration `20261003180000_add_fan_graph`. Field names follow the analytics models (snake case).
 
 - `User`: `page_status PageStatus @default(PUBLISHED)`, `show_follower_count Boolean @default(true)`, `follow_disclosure_seen_at DateTime?`.
-- `Follow`: `id`, `follower_id`, `creator_id`, `show_publicly` (default false), `email_updates` (default false) with `email_updates_at`, `source` (page, explore, pool, broadcast, qr), `campaign_id` (the visit's `AnalyticsCampaign`, kept only if it belongs to the creator), `created_at`. Unique on (follower, creator). Indexed by creator and date, and by follower and date.
+- `Follow`: `id`, `follower_id`, `creator_id`, `show_publicly` (default false), `email_updates` (default false) with `email_updates_at`, `source` (page, explore, pool, broadcast, qr, block), `campaign_id` (the visit's `AnalyticsCampaign`, kept only if it belongs to the creator), `created_at`. Unique on (follower, creator). Indexed by creator and date, and by follower and date.
 - `FollowBlock`: (`creator_id`, `user_id`) primary key, `created_at`.
 - `FollowRemoval`: `creator_id`, `reason` (unfollow, removed, blocked), `created_at`. No follower id, so creators see how many left and never who.
 - Foreign keys cascade on account deletion.
@@ -159,6 +159,7 @@ Rate limits (`apps/server/src/utils/rateLimit.ts`, fixed windows on the existing
 - **Creator page frame (039).** `ProfileView` capsule, behind `NEXT_PUBLIC_FAN_GRAPH`: follower count (13/16, "New on Amped" under 10, absent when hidden), Follow or Following, View pool (only when the creator has a pool and no pool block). At 390 the count sits above the buttons. Hides on scroll down as before. The owner sees Edit page, never Follow. Components: `components/follow/useFollow.ts`, `components/follow/FollowControls.tsx`.
 - **People destination.** Rail group Page: Page, Design, Analytics, People (Content joins when #20 ships), behind `VITE_FAN_GRAPH`. v1 has no tabs (one view, Followers); Broadcasts joins as a tab in phase 2. Header row: Followers eyebrow, period select and Export CSV, as Analytics (093) does. Tiles use the Analytics tile anatomy. On phones People sits in More. `components/panels/people/PeoplePanel.tsx`.
 - **Explore, Following.** A third tab after Users and Pools, behind `VITE_FAN_GRAPH`. The Users label stays until #9 renames it Creators. `components/panels/explore/components/FollowingTab.tsx`.
+- **Follow block and Followers block (phase 1c, [follow-blocks.md](follow-blocks.md)).** Creator-styled blocks added from Add block, People. `components/blocks/FollowBlock.tsx` and `components/blocks/FollowersBlock.tsx` in both apps, the shared card in `packages/ui/src/creator/followers-card.tsx`.
 - **Not in this build (phase 1b):** Home Followers card, Home Make your own page card, Analytics Follows series and Campaigns Follows column, JSON-LD follower count.
 
 ### 3.7 Gating and broadcast
@@ -172,13 +173,13 @@ Rate limits (`apps/server/src/utils/rateLimit.ts`, fixed windows on the existing
 - The first-follow sheet states three facts, word for word as rows: Maya sees "Your name, @handle and photo"; Stays private "Your email"; Everyone sees "The follower count". It ends with "Free. Unfollow any time." and a Privacy Policy link.
 - Fans can see and change, per creator: shown publicly, email updates, unfollow. Their Following list is private to them.
 - Creators never receive a follower's email, wallet address or visit history. The Followers list does not join `AnalyticsEvent` rows to people.
-- Follow counts are not rewards and carry no value. No copy may say earn, reward, points, tokens or perks next to Follow until #23 ships and counsel approves the follow quest. `apps/server/src/__tests__/fan-graph.test.ts` scans the follow UI files for these words and fails the test run on a match.
+- Follow counts are not rewards and carry no value. No copy may say earn, reward, points, tokens or perks next to Follow until #23 ships and counsel approves the follow quest. `apps/server/src/__tests__/fan-graph.test.ts` scans the follow UI files, including the two block renderers and the configurator, for these words and fails the test run on a match.
 - GDPR basis: performing the service the fan asked for (the follow). Data export (ws-account-deletion) includes the fan's follows and the creator's followers list without other people's emails.
 - Counsel reviews: the disclosure sentence, the fan account terms, and the follower export.
 
 ### 3.9 Analytics events
 
-**What ships now.** The creator-facing numbers come from first-party tables: totals and new follows from `Follow`, unfollows from `FollowRemoval`, sources from `Follow.source` and `campaign_id`. **Follow rate** = follows with `source = page` in the range divided by `view` events in the range. Both sides count every visit, so analytics consent does not skew it.
+**What ships now.** The creator-facing numbers come from first-party tables: totals and new follows from `Follow`, unfollows from `FollowRemoval`, sources from `Follow.source` and `campaign_id`. **Follow rate** = follows with `source = page` or `source = block` in the range divided by `view` events in the range. Both sides count every visit, so analytics consent does not skew it.
 
 **What waits for the Analytics foundation (#11).** Product events have no server `track()` yet. When #11 lands, these fire with ids and counts only:
 
@@ -256,6 +257,7 @@ Rate limits (`apps/server/src/utils/rateLimit.ts`, fixed windows on the existing
 
 ## Revision log
 
+- 2026-10-08: Phase 1c amendments from [follow-blocks.md](follow-blocks.md): decision 2 gains the block placement with the capsule rule, `source` gains `block`, follow rate counts page plus block, 3.6 lists the two blocks, the compliance scan covers them.
 - 2026-10-03: Approved. Built phase 0 and 1. Data model simplified for the build: pending computed from email verification, counts computed at read time, email consent on the follow row, `FollowRemoval` for unfollow counts. Product events wait for #11.
 - 2026-10-03: Code check pass: empty pages were already noindex; fan handles no longer come from the email; Explore tabs corrected to code; follow rate defined on page views; restore token for Undo; shared Redis limiter; edits to #21, #1 and #9 listed.
 - 2026-10-03: First spec. Refines the overview: fan accounts without pages, Follow in the frame capsule, People destination, Following replaces Watchlist, no emails in exports, pending follows until email is verified.

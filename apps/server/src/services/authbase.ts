@@ -222,6 +222,24 @@ function hasAuthbaseBadge(result: AuthbaseWalletStatus): boolean {
 }
 
 /**
+ * Screen Review 079 D2: the attribute keys a name page may show, with their
+ * labels in apps/client identity/catalog.ts. Unknown keys never leave the
+ * server on the public lookup, and empty values are dropped.
+ */
+export const PUBLIC_ATTRIBUTE_KEYS = ["name", "country"] as const;
+
+export function publicSharedAttributes(
+  attributes: Record<string, string> | undefined
+): Record<string, string> {
+  const shown: Record<string, string> = {};
+  for (const key of PUBLIC_ATTRIBUTE_KEYS) {
+    const value = attributes?.[key]?.trim();
+    if (value) shown[key] = value;
+  }
+  return shown;
+}
+
+/**
  * Look up a wallet's Authbase identity status and return the enriched payload
  * the client renders off. Throws {@link AuthbaseError} on any upstream failure.
  */

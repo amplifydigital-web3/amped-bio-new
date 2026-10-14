@@ -19,6 +19,7 @@ import { env } from "../../env";
 import { s3Service } from "../../services/S3Service";
 import { uploadedFileService } from "../../services/UploadedFileService";
 import Decimal from "decimal.js";
+import { indexPoolRewardsWithin, netStake, recordCreateEvent } from "../../services/poolEvents";
 
 const requestPoolImagePresignedUrlSchema = z.object({
   contentType: z.string().refine(value => ALLOWED_POOL_IMAGE.includes(value), {
@@ -482,6 +483,10 @@ export const poolsCreatorRouter = router({
             ...(input.creationTxid && { creationTxid: input.creationTxid }),
           },
         });
+        // 069 I14: the launch is the pool's first event
+        await recordCreateEvent(pool.id).catch(error =>
+          console.error("Error recording pool create event:", error)
+        );
         return { id: pool.id };
       } else {
         pool = await prisma.creatorPool.create({
@@ -498,6 +503,9 @@ export const poolsCreatorRouter = router({
             },
           },
         });
+        await recordCreateEvent(pool.id).catch(error =>
+          console.error("Error recording pool create event:", error)
+        );
         return { id: pool.id };
       }
     }),
@@ -753,141 +761,104 @@ export const poolsCreatorRouter = router({
 
         const poolId = pool.id;
 
-        // Total Stake
+        // 069 I14: pools launched before the create event existed get it now
+        if (pool.creationTxid) {
+          await recordCreateEvent(poolId).catch(error =>
+            console.error("Error backfilling pool create event:", error)
+          );
+        }
+        // 067 and 069 I11: bring the reward index up to date, waiting briefly;
+        // the client refetches while rewardsIndexing is true
+        const rewardsCurrent = await indexPoolRewardsWithin(poolId, 2500);
+        const fresh = await prisma.creatorPool.findUnique({
+          where: { id: poolId },
+          select: { rewardsReceived: true },
+        });
+
         const stakeEvents = await prisma.stakeEvent.findMany({
           where: { poolId },
+          select: { eventType: true, amount: true, createdAt: true },
         });
+        const totalStake = netStake(stakeEvents);
 
-        const totalStake = stakeEvents.reduce((acc, event) => {
-          const eventAmount = BigInt(event.amount);
-          if (event.eventType === "stake") {
-            return acc + eventAmount;
-          } else {
-            return acc - eventAmount;
-          }
-        }, 0n);
-
-        // Count only users with an active stake in the pool using StakedPool
+        // Fans: other wallets with an active stake (the creator is never a fan)
         const totalActiveFans = await prisma.stakedPool.count({
-          where: {
-            poolId: poolId,
-            stakeAmount: {
-              gt: "0", // Only count pools with stakeAmount greater than 0
-            },
-          },
+          where: { poolId, stakeAmount: { gt: "0" } },
         });
 
-        // Recent Activity
         const recentActivity = await prisma.stakeEvent.findMany({
           where: { poolId },
-          orderBy: {
-            createdAt: "desc",
-          },
+          orderBy: { createdAt: "desc" },
           take: 10,
           include: {
-            userWallet: {
-              include: {
-                user: {
-                  include: {
-                    profileImage: true,
-                  },
-                },
-              },
-            },
+            userWallet: { include: { user: { include: { profileImage: true } } } },
           },
         });
 
         const now = new Date();
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-        const startOfWeek = new Date(now.setDate(now.getDate() - 7));
+        const startOfWeek = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
-        const stakeAtStartOfMonth = stakeEvents
-          .filter(event => new Date(event.createdAt) < startOfMonth)
-          .reduce((acc, event) => {
-            const eventAmount = BigInt(event.amount);
-            if (event.eventType === "stake") {
-              return acc + eventAmount;
-            } else {
-              return acc - eventAmount;
-            }
-          }, 0n);
-
+        // 067 I03: change this month from the same total, launch included
+        const stakeAtStartOfMonth = netStake(
+          stakeEvents.filter(event => new Date(event.createdAt) < startOfMonth)
+        );
         const totalStakeChange = totalStake - stakeAtStartOfMonth;
         const totalStakePercentageChange =
           stakeAtStartOfMonth === 0n
-            ? totalStakeChange > 0n
-              ? 100
-              : 0
+            ? null
             : new Decimal(totalStakeChange.toString())
-                .mul(new Decimal(10000))
+                .mul(100)
                 .div(new Decimal(stakeAtStartOfMonth.toString()))
-                .div(new Decimal(100))
                 .toNumber();
 
         const newFansThisWeek = await prisma.stakeEvent.groupBy({
           by: ["userWalletId"],
-          where: {
-            poolId,
-            createdAt: {
-              gte: startOfWeek,
-            },
-            eventType: "stake",
-          },
-          _count: {
-            userWalletId: true,
-          },
+          where: { poolId, createdAt: { gte: startOfWeek }, eventType: "stake" },
+          _count: { userWalletId: true },
         });
 
-        const thirtyDaysAgo = new Date(now.setDate(now.getDate() - 30));
-
-        const dailyStakeEvents = await prisma.stakeEvent.findMany({
-          where: {
-            poolId,
-            createdAt: {
-              gte: thirtyDaysAgo,
-            },
-          },
-        });
-
-        const dailyStakeData = Array.from({ length: 30 }, (_, i) => {
-          const date = new Date();
-          date.setDate(date.getDate() - i);
-          const dayStart = new Date(date.setHours(0, 0, 0, 0));
-          const dayEnd = new Date(date.setHours(23, 59, 59, 999));
-
-          const netStake = dailyStakeEvents
-            .filter(
-              event => new Date(event.createdAt) >= dayStart && new Date(event.createdAt) <= dayEnd
-            )
-            .reduce((acc, event) => {
-              const eventAmount = BigInt(event.amount);
-              if (event.eventType === "stake") {
-                return acc + eventAmount;
-              } else {
-                return acc - eventAmount;
-              }
-            }, 0n);
-
-          return {
-            date: dayStart.toISOString().split("T")[0],
-            stake: netStake.toString(),
-          };
-        }).reverse();
+        // 067 (Rob, 30 Sep): Rewards to fans is RewardReceived to the pool less the creator cut
+        let rewardsToFans: string | null = null;
+        if (pool.poolAddress) {
+          const chain = getChainConfig(parseInt(pool.chainId));
+          if (chain) {
+            try {
+              const client = createPublicClient({ chain, transport: getRpcTransport(chain) });
+              const cut = (await client.readContract({
+                address: pool.poolAddress as Address,
+                abi: CREATOR_POOL_ABI,
+                functionName: "creatorCut",
+              })) as bigint;
+              const received = BigInt(fresh?.rewardsReceived || "0");
+              rewardsToFans = ((received * (10000n - cut)) / 10000n).toString();
+            } catch (error) {
+              console.error("Error reading creator cut for rewards to fans:", error);
+            }
+          }
+        }
 
         return {
           totalStake: totalStake.toString(),
           totalFans: totalActiveFans,
           recentActivity: recentActivity.map(event => ({
-            ...event,
+            id: event.id,
+            eventType: event.eventType,
             amount: event.amount.toString(),
-            handle: event.userWallet.user?.handle || event.userWallet.address,
+            transactionHash: event.transactionHash,
+            createdAt: event.createdAt,
+            address: event.userWallet.address,
+            isCreator: event.userWalletId === pool.walletId,
+            handle: event.userWallet.user?.handle || null,
             avatar: event.userWallet.user?.profileImage
               ? s3Service.getFileUrl(event.userWallet.user.profileImage.s3_key)
               : null,
           })),
           totalStakePercentageChange,
+          stakeAtStartOfMonth: stakeAtStartOfMonth.toString(),
           newFansThisWeek: newFansThisWeek.length,
-          dailyStakeData,
+          rewardsToFans,
+          rewardsIndexing: !rewardsCurrent,
         };
       } catch (error) {
         console.error("Error fetching pool dashboard:", error);
@@ -1028,13 +999,55 @@ export const poolsCreatorRouter = router({
           },
         });
 
+        // 068 (Rob, 30 Sep): rewards per fan are real: claimed (indexed
+        // RewardClaimed events) plus pendingReward on the pool contract
+        const walletIds = fans.map(fan => fan.userWalletId);
+        const claimedRows = walletIds.length
+          ? await prisma.stakeEvent.findMany({
+              where: { poolId, eventType: "claim", userWalletId: { in: walletIds } },
+              select: { userWalletId: true, amount: true },
+            })
+          : [];
+        const claimedByWallet = new Map<number, bigint>();
+        for (const row of claimedRows) {
+          claimedByWallet.set(
+            row.userWalletId,
+            (claimedByWallet.get(row.userWalletId) ?? 0n) + BigInt(row.amount)
+          );
+        }
+        const chain = getChainConfig(parseInt(pool.chainId));
+        const client =
+          chain && pool.poolAddress
+            ? createPublicClient({ chain, transport: getRpcTransport(chain) })
+            : null;
+        const pending = await Promise.all(
+          fans.map(fan =>
+            client
+              ? (
+                  client.readContract({
+                    address: pool.poolAddress as Address,
+                    abi: CREATOR_POOL_ABI,
+                    functionName: "pendingReward",
+                    args: [fan.userWallet.address as Address],
+                  }) as Promise<bigint>
+                ).catch(() => null)
+              : Promise.resolve(null)
+          )
+        );
+
         return {
-          fans: fans.map(fan => ({
+          fans: fans.map((fan, index) => ({
             id: fan.id,
             stakeAmount: fan.stakeAmount.toString(),
+            // null when the pending part could not be read
+            rewards:
+              pending[index] === null
+                ? null
+                : ((claimedByWallet.get(fan.userWalletId) ?? 0n) + pending[index]!).toString(),
             createdAt: fan.createdAt,
             updatedAt: fan.updatedAt,
-            handle: fan.userWallet.user?.handle || fan.userWallet.address,
+            address: fan.userWallet.address,
+            handle: fan.userWallet.user?.handle || null,
             avatar: fan.userWallet.user?.profileImage
               ? s3Service.getFileUrl(fan.userWallet.user.profileImage.s3_key)
               : null,

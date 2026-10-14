@@ -166,7 +166,7 @@ export async function getTimeseries(
   `;
 
   const byBucket = new Map(
-    rows.map(row => [
+    rows.map((row: Record<string, unknown>) => [
       String(row.bucket),
       {
         views: toNumber(row.views),
@@ -187,7 +187,9 @@ export async function getTimeseries(
   const points: TimeseriesPoint[] = [];
   for (let t = start.getTime(); t <= end && points.length < 1000; t += step) {
     const key = formatBucket(new Date(t), bucket);
-    points.push({ bucket: key, ...(byBucket.get(key) ?? { views: 0, visitors: 0, clicks: 0 }) });
+    const entry = byBucket.get(key);
+    const point: { views: number; visitors: number; clicks: number } = entry !== undefined ? entry : { views: 0, visitors: 0, clicks: 0 };
+    points.push({ bucket: key, ...point });
   }
   return points;
 }
@@ -271,15 +273,15 @@ export async function getLinkPerformance(
     }),
   ]);
 
-  const clickMap = new Map(
-    rows.map(row => [
+  const clickMap = new Map<number, { clicks: number; uniqueClicks: number }>(
+    rows.map((row: Record<string, unknown>) => [
       toNumber(row.block_id),
       { clicks: toNumber(row.clicks), uniqueClicks: toNumber(row.unique_clicks) },
     ])
   );
 
   return blocks
-    .map(block => {
+    .map((block: { id: number; order: number; clicks: number; config: unknown }) => {
       const config = (block.config ?? {}) as LinkConfig;
       const stats = clickMap.get(block.id) ?? { clicks: 0, uniqueClicks: 0 };
       return {
@@ -295,7 +297,7 @@ export async function getLinkPerformance(
         lifetimeClicks: block.clicks,
       };
     })
-    .sort((a, b) => b.clicks - a.clicks || a.order - b.order);
+    .sort((a: LinkPerformance, b: LinkPerformance) => b.clicks - a.clicks || a.order - b.order);
 }
 
 export type HeatmapCell = { day: number; hour: number; views: number };

@@ -109,8 +109,10 @@ export function ActivityTab() {
   );
   const transferItems = useMemo(
     () =>
-      (transfers.data?.pages ?? []).flatMap(page =>
-        page.items.map(transfer => fromTransfer(transfer, me, nativeSymbol))
+      (transfers.data?.pages ?? []).flatMap((page, pageIndex) =>
+        page.items.map((transfer, index) =>
+          fromTransfer(transfer, me, nativeSymbol, pageIndex * PAGE_SIZE + index)
+        )
       ),
     [transfers.data, me, nativeSymbol]
   );
@@ -250,10 +252,10 @@ export function ActivityTab() {
       <ul aria-label="Activity">
         {items.map(item => (
           <ActivityRow
-            key={item.hash}
+            key={item.key}
             item={item}
-            open={openHash === item.hash}
-            onToggle={() => setOpenHash(current => (current === item.hash ? null : item.hash))}
+            open={openHash === item.key}
+            onToggle={() => setOpenHash(current => (current === item.key ? null : item.key))}
             profiles={profiles}
             poolNames={poolNames}
             explorerUrl={explorerUrl}

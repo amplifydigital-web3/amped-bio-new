@@ -39,9 +39,9 @@ export function PublicHeader() {
           <Image
             src="/logo.svg"
             alt="Amped.Bio home"
-            width={28}
-            height={34}
-            className="h-[34px] w-auto"
+            width={56}
+            height={28}
+            className="h-[28px] w-auto"
             priority
           />
         </Link>

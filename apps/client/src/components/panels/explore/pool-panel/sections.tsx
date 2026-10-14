@@ -8,8 +8,13 @@ export const UNSTAKE_TERMS =
   "Unstake any time. Your tREVO returns to your wallet when the transaction confirms.";
 export const RATE_HELPER =
   "Estimated from current network stake and rewards. It changes as stake changes and is not guaranteed.";
-export const POOL_REWARDS_ARTICLE =
-  "https://amplifydigital.freshdesk.com/support/solutions/articles/154000250365-how-is-reward-pool-apy-calculated";
+// QA-007, 046 I01: no APR or APY string in the panel, links included. The only
+// rate article today has "apy" in its slug, so How it is calculated renders once
+// the article moves to a slug without it. Same rule as the public pool page.
+export const RATE_ARTICLE: string | null = null;
+// 046 D1: "How pool rewards work" ships only once counsel approves the article.
+// Set the URL here when it exists; until then the link does not render.
+export const POOL_REWARDS_ARTICLE: string | null = null;
 
 // Section 10 eyebrow with the 13x3 value marker.
 export function Eyebrow({ children }: { children: React.ReactNode }) {

@@ -13,6 +13,8 @@
 // here collides with the existing shadcn tokens. Adding the preset changes
 // nothing on screen until a component uses a prism class.
 
+import { prismMotion, prismStagger } from "./motion-tokens.js";
+
 /** Section 3. Color tokens. */
 export const prismColors = {
   env: "#F4F3FA",
@@ -77,15 +79,8 @@ export const prismElevation = {
   e5: "21px 44px 110px rgba(60, 24, 80, 0.4)",
 };
 
-/** Section 14. Motion. */
-export const prismMotion = {
-  micro: "89ms",
-  hover: "144ms",
-  control: "233ms",
-  panel: "377ms",
-  room: "610ms",
-  easing: "cubic-bezier(0.2, 0, 0, 1)",
-};
+/** Section 14. Motion. Values live in motion-tokens.js, shared with motion.ts. */
+export { prismMotion, prismStagger };
 
 /** Section 11. Type scale as [size, lineHeight]. */
 export const prismType = {
@@ -99,6 +94,10 @@ export const prismType = {
   label: ["16px", { lineHeight: "20px" }],
   meta: ["13px", { lineHeight: "16px" }],
   eyebrow: ["13px", { lineHeight: "16px", letterSpacing: "0.08em", fontWeight: "600" }],
+  // v1.1 (Screen Review 094 D2, 092 D3): monospace sizes for credentials, URIs
+  // and code only. Pair with font-prism-mono and a 44 copy button.
+  "code-sm": ["13px", { lineHeight: "21px" }],
+  code: ["16px", { lineHeight: "20px" }],
 };
 
 /** Section 12. Spacing. Production snaps of the Fibonacci scale. */
@@ -136,6 +135,113 @@ function backdrop(value) {
   return { WebkitBackdropFilter: value, backdropFilter: value };
 }
 
+// Motion layer (Build Board #26). Durations and the easing come from
+// motion-tokens.js only.
+const EASE = prismMotion.easing;
+const DOCK_TRANSITION = [
+  `background-color ${prismMotion.hover} ${EASE}`,
+  `box-shadow ${prismMotion.hover} ${EASE}`,
+  `transform ${prismMotion.panel} ${EASE}`,
+  `margin ${prismMotion.panel} ${EASE}`,
+].join(", ");
+const STAGGER_STEPS = 12;
+
+const motionBase = {
+  "@keyframes prism-rise": {
+    from: { opacity: "0", transform: "translateY(13px)" },
+  },
+  "@keyframes prism-fade-in": {
+    from: { opacity: "0" },
+  },
+  "@keyframes prism-fade-out": {
+    to: { opacity: "0" },
+  },
+  "@keyframes prism-idle": {
+    to: { transform: "translateY(-5px)" },
+  },
+  "@keyframes prism-pulse": {
+    "40%": { transform: "scale(1.8)", opacity: "0.5" },
+  },
+
+  // View Transitions (section 3.4). The shell stays put; only named parts move.
+  // Names go on while a transition runs (motion.ts), so glass keeps its blur.
+  "::view-transition-old(root)": { display: "none" },
+  "::view-transition-new(root)": { animation: "none" },
+  "::view-transition-group(*)": {
+    animationDuration: prismMotion.control,
+    animationTimingFunction: EASE,
+  },
+  // Destination change: 610 ms room. The old destination leaves in 233 ms,
+  // the new one rises 13 and fades in.
+  'html[data-prism-vt="room"]::view-transition-group(room)': { animation: "none" },
+  'html[data-prism-vt="room"]::view-transition-old(room)': {
+    animation: `prism-fade-out ${prismMotion.control} ${EASE} both`,
+  },
+  'html[data-prism-vt="room"]::view-transition-new(room)': {
+    animation: `prism-rise ${prismMotion.room} ${EASE} both`,
+  },
+  "::view-transition-old(panel-title), ::view-transition-new(panel-title)": {
+    animationDuration: prismMotion.control,
+    animationTimingFunction: EASE,
+    height: "100%",
+  },
+  "::view-transition-old(preview), ::view-transition-new(preview)": {
+    animationDuration: prismMotion.panel,
+    animationTimingFunction: EASE,
+  },
+  "@media (prefers-reduced-motion: reduce)": {
+    "::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*)": {
+      animation: "none !important",
+    },
+  },
+};
+
+const motionComponents = {
+  // One element rises 13 and fades in (panel time). --prism-i sets its place in a sequence.
+  ".prism-enter": {
+    animation: `prism-rise ${prismMotion.panel} ${EASE} backwards`,
+    animationDelay: `calc(var(--prism-i, 0) * ${prismStagger})`,
+  },
+  // Children enter one after another, 55 ms apart (the first 12; the rest with the 12th).
+  ".prism-stagger > *": {
+    animation: `prism-rise ${prismMotion.panel} ${EASE} backwards`,
+  },
+  ...Object.fromEntries(
+    Array.from({ length: STAGGER_STEPS - 1 }, (_, index) => [
+      `.prism-stagger > *:nth-child(${index + 2})`,
+      { animationDelay: `calc(${index + 1} * ${prismStagger})` },
+    ])
+  ),
+  [`.prism-stagger > *:nth-child(n + ${STAGGER_STEPS + 1})`]: {
+    animationDelay: `calc(${STAGGER_STEPS} * ${prismStagger})`,
+  },
+  // A label or state that swaps in place crossfades in (control time).
+  ".prism-swap": {
+    animation: `prism-fade-in ${prismMotion.control} ${EASE} backwards`,
+  },
+  // One slow idle loop (empty states). Paused off screen by useOffscreenPause.
+  ".prism-idle": {
+    animation: `prism-idle 2584ms ${EASE} infinite alternate`,
+    "&[data-offscreen]": { animationPlayState: "paused" },
+  },
+  ".prism-pulse-once": {
+    animation: `prism-pulse ${prismMotion.room} ${EASE}`,
+  },
+  // Cards that open something rise 3 on hover (hover time).
+  ".prism-lift": {
+    transition: `transform ${prismMotion.hover} ${EASE}, box-shadow ${prismMotion.hover} ${EASE}`,
+    "@media (hover: hover)": {
+      "&:hover": { transform: "translateY(-3px)" },
+    },
+    "&:active": { transform: "translateY(0)", transitionDuration: prismMotion.micro },
+  },
+  // Press: 1 down in micro time.
+  ".prism-press": {
+    transition: `transform ${prismMotion.micro} ${EASE}`,
+    "&:active": { transform: "translateY(1px)" },
+  },
+};
+
 /**
  * Sections 4 to 8. Material and control recipes as component classes.
  * Written as a plain Tailwind plugin function so packages/ui does not need
@@ -143,6 +249,17 @@ function backdrop(value) {
  */
 function prismComponents({ addComponents, addBase }) {
   addBase({
+    // Section 14 as custom properties, for CSS that cannot use the classes
+    ":root": {
+      "--prism-micro": prismMotion.micro,
+      "--prism-hover": prismMotion.hover,
+      "--prism-control": prismMotion.control,
+      "--prism-panel": prismMotion.panel,
+      "--prism-room": prismMotion.room,
+      "--prism-ease": prismMotion.easing,
+      "--prism-stagger": prismStagger,
+    },
+    ...motionBase,
     ".prism-font": {
       fontFamily: '"Figtree", ui-sans-serif, system-ui, sans-serif',
       fontVariantNumeric: "tabular-nums",
@@ -412,9 +529,7 @@ function prismComponents({ addComponents, addBase }) {
     // highlight brightens, 144ms). No scale on hover.
     ".prism-dock-item": {
       color: prismColors["ink-2"],
-      transitionProperty: "background-color, box-shadow",
-      transitionDuration: "144ms",
-      transitionTimingFunction: "cubic-bezier(0.2, 0, 0, 1)",
+      transition: DOCK_TRANSITION,
       "&:hover": {
         backgroundColor: "rgba(255,255,255,0.42)",
         boxShadow: "inset 0 1px 0 rgba(255,255,255,0.95)",
@@ -427,6 +542,7 @@ function prismComponents({ addComponents, addBase }) {
     // Rising dock lens: the active item on the mobile dock (section 7).
     ".prism-dock-lens": {
       position: "relative",
+      transition: DOCK_TRANSITION,
       color: prismColors["nav-pressed"],
       fontWeight: "700",
       borderRadius: "30px",
@@ -457,12 +573,21 @@ function prismComponents({ addComponents, addBase }) {
         ...backdrop("blur(21px) saturate(1.4)"),
       },
     },
+    ...motionComponents,
+
     "@media (prefers-reduced-motion: reduce)": {
       ".prism-rim, .prism-halo-card, .prism-halo-panel": {
         transition: "none",
         animation: "none",
       },
       ".prism-dock-item, .prism-dock-lens": {
+        transition: "none",
+      },
+      ".prism-enter, .prism-stagger > *, .prism-swap, .prism-idle, .prism-pulse-once": {
+        animation: "none",
+      },
+      ".prism-lift, .prism-lift:hover, .prism-press, .prism-press:active": {
+        transform: "none",
         transition: "none",
       },
     },
@@ -485,6 +610,15 @@ const prismPreset = {
       fontFamily: {
         prism: ['"Figtree"', "ui-sans-serif", "system-ui", "sans-serif"],
         "prism-display": ['"Bebas Neue"', "Impact", "sans-serif"],
+        // v1.1 monospace token: the system stack, no font file (094 D2)
+        "prism-mono": [
+          "ui-monospace",
+          "SFMono-Regular",
+          "Menlo",
+          "Consolas",
+          '"Liberation Mono"',
+          "monospace",
+        ],
       },
       fontSize: Object.fromEntries(
         Object.entries(prismType).map(([key, value]) => [`prism-${key}`, value])

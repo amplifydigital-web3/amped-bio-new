@@ -4,6 +4,7 @@
 import { describe, it, expect } from "vitest";
 import {
   OAUTH_SCOPE_DESCRIPTIONS,
+  consentSharesWallet,
   describeOAuthScope,
 } from "@repo/ui/oauth/oauth-scopes";
 
@@ -62,5 +63,36 @@ describe("describeOAuthScope", () => {
   it("handles empty string gracefully", () => {
     const result = describeOAuthScope("");
     expect(result.title).toBe("");
+  });
+});
+
+// The consent screen must tell the user when the wallet address will be shared.
+// The server returns the wallet claim on the profile scope or on an explicit
+// wallet claim request (apps/server/src/utils/auth.ts, customUserInfoClaims).
+describe("consentSharesWallet", () => {
+  it("is true when the request holds the profile scope", () => {
+    expect(consentSharesWallet(["openid", "profile"], null)).toBe(true);
+  });
+
+  it("is true when the claims parameter asks for wallet on userinfo", () => {
+    const claims = JSON.stringify({ userinfo: { wallet: null } });
+    expect(consentSharesWallet(["openid"], claims)).toBe(true);
+  });
+
+  it("is true when the claims parameter asks for wallet on id_token", () => {
+    const claims = JSON.stringify({ id_token: { wallet: { essential: true } } });
+    expect(consentSharesWallet([], claims)).toBe(true);
+  });
+
+  it("is false for scopes and claims that do not name the wallet", () => {
+    expect(consentSharesWallet(["openid", "email"], null)).toBe(false);
+    const claims = JSON.stringify({ userinfo: { email: { essential: true } } });
+    expect(consentSharesWallet(["openid"], claims)).toBe(false);
+  });
+
+  it("is false when the claims parameter is missing or malformed", () => {
+    expect(consentSharesWallet(["openid"], null)).toBe(false);
+    expect(consentSharesWallet(["openid"], "")).toBe(false);
+    expect(consentSharesWallet(["openid"], "not json")).toBe(false);
   });
 });

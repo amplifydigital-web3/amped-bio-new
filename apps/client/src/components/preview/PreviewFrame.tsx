@@ -4,6 +4,7 @@ import { Button, Tabs, TabsList, TabsTrigger, cn } from "@repo/ui";
 import { useEditor } from "@/contexts/EditorContext";
 import { Preview } from "@/components/Preview";
 import { publicPageUrl } from "@/components/shell/pageLink";
+import { PUBLISH_FIRST, usePageUnpublished } from "@/components/shell/pageVisibility";
 import { requestAddBlock } from "./addBlockRequest";
 import { usePreviewBlockSelect, usePreviewTheme } from "./previewHooks";
 
@@ -13,8 +14,10 @@ import { usePreviewBlockSelect, usePreviewTheme } from "./previewHooks";
 
 type Mode = "phone" | "desktop";
 const MODE_KEY = "amped:preview-mode";
-const DESKTOP_WIDTH = 1440;
-const PHONE_WIDTH = 390;
+const DEVICES: Record<Mode, { width: number; height: number }> = {
+  phone: { width: 390, height: 844 },
+  desktop: { width: 1440, height: 900 },
+};
 
 function readMode(): Mode {
   try {
@@ -42,8 +45,13 @@ function Render({ width }: { width: number }) {
   );
 }
 
-/** Desktop mode: a 1440 wide page scaled to the frame, top aligned (006 I03). */
-function ScaledRender() {
+/**
+ * One device in the frame (006 I02, I03; QA-024, Rob 6 Oct: scale to fit).
+ * The page renders at the device size, Phone 390 x 844 or Desktop 1440 x
+ * 900, and the whole device scales down to fit the frame, top aligned. The
+ * page scrolls inside the device, as it would on a real screen.
+ */
+function DeviceRender({ width, height }: { width: number; height: number }) {
   const ref = useRef<HTMLDivElement>(null);
   const [box, setBox] = useState({ width: 0, height: 0 });
   useLayoutEffect(() => {
@@ -55,19 +63,25 @@ function ScaledRender() {
     observer.observe(node);
     return () => observer.disconnect();
   }, []);
-  const scale = box.width ? box.width / DESKTOP_WIDTH : 0;
+  const scale = box.width && box.height ? Math.min(box.width / width, box.height / height, 1) : 0;
   return (
-    <div ref={ref} className="absolute inset-0">
+    <div ref={ref} className="absolute inset-0 flex justify-center">
       {scale > 0 && (
         <div
-          style={{
-            width: DESKTOP_WIDTH,
-            height: box.height / scale,
-            transform: `scale(${scale})`,
-            transformOrigin: "top left",
-          }}
+          data-testid="preview-device"
+          className="relative shrink-0 overflow-hidden rounded-prism-13 [transform:translateZ(0)]"
+          style={{ width: width * scale, height: height * scale }}
         >
-          <Render width={DESKTOP_WIDTH} />
+          <div
+            style={{
+              width,
+              height,
+              transform: `scale(${scale})`,
+              transformOrigin: "top left",
+            }}
+          >
+            <Render width={width} />
+          </div>
         </div>
       )}
     </div>
@@ -83,6 +97,17 @@ function OverrideLabel() {
       className="prism-raised absolute inset-x-[13px] bottom-[13px] z-10 rounded-prism-13 px-3 py-2 text-prism-meta text-prism-ink-2"
     >
       {previewOverride.label}
+    </p>
+  );
+}
+
+/** QA-008: while the page is unpublished, nobody else can see it. */
+function PrivatePreviewLabel() {
+  const unpublished = usePageUnpublished();
+  if (!unpublished) return null;
+  return (
+    <p className="prism-raised absolute left-[13px] top-[13px] z-10 rounded-prism-13 px-3 py-1 font-prism text-prism-meta text-prism-ink-2">
+      Only you can see this preview.
     </p>
   );
 }
@@ -110,6 +135,7 @@ function EmptyHint() {
 /** The commitment field frame at x 911 on Page and Design (006 I02). */
 export function PreviewFrame() {
   const { profile } = useEditor();
+  const unpublished = usePageUnpublished();
   const [mode, setMode] = useState<Mode>(readMode);
 
   useEffect(() => {
@@ -139,25 +165,32 @@ export function PreviewFrame() {
       {/* The render viewport is the only clipped layer; translateZ keeps the
           creator's fixed background inside it (006 I04) */}
       <div className="relative min-h-0 flex-1 overflow-hidden rounded-prism-21 [transform:translateZ(0)]">
-        {mode === "phone" ? (
-          <div className="flex h-full justify-center overflow-hidden">
-            <Render width={PHONE_WIDTH} />
-          </div>
-        ) : (
-          <ScaledRender />
-        )}
+        <DeviceRender key={mode} {...DEVICES[mode]} />
+        <PrivatePreviewLabel />
         <OverrideLabel />
       </div>
 
       <EmptyHint />
 
-      <div className="flex justify-end">
-        <Button variant="secondary" asChild>
-          <a href={publicPageUrl(profile.handle)} target="_blank" rel="noopener noreferrer">
-            View page
-            <ExternalLink aria-hidden />
-          </a>
-        </Button>
+      <div className="flex items-center justify-end gap-3">
+        {unpublished ? (
+          <>
+            <p id="preview-publish-first" className="text-prism-meta text-prism-ink-2">
+              {PUBLISH_FIRST}
+            </p>
+            <Button variant="secondary" disabled aria-describedby="preview-publish-first">
+              View page
+              <ExternalLink aria-hidden />
+            </Button>
+          </>
+        ) : (
+          <Button variant="secondary" asChild>
+            <a href={publicPageUrl(profile.handle)} target="_blank" rel="noopener noreferrer">
+              View page
+              <ExternalLink aria-hidden />
+            </a>
+          </Button>
+        )}
       </div>
     </aside>
   );
@@ -205,6 +238,7 @@ export function InlinePreview({ onSelected }: { onSelected: () => void }) {
           userId={profile.id}
           onBlockSelect={onBlockSelect}
         />
+        <PrivatePreviewLabel />
         <OverrideLabel />
       </div>
       <EmptyHint />

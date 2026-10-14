@@ -5,6 +5,7 @@ import {
   useCallback,
   useEffect,
   useRef,
+  startTransition,
   ReactNode,
 } from "react";
 import type {
@@ -20,12 +21,18 @@ import initialState from "../store/defaults";
 import { useAuth } from "@repo/ui";
 import toast from "react-hot-toast";
 import { BlockType } from "@repo/constants";
-import { RNS_BINDING_MESSAGES } from "@repo/web3";
 import { formatHandle, normalizeHandle } from "@repo/ui";
-import { trpcClient } from "@repo/ui";
+import { queryClient, trpcClient } from "@repo/ui";
 import { exportThemeConfigAsJson } from "@repo/ui";
 import { mergeTheme } from "@/utils/mergeTheme";
+import {
+  announceSessionEnded,
+  isSessionEnded,
+  stashUnsavedEdits,
+  takeUnsavedEdits,
+} from "./unsavedEdits";
 import { useNavigate, useLocation } from "react-router";
+import { MY_PAGE_IDENTITY_KEY } from "@/components/panels/page/rns/useMyPageIdentity";
 
 /**
  * Autosave status shown in the top bar (Screen Review 002 I02, D11).
@@ -56,6 +63,11 @@ interface EditorContextType extends EditorState {
   hasUnsavedChanges: boolean;
   /** Save now instead of waiting for the debounce. Resolves true when stored. */
   flushSave: () => Promise<boolean>;
+  /**
+   * 081 I09: keep the edits not stored yet in this tab before a sign in
+   * redirect. Returns true when there were edits and they were kept.
+   */
+  keepUnsavedEdits: () => boolean;
   previewOverride: PreviewOverride | null;
   setPreviewOverride: (override: PreviewOverride | null) => void;
   setUser: (handle: string) => Promise<any>;
@@ -81,7 +93,10 @@ interface EditorContextType extends EditorState {
   setBackground: (background: Background) => void;
   setBackgroundForUpload: (background: Background) => void;
   saveChanges: () => Promise<boolean>;
+  /** Clears the page RNS name on the server (108 I01), e.g. after a transfer */
   clearRevoName: () => Promise<void>;
+  /** The page RNS name as stored, set by the Page RNS section after a save. Not an edit. */
+  setSavedRevoName: (name: string) => void;
   setDefault: () => void;
   addToGallery: (image: GalleryImage) => void;
   removeFromGallery: (url: string) => void;
@@ -91,11 +106,6 @@ interface EditorContextType extends EditorState {
   exportTheme: (customFilename?: string) => void;
   /** Replace the whole theme config (theme file import and its Undo, 031). */
   replaceThemeConfig: (config: ThemeConfig) => void;
-  expiredRevoName: string;
-  dismissRevoName: () => Promise<void>;
-  lostRevoName: string;
-  /** Why the last RNS name choice was not saved (100 I02). null when it saved. */
-  revoNameError: string | null;
 }
 
 const EditorContext = createContext<EditorContextType | undefined>(undefined);
@@ -128,67 +138,92 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
     themeChangesRef.current = true;
     setThemeChanges(true);
   }, []);
-  const [expiredRevoName, setExpiredRevoName] = useState("");
-  const [lostRevoName, setLostRevoName] = useState("");
-  // 100 I02: the RNS name as stored on the server. A save sends revo_name only
-  // when the choice changed, so a lapsed or unreadable name never blocks the
-  // other edits, and a refused name rolls back to this value.
-  const savedRevoNameRef = useRef("");
-  const [revoNameError, setRevoNameError] = useState<string | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
 
   const { authUser } = useAuth();
 
-  const setUser = useCallback(async (handle: string) => {
-    // console.group(`🔍 Setting User: ${handle}`);
-    // console.info("🚀 Loading user data...");
-    try {
-      const onlinkData = await trpcClient.handle.getHandle.query({ handle });
+  const setUser = useCallback(
+    async (handle: string) => {
+      // console.group(`🔍 Setting User: ${handle}`);
+      // console.info("🚀 Loading user data...");
+      try {
+        const onlinkData = await trpcClient.handle.getHandle.query({ handle });
 
-      if (!onlinkData) {
-        // console.info("❌ User not found:", handle);
+        if (!onlinkData) {
+          // console.info("❌ User not found:", handle);
+          // console.groupEnd();
+          return;
+        }
+        const { user, theme, blocks: blocks_raw, hasCreatorPool } = onlinkData;
+        const { id, name, description, image } = user;
+        const normalizedHandle = normalizeHandle(handle);
+        const formattedHandle = formatHandle(handle);
+
+        const blocks = blocks_raw.sort((a, b) => a.order - b.order);
+
+        setState(prevState => ({
+          ...prevState,
+          profile: {
+            id,
+            name,
+            handle: normalizedHandle,
+            handleFormatted: formattedHandle,
+            // 108 I02: the stored RNS name is private. The Page RNS section
+            // reads it from rns.getMyPageIdentity and sets it here.
+            revoName: "",
+            // getHandle is public and does not return email. The signed in owner's
+            // email comes from the session (authUser) where it is needed.
+            email: "",
+            bio: description ?? "",
+            photoUrl: image ?? "",
+          },
+          theme: mergeTheme(prevState.theme, theme as unknown as Theme),
+          blocks: blocks as unknown as BlockType[],
+          hasCreatorPool,
+        }));
+        // 108 I02: the stored RNS name comes from the owner's private read.
+        // Wallet name pages compare against it.
+        if (import.meta.env.VITE_SHOW_RNS === "true") {
+          void queryClient
+            .fetchQuery({
+              queryKey: MY_PAGE_IDENTITY_KEY,
+              queryFn: () => trpcClient.rns.getMyPageIdentity.query(),
+              staleTime: 30_000,
+            })
+            .then(data =>
+              setState(prevState => ({
+                ...prevState,
+                profile: { ...prevState.profile, revoName: data.name ?? "" },
+              }))
+            )
+            .catch(() => undefined);
+        }
+        // 081 I09: edits kept when the last session ended go back in, and
+        // autosave stores them
+        const kept = takeUnsavedEdits(id);
+        if (kept) {
+          setState(prevState => ({
+            ...prevState,
+            profile: { ...prevState.profile, ...kept.profile },
+            blocks: kept.blocks,
+            theme: kept.themeConfig
+              ? { ...prevState.theme, config: kept.themeConfig }
+              : prevState.theme,
+          }));
+          if (kept.themeConfig) markThemeDirty();
+          markDirty();
+        }
+        // console.info("✅ User setup complete");
         // console.groupEnd();
+        return onlinkData;
+      } catch (error) {
+        console.info("❌ Error getting user:", error);
         return;
       }
-      const { user, theme, blocks: blocks_raw, hasCreatorPool } = onlinkData;
-      const { id, name, revoName, revoNameStatus, originalRevoName, description, image } = user;
-      const normalizedHandle = normalizeHandle(handle);
-      const formattedHandle = formatHandle(handle);
-
-      const blocks = blocks_raw.sort((a, b) => a.order - b.order);
-
-      // Server already validated ownership and expiry; just read the status
-      if (revoNameStatus === "expired") setExpiredRevoName(originalRevoName ?? "");
-      else if (revoNameStatus === "taken") setLostRevoName(originalRevoName ?? "");
-      savedRevoNameRef.current = revoName ?? "";
-
-      setState(prevState => ({
-        ...prevState,
-        profile: {
-          id,
-          name,
-          handle: normalizedHandle,
-          handleFormatted: formattedHandle,
-          revoName: revoName ?? "",
-          // getHandle is public and does not return email. The signed in owner's
-          // email comes from the session (authUser) where it is needed.
-          email: "",
-          bio: description ?? "",
-          photoUrl: image ?? "",
-        },
-        theme: mergeTheme(prevState.theme, theme as unknown as Theme),
-        blocks: blocks as unknown as BlockType[],
-        hasCreatorPool,
-      }));
-      // console.info("✅ User setup complete");
-      // console.groupEnd();
-      return onlinkData;
-    } catch (error) {
-      console.info("❌ Error getting user:", error);
-      return;
-    }
-  }, []);
+    },
+    [markDirty, markThemeDirty]
+  );
 
   const setProfile = useCallback(
     (profile: UserProfile) => {
@@ -319,8 +354,6 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
 
   const setActivePanelAndNavigate = useCallback(
     (activePanel: EditorPanelType, tabs?: string, options?: { tab?: string; open?: string }) => {
-      setActivePanel(activePanel);
-
       // Panels live as path segments (e.g. /gallery); tabs stay as ?t=
       const basePath = "";
       const searchParams = new URLSearchParams(location.search);
@@ -340,7 +373,15 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
       if (options?.open) searchParams.set("open", options.open);
 
       const query = searchParams.toString();
-      navigate(`${basePath}/${activePanel}${query ? `?${query}` : ""}`, { replace: true });
+      // QA-039: BrowserRouter commits the new location inside a transition, while
+      // a plain setActivePanel commits at once. The destination then mounts one
+      // render before the URL changes, and a panel that writes its tab to the
+      // URL on mount (Explore) resolves "?tab=" against the old path, landing on
+      // /home?tab=users. Both updates in one transition commit together.
+      startTransition(() => {
+        setActivePanel(activePanel);
+        navigate(`${basePath}/${activePanel}${query ? `?${query}` : ""}`, { replace: true });
+      });
     },
     [navigate, location, setActivePanel]
   );
@@ -469,43 +510,14 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
       }));
     }
 
-    const revoName = profile.revoName || "";
-    const revoNameChanged = revoName !== savedRevoNameRef.current;
-    const editUser = (revo_name: string | undefined) =>
-      trpcClient.user.edit.mutate({
-        name: profile.name,
-        description: profile.bio,
-        revo_name,
-        image: profile.photoUrl || "",
-        reward_business_id: "",
-        theme: themeId,
-      });
-
-    let userStatus: Awaited<ReturnType<typeof editUser>>;
-    try {
-      userStatus = await editUser(revoNameChanged ? revoName : undefined);
-      if (revoNameChanged) {
-        savedRevoNameRef.current = revoName;
-        setRevoNameError(null);
-      }
-    } catch (error) {
-      // 100 I02: the server refused the RNS name. Roll the choice back, say
-      // why next to the field, and save everything else.
-      const message = error instanceof Error ? error.message : "";
-      const refused = (Object.values(RNS_BINDING_MESSAGES) as string[]).includes(message);
-      if (!revoNameChanged || !refused) throw error;
-      const previous = savedRevoNameRef.current;
-      stateRef.current = {
-        ...stateRef.current,
-        profile: { ...stateRef.current.profile, revoName: previous },
-      };
-      setState(prevState => ({
-        ...prevState,
-        profile: { ...prevState.profile, revoName: previous },
-      }));
-      setRevoNameError(message);
-      userStatus = await editUser(undefined);
-    }
+    // 108 I01: the RNS name has its own validated write (user.setRnsName)
+    const userStatus = await trpcClient.user.edit.mutate({
+      name: profile.name,
+      description: profile.bio,
+      image: profile.photoUrl || "",
+      reward_business_id: "",
+      theme: themeId,
+    });
 
     if (!userStatus || !blocksStatus) return false;
     // A theme edit made during this save stays dirty for the next one
@@ -539,6 +551,8 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
     setSaveStatus("saving");
     const attempt = saveChanges().catch(error => {
       console.error("Autosave failed:", error);
+      // 081 I09: a 401 during a session opens Your session ended
+      if (isSessionEnded(error)) announceSessionEnded();
       return false;
     });
     inFlight.current = attempt;
@@ -607,6 +621,18 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
   // `changes` turns false only once the newest edit is stored
   const hasUnsavedChanges = changes;
 
+  const keepUnsavedEdits = useCallback(() => {
+    if (revision.current === savedRevision.current) return false;
+    const { profile, blocks, theme } = stateRef.current;
+    if (!profile.id) return false;
+    return stashUnsavedEdits({
+      userId: profile.id,
+      profile: { name: profile.name, bio: profile.bio, photoUrl: profile.photoUrl ?? "" },
+      blocks,
+      themeConfig: themeChangesRef.current ? theme.config : undefined,
+    });
+  }, []);
+
   // Leave page guard: the browser asks only while an edit is not stored (I03)
   useEffect(() => {
     if (!hasUnsavedChanges) return;
@@ -618,27 +644,24 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
   }, [hasUnsavedChanges]);
 
+  const setSavedRevoName = useCallback((name: string) => {
+    stateRef.current = {
+      ...stateRef.current,
+      profile: { ...stateRef.current.profile, revoName: name },
+    };
+    setState(prevState => ({ ...prevState, profile: { ...prevState.profile, revoName: name } }));
+  }, []);
+
   const clearRevoName = useCallback(async () => {
-    const { profile, theme } = state;
     try {
-      await trpcClient.user.edit.mutate({
-        name: profile.name,
-        description: profile.bio,
-        revo_name: "",
-        image: profile.photoUrl || "",
-        reward_business_id: "",
-        theme: theme.id,
-      });
-      savedRevoNameRef.current = "";
-      setState(prevState => ({
-        ...prevState,
-        profile: { ...prevState.profile, revoName: "" },
-      }));
+      await trpcClient.user.setRnsName.mutate({ label: null });
+      setSavedRevoName("");
+      void queryClient.invalidateQueries({ queryKey: MY_PAGE_IDENTITY_KEY });
     } catch (error) {
-      console.error("❌ Failed to clear revoName:", error);
-      toast.error("Failed to clear revoName");
+      console.error("❌ Failed to clear the RNS name:", error);
+      toast.error("We could not remove the RNS name from your page. Try again.");
     }
-  }, [state]);
+  }, [setSavedRevoName]);
 
   const setDefault = useCallback(() => {
     console.group("🔄 Resetting to Default");
@@ -678,6 +701,7 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
     saveStatus,
     hasUnsavedChanges,
     flushSave,
+    keepUnsavedEdits,
     previewOverride,
     setPreviewOverride,
     selectedBlockId,
@@ -695,6 +719,7 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
     setBackgroundForUpload,
     saveChanges,
     clearRevoName,
+    setSavedRevoName,
     setDefault,
     addToGallery,
     removeFromGallery,
@@ -702,14 +727,6 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
     setSelectedPoolId,
     exportTheme,
     replaceThemeConfig,
-    expiredRevoName,
-    lostRevoName,
-    revoNameError,
-    dismissRevoName: async () => {
-      await clearRevoName();
-      setLostRevoName("");
-      setExpiredRevoName("");
-    },
   };
 
   return <EditorContext.Provider value={value}>{children}</EditorContext.Provider>;

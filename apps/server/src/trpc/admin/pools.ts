@@ -700,8 +700,9 @@ export const adminPoolsRouter = router({
           try {
             await prisma.$transaction(async (tx) => {
               // Delete all stake events for this pool
+              // Only stake and unstake rows are rebuilt; create and claim rows stay (rows 067 to 069)
               await tx.stakeEvent.deleteMany({
-                where: { poolId: pool.id },
+                where: { poolId: pool.id, eventType: { in: ["stake", "unstake"] } },
               });
 
               // Delete all staked pools for this pool
@@ -756,7 +757,7 @@ export const adminPoolsRouter = router({
 
           try {
             await prisma.$transaction(async (tx) => {
-              await tx.stakeEvent.deleteMany({ where: { poolId: pool.id } });
+              await tx.stakeEvent.deleteMany({ where: { poolId: pool.id, eventType: { in: ["stake", "unstake"] } } });
               await tx.stakedPool.deleteMany({ where: { poolId: pool.id } });
             });
           } catch (error) {
@@ -776,7 +777,7 @@ export const adminPoolsRouter = router({
         // No on-chain events found — clean up existing data to stay consistent
         try {
           await prisma.$transaction(async (tx) => {
-            await tx.stakeEvent.deleteMany({ where: { poolId: pool.id } });
+            await tx.stakeEvent.deleteMany({ where: { poolId: pool.id, eventType: { in: ["stake", "unstake"] } } });
             await tx.stakedPool.deleteMany({ where: { poolId: pool.id } });
           });
         } catch (error) {

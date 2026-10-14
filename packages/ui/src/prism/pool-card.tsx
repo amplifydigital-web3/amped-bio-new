@@ -34,11 +34,20 @@ function PoolArt({
   className?: string;
   iconClassName?: string;
 }) {
+  // A missing or broken image falls back to the trophy tile, never to alt text
+  // or a broken image icon (QA-011)
+  const [failed, setFailed] = React.useState(false);
+  React.useEffect(() => setFailed(false), [url]);
   return (
     // Spans, not divs: the art sits inside button cards, which allow phrasing content only
     <span className={cn("block overflow-hidden bg-prism-value-panel-2", className)}>
-      {url ? (
-        <img src={url} alt={alt} className="h-full w-full object-cover" />
+      {url && !failed ? (
+        <img
+          src={url}
+          alt={alt}
+          className="h-full w-full object-cover"
+          onError={() => setFailed(true)}
+        />
       ) : (
         <span className="flex h-full w-full items-center justify-center" aria-hidden>
           <Trophy className={cn("text-prism-value-ink", iconClassName)} strokeWidth={1.5} />
@@ -179,8 +188,9 @@ export function PoolCardMedium({
       {...(href ? { href } : onSelect ? { type: "button" as const, onClick: onSelect } : {})}
       aria-label={ariaLabel}
       className={cn(
-        "prism-glass-clear prism-focus flex w-full flex-col gap-2 p-2 text-left font-prism transition-shadow duration-prism-hover ease-prism",
-        interactive && "hover:shadow-prism-e4",
+        "prism-glass-clear prism-focus flex w-full flex-col gap-2 p-2 text-left font-prism",
+        // An openable card rises 3 on hover (#26); prism-lift carries the shadow transition
+        interactive && "prism-lift hover:shadow-prism-e4",
         className
       )}
     >

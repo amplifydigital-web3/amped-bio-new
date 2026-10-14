@@ -79,7 +79,7 @@ export default function FollowingTab({ onExploreCreators }: { onExploreCreators?
 
   const update = useMutation(trpc.follow.update.mutationOptions());
   const unfollow = useMutation(trpc.follow.unfollow.mutationOptions());
-  const follow = useMutation(trpc.follow.follow.mutationOptions());
+  const undoUnfollow = useMutation(trpc.follow.undoUnfollow.mutationOptions());
 
   const refresh = async () => {
     setCursor(undefined);
@@ -105,27 +105,24 @@ export default function FollowingTab({ onExploreCreators }: { onExploreCreators?
   const doUnfollow = async (item: FollowingItem) => {
     if (!item.handle) return;
     try {
-      await unfollow.mutateAsync({ handle: item.handle });
+      const { restoreToken } = await unfollow.mutateAsync({ handle: item.handle });
       setItems(previous => previous.filter(row => row.creatorId !== item.creatorId));
       toast.add({
         type: "success",
         title: `You unfollowed ${item.name}.`,
-        actionProps: {
-          children: "Undo",
-          onClick: () => {
-            void follow
-              .mutateAsync({
-                handle: item.handle!,
-                source: "explore",
-                showPublicly: item.showPublicly,
-                emailUpdates: item.emailUpdates,
-              })
-              .then(refresh)
-              .catch(() =>
-                toast.add({ type: "error", title: "Could not undo. Try again." })
-              );
-          },
-        },
+        duration: 8000,
+        // Undo restores the follow as it was, with its settings and date (QA-033)
+        actionProps: restoreToken
+          ? {
+              children: "Undo",
+              onClick: () => {
+                void undoUnfollow
+                  .mutateAsync({ token: restoreToken })
+                  .then(refresh)
+                  .catch(() => toast.add({ type: "error", title: "Undo is no longer available." }));
+              },
+            }
+          : undefined,
       });
     } catch {
       toast.add({ type: "error", title: "That didn't work. Try again." });

@@ -1,79 +1,81 @@
 import type { Metadata } from "next";
-import { unified } from "unified";
-import remarkParse from "remark-parse";
-import remarkGfm from "remark-gfm";
-import remarkRehype from "remark-rehype";
-import rehypeSlug from "rehype-slug";
-import rehypePrettyCode from "rehype-pretty-code";
-import rehypeStringify from "rehype-stringify";
-import { getDocBySlug, getDocSlugs } from "@/lib/docs";
+import { notFound } from "next/navigation";
+import { ARTICLE_CARD_CLASS, ARTICLE_PROSE_CLASS } from "@/components/article/articleStyles";
+import { BrandButtons } from "@/components/docs/BrandButtons";
+import { DocsEnhance } from "@/components/docs/DocsEnhance";
 import { DocsIndex } from "@/components/docs/DocsIndex";
-import { DocsCodeCopy } from "@/components/docs/DocsCodeCopy";
+import { DocsPager } from "@/components/docs/DocsPager";
+import { DocsToc } from "@/components/docs/DocsToc";
+import { getDocBySlug, getDocNeighbors, getDocSlugs } from "@/lib/docs";
+import { renderDoc } from "@/lib/docsRender";
 
 interface DocPageProps {
   params: Promise<{ slug?: string[] }>;
 }
 
-async function renderMarkdown(markdown: string): Promise<string> {
-  const file = await unified()
-    .use(remarkParse)
-    .use(remarkGfm)
-    .use(remarkRehype)
-    .use(rehypeSlug)
-    .use(rehypePrettyCode, { theme: "github-dark", keepBackground: false })
-    .use(rehypeStringify)
-    .process(markdown);
+const BRAND_BUTTONS_MARKER = "<p>{{BRAND_BUTTONS}}</p>";
 
-  return String(file);
-}
+export const dynamicParams = false;
 
 export function generateStaticParams() {
-  return getDocSlugs().map(slug => ({ slug: [slug] }));
+  return [{ slug: [] }, ...getDocSlugs().map(slug => ({ slug: [slug] }))];
 }
 
 export async function generateMetadata({ params }: DocPageProps): Promise<Metadata> {
   const { slug } = await params;
-
   if (!slug?.[0]) {
     return {
-      title: "Developers | Amped.bio",
-      description: "Add Sign in with Amped.bio to your application using OAuth 2.1 and OpenID Connect.",
+      title: "Developers | Amped.Bio",
+      description:
+        "Add Sign in with Amped.Bio to your application using OAuth 2.1 and OpenID Connect.",
     };
   }
-
-  const doc = getDocBySlug(slug[0]);
-  if (!doc) return { title: "Developers | Amped.bio" };
-
-  return {
-    title: `${doc.title} | Amped.bio Developers`,
-    description: doc.description,
-  };
+  const doc = slug.length === 1 ? getDocBySlug(slug[0]) : null;
+  if (!doc) return { title: "Page not found | Amped.Bio", robots: { index: false } };
+  return { title: `${doc.title} | Amped.Bio Developers`, description: doc.description };
 }
 
 export default async function DocPage({ params }: DocPageProps) {
   const { slug } = await params;
 
-  // `/docs` renders the index; `/docs/<slug>` renders the documentation page.
+  // /docs renders the Developers home; an unknown page is a 404 (090 I17)
   if (!slug?.[0]) return <DocsIndex />;
+  const doc = slug.length === 1 ? getDocBySlug(slug[0]) : null;
+  if (!doc) notFound();
 
-  const doc = getDocBySlug(slug[0]);
-  if (!doc) return <DocsIndex />;
-
-  const html = await renderMarkdown(doc.content);
+  const { html, headings } = await renderDoc(doc.content);
+  const [before, after] = html.includes(BRAND_BUTTONS_MARKER)
+    ? html.split(BRAND_BUTTONS_MARKER)
+    : [html, null];
+  const { previous, next } = getDocNeighbors(doc.slug);
 
   return (
-    <article className="max-w-3xl pb-16">
-      <header className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">{doc.title}</h1>
-        {doc.description ? <p className="mt-3 leading-7 text-gray-600">{doc.description}</p> : null}
-      </header>
-
-      <DocsCodeCopy>
-        <div
-          className="text-gray-700 [&_a]:text-blue-600 [&_a]:underline [&_blockquote]:my-5 [&_blockquote]:border-l-4 [&_blockquote]:border-blue-200 [&_blockquote]:bg-blue-50 [&_blockquote]:px-4 [&_blockquote]:py-3 [&_code]:rounded [&_code]:bg-gray-100 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:text-sm [&_h2]:mb-3 [&_h2]:mt-10 [&_h2]:text-2xl [&_h2]:font-semibold [&_h2]:text-gray-900 [&_h3]:mb-2 [&_h3]:mt-8 [&_h3]:text-lg [&_h3]:font-semibold [&_h3]:text-gray-900 [&_li]:leading-7 [&_ol]:mb-4 [&_ol]:list-decimal [&_ol]:space-y-1 [&_ol]:pl-6 [&_p]:mb-4 [&_p]:leading-7 [&_pre]:my-5 [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_table]:w-full [&_table]:border-collapse [&_table]:text-sm [&_td]:border [&_td]:border-gray-200 [&_td]:px-3 [&_td]:py-2 [&_th]:border [&_th]:border-gray-200 [&_th]:bg-gray-50 [&_th]:px-3 [&_th]:py-2 [&_th]:text-left [&_th]:font-semibold [&_th]:text-gray-900 [&_ul]:mb-4 [&_ul]:list-disc [&_ul]:space-y-1 [&_ul]:pl-6"
-          dangerouslySetInnerHTML={{ __html: html }}
-        />
-      </DocsCodeCopy>
-    </article>
+    <div className="flex items-start gap-[34px]">
+      <div className="min-w-0 flex-1">
+        <article className={ARTICLE_CARD_CLASS}>
+          <header className="mx-auto max-w-[610px]">
+            <h1 className="text-prism-card-title text-prism-ink">{doc.title}</h1>
+            {doc.description && (
+              <p className="mt-[8px] text-prism-body text-prism-ink-2">{doc.description}</p>
+            )}
+          </header>
+          <DocsEnhance>
+            <div className={`mx-auto mt-[34px] max-w-[610px] ${ARTICLE_PROSE_CLASS}`}>
+              <div dangerouslySetInnerHTML={{ __html: before }} />
+              {after !== null && (
+                <>
+                  <BrandButtons />
+                  <div dangerouslySetInnerHTML={{ __html: after }} />
+                </>
+              )}
+            </div>
+          </DocsEnhance>
+        </article>
+        <div className="mx-auto max-w-[720px]">
+          <DocsPager previous={previous} next={next} />
+        </div>
+      </div>
+      <DocsToc headings={headings} />
+    </div>
   );
 }

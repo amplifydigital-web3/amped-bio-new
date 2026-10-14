@@ -3,12 +3,14 @@ import { z } from "zod";
 import { adminProcedure, router } from "../trpc";
 import { auth } from "../../utils/auth";
 import { prisma } from "@repo/database";
+import { assertSkipConsentAllowed } from "./oauthTrust";
 
 function toTRPCError(error: unknown): never {
   if (error instanceof TRPCError) throw error;
 
   const message =
-    (error as { body?: { message?: string; error_description?: string } })?.body?.error_description ??
+    (error as { body?: { message?: string; error_description?: string } })?.body
+      ?.error_description ??
     (error as { body?: { message?: string } })?.body?.message ??
     (error as Error)?.message ??
     "OAuth request failed";
@@ -40,6 +42,8 @@ export const oauthAppsAdminRouter = router({
         userId: true,
         referenceId: true,
         clientSecret: true, // needed for hasSecret check; stripped from response below
+        // 094 I02: the owner, person first (Amped.Bio team for admin owners)
+        user: { select: { name: true, handle: true, role: true } },
       },
     });
 
@@ -81,6 +85,7 @@ export const oauthAppsAdminRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      assertSkipConsentAllowed(input.skip_consent, input.redirect_uris);
       try {
         return await auth.api.adminCreateOAuthClient({
           headers: ctx.req.headers as never,
@@ -106,6 +111,21 @@ export const oauthAppsAdminRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      // 094 D1: check the client as it will be after the update, so changing
+      // only the URIs of a skip consent client is held to the same rule.
+      if (input.update.skip_consent === true || input.update.redirect_uris) {
+        const existing = await prisma.oauthClient.findUnique({
+          where: { clientId: input.client_id },
+          select: { skipConsent: true, redirectUris: true },
+        });
+        if (!existing) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "OAuth client not found" });
+        }
+        assertSkipConsentAllowed(
+          input.update.skip_consent ?? existing.skipConsent,
+          input.update.redirect_uris ?? parseRedirectUris(existing.redirectUris)
+        );
+      }
       try {
         return await auth.api.adminUpdateOAuthClient({
           headers: ctx.req.headers as never,
@@ -142,7 +162,9 @@ export function parseRedirectUris(value: string | null): string[] {
 
   try {
     const parsed = JSON.parse(value);
-    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === "string") : [];
+    return Array.isArray(parsed)
+      ? parsed.filter((item): item is string => typeof item === "string")
+      : [];
   } catch {
     return [];
   }

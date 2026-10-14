@@ -1,11 +1,12 @@
 import { useState } from "react";
 import SlateEditor from "@/components/blocks/text/TextEditor/SlateEditor";
 import { useEditor } from "@/contexts/EditorContext";
+import { useOpenParam } from "@/hooks/useOpenParam";
 import { PhotoControl } from "./PhotoControl";
-import { RevoNameField, RevoNameNotice } from "./RevoNameField";
 
 // Screen Review 017, 018 (D03). The profile header card: photo, Display name,
-// the handle, RevoName and Bio in the order visitors read them. Everything
+// the handle and Bio in the order visitors read them. The RNS name has its
+// own section under this card (108 I12). Everything
 // autosaves (D11); the preview updates as you type.
 //
 // 022: Import from X lives in this card's overflow menu once a server lookup
@@ -14,7 +15,14 @@ import { RevoNameField, RevoNameNotice } from "./RevoNameField";
 export function ProfileHeaderCard() {
   const { profile, setProfile, setActivePanelAndNavigate } = useEditor();
   const [nameBlurred, setNameBlurred] = useState(false);
-  const showRNS = import.meta.env.VITE_SHOW_RNS === "true";
+  // 053 I06: ?open=bio (Testnet faucet Write bio) focuses the Bio editor
+  useOpenParam("bio", () =>
+    requestAnimationFrame(() => {
+      const editor = document.querySelector<HTMLElement>('[aria-labelledby="bio-label"]');
+      editor?.scrollIntoView({ behavior: "smooth", block: "center" });
+      editor?.focus({ preventScroll: true });
+    })
+  );
 
   return (
     <section aria-label="Profile" className="prism-glass-clear space-y-[21px] p-[21px] font-prism">
@@ -56,9 +64,6 @@ export function ProfileHeaderCard() {
           </button>
         </div>
       </div>
-
-      {showRNS && <RevoNameNotice />}
-      {showRNS && <RevoNameField />}
 
       <div className="space-y-2">
         <p id="bio-label" className="text-prism-label font-semibold text-prism-ink">

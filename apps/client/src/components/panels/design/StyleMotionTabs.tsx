@@ -1,3 +1,6 @@
+import { useState } from "react";
+import { useSearchParams } from "react-router";
+import { useOpenParam } from "@/hooks/useOpenParam";
 import { DisclosureGroup, DisclosureRowSkeleton } from "./kit/DisclosureRow";
 import { LockedThemeNotice } from "./kit/Notices";
 import { useDesign } from "./kit/useDesign";
@@ -22,6 +25,10 @@ function Loading({ rows }: { rows: number }) {
 
 export function StyleTab() {
   const { profile, locked } = useDesign();
+  // 053 I06: ?open=background (Testnet faucet Set background) opens that row
+  const [params] = useSearchParams();
+  const [openBackground] = useState(() => params.get("open") === "background");
+  useOpenParam("background", () => undefined);
   if (!profile.id) return <Loading rows={4} />;
   return (
     <>
@@ -29,6 +36,7 @@ export function StyleTab() {
       <DisclosureGroup
         storageKey="amped:design-style-open"
         defaultOpen="background"
+        initialOpen={openBackground ? "background" : null}
         readOnly={locked}
       >
         <BackgroundRow />

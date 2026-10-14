@@ -2,7 +2,6 @@
 
 interface ImportMetaEnv {
   readonly VITE_LANDINGPAGE_URL: string;
-  readonly VITE_REWARD_URL: string;
   readonly VITE_SHOW_REWARD: string;
   readonly VITE_SHOW_CREATOR_POOL: string;
   readonly VITE_SHOW_RNS: string;
@@ -10,6 +9,8 @@ interface ImportMetaEnv {
   readonly VITE_RNS_IDENTITY?: string;
   readonly VITE_RNS_ATTRIBUTES?: string;
   readonly VITE_RNS_FACETS?: string;
+  /** Facet request dialog (Screen Review 107). Off until the proof API exists. */
+  readonly VITE_SHOW_FACET_REQUEST?: string;
   /** USD by card through Authbase checkout (078 D1, 080 D1). Off until wired. */
   readonly VITE_RNS_CARD_CHECKOUT?: string;
   readonly VITE_SHOW_GALLERY: string;
@@ -21,7 +22,9 @@ interface ImportMetaEnv {
   readonly VITE_WEB3AUTH_AUTH_CONNECTION_ID: string;
   readonly VITE_WEB3AUTH_NETWORK: string;
   readonly VITE_SHOW_WALLET: string;
-readonly VITE_FAN_GRAPH?: string;
+  readonly VITE_FAN_GRAPH?: string;
+  /** Explore NFTs tab (Screen Review 044, D07). Off until NFT data exists. */
+  readonly VITE_SHOW_NFTS?: string;
   /** Creator Pool Broadcast (Build Board #1): My Pool Broadcasts tab and the Inbox */
   readonly VITE_SHOW_BROADCAST: string;
   readonly VITE_DEFAULT_NETWORK_ID_HEX: `0x${string}`;

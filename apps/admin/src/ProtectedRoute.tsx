@@ -1,35 +1,122 @@
-import { ReactNode } from "react";
-import { ExternalRedirect, useAuth } from "@repo/ui";
-import { Loader2 } from "lucide-react";
+import { ReactNode, useEffect, useState } from "react";
+import { AlertCircle, RotateCcw } from "lucide-react";
+import { Button, useAuth } from "@repo/ui";
+
+// Screen Review 081 I10: the admin gate follows the editor rules. The room
+// paints at once, the admin shell skeleton after 400ms, the timeout card
+// after 10 s. Signed out goes to sign in with this URL as returnTo; a
+// signed in account without the admin role goes to amped.bio before any
+// admin chrome renders.
+const SKELETON_AFTER_MS = 400;
+const TIMEOUT_MS = 10_000;
+
+const BAR = "block rounded-prism-13 bg-prism-line motion-safe:animate-pulse";
+
+function useAfter(ms: number) {
+  const [done, setDone] = useState(false);
+  useEffect(() => {
+    const timer = setTimeout(() => setDone(true), ms);
+    return () => clearTimeout(timer);
+  }, [ms]);
+  return done;
+}
+
+function AdminShellSkeleton() {
+  return (
+    <div aria-busy="true" className="prism-room min-h-dvh font-prism text-prism-ink">
+      <p role="status" className="sr-only">
+        Loading admin
+      </p>
+      <div
+        aria-hidden
+        className="prism-dock fixed bottom-[21px] left-[21px] top-[21px] hidden w-[89px] flex-col items-center gap-2 rounded-prism-34 p-[13px] md:flex"
+      >
+        {Array.from({ length: 8 }).map((_, index) => (
+          <span key={index} className={`${BAR} h-16 w-[61px] !rounded-[27px]`} />
+        ))}
+      </div>
+      <div aria-hidden className="space-y-[13px] p-[13px] md:pl-[131px] md:pr-[21px] md:pt-[21px]">
+        <div className="prism-glass-nav flex h-commit items-center rounded-prism-34 pl-[21px] pr-[5px]">
+          <span className={`${BAR} h-5 w-[144px]`} />
+          <span className="flex-1" />
+          <span className={`${BAR} h-touch w-touch !rounded-full`} />
+        </div>
+        <div className="prism-slab overflow-hidden">
+          {Array.from({ length: 8 }).map((_, index) => (
+            <div
+              key={index}
+              className="flex h-touch items-center gap-[13px] border-b border-prism-line px-4 last:border-b-0"
+            >
+              <span className={`${BAR} h-3 w-1/4`} />
+              <span className={`${BAR} h-3 w-1/3`} />
+              <span className="flex-1" />
+              <span className={`${BAR} h-3 w-[55px]`} />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TimeoutCard() {
+  return (
+    <div className="prism-room flex min-h-dvh items-center justify-center px-[13px] font-prism text-prism-ink">
+      <section
+        role="alert"
+        className="prism-glass-clear w-full max-w-[508px] !rounded-prism-21 p-[21px] sm:p-[34px]"
+      >
+        <AlertCircle aria-hidden className="h-[21px] w-[21px] text-prism-danger" />
+        <h1 className="mt-[13px] text-prism-panel-title text-prism-ink">
+          We did not confirm your sign in
+        </h1>
+        <p className="mt-2 text-prism-body text-prism-ink-2">
+          The server took too long to respond.
+        </p>
+        <Button
+          type="button"
+          size="lg"
+          className="mt-[21px]"
+          onClick={() => window.location.reload()}
+        >
+          <RotateCcw aria-hidden />
+          Retry
+        </Button>
+      </section>
+    </div>
+  );
+}
+
+function leave(to: string) {
+  window.location.replace(to);
+}
 
 export function ProtectedRoute({ children }: { children: ReactNode }) {
   const { isPending, authUser } = useAuth();
+  const showSkeleton = useAfter(SKELETON_AFTER_MS);
+  const timedOut = useAfter(TIMEOUT_MS);
+  const landing = import.meta.env.VITE_LANDINGPAGE_URL;
+  const isAdmin = !!authUser?.role.includes("admin");
 
-  // Show loading while checking authentication status
+  useEffect(() => {
+    document.title = isPending ? "Amped.Bio" : "Admin · Amped.Bio";
+  }, [isPending]);
+
+  useEffect(() => {
+    if (isPending) return;
+    if (authUser === null) {
+      leave(`${landing}/login?returnTo=${encodeURIComponent(window.location.href)}`);
+    } else if (!isAdmin) {
+      leave(landing);
+    }
+  }, [isPending, authUser, isAdmin, landing]);
+
   if (isPending) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
-        <div className="text-center p-8">
-          <div className="relative">
-            <Loader2 className="h-12 w-12 animate-spin text-blue-600 mx-auto mb-6" />
-            <div className="absolute inset-0 h-12 w-12 rounded-full border-2 border-blue-200 border-t-transparent animate-pulse mx-auto"></div>
-          </div>
-          <h2 className="text-xl font-semibold text-gray-800 mb-2">Loading...</h2>
-          <p className="text-gray-600">Checking authentication status</p>
-        </div>
-      </div>
-    );
+    if (timedOut) return <TimeoutCard />;
+    return showSkeleton ? <AdminShellSkeleton /> : <div className="prism-room min-h-dvh" />;
   }
-
-  // Redirect to the public site with the login popup open if not authenticated
-  if (authUser === null) {
-    return <ExternalRedirect to={`${import.meta.env.VITE_LANDINGPAGE_URL}/login`} />;
-  }
-
-  // Only admins can access this app
-  if (!authUser.role.includes("admin")) {
-    return <ExternalRedirect to={import.meta.env.VITE_LANDINGPAGE_URL} />;
-  }
+  // Signed out or not an admin: only the room while the redirect runs
+  if (!isAdmin) return <div className="prism-room min-h-dvh" />;
 
   return <>{children}</>;
 }

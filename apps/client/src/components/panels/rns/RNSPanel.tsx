@@ -1,36 +1,19 @@
-import { useRNSNavigation } from "@/contexts/RNSNavigationContext";
-import AddressPage from "@/pages/rns/AddressPage";
-import HomePage from "@/pages/rns/HomePage";
-import MyNamesPage from "@/pages/rns/MyNamesPage";
-import ProfilePage from "@/pages/rns/ProfilePage";
-import RegisterPage from "@/pages/rns/RegisterPage";
-import SuccessPage from "@/pages/rns/SuccessPage";
+import { useEffect } from "react";
+import { useLocation, useNavigate } from "react-router";
+import { legacyRnsPath } from "@/contexts/RNSNavigationContext";
 
+/**
+ * Screen Review 101 I01: the separate RNS panel is gone. RNS is the third
+ * Wallet tab; old /rns?t= links land on the matching Wallet view.
+ */
 export function RNSPanel() {
-  const { currentView } = useRNSNavigation();
+  const location = useLocation();
+  const navigate = useNavigate();
 
-  const renderView = () => {
-    switch (currentView.type) {
-      case "home":
-        return <HomePage />;
-      case "register":
-        return <RegisterPage name={currentView.name} />;
-      case "my-names":
-        return <MyNamesPage />;
-      case "profile":
-        return <ProfilePage name={currentView.name} />;
-      case "address":
-        return <AddressPage address={currentView.address} />;
-      case "success":
-        return <SuccessPage />;
-      default:
-        return <HomePage />;
-    }
-  };
+  useEffect(() => {
+    const t = new URLSearchParams(location.search).get("t");
+    navigate(legacyRnsPath(t), { replace: true });
+  }, [location.search, navigate]);
 
-  return (
-    <div id="rns-scroll-container" className="h-full w-full overflow-y-auto bg-gray-50">
-      {renderView()}
-    </div>
-  );
+  return null;
 }

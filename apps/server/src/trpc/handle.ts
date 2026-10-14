@@ -9,7 +9,13 @@ import { sanitizeBlockConfig } from "../utils/sanitizeBlockConfig";
 import { logger } from "better-auth";
 import { getPublicTrackingPixels } from "./trackingPixels";
 import { indexableUserWhere, isUserIndexable } from "../utils/indexable";
-import { checkRnsBindingCached } from "../services/rns";
+import {
+  computeRnsIdentity,
+  parseRnsDisplay,
+  rnsIdBlockOptions,
+  type PublicRnsIdentity,
+} from "../services/rnsIdentity";
+import { assertHandleAvailable, newHandleSchema } from "../services/pageHandle";
 
 export const SITEMAP_MAX_PAGE_SIZE = 10000;
 
@@ -29,8 +35,6 @@ export const handleBaseSchema = z
 export const handleParamSchema = z.object({
   handle: handleBaseSchema,
 });
-
-type RevoNameStatus = "active" | "expired" | "taken" | null;
 
 // Load the user's theme and resolve its background file into a public URL
 async function getPublicTheme(themeId: number) {
@@ -54,35 +58,6 @@ async function getPublicTheme(themeId: number) {
   // Return a clean DTO instead of the raw Prisma row (no relations) so the
   // tRPC output stays shallow and type-safe for consumers
   return { id: theme.id, name: theme.name, config: themeConfig ?? null };
-}
-
-// Screen Review 100 I03, I04: the public page shows the stored RNS name only
-// when it is bound to the page wallet (owner and resolver addr equal the
-// wallet, registration expiry in the future). No wallet or a failed read shows
-// no name. expired and taken let the owner's editor explain why it is gone.
-async function validateRevoName(
-  revoName: string | null,
-  walletAddress: string | null
-): Promise<{ revoName: string | null; status: RevoNameStatus }> {
-  const cleared = { revoName: null, status: null };
-  if (!revoName || !walletAddress) return cleared;
-
-  try {
-    const result = await checkRnsBindingCached(revoName, walletAddress);
-    if (result.ok) return { revoName: result.name, status: "active" };
-    if (result.reason === "expired") return { revoName: null, status: "expired" };
-    if (
-      result.reason === "not_owner" ||
-      result.reason === "addr_elsewhere" ||
-      result.reason === "not_found"
-    ) {
-      return { revoName: null, status: "taken" };
-    }
-    return cleared;
-  } catch (err) {
-    console.warn("[revoName] RNS binding check failed, hiding the name:", err);
-    return cleared;
-  }
 }
 
 // Unwrap an optional result: log the failure and fall back instead of failing the request
@@ -124,44 +99,13 @@ const appRouter = router({
 
   // Redeem/change a user's handle
   redeem: privateProcedure
-    .input(
-      z.object({
-        newHandle: z
-          .string()
-          .transform(value => (value.startsWith("@") ? value.substring(1) : value)) // Normalize by removing @ prefix if present
-          .pipe(
-            z
-              .string()
-              .min(HANDLE_MIN_LENGTH, `Name must be at least ${HANDLE_MIN_LENGTH} characters`)
-              .regex(
-                HANDLE_REGEX,
-                "Name can only contain letters, numbers, underscores and hyphens"
-              )
-              .transform(value => value.toLowerCase()) // Force lowercase for storage
-          ),
-      })
-    )
+    .input(z.object({ newHandle: newHandleSchema }))
     .mutation(async ({ ctx, input }) => {
       const { newHandle } = input;
       const userId = ctx.user!.sub;
 
       try {
-        const existingHandle = await prisma.user.findFirst({
-          where: {
-            OR: [
-              { handle: newHandle },
-              { handle: newHandle.toLowerCase() },
-              { handle: newHandle.toUpperCase() },
-            ],
-          },
-        });
-
-        if (existingHandle) {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "This handle is already taken",
-          });
-        }
+        await assertHandleAvailable(prisma, newHandle);
 
         await prisma.user.update({
           where: {
@@ -202,8 +146,10 @@ const appRouter = router({
       });
 
       // Fan Graph (#22): an account made from Follow has no public page until
-      // its owner publishes one, so its handle reads as not found.
-      if (user === null || user.page_status !== "PUBLISHED") {
+      // its owner publishes one, so its handle reads as not found to everyone
+      // else. The owner still loads it to open the editor (QA-041).
+      const isOwner = user !== null && opts.ctx.user?.sub === user.id;
+      if (user === null || (user.page_status !== "PUBLISHED" && !isOwner)) {
         throw new TRPCError({
           code: "NOT_FOUND",
           message: `Handle not found: ${handle}`,
@@ -231,32 +177,44 @@ const appRouter = router({
         id: user_id,
         name,
         revo_name,
+        rns_display,
         description,
         image,
         image_file_id,
+        created_at,
       } = user;
 
-      const [themeResult, blocksResult, imageResult, revoNameResult, trackingPixelsResult] =
+      // The RNS ID block (112) sets which identity fields the page asks for,
+      // so the blocks are read before the identity
+      const blockRows = await prisma.block.findMany({
+        where: {
+          user_id: Number(user_id),
+        },
+      });
+
+      const blockOptions = rnsIdBlockOptions(blockRows);
+      const [themeResult, imageResult, identityResult, trackingPixelsResult] =
         await Promise.allSettled([
           getPublicTheme(Number(theme_id)),
-          prisma.block.findMany({
-            where: {
-              user_id: Number(user_id),
-            },
-          }),
           getFileUrl({
             legacyImageField: image,
             imageFileId: image_file_id,
           }),
-          validateRevoName(revo_name ?? null, user.wallet?.address ?? null),
+          // 108 I02, 109 I01: the binding and the owner's limits are applied
+          // here, so a hidden field never reaches a visitor
+          computeRnsIdentity({
+            storedName: revo_name ?? null,
+            wallet: user.wallet?.address ?? null,
+            display: parseRnsDisplay(rns_display),
+            block: blockOptions,
+          }),
           getPublicTrackingPixels(user_id),
         ]);
 
-      // Theme and blocks are the profile itself, so their failures are fatal
+      // The theme is the profile itself, so its failure is fatal
       if (themeResult.status === "rejected") throw themeResult.reason;
-      if (blocksResult.status === "rejected") throw blocksResult.reason;
 
-      const publicBlocks = blocksResult.value.map(block => ({
+      const publicBlocks = blockRows.map(block => ({
         id: block.id,
         user_id: block.user_id,
         type: block.type,
@@ -267,23 +225,29 @@ const appRouter = router({
         updated_at: block.updated_at,
       }));
 
-      const revoName = settledOrFallback(
-        revoNameResult,
-        { revoName: null, status: null },
-        "revoName validation"
-      );
+      // Any failure shows no chip (fails closed)
+      const identity: PublicRnsIdentity =
+        identityResult.status === "fulfilled" ? identityResult.value.identity : null;
+      if (identityResult.status === "rejected") {
+        console.error("[getHandle] RNS identity failed, showing no chip:", identityResult.reason);
+      }
 
       const result = {
         user: {
           id: user_id,
           name,
           // Email is private. It is never part of a public profile response.
-          revoName: revoName.revoName,
-          revoNameStatus: revoName.status,
-          originalRevoName: revo_name ?? null,
+          // 109 I01: the RNS chip and what the owner allows in the sheet. The
+          // name's private status lives in rns.getMyPageIdentity (108 I02).
+          identity,
           // Sanitized on read as well as on save, so bios stored before the sanitizer are safe
           description: sanitizeRichText(description),
           image: settledOrFallback(imageResult, null, "profile image URL"),
+          // 112: the month the page joined, for the RNS ID block (day dropped).
+          // A privacy record, not an accident: the month only leaves the server
+          // when the page carries a visible RNS ID block that asks for it.
+          since:
+            blockOptions.visible && created_at ? created_at.toISOString().slice(0, 7) : null,
         },
         theme: themeResult.value,
         blocks: publicBlocks,

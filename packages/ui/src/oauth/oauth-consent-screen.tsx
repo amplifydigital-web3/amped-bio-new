@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Check, Loader2 } from "lucide-react";
 import { authClient } from "../auth-client";
 import { Button } from "../button";
-import { describeOAuthScope } from "./oauth-scopes";
+import { consentSharesWallet, describeOAuthScope } from "./oauth-scopes";
 import { navigateToProviderRedirect, useOAuthFlowQuery } from "./use-oauth-flow-query";
 
 interface PublicClient {
@@ -28,7 +28,7 @@ function displayHost(uri?: string): string | null {
  * permissions it wants before the user approves or denies the request.
  */
 export function OAuthConsentScreen() {
-  const { clientId, scopes, search } = useOAuthFlowQuery();
+  const { clientId, scopes, claims, search } = useOAuthFlowQuery();
   const [client, setClient] = useState<PublicClient | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -100,6 +100,9 @@ export function OAuthConsentScreen() {
   }
 
   const host = displayHost(client?.client_uri);
+  // The server shares the wallet address when the client asks for the claim or
+  // holds the profile scope, so the consent screen must say so before Allow.
+  const sharesWallet = consentSharesWallet(scopes, claims);
 
   return (
     <div className="space-y-5">
@@ -113,7 +116,9 @@ export function OAuthConsentScreen() {
           </div>
         )}
         <div className="min-w-0">
-          <p className="truncate text-sm font-medium text-gray-900">{client?.client_name ?? clientId}</p>
+          <p className="truncate text-sm font-medium text-gray-900">
+            {client?.client_name ?? clientId}
+          </p>
           {host ? <p className="truncate text-xs text-gray-500">{host}</p> : null}
         </div>
       </div>
@@ -129,7 +134,8 @@ export function OAuthConsentScreen() {
               <li key={scope} className="flex items-start gap-2">
                 <Check className="mt-0.5 h-4 w-4 flex-shrink-0 text-blue-600" aria-hidden="true" />
                 <span className="text-sm text-gray-700">
-                  <span className="font-medium text-gray-900">{described.title}</span> - {described.description}
+                  <span className="font-medium text-gray-900">{described.title}</span> -{" "}
+                  {described.description}
                 </span>
               </li>
             );
@@ -137,12 +143,29 @@ export function OAuthConsentScreen() {
         </ul>
       </div>
 
+      {sharesWallet ? (
+        <div
+          role="note"
+          className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900"
+        >
+          <span className="font-medium">Your wallet address will be shared.</span> The public
+          address of the wallet linked to your Amped.bio account. Your private key is never shared.
+        </div>
+      ) : null}
+
       {error ? (
-        <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
+        <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {error}
+        </p>
       ) : null}
 
       <div className="flex gap-3">
-        <Button variant="outline" className="flex-1" onClick={() => void respond(false)} disabled={submitting}>
+        <Button
+          variant="outline"
+          className="flex-1"
+          onClick={() => void respond(false)}
+          disabled={submitting}
+        >
           Cancel
         </Button>
         <Button className="flex-1" onClick={() => void respond(true)} disabled={submitting}>

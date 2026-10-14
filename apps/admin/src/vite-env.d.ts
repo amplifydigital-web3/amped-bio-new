@@ -4,6 +4,8 @@ interface ImportMetaEnv {
   readonly VITE_LANDINGPAGE_URL: string;
   readonly VITE_API_URL: string;
   readonly VITE_AUTH_URL: string;
+  // Editor origin for Open editor (087 I02, I03)
+  readonly VITE_PANEL_URL?: string;
 }
 
 interface ImportMeta {

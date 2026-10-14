@@ -1,17 +1,29 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Check, Copy, ExternalLink, Pause, Pencil, Play } from "lucide-react";
+import { Pause, Pencil, Play } from "lucide-react";
 import { getPlatformIcon } from "@/lib/platforms";
 import { trpcClient } from "@/lib/trpc";
 import { normalizeHandle } from "@/lib/handle";
-import { Button, Skeleton, cn, THEME_DEFAULTS, themeCssVars } from "@repo/ui";
+import {
+  Button,
+  RnsIdentityChip,
+  RnsVerifiedMark,
+  Skeleton,
+  cn,
+  THEME_DEFAULTS,
+  themeCssVars,
+} from "@repo/ui";
 import { ParticlesBackground } from "@/components/ParticlesBackground";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { TextBlock } from "@/components/blocks/text/TextBlock";
 import { MediaBlock } from "@/components/blocks/MediaBlock";
 import { CreatorPoolBlock } from "@/components/blocks/CreatorPoolBlock";
 import { ReferralBlock } from "@/components/blocks/ReferralBlock";
+import { FollowBlock } from "@/components/blocks/FollowBlock";
+import { FollowersBlock } from "@/components/blocks/FollowersBlock";
+import { RnsIdBlock } from "@/components/blocks/RnsIdBlock";
+import { FollowContext } from "@/components/follow/FollowContext";
 import { useReferralHandler } from "@/hooks/useReferralHandler";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -41,10 +53,16 @@ import { useFollow } from "@/components/follow/useFollow";
 import {
   FirstFollowSheet,
   FollowButton,
+  FollowRetry,
   FollowerCount,
   FollowToastView,
 } from "@/components/follow/FollowControls";
-import { isRenderable, sanitizeRichHtml, type BlockType } from "@repo/constants";
+import {
+  blockCarriesFollow,
+  isRenderable,
+  sanitizeRichHtml,
+  type BlockType,
+} from "@repo/constants";
 import {
   DEFAULT_HANDLE,
   DEFAULT_PROFILE_DATA,
@@ -110,6 +128,9 @@ function ProfileSkeleton() {
 
 const PAUSE_KEY = "amped.motion.paused";
 
+/** QA-004: shows behind a video background until its first frame arrives. */
+const VIDEO_BACKDROP = "#14141C";
+
 /** Pause motion, remembered per visitor (041 I02). Storage may be unavailable. */
 function readPaused() {
   try {
@@ -171,7 +192,6 @@ export function ProfileView({
   } | null>(null);
   const [bannerMode, setBannerMode] = useState<"hidden" | "prompt" | "settings">("hidden");
   const [loading, setLoading] = useState(!initialData);
-  const [copied, setCopied] = useState(false);
 
   const { authUser, isPending: authPending } = useAuth();
   const { handleReferrerClick } = useReferralHandler();
@@ -183,16 +203,6 @@ export function ProfileView({
     process.env.NEXT_PUBLIC_FAN_GRAPH === "true" && normalizedHandle !== DEFAULT_HANDLE;
   const followState = useFollow(normalizedHandle, !!authUser, authPending || !followEnabled);
   const showRns = process.env.NEXT_PUBLIC_SHOW_RNS === "true";
-
-  const handleCopy = () => {
-    void navigator.clipboard
-      .writeText(profile?.revoName ?? "")
-      .then(() => {
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-      })
-      .catch(() => undefined);
-  };
 
   // Pause motion (041 I02): read the remembered choice once on the client
   useEffect(() => {
@@ -325,10 +335,13 @@ export function ProfileView({
   const themeConfig = theme?.config;
   const fontColor = themeConfig?.fontColor || THEME_DEFAULTS.fontColor;
   const textStyle = { fontFamily: themeConfig?.fontFamily, color: fontColor };
-  const revoNameUrl =
-    profile.revoName && showRns
-      ? `${process.env.NEXT_PUBLIC_RNS_URL}/#/profile/${profile.revoName.split(".")[0]}`
-      : null;
+  // 109 I05: Send opens the editor Send flow with the recipient filled in;
+  // signed out visitors pass through sign in and come back to it
+  const identity = showRns ? (profile.identity ?? null) : null;
+  const sendTo = identity?.label ?? identity?.wallet ?? null;
+  const sendHref = sendTo
+    ? `${process.env.NEXT_PUBLIC_PANEL_URL}/wallet?send=1&to=${encodeURIComponent(sendTo)}`
+    : null;
   const particlesEffect = themeConfig?.particlesEffect ?? THEME_DEFAULTS.particlesEffect;
   const heroEffect = themeConfig?.heroEffect ?? 0;
   // 041 I02: any looping motion gets the Pause motion control
@@ -336,21 +349,27 @@ export function ProfileView({
     (particlesEffect !== 0 && particlesEffect !== 6) || LOOPING_HERO_EFFECTS.includes(heroEffect);
   const containerOn = (themeConfig?.containerStyle ?? 0) !== 0;
   const background = themeConfig?.background;
-  const isGradient = background?.type === "color" && !!background.value?.includes("gradient");
   const renderable = blocks.filter(block => isRenderable(block));
   const hasPoolBlock = renderable.some(block => block.type === "pool");
 
   // 039 I03: one neutral frame capsule; nothing renders when it would be empty
   const isOwner = isOwnerView || (!!authUser && authUser.handle === normalizedHandle);
   const showViewPool = hasCreatorPool && !!creatorPoolAddress && !hasPoolBlock;
-  const showFollow = followEnabled && !isOwner && !!followState.status;
+  // Follow blocks (#30, spec 3.8): a renderable block with its own Follow
+  // button takes Follow and the count out of the capsule, so one Follow is on
+  // screen at a time. The sheet, toast and sign up return stay at page level.
+  const followActive = followEnabled && !isOwner;
+  const blockFollow = followEnabled && renderable.some(blockCarriesFollow);
+  const showFollow = followActive && !blockFollow && (!!followState.status || followState.failed);
   const showCapsule = showViewPool || isOwner || showFollow;
   const showPrivacyChoices = trackableProfileId !== null && consent !== null;
   const cardShowing = bannerMode !== "hidden" && trackableProfileId !== null;
 
   const photo = profile.photoCmp || profile.photoUrl;
 
-  return (
+  // The page tree. The FollowContext around it hands the one useFollow to the
+  // Follow and Followers blocks (spec 3.4).
+  const page = (
     <div
       className="relative min-h-dvh"
       style={{ ...themeCssVars(themeConfig), "--amped-font": fontColor } as React.CSSProperties}
@@ -359,16 +378,23 @@ export function ProfileView({
       <div
         aria-hidden
         className="fixed inset-0 z-0"
+        // QA-004: set only the background shorthand. Pairing it with
+        // backgroundColor makes React write background="" on the client,
+        // which clears the color and the video backdrop.
         style={{
-          backgroundColor:
-            background?.type === "color" && !isGradient ? background.value || undefined : undefined,
-          background: isGradient ? background?.value || undefined : undefined,
+          background:
+            background?.type === "color"
+              ? background.value || undefined
+              : background?.type === "video"
+                ? VIDEO_BACKDROP
+                : undefined,
         }}
       >
         {background?.type === "video" ? (
           <video
             ref={videoRef}
             src={background.value || ""}
+            poster={background.thumbnail || undefined}
             className="h-full w-full object-cover"
             autoPlay
             muted
@@ -432,47 +458,21 @@ export function ProfileView({
               style={textStyle}
             >
               {profile.name}
+              {identity?.chip === "verified" && <RnsVerifiedMark className="ml-2 align-[-3px]" />}
             </h1>
-            {/* 039 I09: RevoName row, never animated */}
-            {profile.revoName && showRns && (
-              <div className="mt-2 flex items-center justify-center gap-1" style={textStyle}>
-                {revoNameUrl ? (
-                  <a
-                    href={revoNameUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={cn(
-                      "flex min-h-[44px] min-w-0 items-center gap-1 text-[16px] font-semibold leading-[20px] underline-offset-2 hover:underline",
-                      CREATOR_FOCUS
-                    )}
-                  >
-                    <span className="break-all">{profile.revoName}</span>
-                    <ExternalLink aria-hidden className="h-[21px] w-[21px] shrink-0" />
-                    <span className="sr-only"> (opens in a new tab)</span>
-                  </a>
-                ) : (
-                  <span className="break-all text-[16px] font-semibold leading-[20px]">
-                    {profile.revoName}
-                  </span>
-                )}
-                <button
-                  type="button"
-                  onClick={handleCopy}
-                  aria-label="Copy RevoName"
-                  className={cn(
-                    "flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-full",
-                    CREATOR_FOCUS
-                  )}
-                >
-                  {copied ? (
-                    <Check aria-hidden className="h-[21px] w-[21px]" />
-                  ) : (
-                    <Copy aria-hidden className="h-[21px] w-[21px]" />
-                  )}
-                </button>
-                <span role="status" className="sr-only">
-                  {copied ? "Copied" : ""}
-                </span>
+            {/* 109 I06, I07: the RNS chip in the creator font and color, never animated */}
+            {identity && (
+              <div className="mt-2 flex justify-center">
+                <RnsIdentityChip
+                  identity={identity}
+                  displayName={profile.name}
+                  avatarUrl={photo || null}
+                  fontFamily={textStyle?.fontFamily}
+                  fontColor={fontColor}
+                  sendHref={sendHref}
+                  rnsUrl={process.env.NEXT_PUBLIC_RNS_URL}
+                  className={CREATOR_FOCUS}
+                />
               </div>
             )}
             {/* 039 I07: bio 16/26 at the creator's full text color */}
@@ -517,6 +517,26 @@ export function ProfileView({
                       theme={themeConfig as any}
                       pageOwnerId={profile.id}
                     />
+                  ) : block.type === "follow" ? (
+                    followEnabled && <FollowBlock block={block} theme={themeConfig} />
+                  ) : block.type === "followers" ? (
+                    followEnabled && (
+                      <FollowersBlock block={block} theme={themeConfig} handle={normalizedHandle} />
+                    )
+                  ) : block.type === "rnsid" ? (
+                    // 112: the same identity the header chip shows; nothing without it
+                    showRns && (
+                      <RnsIdBlock
+                        block={block}
+                        theme={themeConfig}
+                        identity={identity}
+                        displayName={profile.name}
+                        avatarUrl={photo || null}
+                        since={profile.since ?? null}
+                        sendHref={sendHref}
+                        rnsUrl={process.env.NEXT_PUBLIC_RNS_URL}
+                      />
+                    )
                   ) : (
                     <TextBlock block={block as any} theme={themeConfig as any} />
                   )}
@@ -609,11 +629,14 @@ export function ProfileView({
             <div
               className={cn("flex items-center gap-[5px]", showFollow && "w-full gap-2 sm:w-auto")}
             >
-              {showFollow && (
+              {showFollow && !followState.status && (
+                <FollowRetry busy={followState.busy} onRetry={() => void followState.retry()} />
+              )}
+              {showFollow && followState.status && (
                 <FollowButton
                   status={followState.status}
                   busy={followState.busy}
-                  onFollow={followState.startFollow}
+                  onFollow={() => followState.startFollow("page")}
                   onUnfollow={() => void followState.unfollow()}
                   onUpdate={patch => void followState.update(patch)}
                 />
@@ -638,7 +661,7 @@ export function ProfileView({
             </div>
           </nav>
         )}
-        {showFollow && (
+        {followActive && (
           <FirstFollowSheet
             open={followState.sheetOpen}
             onOpenChange={followState.setSheetOpen}
@@ -666,5 +689,11 @@ export function ProfileView({
         )}
       </div>
     </div>
+  );
+
+  return (
+    <FollowContext.Provider value={{ state: followState, isOwner, enabled: followEnabled }}>
+      {page}
+    </FollowContext.Provider>
   );
 }

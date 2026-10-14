@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
-import { ArrowDownUp, Check, ChevronDown, Search, X } from "lucide-react";
+import { ArrowDownUp, Check, ChevronDown, LayoutGrid, Rows3, Search, X } from "lucide-react";
 import {
   BottomSheet,
   BottomSheetClose,
@@ -17,12 +17,16 @@ import {
   TabsTrigger,
 } from "@repo/ui";
 import { useDebounce } from "@/hooks/useDebounce";
-import UsersTab from "./components/UsersTab";
+import UsersTab, { type UserView } from "./components/UsersTab";
 import PoolsTab from "./components/PoolsTab";
 import FollowingTab from "./components/FollowingTab";
 
 // Fan Graph (#22): Explore, Following (decision 6)
 const FAN_GRAPH = import.meta.env.VITE_FAN_GRAPH === "true";
+
+// Screen Review 044 (D07): NFTs is not rendered. It returns as a tab of this
+// container behind VITE_SHOW_NFTS (default off) once NFT data exists; until
+// then old ?t=nfts and ?tab=nfts links open Users and the URL is rewritten.
 
 // Screen Review 045 (D07, D08, D14). One control stack under the top bar:
 // tabs (Users, Pools), a search well with the result count and Sort, then the
@@ -32,7 +36,7 @@ const FAN_GRAPH = import.meta.env.VITE_FAN_GRAPH === "true";
 type Tab = "users" | "pools" | "following";
 type UserFilter = "all" | "active-7-days" | "has-creator-pool";
 type PoolFilter = "all" | "no-fans" | "more-than-10-fans" | "more-than-10k-stake";
-type UserSort = "newest" | "name-asc" | "name-desc";
+type UserSort = "newest" | "name-asc" | "name-desc" | "most-followers";
 type PoolSort = "newest" | "name-asc" | "name-desc" | "most-fans" | "most-staked";
 
 interface TabQuery<F extends string, S extends string> {
@@ -55,13 +59,17 @@ const POOL_FILTERS: Option<PoolFilter>[] = [
   { value: "more-than-10k-stake", label: "10,000+ tREVO staked" },
   { value: "no-fans", label: "No fans yet" },
 ];
+// Explore person cards build: Most followers is a sort, never a rank (086 D3).
 const USER_SORTS: Option<UserSort>[] = [
   { value: "newest", label: "Newest" },
+  { value: "most-followers", label: "Most followers" },
   { value: "name-asc", label: "Name A to Z" },
   { value: "name-desc", label: "Name Z to A" },
 ];
+// 086 D3: Most staked and Most fans are sort options only. No rank numbers,
+// no Top labels, no rank by rate (pending counsel).
 const POOL_SORTS: Option<PoolSort>[] = [
-  { value: "most-fans", label: "Most backed" },
+  { value: "most-fans", label: "Most fans" },
   { value: "most-staked", label: "Most staked" },
   { value: "newest", label: "Newest" },
   { value: "name-asc", label: "Name A to Z" },
@@ -72,6 +80,13 @@ const DEFAULTS = {
   users: { q: "", filter: "all", sort: "newest" } as TabQuery<UserFilter, UserSort>,
   pools: { q: "", filter: "all", sort: "most-fans" } as TabQuery<PoolFilter, PoolSort>,
 };
+
+// Explore person cards build: cards (concept A) or rows (concept E), kept in
+// the URL as ?view=rows. Cards is the default and is not written.
+const USER_VIEWS: Option<UserView>[] = [
+  { value: "cards", label: "Cards" },
+  { value: "rows", label: "Rows" },
+];
 
 const PLACEHOLDER: Record<Exclude<Tab, "following">, string> = {
   users: "Search people by name or @handle",
@@ -91,7 +106,41 @@ function readTab(params: URLSearchParams, initialTab?: string): Tab {
   if (params.get("pool") || params.get("pa")) return "pools";
   const raw = params.get("tab") ?? params.get("t") ?? initialTab;
   if (raw === "following" && FAN_GRAPH) return "following";
-  return raw === "pools" ? "pools" : "users";
+  if (raw === "pools") return "pools";
+  // 044 I04: nfts, unknown and missing values land on Users (rewritten to ?tab=users)
+  return "users";
+}
+
+/** Cards or rows for the Users tab. Two 44 icon buttons in one group; the chosen one is pressed. */
+function ViewToggle({
+  view,
+  onChange,
+  className = "",
+}: {
+  view: UserView;
+  onChange: (view: UserView) => void;
+  className?: string;
+}) {
+  return (
+    <div role="group" aria-label="View" className={`flex shrink-0 gap-1 ${className}`}>
+      {USER_VIEWS.map(option => {
+        const Icon = option.value === "rows" ? Rows3 : LayoutGrid;
+        const selected = option.value === view;
+        return (
+          <button
+            key={option.value}
+            type="button"
+            aria-label={option.label}
+            aria-pressed={selected}
+            onClick={() => onChange(option.value)}
+            className={`prism-icon-btn prism-focus ${selected ? "!bg-prism-nav text-white" : "text-prism-ink-2"}`}
+          >
+            <Icon className="h-[21px] w-[21px]" aria-hidden />
+          </button>
+        );
+      })}
+    </div>
+  );
 }
 
 function countText(tab: Exclude<Tab, "following">, count: number) {
@@ -100,9 +149,10 @@ function countText(tab: Exclude<Tab, "following">, count: number) {
   return `${count.toLocaleString("en-US")} ${count === 1 ? "pool" : "pools"}`;
 }
 
+// 044 I04: nfts is not a tab while VITE_SHOW_NFTS is off
 interface ExplorePageProps {
-  initialTab?: "users" | "pools" | "nfts";
-  onTabChange?: (tab: "users" | "pools" | "nfts") => void;
+  initialTab?: "users" | "pools";
+  onTabChange?: (tab: "users" | "pools") => void;
 }
 
 export default function ExplorePage({ initialTab, onTabChange }: ExplorePageProps) {
@@ -128,6 +178,7 @@ export default function ExplorePage({ initialTab, onTabChange }: ExplorePageProp
         }
       : DEFAULTS.pools
   );
+  const [view, setView] = useState<UserView>(() => pick(USER_VIEWS, params.get("view"), "cards"));
   const current = tab === "pools" ? pools : users;
   // The search, sort and filter controls belong to Users and Pools only
   const searchTab: Exclude<Tab, "following"> = tab === "pools" ? "pools" : "users";
@@ -165,11 +216,13 @@ export default function ExplorePage({ initialTab, onTabChange }: ExplorePageProp
           if (!isFollowing && value && value !== defaults[key]) next.set(key, value);
           else next.delete(key);
         }
+        if (tab === "users" && view !== "cards") next.set("view", view);
+        else next.delete("view");
         return next;
       },
       { replace: true }
     );
-  }, [tab, current, setParams, searchTab, isFollowing]);
+  }, [tab, current, setParams, searchTab, isFollowing, view]);
 
   const changeTab = (next: string) => {
     if (next === "following" && FAN_GRAPH) {
@@ -215,16 +268,10 @@ export default function ExplorePage({ initialTab, onTabChange }: ExplorePageProp
     </div>
   );
 
-  const handleViewProfile = (username: string) => {
-    window.open(
-      `${import.meta.env.VITE_LANDINGPAGE_URL}/${username}`,
-      "_blank",
-      "noopener,noreferrer"
-    );
-  };
-
   return (
-    <div className="px-[21px] pb-[55px] pt-[21px] font-prism lg:px-[21px]">
+    // 042: Explore sits on the room like the other restyled destinations. The
+    // shell gives 13 at the sides on mobile; 8 more makes the 21 gutter.
+    <div className="px-2 pb-[13px] font-prism md:px-0">
       <section aria-label="Find on Explore" className="space-y-[13px]">
         <Tabs value={tab} onValueChange={changeTab}>
           <TabsList aria-label="Explore sections" className="max-sm:w-full">
@@ -288,6 +335,7 @@ export default function ExplorePage({ initialTab, onTabChange }: ExplorePageProp
                 >
                   {result && (result.fetching ? "Searching" : countText(searchTab, result.count))}
                 </p>
+                {tab === "users" && <ViewToggle view={view} onChange={setView} />}
                 <Menu>
                   <MenuTrigger asChild>
                     <Button type="button" variant="secondary" className="shrink-0">
@@ -334,6 +382,9 @@ export default function ExplorePage({ initialTab, onTabChange }: ExplorePageProp
               >
                 {result && (result.fetching ? "Searching" : countText(searchTab, result.count))}
               </p>
+              {tab === "users" && (
+                <ViewToggle view={view} onChange={setView} className="sm:hidden" />
+              )}
               <BottomSheet>
                 <BottomSheetTrigger asChild>
                   <button
@@ -344,7 +395,7 @@ export default function ExplorePage({ initialTab, onTabChange }: ExplorePageProp
                     <ArrowDownUp className="h-[21px] w-[21px] text-prism-ink-2" aria-hidden />
                   </button>
                 </BottomSheetTrigger>
-                <BottomSheetContent title="Sort">
+                <BottomSheetContent title={tab === "pools" ? "Sort pools" : "Sort"}>
                   <div role="listbox" aria-label="Sort" className="space-y-1 pb-2">
                     {sorts.map(option => (
                       <BottomSheetClose asChild key={option.value}>
@@ -378,7 +429,7 @@ export default function ExplorePage({ initialTab, onTabChange }: ExplorePageProp
             searchQuery={users.q}
             userFilter={users.filter}
             userSort={users.sort}
-            handleViewProfile={handleViewProfile}
+            view={view}
             onResult={setResult}
             emptyActions={emptyActions}
           />

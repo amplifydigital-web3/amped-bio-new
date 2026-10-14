@@ -33,6 +33,8 @@ import { RecipientAvatar, RecipientPicker } from "./RecipientPicker";
 import { ScanQr, useHasCamera } from "./ScanQr";
 import { recipientLine, recipientTitle, sameAddress, shortAddress, type Recipient } from "./model";
 import { useRecentRecipients } from "./useRecentRecipients";
+import { TrustCard, TrustChip } from "./TrustCard";
+import { useRecipientTrust } from "./useRecipientTrust";
 
 type Step = "select" | "scan" | "review" | "confirm" | "result" | "failed";
 
@@ -78,6 +80,12 @@ export default function SendFlow() {
   const [cause, setCause] = useState("");
 
   const recent = useRecentRecipients(wallet.address, chainId, open);
+  // 110 I01: Send opens with a recipient from /wallet?send=1&to=<name or address>
+  const toParam = params.get("to") ?? "";
+  // 110 I03: the same trust read the card uses, for the Review chip
+  const trustQuery = recipient ? (recipient.rnsName ?? recipient.address) : null;
+  const trust = useRecipientTrust(open ? trustQuery : null);
+  const resolvedTrust = trust.data?.status === "ok" ? trust.data : null;
   const { data: feeData } = useFeeData({ query: { enabled: open } });
   const send = useSendTransaction();
   const receipt = useWaitForTransactionReceipt({
@@ -125,6 +133,7 @@ export default function SendFlow() {
       current => {
         const next = new URLSearchParams(current);
         next.delete("send");
+        next.delete("to");
         return next;
       },
       { replace: true }
@@ -222,8 +231,11 @@ export default function SendFlow() {
     <span className="flex min-w-0 items-center justify-end gap-2">
       <RecipientAvatar recipient={recipient} />
       <span className="min-w-0 text-right">
-        <span className="block truncate text-prism-label font-semibold text-prism-ink">
-          {recipientTitle(recipient)}
+        <span className="flex items-center justify-end gap-1.5">
+          <span className="truncate text-prism-label font-semibold text-prism-ink">
+            {recipientTitle(recipient)}
+          </span>
+          <TrustChip trust={resolvedTrust} />
         </span>
         <span className="block truncate text-prism-meta font-normal tabular-nums text-prism-ink-2">
           {recipientLine(recipient)}
@@ -280,7 +292,7 @@ export default function SendFlow() {
     body = (
       <RecipientPicker
         ownAddress={wallet.address}
-        initialQuery={query}
+        initialQuery={query || toParam}
         recent={{
           data: recent.data,
           isPending: recent.isPending,
@@ -336,6 +348,7 @@ export default function SendFlow() {
             Change
           </Button>
         </div>
+        <TrustCard query={trustQuery} />
         <AmountWell
           label="Amount"
           value={amount}
@@ -396,7 +409,12 @@ export default function SendFlow() {
   } else if (step === "result" && recipient) {
     body = (
       <div className="space-y-[21px]" aria-live="polite">
-        <h3 className="text-prism-panel-title text-prism-ink">Sent</h3>
+        <h3 className="text-prism-panel-title text-prism-ink">
+          Sent {amountText} {symbol} to {recipientTitle(recipient)}
+          {recipient.rnsName && recipientTitle(recipient) !== recipient.rnsName
+            ? ` (${recipient.rnsName})`
+            : ""}
+        </h3>
         <Slab>
           <SlabRow label="You sent" value={`${amountText} ${symbol}`} />
           <SlabRow label="To" value={toRow} />

@@ -10,6 +10,7 @@ import {
   MenuLabel,
   MenuSeparator,
   MenuTrigger,
+  Skeleton,
 } from "@repo/ui";
 import { authClient } from "@/lib/auth-client";
 import { getPanelHomeUrl } from "@/lib/panel";
@@ -20,7 +21,7 @@ import { getPanelHomeUrl } from "@/lib/panel";
 // refetches on focus and syncs across tabs, so a sign in elsewhere shows here
 // without a reload.
 export function UserMenu() {
-  const { data: session } = authClient.useSession();
+  const { data: session, isPending } = authClient.useSession();
   const user = session?.user as
     | { name?: string | null; image?: string | null; handle?: string | null }
     | undefined;
@@ -33,6 +34,19 @@ export function UserMenu() {
       window.location.href = "/";
     }
   };
+
+  // QA-023: the server render has no session. Hold a neutral slot until the
+  // first session read settles, so a signed in visitor never sees Sign in
+  // flip to Open editor. Refetches on focus keep the current state.
+  if (!user && isPending) {
+    return (
+      <Skeleton
+        aria-hidden
+        data-testid="user-menu-pending"
+        className="h-touch w-[89px] rounded-full motion-reduce:animate-none"
+      />
+    );
+  }
 
   if (!user) {
     return (
