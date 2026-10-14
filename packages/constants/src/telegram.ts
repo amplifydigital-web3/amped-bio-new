@@ -85,7 +85,7 @@ export const DM_RULE_HELPERS: Record<DmRuleKind, string> = {
 
 /** Verbatim wherever tREVO appears. Exempt from the copy check by exact match. */
 export const TESTNET_LINE =
-  "Testnet only. tREVO has no cash value. Pool rewards are set by the creator, vary, and are not guaranteed.";
+  "Testnet only. Pool rewards are set by the creator, vary, and are not guaranteed.";
 
 /** Badge beside a fan's handle in the thread list. */
 export const FAN_RELATION_LABELS = {
