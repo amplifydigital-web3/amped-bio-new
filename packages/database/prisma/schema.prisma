@@ -1100,6 +1100,10 @@ model UsdcSend {
   screening   Json?
   txHash      String?   @db.VarChar(66)
   failureCode String?   @db.VarChar(64)
+  // Relayer gas for this send, from the receipt (Admin, Money gas ledger). A
+  // reverted send still costs gas, so both confirmed and failed rows carry it.
+  gasUsed     BigInt?
+  gasCostWei  BigInt?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -1157,6 +1161,30 @@ model ScreeningEvent {
   @@index([createdAt])
   @@index([address])
   @@map("screening_events")
+}
+
+// A top up of the relayer's ETH (Admin, Money, spec 3.8). An admin records the
+// funding transaction hash; the server reads it from the chain. A direct
+// transfer to the relayer is verified from the transaction itself. A transfer
+// made inside a contract call (a Safe multisig execTransaction) is verified
+// from the relayer's balance change in that block when the RPC can read it;
+// otherwise the admin's amount is stored with verified false. No auto top up.
+model RelayerFundingEvent {
+  id          Bytes    @id @db.Binary(16)
+  chainId     Int
+  txHash      String   @db.VarChar(66)
+  fromAddress String   @db.VarChar(42)
+  toAddress   String   @db.VarChar(42)
+  amountWei   BigInt
+  blockNumber BigInt
+  verified    Boolean  @default(true)
+  note        String?  @db.VarChar(255)
+  recordedBy  Int
+  createdAt   DateTime @default(now())
+
+  @@unique([chainId, txHash])
+  @@index([chainId, createdAt])
+  @@map("relayer_funding_events")
 }
 
 // ================ Content system (Build Board #20), PR 2 foundation ================
@@ -1358,4 +1386,5 @@ model BlockedContentHash {
   createdAt DateTime @default(now()) @map("created_at")
 
   @@map("blocked_content_hashes")
+
 }

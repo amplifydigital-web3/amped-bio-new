@@ -362,6 +362,31 @@ describe("wallet.sendUsdc.submit", () => {
     );
   });
 
+  it("records the relayer's gas from the receipt for the Admin, Money ledger", async () => {
+    const { sendId, signature } = await prepared();
+    db.usdcSend.updateMany.mockResolvedValue({ count: 1 });
+    relayer.submit.mockResolvedValue("0xabc" as Hex);
+    chain.waitForTransactionReceipt.mockResolvedValue({
+      status: "success",
+      gasUsed: 60_000n,
+      effectiveGasPrice: 1_000_000n,
+      blockNumber: 5n,
+      logs: [],
+    });
+    chain.getBlock.mockResolvedValue({ timestamp: 1n });
+    const result = await submitUsdcSend(7, { sendId, signature }, NOW, 1);
+    expect(result).toEqual({ refused: false, status: "confirmed", txHash: "0xabc" });
+    expect(db.usdcSend.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          status: "confirmed",
+          gasUsed: 60_000n,
+          gasCostWei: 60_000_000_000n,
+        }),
+      })
+    );
+  });
+
   it("rejects a signature from another key and submits nothing", async () => {
     const { sendId } = await prepared();
     const other = privateKeyToAccount(generatePrivateKey());
