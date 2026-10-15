@@ -26,6 +26,12 @@ const transporter = nodemailer.createTransport({
     user: env.SMTP_USER,
     pass: env.SMTP_PASSWORD,
   },
+  // Nodemailer waits up to 2 minutes to connect and 10 minutes on a stalled
+  // socket by default. Password reset still awaits its send inside the
+  // request, so a slow relay must fail fast instead of hanging it.
+  connectionTimeout: 10_000,
+  greetingTimeout: 10_000,
+  socketTimeout: 20_000,
 });
 
 /**
