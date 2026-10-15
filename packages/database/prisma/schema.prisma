@@ -1465,6 +1465,11 @@ model MessageThread {
   blockedAt     DateTime?
   createdAt     DateTime     @default(now())
 
+  // TODO(#326): both sides cascade, so deleting either the creator or the fan
+  // deletes the whole thread, including the other participant's messages. The
+  // proposal is ON DELETE RESTRICT on both sides plus an anonymization flow on
+  // account deletion, so conversations survive the departed participant.
+  // Decide before this migration is applied anywhere.
   creator  User            @relation("ThreadCreator", fields: [creatorUserId], references: [id], onDelete: Cascade)
   fan      User            @relation("ThreadFan", fields: [fanUserId], references: [id], onDelete: Cascade)
   messages Message[]
