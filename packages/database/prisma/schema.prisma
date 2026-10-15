@@ -74,6 +74,11 @@ model User {
   telegramAccount         TelegramAccount?
   telegramLinkEvents      TelegramLinkEvent[]
 
+  // USDC in the wallet (#29): first time the fan opened USDC on Base. The
+  // indexer watches this address from then on, and its first screening runs.
+  usdc_wallet_seen_at DateTime?
+  usdcSends           UsdcSend[]
+
   // Content system (Build Board #20), PR 2
   contentItems ContentItem[]
   storageQuota UserStorageQuota?
@@ -1068,6 +1073,90 @@ model TelegramOutbox {
   @@index([status, priority, runAfter])
   @@index([deliveryId])
   @@map("telegram_outbox")
+}
+
+// ============================================================================
+// USDC in the wallet (Build Board #29), spec docs/features/usdc-wallet-onramp.md 3.2
+// Amounts are USDC base units (6 decimals).
+// ============================================================================
+
+// One gasless send: the fan signs an EIP-3009 authorization, the CDP Server
+// Wallet relayer submits it. status: screened | submitting | submitted |
+// confirmed | failed | refused | expired. A refused row is the audit record of
+// a screening or limit refusal; nothing was submitted for it.
+model UsdcSend {
+  id          Bytes     @id @db.Binary(16)
+  userId      Int
+  chainId     Int
+  fromAddress String    @db.VarChar(42)
+  toAddress   String    @db.VarChar(42)
+  toUserId    Int?
+  amount      BigInt
+  // EIP-3009 nonce, 32 random bytes as 0x hex
+  nonce       String    @db.VarChar(66)
+  validBefore DateTime
+  status      String    @db.VarChar(16)
+  // { reason, vendor, reference } for refusals; vendor results for screened sends
+  screening   Json?
+  txHash      String?   @db.VarChar(66)
+  failureCode String?   @db.VarChar(64)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([chainId, nonce])
+  @@index([userId, createdAt])
+  @@index([status, updatedAt])
+  @@index([txHash])
+  @@map("usdc_sends")
+}
+
+// One USDC Transfer log that touches an Amped.Bio address, written by the
+// indexer after the chain confirms it. Same shape as the memberships spec
+// PaymentEvent: payer and payee are set when each side is an Amped.Bio user,
+// so a send between two members is one row both of them see.
+// kind: usdc_transfer now; onramp, purchase and membership kinds arrive later.
+model PaymentEvent {
+  id          Bytes    @id @db.Binary(16)
+  kind        String   @db.VarChar(24)
+  chainId     Int
+  txHash      String   @db.VarChar(66)
+  logIndex    Int
+  blockNumber BigInt
+  fromAddress String   @db.VarChar(42)
+  toAddress   String   @db.VarChar(42)
+  payerUserId Int?
+  payeeUserId Int?
+  amount      BigInt
+  fee         BigInt   @default(0)
+  // usdc_send when the transfer came from a gasless send
+  refType     String?  @db.VarChar(16)
+  refId       Bytes?   @db.Binary(16)
+  occurredAt  DateTime
+  createdAt   DateTime @default(now())
+
+  @@unique([chainId, txHash, logIndex])
+  @@index([payerUserId, occurredAt])
+  @@index([payeeUserId, occurredAt])
+  @@map("payment_events")
+}
+
+// A screening deny (spec 3.4). Admin, Money lists these with the vendor
+// reference. Allows are not stored here.
+model ScreeningEvent {
+  id        Bytes    @id @db.Binary(16)
+  userId    Int?
+  address   String   @db.VarChar(42)
+  // send_destination | own_address
+  context   String   @db.VarChar(24)
+  vendor    String   @db.VarChar(24)
+  reference String?  @db.VarChar(128)
+  detail    Json?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([address])
+  @@map("screening_events")
 }
 
 // ================ Content system (Build Board #20), PR 2 foundation ================

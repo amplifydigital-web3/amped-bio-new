@@ -5,6 +5,8 @@ import {
   type Web3AuthOptions,
 } from "@web3auth/modal";
 import { libertasTestnet } from "@repo/web3";
+import { USDC_FLAGS } from "@/config/usdc/flags";
+import { paymentChain } from "@/utils/paymentChain";
 
 const clientId = import.meta.env.VITE_WEB3AUTH_CLIENT_ID;
 const defaultChainId = import.meta.env.VITE_DEFAULT_NETWORK_ID_HEX;
@@ -36,12 +38,34 @@ const rpcOverrides = [
   },
 ] as CustomChainConfig[];
 
+/**
+ * USDC in the wallet (Build Board #29), spec 3.3: the payment chain (Base, or
+ * Base Sepolia on staging) is a full chain entry, since the Web3Auth dashboard
+ * does not list it. The default chain stays Libertas; a USDC send switches to
+ * Base only to sign the transfer authorization and switches back after. The
+ * network chip leaves Base out of its menu (NetworkChip.tsx).
+ */
+const paymentChainConfig: CustomChainConfig = {
+  chainNamespace: CHAIN_NAMESPACES.EIP155,
+  chainId: `0x${paymentChain.id.toString(16)}`,
+  rpcTarget: paymentChain.rpcUrls.default.http[0],
+  displayName: paymentChain.name,
+  blockExplorerUrl: paymentChain.blockExplorers?.default.url ?? "",
+  ticker: paymentChain.nativeCurrency.symbol,
+  tickerName: paymentChain.nativeCurrency.name,
+  decimals: paymentChain.nativeCurrency.decimals,
+  logo: "",
+  isTestnet: !!paymentChain.testnet,
+};
+
+const chains = USDC_FLAGS.wallet ? [...rpcOverrides, paymentChainConfig] : rpcOverrides;
+
 const web3AuthOptions: Web3AuthOptions = {
   defaultChainId,
   clientId,
   enableLogging: false,
   web3AuthNetwork: web3AuthNetwork,
-  chains: rpcOverrides,
+  chains,
 };
 
 const web3AuthContextConfig = {
