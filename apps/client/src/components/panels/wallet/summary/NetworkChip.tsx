@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useChainId, useChains, useSwitchChain } from "wagmi";
 import { AlertCircle, Check, ChevronDown, LoaderCircle } from "lucide-react";
 import { Menu, MenuContent, MenuItem, MenuTrigger, cn } from "@repo/ui";
+import { paymentChain } from "@/utils/paymentChain";
 
 // One line under each network name in the menu (049 network menu board)
 const NETWORK_DESCRIPTIONS: Record<number, string> = {
@@ -27,15 +28,19 @@ function NetworkDot() {
  * changes only after the wallet confirms; until then the chip reads Switching.
  * A failed switch says so under the chip. With one enabled chain the chip is a
  * static label with no menu.
+ *
+ * The payment chain (Base, Build Board #29) is not a tREVO network: the wallet
+ * visits it only while signing a USDC send, so it never shows in this menu.
  */
 export function NetworkChip() {
   const chainId = useChainId();
-  const chains = useChains();
+  const chains = useChains().filter(chain => chain.id !== paymentChain.id);
   const { switchChainAsync, isPending } = useSwitchChain();
   const [failedOn, setFailedOn] = useState<string | null>(null);
 
   const current = chains.find(chain => chain.id === chainId);
-  const name = current?.name ?? "Unknown network";
+  const name =
+    current?.name ?? (chainId === paymentChain.id ? paymentChain.name : "Unknown network");
 
   if (chains.length < 2) {
     return (

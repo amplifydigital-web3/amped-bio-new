@@ -391,7 +391,7 @@ The old `ExplorePoolDetailsModal` body, the client `PoolDetailContent`, `StakeMo
 
 1. **Trust rule.** Spectacle falls as commitment rises. The Review and Confirm step uses `prism-value-panel-calm`, has no rim, uses a solid `prism-notice`, and has a required checkbox. The commit button is `value-deep`, followed by the wallet note.
 2. **Rates.** Never label a rate APY or APR. The figure is an instantaneous estimate, not a past average.
-3. **Testnet copy, verbatim:** "Testnet only. tREVO has no cash value. Pool rewards come from the network, vary, and are not guaranteed."
+3. **Testnet copy, verbatim:** "Testnet only. Pool rewards come from the network, vary, and are not guaranteed."
 4. **Contrast.** Text meets WCAG AA against the worst background under its glass: 4.5:1 for body, 3:1 for 24px and up and for non-text UI.
 5. **Creator pages.** The creator's theme outranks the system. Never force cyan, indigo or purple onto a creator page.
 

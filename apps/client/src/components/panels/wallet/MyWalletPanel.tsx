@@ -3,9 +3,12 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useRnsSubPage } from "./rns/useRnsRoute";
 import { RnsSubPage } from "./rns/RnsTab";
 import { WalletErrorCard, WalletSummary, useNoWalletTimeout } from "./summary/WalletSummary";
+import { USDC_FLAGS } from "@/config/usdc/flags";
 
 // 062 I01: Send opens in the value panel at ?send=1 (D05, D12)
 const SendFlow = lazy(() => import("./send/SendFlow"));
+// Screen Review 137 (w3, w4, w6): the gasless USDC send at ?send=usdc
+const UsdcSendFlow = lazy(() => import("./send/UsdcSendFlow"));
 // Screen Review 059: Stakes replaces StakedPoolsSection on the Wallet
 const StakesCard = lazy(() => import("./stakes/StakesCard"));
 const ProfileTabs = lazy(() => import("./ProfileTabs"));
@@ -114,6 +117,11 @@ function WalletContent() {
       <Suspense>
         <SendFlow />
       </Suspense>
+      {USDC_FLAGS.wallet && (
+        <Suspense>
+          <UsdcSendFlow />
+        </Suspense>
+      )}
     </div>
   );
 

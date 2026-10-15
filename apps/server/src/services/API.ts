@@ -11,6 +11,8 @@ import healthRouter from "../routes/health";
 import analyticsRouter from "../routes/analytics";
 import telegramRouter from "../routes/telegram";
 import telegramOidcRouter from "../routes/telegramOidc";
+import { contentCallbackRouter, streamWebhookRouter } from "../routes/content";
+
 import mcpRouter from "../routes/mcp";
 
 const app: Application = express();
@@ -90,6 +92,12 @@ app.use("/mcp", mcpRouter);
 // Telegram webhook (Build Board #2). Registered before the global JSON parser with its
 // own body limit; it checks the secret header, dedupes and writes the update, nothing else.
 app.use("/webhooks/telegram", telegramRouter);
+
+// Content system (Build Board #20): Cloudflare Stream webhook and the processor
+// Worker callback. Both are signed over the raw body, so they parse it themselves
+// before the global JSON parser.
+app.use("/webhooks/cloudflare-stream", streamWebhookRouter);
+app.use("/internal/content/processed", contentCallbackRouter);
 
 // Protected resource metadata (RFC 9728) for MCP clients.
 // Tells clients that the authorization server is at auth.amped.bio.

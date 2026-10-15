@@ -9,6 +9,7 @@ export * from "./abis/rns/index";
 export * from "./apy";
 export * from "./batches";
 export * from "./rns";
+export * from "./usdc";
 
 export const revolutionDevnet = {
   ...chainConfig,

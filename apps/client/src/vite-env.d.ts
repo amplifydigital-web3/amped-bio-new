@@ -30,6 +30,12 @@ interface ImportMetaEnv {
   /** Messaging on Telegram (Build Board #2): Account, Telegram link and the composer's Telegram channel */
   readonly VITE_SHOW_TELEGRAM?: string;
   readonly VITE_DEFAULT_NETWORK_ID_HEX: `0x${string}`;
+  /** USDC in the wallet (Build Board #29, Screen Review 137). Base beside Libertas. */
+  readonly VITE_USDC_WALLET?: string;
+  /** Buy USDC through Coinbase (Build Board #5, Screen Review 138). Needs VITE_USDC_WALLET. */
+  readonly VITE_USDC_ONRAMP?: string;
+  /** The chain that carries USDC: "base" in production, "base-sepolia" on staging */
+  readonly VITE_PAYMENT_CHAIN?: string;
   // google
   readonly VITE_CAPTCHA_SERVER_URL: string;
   readonly VITE_CAPTCHA_SITE_KEY: string;

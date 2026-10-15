@@ -3,17 +3,20 @@ import { useInfiniteQuery, useQueries, useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "react-router";
 import { Clock, Loader2 } from "lucide-react";
 import type { Address } from "viem";
-import { getChainConfig, getCurrencySymbol } from "@repo/web3";
+import { USDC_SYMBOL, getChainConfig, getCurrencySymbol } from "@repo/web3";
 import { Button, ChipGroup, EmptyState, ErrorCard, Skeleton, trpc } from "@repo/ui";
+import { USDC_FLAGS } from "@/config/usdc/flags";
 import { useWalletContext } from "@/contexts/WalletContext";
 import { useDelayed } from "@/hooks/useDelayed";
 import { appChainId } from "@/utils/appChain";
+import { paymentChain } from "@/utils/paymentChain";
 import { useAddressProfiles } from "../hooks/useAddressProfiles";
 import type { TransactionsResponse, TransfersResponse } from "../ProfileTabs/types";
 import { ActivityRow } from "./ActivityRow";
 import {
   STAKING_KINDS,
   fromTransaction,
+  fromUsdcEvent,
   fromTransfer,
   mergeByHash,
   type ActivityItem,
@@ -60,6 +63,9 @@ function focusGetTrevo() {
 
 export function ActivityTab() {
   const [filter, setFilter] = useFilter();
+  const [params] = useSearchParams();
+  // The Tokens rows open Activity for one token (?token=USDC or the native symbol)
+  const token = params.get("token");
   const { address } = useWalletContext();
   const chainId = Number(appChainId());
   const chain = getChainConfig(chainId);
@@ -71,8 +77,11 @@ export function ActivityTab() {
   const [toDate] = useState(() => new Date().toISOString());
   const [openHash, setOpenHash] = useState<string | null>(null);
 
-  const wantTransactions = filter !== "transfers";
-  const wantTransfers = filter !== "staking";
+  const usdcOnly = USDC_FLAGS.wallet && token === USDC_SYMBOL;
+  const wantTransactions = filter !== "transfers" && !usdcOnly;
+  const wantTransfers = filter !== "staking" && !usdcOnly;
+  // Build Board #29, spec 3.6: USDC transfers on Base merge into the same list
+  const wantUsdc = USDC_FLAGS.wallet && filter !== "staking" && token !== nativeSymbol;
 
   const transactions = useInfiniteQuery({
     queryKey: ["activity", "transactions", apiUrl, me, toDate],
@@ -117,13 +126,28 @@ export function ActivityTab() {
     [transfers.data, me, nativeSymbol]
   );
 
+  const usdc = useQuery({
+    ...trpc.usdc.activity.queryOptions({ limit: 25 }),
+    enabled: wantUsdc && !!me,
+    refetchInterval: 30_000,
+  });
+  const usdcItems = useMemo(
+    () =>
+      (usdc.data ?? []).map(row => fromUsdcEvent(row, paymentChain.blockExplorers?.default.url)),
+    [usdc.data]
+  );
+
   const items: ActivityItem[] = useMemo(() => {
-    if (filter === "transfers") return transferItems;
+    if (usdcOnly) return usdcItems;
+    let list: ActivityItem[];
+    if (filter === "transfers") list = transferItems;
     // mergeByHash also drops a hash repeated across pages
-    if (filter === "staking")
+    else if (filter === "staking")
       return mergeByHash(txItems, []).filter(item => STAKING_KINDS.includes(item.kind));
-    return mergeByHash(txItems, transferItems);
-  }, [filter, txItems, transferItems]);
+    else list = mergeByHash(txItems, transferItems);
+    if (!wantUsdc || usdcItems.length === 0) return list;
+    return [...list, ...usdcItems].sort((a, b) => Date.parse(b.time) - Date.parse(a.time));
+  }, [filter, txItems, transferItems, usdcItems, usdcOnly, wantUsdc]);
 
   // 057 I01: Staking keeps fetching until it holds 10 matches or reaches the end
   const stakingCount = filter === "staking" ? items.length : 0;
@@ -139,8 +163,10 @@ export function ActivityTab() {
     | typeof transactions
     | typeof transfers
   )[];
-  const loading = active.some(query => query.isPending) || (!me && !address);
-  const failed = active.some(query => query.isError) && items.length === 0;
+  const loading =
+    active.some(query => query.isPending) || (usdcOnly && usdc.isPending) || (!me && !address);
+  const failed =
+    (active.some(query => query.isError) || (usdcOnly && usdc.isError)) && items.length === 0;
   const hasMore = active.some(query => query.hasNextPage);
   const fetchingMore = active.some(query => query.isFetchingNextPage);
   const showSkeleton = useDelayed(loading, 400);
@@ -150,6 +176,7 @@ export function ActivityTab() {
   };
   const retry = () => {
     for (const query of active) void query.refetch();
+    if (wantUsdc) void usdc.refetch();
   };
 
   // People and pools named in the rows
@@ -224,6 +251,14 @@ export function ActivityTab() {
         className="!shadow-none"
       />
     );
+  } else if (items.length === 0 && usdcOnly) {
+    body = (
+      <EmptyState
+        icon={Clock}
+        title={`No ${USDC_SYMBOL} activity yet`}
+        description={`${USDC_SYMBOL} you send and receive on ${paymentChain.name} shows here.`}
+      />
+    );
   } else if (items.length === 0) {
     body =
       filter === "all" ? (
@@ -258,7 +293,8 @@ export function ActivityTab() {
             onToggle={() => setOpenHash(current => (current === item.key ? null : item.key))}
             profiles={profiles}
             poolNames={poolNames}
-            explorerUrl={explorerUrl}
+            // USDC rows link to the Base explorer (spec 3.6)
+            explorerUrl={item.explorerUrl ?? explorerUrl}
             nativeSymbol={nativeSymbol}
             method={item.selector ? (methods.data?.[item.selector] ?? null) : null}
           />
