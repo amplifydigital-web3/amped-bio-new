@@ -70,11 +70,22 @@ describe("detectFileType", () => {
   it.each([
     ["html", HTML],
     ["windows executable", EXE],
-    ["zip", ZIP],
-    ["heic (not accepted yet)", HEIC],
     ["empty", new Uint8Array()],
   ])("returns null for %s", (_label, input) => {
     expect(detectFileType(input)).toBeNull();
+  });
+
+  it("recognises ZIP and HEIC (content system, PR 2) but never for profile uploads", () => {
+    expect(detectFileType(ZIP)).toBe("application/zip");
+    expect(detectFileType(HEIC)).toBe("image/heic");
+    expect(checkFileSignature(ZIP, "image/png", AVATAR_TYPES)).toMatchObject({
+      ok: false,
+      reason: "not_allowed",
+    });
+    expect(checkFileSignature(HEIC, "image/jpeg", AVATAR_TYPES)).toMatchObject({
+      ok: false,
+      reason: "not_allowed",
+    });
   });
 
   it("does not take binary data with NUL bytes for SVG", () => {

@@ -44,7 +44,7 @@ When you send tREVO, stake in a pool, claim rewards, create a pool, register or 
 
 **ndau conversion.** If you convert ndau, we store your ndau address, REVO address, amounts, the signatures and validation key you provide, the document hash of the terms you accepted, the status and any transaction ID. We keep these as the record of your request.
 
-Testnet only. tREVO has no cash value. Pool rewards come from the network, vary, and are not guaranteed.
+Testnet only. Pool rewards come from the network, vary, and are not guaranteed.
 
 ## 4. Visitors to creator pages and the public site
 

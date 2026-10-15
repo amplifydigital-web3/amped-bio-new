@@ -195,9 +195,8 @@ function ReceiveBody({
       ) : (
         <Notice variant="warning" title="Testnet only.">
           <p>
-            tREVO has no cash value. Pool rewards come from the network, vary, and are not
-            guaranteed. Send only {network} tREVO to this address. Tokens sent from another network
-            can be lost.
+            Pool rewards come from the network, vary, and are not guaranteed. Send only {network}
+            tREVO to this address. Tokens sent from another network can be lost.
           </p>
         </Notice>
       )}

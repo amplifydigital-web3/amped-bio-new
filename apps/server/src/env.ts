@@ -233,6 +233,42 @@ const envSchema = z.object({
   USDC_SCREEN_DENYLIST: z.string().default(""),
   // When no screening vendor is configured: refuse every send (production) or allow and record unscreened (staging)
   USDC_SCREENING_REQUIRED: boolSchema(true),
+  // Content system (Build Board #20), PR 2. Spec 3.17. Secrets never live in committed .env files.
+  // Master switch for uploads. Off everywhere until the Cloudflare setup checklist is done.
+  // Turning it off during an incident stops new uploads; items already stored keep working.
+  CONTENT_UPLOADS_ENABLED: boolSchema(false),
+  // Cloudflare account that owns the R2 bucket and the Stream library (staging has its own account)
+  CF_ACCOUNT_ID: z.string().default(""),
+  // R2 API token (S3 compatible), Object Read and Write on R2_BUCKET only
+  R2_ACCESS_KEY_ID: z.string().default(""),
+  R2_SECRET_ACCESS_KEY: z.string().default(""),
+  // amped-content (production) or amped-content-staging
+  R2_BUCKET: z.string().default(""),
+  // Stream API token: Stream Edit on this account
+  CF_STREAM_API_TOKEN: z.string().default(""),
+  // Stream signing key from POST /stream/keys: the key id and the PEM (base64 as Cloudflare returns it, or raw PEM)
+  CF_STREAM_KEY_ID: z.string().default(""),
+  CF_STREAM_KEY_PEM: z.string().default(""),
+  // Secret Cloudflare returns when the Stream webhook URL is set
+  CF_STREAM_WEBHOOK_SECRET: z.string().default(""),
+  // Hostnames Stream accepts playback from, comma separated (amped.bio,app.amped.bio on production)
+  CF_STREAM_ALLOWED_ORIGINS: z.string().default(""),
+  // Media gateway origin, e.g. https://media.ampedusercontent.com (PR 3 deploys the Worker)
+  MEDIA_GATEWAY_ORIGIN: z.string().default(""),
+  // kid:base64urlSecret,kid:base64urlSecret. The first signs; all verify (rotation, spec 3.6)
+  MEDIA_TOKEN_KEYS: z.string().default(""),
+  // Shared with the processor Worker (PR 4): signs POST /internal/content/processed
+  CONTENT_PROCESSOR_SECRET: z.string().default(""),
+  // Per kind upload limits in MB (spec 3.2)
+  UPLOAD_LIMIT_CONTENT_VIDEO_MB: numSchema(2048),
+  UPLOAD_LIMIT_CONTENT_AUDIO_MB: numSchema(500),
+  UPLOAD_LIMIT_CONTENT_IMAGE_MB: numSchema(25),
+  UPLOAD_LIMIT_CONTENT_DOCUMENT_MB: numSchema(100),
+  UPLOAD_LIMIT_CONTENT_FILE_MB: numSchema(500),
+  // Default per creator quota (spec 3.2, decision 5)
+  CONTENT_QUOTA_DEFAULT_MB: numSchema(5120),
+  CONTENT_QUOTA_VIDEO_MINUTES: numSchema(300),
+
 });
 
 // ================ parse & export ================
