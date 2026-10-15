@@ -94,9 +94,14 @@ ALTER TABLE `creator_messaging_settings` ADD CONSTRAINT `creator_messaging_setti
 ALTER TABLE `messaging_sender_status` ADD CONSTRAINT `messaging_sender_status_userId_fkey` FOREIGN KEY (`userId`) REFERENCES `users`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
+-- TODO(#326): both thread sides cascade, so deleting either the creator or the
+-- fan deletes the whole thread, including the other participant's messages.
+-- The proposal is ON DELETE RESTRICT on both sides plus an anonymization flow
+-- on account deletion. Decide before this migration is applied anywhere.
 ALTER TABLE `message_threads` ADD CONSTRAINT `message_threads_creatorUserId_fkey` FOREIGN KEY (`creatorUserId`) REFERENCES `users`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
+-- TODO(#326): same decision as the creator side above.
 ALTER TABLE `message_threads` ADD CONSTRAINT `message_threads_fanUserId_fkey` FOREIGN KEY (`fanUserId`) REFERENCES `users`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
