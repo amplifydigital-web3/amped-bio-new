@@ -4,11 +4,11 @@ import { Prisma } from "@repo/database";
 import { prisma } from "../DB";
 import { auth } from "../../utils/auth";
 import { resolveLocation } from "./geo";
+import { getVisitorIp } from "./visitorIp";
 import { forwardToAdPlatforms } from "./pixelForwarding";
 import { idToHex, newAnalyticsId } from "./ids";
 import {
   getCampaignIdFromUrl,
-  getClientIp,
   getPersistentVisitorHash,
   getTrafficAttribution,
   getVisitorHash,
@@ -108,7 +108,8 @@ export async function collectAnalyticsEvent(
   if (isBot(userAgent)) return "ignored";
 
   const now = Date.now();
-  const ip = getClientIp(req);
+  // The visitor's public address behind Traefik and Cloudflare, not the proxy's
+  const { ip, viaCloudflare } = getVisitorIp(req);
   if (isRateLimited(ip || userAgent, now)) return "ignored";
 
   const blockId = payload.type === "click" ? payload.blockId : undefined;
@@ -178,7 +179,7 @@ export async function collectAnalyticsEvent(
   }
 
   const [location, campaignId, visitorUserId] = await Promise.all([
-    resolveLocation(req, ip),
+    resolveLocation(req, ip, viaCloudflare),
     resolveCampaignId(payload.userId, payload.url, now),
     consented ? resolveVisitorAccount(req, payload.userId) : Promise.resolve(null),
   ]);

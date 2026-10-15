@@ -29,6 +29,11 @@ import { trpc } from "@/lib/trpc";
 import { normalizeHandle } from "@/lib/handle";
 import { useCaptcha } from "@/hooks/useCaptcha";
 import { goTo, toAbsoluteUrl } from "@/lib/panel";
+import {
+  SIGN_UP_UNCONFIRMED_BODY,
+  SIGN_UP_UNCONFIRMED_TITLE,
+  signInAfterLostSignUp,
+} from "@/lib/signUpRecovery";
 import { PRIVACY_POLICY_URL } from "@/components/layout/PublicFooter";
 import { EMAIL_FIX } from "./SignInForm";
 
@@ -73,6 +78,8 @@ export function FanRegisterForm() {
   const emailRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
   const noticeRef = useRef<HTMLDivElement>(null);
+  // Set when a sign up attempt ended without a clear answer (see RegisterForm)
+  const lostSignUp = useRef(false);
 
   // The creator's name comes from the server, never from the URL
   const { data: creator } = useQuery({
@@ -93,6 +100,24 @@ export function FanRegisterForm() {
   const passwordOk = PASSWORD_RULES.every(rule => rule.test(password));
   const validateEmail = (value: string) =>
     emailSchema.safeParse(value).success ? undefined : EMAIL_FIX;
+
+  const finishSignUp = () => {
+    lostSignUp.current = false;
+    goTo(returnTo);
+  };
+
+  // True when the account turned out to exist and the person is now signed in
+  const recoverLostSignUp = async () => {
+    const outcome = await signInAfterLostSignUp(email, password, executeCaptcha, isCaptchaEnabled);
+    if (outcome === "signedIn") finishSignUp();
+    return outcome !== "failed";
+  };
+
+  const failOrRecover = async () => {
+    if (await recoverLostSignUp()) return;
+    lostSignUp.current = true;
+    setCardError("network");
+  };
 
   const submit = async () => {
     setCardError(null);
@@ -127,15 +152,17 @@ export function FanRegisterForm() {
       if (response?.error) {
         const kind = classifyAuthError(response.error);
         if (kind === "emailTaken") {
+          // A retry after a lost attempt: the first one made the account
+          if (lostSignUp.current && (await recoverLostSignUp())) return;
           setEmailError(EMAIL_TAKEN);
           emailRef.current?.focus();
         } else if (kind === "captcha") setCaptchaFailed(true);
-        else setCardError("network");
+        else await failOrRecover();
         return;
       }
-      goTo(returnTo);
+      finishSignUp();
     } catch {
-      setCardError("network");
+      await failOrRecover();
     } finally {
       setLoading(false);
     }
@@ -176,14 +203,13 @@ export function FanRegisterForm() {
             role="alert"
             variant="warning"
             className="outline-none"
-            title={cardError === "google" ? GOOGLE_FAILED_TITLE : "Your account was not created"}
+            title={cardError === "google" ? GOOGLE_FAILED_TITLE : SIGN_UP_UNCONFIRMED_TITLE}
           >
-            <p>
-              {cardError === "google" ? GOOGLE_FAILED_BODY : "Check your connection and try again."}
-            </p>
+            <p>{cardError === "google" ? GOOGLE_FAILED_BODY : SIGN_UP_UNCONFIRMED_BODY}</p>
             <Button
               variant="ghost"
               className="mt-2"
+              disabled={busy}
               onClick={() => void (cardError === "google" ? google() : submit())}
             >
               Retry

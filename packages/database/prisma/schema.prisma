@@ -79,6 +79,10 @@ model User {
   usdc_wallet_seen_at DateTime?
   usdcSends           UsdcSend[]
 
+  // Content system (Build Board #20), PR 2
+  contentItems ContentItem[]
+  storageQuota UserStorageQuota?
+
   @@unique([email])
   @@map("users")
 }
@@ -1181,4 +1185,206 @@ model RelayerFundingEvent {
   @@unique([chainId, txHash])
   @@index([chainId, createdAt])
   @@map("relayer_funding_events")
+}
+
+// ================ Content system (Build Board #20), PR 2 foundation ================
+// Spec: docs/features/content-system.md section 3.3. New tables use UUID v7 ids
+// (BINARY(16), utils/uuid-v7.ts). publicId is a random 16 character id used in URLs
+// and object keys; keys never contain the numeric user id.
+
+enum ContentKind {
+  VIDEO
+  AUDIO
+  IMAGE
+  DOCUMENT
+  FILE
+  LIVE
+}
+
+enum ContentStatus {
+  UPLOADING
+  PROCESSING
+  READY
+  FAILED
+  BLOCKED
+  DELETED
+}
+
+enum ContentPublishState {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum ModerationState {
+  PENDING
+  CLEAR
+  HELD
+  BLOCKED
+}
+
+enum ContentAssetRole {
+  ORIGINAL
+  RENDITION
+  COVER
+  BLUR
+  PAGE_PREVIEW
+  WAVEFORM
+  AUDIO_PREVIEW
+  STREAM
+  PREVIEW_CLIP
+  CAPTION
+  BANNER
+}
+
+enum ContentAssetStorage {
+  R2
+  STREAM
+}
+
+enum ScanStatus {
+  PENDING
+  CLEAN
+  INFECTED
+  SKIPPED
+  ERROR
+}
+
+model ContentItem {
+  id               Bytes               @id @db.Binary(16)
+  publicId         String              @unique @map("public_id") @db.VarChar(16)
+  userId           Int                 @map("user_id")
+  kind             ContentKind
+  title            String              @db.VarChar(140)
+  description      String?             @db.Text
+  status           ContentStatus       @default(UPLOADING)
+  processingStep   String?             @map("processing_step") @db.VarChar(40)
+  failureReason    String?             @map("failure_reason") @db.VarChar(255)
+  publishState     ContentPublishState @default(DRAFT) @map("publish_state")
+  // null = public. Gating engine contract (#21): the effective rule
+  accessRuleId     Bytes?              @map("access_rule_id") @db.Binary(16)
+  // The creator's own rule, kept while store products override it (PR 9)
+  baseAccessRuleId Bytes?              @map("base_access_rule_id") @db.Binary(16)
+  // { seconds } | { pages } | { blur: true }
+  previewConfig    Json?               @map("preview_config")
+  allowDownload    Boolean             @default(false) @map("allow_download")
+  // Creator label 18+ (#28)
+  adult            Boolean             @default(false)
+  moderationState  ModerationState     @default(PENDING) @map("moderation_state")
+  moderationReason String?             @map("moderation_reason") @db.VarChar(255)
+  durationMs       Int?                @map("duration_ms")
+  pageCount        Int?                @map("page_count")
+  width            Int?
+  height           Int?
+  // Bytes reserved at createUpload; the quota moves them from reserved to used at READY
+  totalBytes       BigInt              @default(0) @map("total_bytes")
+  sha256           String?             @db.Char(64)
+  // [{ startMs, title }] (#26)
+  chapters         Json?
+  publishedAt      DateTime?           @map("published_at")
+  deletedAt        DateTime?           @map("deleted_at")
+  purgeAfter       DateTime?           @map("purge_after")
+  createdAt        DateTime            @default(now()) @map("created_at")
+  updatedAt        DateTime            @updatedAt @map("updated_at")
+
+  user    User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assets  ContentAsset[]
+  reports ContentReport[]
+
+  @@index([userId, status])
+  @@index([userId, publishState, publishedAt])
+  @@index([accessRuleId])
+  @@map("content_items")
+}
+
+model ContentAsset {
+  id            Bytes               @id @db.Binary(16)
+  contentItemId Bytes               @map("content_item_id") @db.Binary(16)
+  role          ContentAssetRole
+  storage       ContentAssetStorage
+  r2Key         String?             @map("r2_key") @db.VarChar(255)
+  streamUid     String?             @map("stream_uid") @db.VarChar(64)
+  // Captions
+  lang          String?             @db.VarChar(8)
+  // 320 | 640 | 1280 | full | webp | jpg
+  variant       String?             @db.VarChar(16)
+  mimeType      String?             @map("mime_type") @db.VarChar(100)
+  size          BigInt?
+  width         Int?
+  height        Int?
+  durationMs    Int?                @map("duration_ms")
+  scanStatus    ScanStatus          @default(PENDING) @map("scan_status")
+  createdAt     DateTime            @default(now()) @map("created_at")
+
+  contentItem ContentItem @relation(fields: [contentItemId], references: [id], onDelete: Cascade)
+
+  @@index([contentItemId, role])
+  @@index([streamUid])
+  @@map("content_assets")
+}
+
+model UserStorageQuota {
+  id                Bytes    @id @db.Binary(16)
+  userId            Int      @unique @map("user_id")
+  bytesLimit        BigInt   @map("bytes_limit")
+  bytesUsed         BigInt   @default(0) @map("bytes_used")
+  bytesReserved     BigInt   @default(0) @map("bytes_reserved")
+  videoMinutesLimit Int      @map("video_minutes_limit")
+  videoMinutesUsed  Int      @default(0) @map("video_minutes_used")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_storage_quotas")
+}
+
+model ContentReport {
+  id             Bytes    @id @db.Binary(16)
+  contentItemId  Bytes?   @map("content_item_id") @db.Binary(16)
+  // Store products (PR 9); no relation until Offer exists
+  offerId        Bytes?   @map("offer_id") @db.Binary(16)
+  reporterUserId Int?     @map("reporter_user_id")
+  // copyright | csam | adult | harassment | malware | scam | other
+  reason         String   @db.VarChar(20)
+  details        String?  @db.Text
+  status         String   @default("open") @db.VarChar(20)
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  contentItem ContentItem? @relation(fields: [contentItemId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
+  @@map("content_reports")
+}
+
+model CopyrightNotice {
+  id              Bytes     @id @db.Binary(16)
+  contentItemId   Bytes?    @map("content_item_id") @db.Binary(16)
+  targetUserId    Int       @map("target_user_id")
+  claimantName    String    @map("claimant_name") @db.VarChar(255)
+  // Encrypted at rest, admin only (written by the admin tools in PR 7)
+  claimantContact String    @map("claimant_contact") @db.Text
+  workDescribed   String    @map("work_described") @db.Text
+  swornStatement  Boolean   @map("sworn_statement")
+  valid           Boolean?
+  validatedAt     DateTime? @map("validated_at")
+  signature       String    @db.VarChar(255)
+  receivedAt      DateTime  @default(now()) @map("received_at")
+  actionedAt      DateTime? @map("actioned_at")
+  counterNoticeAt DateTime? @map("counter_notice_at")
+  restoredAt      DateTime? @map("restored_at")
+  isStrike        Boolean   @default(true) @map("is_strike")
+
+  @@index([targetUserId, receivedAt])
+  @@map("copyright_notices")
+}
+
+model BlockedContentHash {
+  id        Bytes    @id @db.Binary(16)
+  sha256    String   @unique @db.Char(64)
+  // dmca | malware | policy
+  reason    String   @db.VarChar(20)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("blocked_content_hashes")
+
 }

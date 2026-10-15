@@ -303,6 +303,15 @@ export async function submitUsdcSend(
     });
     return { refused: true, reason: "limit" };
   }
+  // Funds can leave between prepare and submit; the contract would revert and
+  // the relayer would pay that gas for a guaranteed failure. Re-check first.
+  if ((await getUsdcBalance(row.fromAddress as `0x${string}`)) < row.amount) {
+    await prisma.usdcSend.update({
+      where: { id: row.id },
+      data: { status: "refused", failureCode: "insufficient_balance" },
+    });
+    return { refused: true, reason: "insufficient_balance" };
+  }
 
   const auth = authorizationOf(row);
   if (!(await isSignedBy(await usdcDomain(), auth, input.signature))) {
