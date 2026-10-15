@@ -55,7 +55,7 @@ export interface PreviewOverride {
 /** Debounce after the last edit before autosave runs (D11). */
 export const AUTOSAVE_DELAY_MS = 800;
 
-interface EditorContextType extends EditorState {
+export interface EditorContextType extends EditorState {
   changes: boolean;
   themeChanges: boolean;
   saveStatus: SaveStatus;
