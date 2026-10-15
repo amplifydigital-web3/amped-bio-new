@@ -13,7 +13,11 @@ import {
   countSentBroadcasts,
   enqueueBroadcast,
   getQuota,
+  memberUserIds,
 } from "../../services/broadcast";
+import { findByUserId, isReachable } from "../../services/telegram/accounts";
+import { isTelegramConfigured } from "../../services/telegram/client";
+import { telegramReach } from "../../services/telegram/broadcast";
 import { verificationGate } from "../../utils/verificationGrace";
 import { bodySchema, ownedPool, storedFlags, titleSchema } from "./shared";
 
@@ -54,6 +58,17 @@ export const broadcastCreatorRouter = router({
         countSentBroadcasts(userId),
       ]);
       const members = pool ? await countMembers(pool.id, userId) : 0;
+      // Messaging on Telegram (#2), row 117: the composer's Telegram checkbox and count line
+      const telegramOn = isTelegramConfigured();
+      const telegramAccount = telegramOn ? await findByUserId(userId) : null;
+      const telegram = {
+        available: telegramOn,
+        creatorLinked: isReachable(telegramAccount),
+        reach:
+          telegramOn && pool && members > 0
+            ? await telegramReach(userId, await memberUserIds(pool.id, userId))
+            : 0,
+      };
       // Verification grace (Rob, 2026-10-10): a new creator sends without a
       // verified email for 30 days or EMAIL_VERIFICATION_GRACE_BROADCASTS sends
       const verification = verificationGate(
@@ -74,6 +89,7 @@ export const broadcastCreatorRouter = router({
         // Pilot gate: the tab shows a waitlist line until an admin invites the owner
         canSend: !env.BROADCAST_INVITE_ONLY || !!status?.invitedAt,
         paused: !!status?.pausedAt,
+        telegram,
       };
     }),
 
@@ -91,6 +107,8 @@ export const broadcastCreatorRouter = router({
         idempotencyKey: z.string().min(8).max(64),
         /** The creator saw the word list warning and chose to send anyway */
         confirmFlags: z.boolean().default(false),
+        /** Messaging on Telegram (#2): also deliver to members who turned on Telegram updates */
+        sendTelegram: z.boolean().default(false),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -187,6 +205,7 @@ export const broadcastCreatorRouter = router({
               creatorUserId: userId,
               poolId: pool.id,
               audienceKind: "ALL_MEMBERS",
+              sendTelegram: input.sendTelegram && isTelegramConfigured(),
               title: input.title,
               body: input.body,
               idempotencyKey: input.idempotencyKey,

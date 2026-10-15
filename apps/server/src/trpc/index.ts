@@ -20,8 +20,10 @@ import { oauthAppsRouter } from "./oauthApps";
 import { followRouter } from "./follow";
 import { broadcastRouter } from "./broadcast";
 import { onboardingRouter } from "./onboarding";
+import { telegramRouter } from "./telegram";
 import { usdcRouter } from "./usdc";
 import { contentRouter } from "./content";
+
 
 import { inferRouterOutputs } from "@trpc/server";
 
@@ -48,9 +50,11 @@ const mergedRouter = router({
   follow: followRouter,
   broadcast: broadcastRouter,
   onboarding: onboardingRouter,
+  telegram: telegramRouter,
   // USDC in the wallet (Build Board #29): gasless send and USDC activity
   usdc: usdcRouter,
   content: contentRouter,
+
 
 });
 
