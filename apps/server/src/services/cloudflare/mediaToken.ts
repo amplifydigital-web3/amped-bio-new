@@ -112,6 +112,8 @@ export function verifyProcessorCallback(
   if (!Number.isInteger(t) || typeof given !== "string" || !/^[a-f0-9]{64}$/.test(given)) {
     return false;
   }
+  // The HMAC signs the raw header value of t, not the parsed integer, so a
+  // non-canonical form such as "0123" simply fails closed.
   if (Math.abs(Math.floor(now.getTime() / 1000) - t) > CONTENT_CALLBACK_WINDOW_SECONDS)
     return false;
   const expected = createHmac("sha256", secret)
