@@ -361,6 +361,14 @@ export async function recordFunding(params: {
   if (amountWei === null || amountWei <= 0n) {
     throw new FundingError("That transaction did not add ETH to the relayer.");
   }
+  // The column is BIGINT, which tops out at 2^63 - 1 wei (about 9.22 ETH).
+  // Reject anything larger here instead of letting the insert overflow.
+  const MAX_BIGINT_WEI = (1n << 63n) - 1n;
+  if (amountWei > MAX_BIGINT_WEI) {
+    throw new FundingError(
+      "The top up exceeds the largest amount the gas ledger can store (9.22 ETH). Split it into smaller top ups."
+    );
+  }
 
   await prisma.relayerFundingEvent.create({
     data: {
