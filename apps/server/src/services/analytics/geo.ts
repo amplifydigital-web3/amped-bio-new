@@ -1,9 +1,15 @@
+import { isIP } from "node:net";
 import type { Request } from "express";
+import { isCloudflareIp, isPublicIp } from "./visitorIp";
 
 export type GeoLocation = {
   country: string | null;
   city: string | null;
 };
+
+export type GeoSource = "cloudflare" | "geoip" | "none";
+
+export type ResolvedGeo = GeoLocation & { source: GeoSource };
 
 function header(req: Request, name: string): string | undefined {
   const value = req.headers[name];
@@ -21,16 +27,17 @@ function normalizeCountry(value?: string | null): string | null {
 
 function normalizeCity(value?: string | null): string | null {
   if (!value) return null;
+  let city = value;
   try {
-    return decodeURIComponent(value).slice(0, 100) || null;
+    city = decodeURIComponent(value);
   } catch {
-    return value.slice(0, 100) || null;
+    // Keep the raw value
   }
+  return city.trim().slice(0, 100) || null;
 }
 
-type FastGeoIp = {
-  lookup: (ip: string) => Promise<{ country?: string; city?: string } | null>;
-};
+type GeoIpRecord = { range?: [number, number]; country?: string; city?: string };
+type FastGeoIp = { lookup: (ip: string) => Promise<GeoIpRecord | null> };
 
 let geoIpModule: Promise<FastGeoIp | null> | null = null;
 
@@ -40,7 +47,7 @@ function loadGeoIp(): Promise<FastGeoIp | null> {
       .then(mod => (mod as { default?: FastGeoIp }).default ?? (mod as unknown as FastGeoIp))
       .catch(error => {
         console.warn(
-          "[ANALYTICS] fast-geoip unavailable, location will rely on edge headers",
+          "[ANALYTICS] fast-geoip unavailable, location will rely on Cloudflare headers",
           error
         );
         return null;
@@ -49,33 +56,75 @@ function loadGeoIp(): Promise<FastGeoIp | null> {
   return geoIpModule;
 }
 
+function ipv4ToNumber(ip: string): number {
+  return ip.split(".").reduce((acc, octet) => acc * 256 + Number(octet), 0);
+}
+
 /**
- * Resolves a coarse location. Edge headers (Cloudflare, Vercel, CloudFront)
- * are preferred; the bundled GeoLite2 database is the fallback. Only the
- * country code and city name are kept.
+ * Looks an address up in the bundled GeoLite2 data. fast-geoip only handles
+ * IPv4 and answers every query with the nearest range, so private and
+ * unallocated addresses come back as a real country. Those are filtered here:
+ * only public IPv4 addresses that fall inside the returned range are used.
  */
-export async function resolveLocation(req: Request, ip: string): Promise<GeoLocation> {
-  const headerCountry = normalizeCountry(
-    header(req, "cf-ipcountry") ??
-      header(req, "x-vercel-ip-country") ??
-      header(req, "cloudfront-viewer-country")
-  );
-  const headerCity = normalizeCity(header(req, "cf-ipcity") ?? header(req, "x-vercel-ip-city"));
+async function lookupGeoIp(ip: string): Promise<GeoLocation | null> {
+  if (isIP(ip) !== 4 || !isPublicIp(ip) || isCloudflareIp(ip)) return null;
+  const geoip = await loadGeoIp();
+  if (!geoip) return null;
+  const record = await geoip.lookup(ip);
+  if (!record) return null;
+  if (record.range) {
+    const value = ipv4ToNumber(ip);
+    if (value < record.range[0] || value >= record.range[1]) return null;
+  }
+  const country = normalizeCountry(record.country);
+  if (!country) return null;
+  return { country, city: normalizeCity(record.city) };
+}
 
-  if (headerCountry) {
-    return { country: headerCountry, city: headerCity };
+let warnedNoPublicIp = false;
+
+/**
+ * Resolves a coarse location for the visitor. Only the country code and city
+ * name are kept.
+ *
+ * 1. Cloudflare's CF-IPCountry and CF-IPCity headers, read only when the
+ *    request actually passed through a Cloudflare edge (otherwise a client
+ *    could set them). CF-IPCity needs the "Add visitor location headers"
+ *    managed transform; without it the city comes from GeoLite2 below.
+ * 2. The bundled GeoLite2 data (fast-geoip) for the visitor's public IPv4.
+ *
+ * Private, proxy and IPv6 addresses never produce a location: the visit is
+ * stored with no location (shown as Unknown) instead of a wrong one.
+ */
+export async function resolveLocation(
+  req: Request,
+  ip: string,
+  viaCloudflare = false
+): Promise<ResolvedGeo> {
+  if (!ip && !viaCloudflare && !warnedNoPublicIp) {
+    warnedNoPublicIp = true;
+    console.warn(
+      "[ANALYTICS] No public visitor IP on the request. The proxy in front of the API is not " +
+        "forwarding X-Forwarded-For, so visitor locations will be Unknown."
+    );
   }
 
-  if (!ip) return { country: null, city: null };
-
+  let geoip: GeoLocation | null = null;
   try {
-    const geoip = await loadGeoIp();
-    const result = geoip ? await geoip.lookup(ip.replace(/^::ffff:/, "")) : null;
-    return {
-      country: normalizeCountry(result?.country),
-      city: normalizeCity(result?.city),
-    };
+    geoip = ip ? await lookupGeoIp(ip) : null;
   } catch {
-    return { country: null, city: null };
+    geoip = null;
   }
+
+  if (viaCloudflare) {
+    const country = normalizeCountry(header(req, "cf-ipcountry"));
+    if (country) {
+      const city =
+        normalizeCity(header(req, "cf-ipcity")) ?? (geoip?.country === country ? geoip.city : null);
+      return { country, city, source: "cloudflare" };
+    }
+  }
+
+  if (geoip) return { ...geoip, source: "geoip" };
+  return { country: null, city: null, source: "none" };
 }

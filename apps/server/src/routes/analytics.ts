@@ -1,6 +1,8 @@
 import express, { Router } from "express";
 import { analyticsCollectSchema } from "@repo/constants";
 import { collectAnalyticsEvent } from "../services/analytics/collector";
+import { resolveLocation } from "../services/analytics/geo";
+import { getVisitorIp } from "../services/analytics/visitorIp";
 
 const analyticsRouter: Router = Router();
 
@@ -25,6 +27,28 @@ analyticsRouter.post("/collect", express.text({ type: "*/*", limit: "4kb" }), as
     }
   }
   res.status(204).end();
+});
+
+/**
+ * GET /api/analytics/geo-check
+ *
+ * Shows what location analytics would record for the caller, so the proxy
+ * setup can be checked after a deploy. Open it from a phone on mobile data or
+ * a VPN: the country and city should match. Returns no IP address and stores
+ * nothing.
+ */
+analyticsRouter.get("/geo-check", async (req, res) => {
+  const { ip, viaCloudflare } = getVisitorIp(req);
+  const location = await resolveLocation(req, ip, viaCloudflare);
+  res.set("Cache-Control", "no-store");
+  res.json({
+    country: location.country,
+    city: location.city,
+    source: location.source,
+    viaCloudflare,
+    visitorIpFound: ip !== "",
+    ipVersion: ip ? (ip.includes(":") ? 6 : 4) : null,
+  });
 });
 
 export default analyticsRouter;
