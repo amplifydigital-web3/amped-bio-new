@@ -1,33 +1,63 @@
+# Multi-stage build for efficient admin production image
+# Stage 1: Build the admin application
 FROM node:24-alpine AS builder
 
-ENV NODE_OPTIONS=--max-old-space-size=4096
+# Install Python, build tools and Python build dependencies
+RUN apk add --no-cache python3 make g++ py3-pip py3-setuptools
 
-RUN apk add --no-cache python3 make g++
+# Install pnpm via corepack (pinned by packageManager), like the other apps
 RUN corepack enable pnpm
 
+# Type-checking the admin pulls in the server router types through @repo/ui,
+# which needs more heap than the default
+ENV NODE_OPTIONS=--max-old-space-size=4096
+
+# Set the working directory inside the container
 WORKDIR /app
 
-# Vite mode selects the env file baked into the build: staging (.env.staging) is the
-# default, pass --build-arg VITE_BUILD_MODE=production for production builds
-ARG VITE_BUILD_MODE=staging
+# Copy the root package files
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
 
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.json ./
-COPY packages/typescript-config ./packages/typescript-config
-COPY packages/constants ./packages/constants
-COPY packages/web3 ./packages/web3
-COPY packages/ui ./packages/ui
+# Copy the packages directories
+COPY packages ./packages
+
+# Copy the admin app
 COPY apps/admin ./apps/admin
 
-RUN pnpm install --frozen-lockfile --filter=@repo/admin...
+# Copy the server app: the admin type-checks against the server's tRPC router
+# and auth types (re-exported through @repo/ui), so its sources and dependencies
+# are required at build time
+COPY apps/server ./apps/server
 
+# Install dependencies using pnpm
+RUN pnpm install --frozen-lockfile --filter=@repo/admin... --filter=@repo/server...
+
+# Change to the admin app directory for building
 WORKDIR /app/apps/admin
-RUN pnpm exec vite build --mode $VITE_BUILD_MODE
 
+# The admin build reads the committed env file for the selected mode
+# (apps/admin/.env.<mode>), so the values inlined into the bundle always come
+# from the repository. For another environment, commit its apps/admin/.env.<mode>
+# file and build with --build-arg VITE_MODE=<mode>
+ARG VITE_MODE=staging
+
+# Local env overrides are gitignored but still land in the build context, and
+# Vite gives them priority over the committed file, so drop them before building
+RUN rm -f .env.local .env.*.local
+
+# Build the admin app. NODE_ENV=production keeps the production React build even
+# if the builder environment exports something else (the whole process.env is
+# inlined by vite.config.ts); it does not select which env file is loaded, --mode does
+RUN NODE_ENV=production pnpm run build --mode ${VITE_MODE}
+
+# Stage 2: Serve the admin application using lighttpd
 FROM alpine:3.21
 
 RUN apk add --no-cache lighttpd
 
+# Copy the built assets from the builder stage
 COPY --from=builder /app/apps/admin/dist /var/www/localhost/htdocs
+
 COPY apps/admin/lighttpd.conf /etc/lighttpd/lighttpd.conf
 
 # lighttpd drops privileges to the lighttpd user before opening its errorlog,
