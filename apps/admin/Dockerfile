@@ -60,19 +60,18 @@ COPY --from=builder /app/apps/admin/dist /var/www/localhost/htdocs
 
 COPY apps/admin/lighttpd.conf /etc/lighttpd/lighttpd.conf
 
-# lighttpd drops privileges to the lighttpd user before opening its errorlog,
-# so give it a writable directory for the log and pid files
-RUN mkdir -p /var/log/lighttpd && touch /var/log/lighttpd/error.log && \
-    chown -R lighttpd:lighttpd /var/log/lighttpd
+# Default listening port, overridable at runtime with -e PORT=<port>
+ENV PORT=80
 
-# Run lighttpd workers as the unprivileged lighttpd user
-RUN chown -R lighttpd:lighttpd /var/www/localhost/htdocs
-
+# Expose the default port (metadata only, use PORT to change it)
 EXPOSE 80
 
-# Health check: "/" serves the built index.html and always returns 200
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD wget -q -O /dev/null http://127.0.0.1/ || exit 1
+# Report container health from inside the image so any orchestrator can act on it.
+# lighttpd serves index.html for every path (url.rewrite-if-not-file), so a request
+# to / is enough to prove the web server is accepting traffic. PORT is expanded by
+# the shell at runtime, keeping the check aligned with -e PORT=<port>.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
+  CMD wget -q -O /dev/null "http://127.0.0.1:${PORT:-80}/" || exit 1
 
-# Mirror the errorlog to stdout so container logs stay visible
-CMD ["sh", "-c", "tail -f /var/log/lighttpd/error.log & exec lighttpd -D -f /etc/lighttpd/lighttpd.conf"]
+# Start lighttpd on the port provided through the PORT environment variable
+CMD ["sh", "-c", "sed -i \"s/^server.port.*/server.port = ${PORT:-80}/\" /etc/lighttpd/lighttpd.conf && exec lighttpd -D -f /etc/lighttpd/lighttpd.conf"]
