@@ -22,6 +22,7 @@ const TAB_TITLES: Record<string, Record<string, string>> = {
   // Settings is the bare Account title (098 I05)
   account: { settings: "Settings", developers: "Developers" },
   "my-pool": { overview: "Overview", broadcasts: "Broadcasts" },
+  content: { library: "Library", store: "Store", live: "Live" },
 };
 
 function useTitle() {
