@@ -49,6 +49,8 @@ export interface ActivityItem {
   transferType: string | null;
   /** Explorer for this row when it is not the Libertas explorer (USDC rows link to Base) */
   explorerUrl?: string;
+  /** A named sender instead of an address, for example Coinbase on a Buy USDC delivery */
+  counterpartyLabel?: string;
 }
 
 /** One USDC transfer from wallet.usdc.activity (Build Board #29, spec 3.6). */
@@ -60,6 +62,8 @@ export type UsdcActivityRow = {
   to: string;
   amount: string;
   occurredAt: string;
+  /** Buy USDC (#5): coinbase when the transfer is a Coinbase delivery */
+  source?: "coinbase" | null;
 };
 
 export function fromUsdcEvent(row: UsdcActivityRow, explorerUrl: string | undefined): ActivityItem {
@@ -84,6 +88,7 @@ export function fromUsdcEvent(row: UsdcActivityRow, explorerUrl: string | undefi
     token: { name: "USD Coin", symbol: "USDC", iconURL: null, native: false },
     transferType: null,
     explorerUrl,
+    counterpartyLabel: row.source === "coinbase" ? "Coinbase" : undefined,
   };
 }
 
