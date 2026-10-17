@@ -56,6 +56,9 @@ const db = vi.hoisted(() => {
       }),
     },
     blockedContentHash: {
+      findUnique: vi.fn(
+        async ({ where }: any) => hashes.find(hash => hash.sha256 === where.sha256) ?? null
+      ),
       upsert: vi.fn(async ({ create }: any) => {
         if (!hashes.some(hash => hash.sha256 === create.sha256)) hashes.push(create);
       }),
@@ -70,7 +73,18 @@ const quota = vi.hoisted(() => ({
   commitBytes: vi.fn(async () => {}),
 }));
 
+const cf = vi.hoisted(() => ({
+  publishContentJob: vi.fn(async () => {}),
+  createStreamClip: vi.fn(async () => ({ uid: "c".repeat(32) })),
+  enableStreamDownloads: vi.fn(async () => {}),
+}));
+
 vi.mock("@repo/database", () => ({ prisma: db.prisma }));
+vi.mock("../services/cloudflare/queue", () => ({ publishContentJob: cf.publishContentJob }));
+vi.mock("../services/cloudflare/stream", () => ({
+  createStreamClip: cf.createStreamClip,
+  enableStreamDownloads: cf.enableStreamDownloads,
+}));
 vi.mock("../services/content/quota", async importOriginal => ({
   ...(await importOriginal<typeof import("../services/content/quota")>()),
   releaseBytes: quota.releaseBytes,
@@ -81,6 +95,8 @@ import {
   applyProcessorCallback,
   applyStreamWebhook,
   sweepStaleUploads,
+  sweepStuckProcessing,
+  PROCESSING_TIMEOUT_MS,
   UPLOADING_TIMEOUT_MS,
 } from "../services/content/state";
 import { minutesForDuration } from "../services/content/quota";
@@ -108,6 +124,8 @@ function seed(overrides: Record<string, unknown> = {}) {
 }
 
 beforeEach(() => {
+  Object.values(cf).forEach(fn => fn.mockClear());
+  cf.publishContentJob.mockResolvedValue(undefined);
   quota.releaseBytes.mockClear();
   quota.commitBytes.mockClear();
 });
@@ -213,6 +231,69 @@ describe("processor callback", () => {
     expect(db.assets[0]).toMatchObject({ role: "RENDITION", variant: "640", size: 900n });
   });
 
+  it("blocks an upload whose hash is on the blocklist and tells the processor to stop", async () => {
+    const item = seed();
+    const sha256 = "d".repeat(64);
+    db.hashes.push({ sha256, reason: "malware" });
+    expect(await applyProcessorCallback({ ...base, step: "hash", outcome: "ok", sha256 })).toBe(
+      "blocked"
+    );
+    expect(item).toMatchObject({
+      status: "BLOCKED",
+      moderationState: "BLOCKED",
+      moderationReason: "blocklist:malware",
+    });
+    expect(quota.releaseBytes).toHaveBeenCalledTimes(1);
+    // A retry of the same step changes nothing
+    expect(await applyProcessorCallback({ ...base, step: "hash", outcome: "ok", sha256 })).toBe(
+      "ignored"
+    );
+    expect(quota.releaseBytes).toHaveBeenCalledTimes(1);
+  });
+
+  it("makes the preview clip and turns on downloads when a video goes READY", async () => {
+    seed({
+      kind: "VIDEO",
+      durationMs: 60_000,
+      previewConfig: { seconds: 30 },
+      allowDownload: true,
+    });
+    db.assets.push({
+      id: Uint8Array.from([9]),
+      contentItemId: ITEM_ID,
+      role: "STREAM",
+      streamUid: "s".repeat(32),
+    });
+    await applyProcessorCallback({ ...base, step: "done", outcome: "ok" });
+    expect(cf.createStreamClip).toHaveBeenCalledWith(
+      "s".repeat(32),
+      30,
+      expect.objectContaining({ publicId: base.publicId })
+    );
+    expect(cf.enableStreamDownloads).toHaveBeenCalledWith("s".repeat(32));
+    expect(db.assets.find(asset => asset.role === "PREVIEW_CLIP")).toMatchObject({
+      storage: "STREAM",
+      streamUid: "c".repeat(32),
+      durationMs: 30_000,
+    });
+  });
+
+  it("keeps a video READY when the Stream clip call fails", async () => {
+    const item = seed({ kind: "VIDEO", durationMs: 60_000, previewConfig: { seconds: 30 } });
+    db.assets.push({
+      id: Uint8Array.from([9]),
+      contentItemId: ITEM_ID,
+      role: "STREAM",
+      streamUid: "s".repeat(32),
+    });
+    cf.createStreamClip.mockRejectedValueOnce(new Error("Stream 500"));
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(await applyProcessorCallback({ ...base, step: "done", outcome: "ok" })).toBe("applied");
+    expect(item.status).toBe("READY");
+    expect(cf.enableStreamDownloads).not.toHaveBeenCalled();
+    error.mockRestore();
+  });
+
   it("answers not_found for an unknown item and ignores a deleted one", async () => {
     seed({ status: "DELETED" });
     expect(
@@ -252,6 +333,15 @@ describe("Stream webhook", () => {
       durationMs: 95_400,
     });
     expect(db.assets[0]!.durationMs).toBe(95_400);
+    expect(cf.publishContentJob).toHaveBeenCalledWith({ type: "video", publicId: item.publicId });
+  });
+
+  it("throws when the queue is down, so Stream retries the webhook", async () => {
+    seedVideo();
+    cf.publishContentJob.mockRejectedValueOnce(new Error("Queue publish failed: 503"));
+    await expect(
+      applyStreamWebhook({ uid, readyToStream: true, duration: 10, status: { state: "ready" } })
+    ).rejects.toThrow("503");
   });
 
   it("fails a video Stream could not encode and releases its bytes once", async () => {
@@ -290,5 +380,23 @@ describe("stale upload sweep", () => {
     expect(await sweepStaleUploads(now)).toBe(1);
     expect(item).toMatchObject({ status: "FAILED", failureReason: "upload_expired" });
     expect(quota.releaseBytes).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("stuck processing sweep", () => {
+  it("fails items with no step reported for 2 hours and releases their bytes", async () => {
+    const now = new Date("2026-10-17T12:00:00Z");
+    const item = seed({ updatedAt: new Date(now.getTime() - PROCESSING_TIMEOUT_MS - 1) });
+    expect(await sweepStuckProcessing(now)).toBe(1);
+    expect(item).toMatchObject({ status: "FAILED", failureReason: "processing_timeout" });
+    expect(quota.releaseBytes).toHaveBeenCalledTimes(1);
+    expect(await sweepStuckProcessing(now)).toBe(0);
+  });
+
+  it("leaves items that reported a step recently", async () => {
+    const now = new Date("2026-10-17T12:00:00Z");
+    const item = seed({ updatedAt: new Date(now.getTime() - 60_000) });
+    expect(await sweepStuckProcessing(now)).toBe(0);
+    expect(item.status).toBe("PROCESSING");
   });
 });
