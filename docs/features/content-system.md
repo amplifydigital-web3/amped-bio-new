@@ -41,7 +41,7 @@ Direction from Rob:
 |---|---|---|---|
 | Files, audio, images | AWS S3 private bucket and CloudFront | Cloudflare R2 private bucket behind our media gateway Worker | Rob, 12 Oct: all in on Cloudflare. No egress fee |
 | Video | Mux, then Cloudflare Stream (8 Oct) | Cloudflare Stream, uploaded straight from the browser | Rob, 8 Oct |
-| Processing | SQS, Lambda, GuardDuty, Rekognition | R2 event notifications, Cloudflare Queues, a processor Worker and a Cloudflare Container (ffmpeg, sharp, ClamAV, pdfium) | One vendor. GuardDuty only scans S3 |
+| Processing | SQS, Lambda, GuardDuty, Rekognition | Cloudflare Queues, a processor Worker and a Cloudflare Container (ffmpeg, sharp, ClamAV, poppler, qpdf) | One vendor. GuardDuty only scans S3 |
 | Selling | "Payments on hold. Paid is Later" | Creators sell items and bundles and run a membership, paid in USDC from the fan's wallet to the creator's wallet | Rob, 8 to 12 Oct |
 | Store | None | A storefront on the creator page, in the creator's brand | Rob, 12 Oct |
 | Visibility | Public or Members only (stake rules) | Public, Followers, Members, Pool fans, Fans with a minimum stake, Paid, and any of these combined | Gating engine and memberships specs |
@@ -55,10 +55,10 @@ Direction from Rob:
 | Piece | What we use it for | What it controls | Key limits |
 |---|---|---|---|
 | R2, one private bucket `amped-content` | Originals of images, audio, documents and files. Renditions, previews, waveforms, covers, store banners | No public access and no `r2.dev` URL. Reads only through the gateway Worker binding. Writes through presigned PUTs on the S3 endpoint | $0.015 per GB month, Class A $4.50 and Class B $0.36 per million, egress free. Presigned URLs work only on `<account>.r2.cloudflarestorage.com`, never on a custom domain. Multipart: 5 MiB to 5 GiB parts, 10,000 parts |
-| R2 event notifications and Queues | `object-create` on `incoming/` starts processing | Prefix filters. At least once delivery, so every step is idempotent | 5,000 messages a second per queue |
+| Queues | The API publishes a job after completeUpload and after the Stream webhook | At least once delivery, so every step is idempotent. Dead letter queue after 3 retries | 5,000 messages a second per queue |
 | Media gateway Worker on `media.ampedusercontent.com` | Serves every R2 byte to viewers | Verifies our short lived token, streams from the R2 binding with Range, sets security headers, caches by object key after the token check, honors the takedown list | Cached file size 512 MB below Enterprise. Larger files stream uncached |
 | Stream | All video: upload, encode, signed HLS and DASH, preview clips, captions, MP4 downloads, live (#27) | `requireSignedURLs` on every video. RS256 tokens we sign with our own key. `allowedOrigins` amped.bio and app.amped.bio. One signed webhook | $5 per 1,000 minutes stored (prepaid), $1 per 1,000 minutes delivered, encoding free. Token `exp` at most 24 hours. Audio only files are refused (`ERR_NON_VIDEO`). Basic upload under 200 MB, TUS above. Max 30 GB |
-| Containers | ffmpeg (audio, keyframes), sharp (images), ClamAV (malware), pdfium (page previews) | Called only by the processor Worker | Workers Paid plan. Instance up to 4 vCPU, 12 GiB |
+| Containers | ffmpeg (audio), sharp (images), ClamAV (malware), poppler and qpdf (documents) | Called only by the processor Worker, with no internet. Reads and writes R2 only through the Worker | Workers Paid plan. Instance up to 4 vCPU, 12 GiB |
 | CSAM Scanning Tool | Second layer on the media zone | Hashes images as they pass through the cache and blocks matches | Not a pre publish check. Private and uncached content is not scanned |
 | WAF and rate limits | Gateway abuse limits | Per IP request limits on `media.ampedusercontent.com` | |
 
@@ -479,7 +479,7 @@ model BlockedContentHash {
 
 | Prefix | Contents | Written by | Read by | Lifecycle |
 |---|---|---|---|---|
-| `incoming/{publicId}/original.{ext}` | Raw upload | Browser (presigned PUT or multipart) | Processor only | Deleted when processing ends. Incomplete multipart aborted after 1 day |
+| `incoming/{publicId}/original.{ext}` | Raw upload | Browser (presigned PUT or multipart) | Processor only | Deleted when processing ends. Expire after 7 days. Incomplete multipart aborted after 1 day |
 | `originals/{publicId}/original.{ext}` | Clean original, kept for documents, files and downloadable items | Processor | Gateway (signed) | Deleted with the item |
 | `audio/{publicId}/{variant}.m4a` | AAC rendition and the preview cut | Processor | Gateway (signed) | Deleted with the item |
 | `derived/{publicId}/{role}/{variant}` | Image renditions, covers, blur, page previews, waveforms, poster frames | Processor | Gateway (signed) | Deleted with the item |
@@ -502,8 +502,8 @@ browser                 API (tRPC)                         R2 / Stream          
   |                      | video: Stream TUS upload URL     |                             |
   | bytes --------------------------------------------------> incoming/ or Stream          |
   | completeUpload ----> | HeadObject size, 4 KB magic     |                             |
-  |                      | status PROCESSING                |-- object-create event ----->| hash, blocklist, CSAM,
-  |                      |                                  |                             | malware, normalize, previews,
+  |                      | status PROCESSING, publish job ------------------------------->| hash, blocklist, malware,
+  |                      |<---------------- signed POST /internal/content/job (job JSON)  | normalize, CSAM, blur,
   |                      |<---------------- signed callback POST /internal/content/processed  classifier
   |                      |<---------------- Stream webhook (ready or error) for video
   |<-- READY ------------|                                  |                             |
@@ -513,22 +513,23 @@ browser                 API (tRPC)                         R2 / Stream          
    - Non video under 100 MB: a presigned R2 PUT on the S3 endpoint, 15 minutes, with `Content-Type` and `Content-Length` signed.
    - Non video 100 MB and over: an R2 multipart upload id and part count (10 MB parts). `signParts` presigns up to 50 part URLs at a time, 15 minutes each.
    - Video: a Stream direct creator upload through TUS (`POST /stream?direct_user=true`) with `maxDurationSeconds` set to the creator's video minutes left (capped at 4 hours), `requiresignedurls`, an expiry of 6 hours and `meta.publicId`. The browser uploads with `tus-js-client`, 50 MB chunks, resumable. The returned `stream-media-id` is stored as the STREAM asset.
-2. **completeUpload** `{ publicId, parts? }`. For R2: completes the multipart upload, calls HeadObject and refuses when the length differs from the declared size, reads the first 4 KB and checks the signature matches the kind. A mismatch deletes the object and sets FAILED. For video: confirms Stream has the upload. Sets PROCESSING.
-3. **Processor.** R2 `object-create` on `incoming/` goes to the Queue `content-ingest`. Video items are queued by the API when the Stream webhook reports `readyToStream`, because keyframes and clips need an encoded video. The processor Worker runs these steps, writes each step to the API callback, and is idempotent on `publicId` and step:
+2. **completeUpload** `{ publicId, parts? }`. For R2: completes the multipart upload, calls HeadObject and refuses when the length differs from the declared size, reads the first 4 KB and checks the signature matches the kind. A mismatch deletes the object and sets FAILED. For video: confirms Stream has the upload. Sets PROCESSING. For R2 files it then publishes `{ type: "r2", publicId }` to the Queue through the Queues HTTP API (3 attempts). If the publish fails, the object is deleted, the item is FAILED (`queue_unavailable`) and its bytes are released, and the creator is asked to upload again.
+3. **Processor** (`apps/media-processor`, PR 4). The API puts `{ type, publicId }` on the Queue `content-ingest`: after completeUpload for R2 files, and when the Stream webhook reports `readyToStream` for video, because keyframes and clips need an encoded video. The API publishes instead of an R2 event notification, because an event can arrive before completeUpload has verified the upload. The processor Worker asks the API for the job (signed `POST /internal/content/job`; the answer carries no user data, and signed Stream thumbnail URLs for video), runs these steps, reports each one to the API callback, and is idempotent on `publicId` and step. Heavy tools run in a Container with no internet; it reads and writes R2 only through the Worker, with a per job grant limited to that item's keys.
    1. SHA-256. Refuse when the hash is in `BlockedContentHash`.
-   2. **CSAM match** (decision 11; in beta a no op adapter that logs, PhotoDNA before general availability) on images, GIF frames, video keyframes (one per 5 seconds, at most 60, taken from the Stream thumbnail endpoint with a short token) and document page renders. A match stops everything (3.11).
-   3. **Malware scan** (decision 12) with ClamAV in the Container for documents, files and any item with downloads allowed. ZIP archives also fail above 10 times compression or 2 GB uncompressed. INFECTED moves the object to `quarantine/`, sets BLOCKED and adds the hash to the blocklist.
-   4. **Normalize** in the Container:
-      - Images: sharp re-encode, EXIF, GPS and XMP removed, longest side capped at 4096, renditions 320, 640, 1280 and full in WebP and JPEG. HEIC converted. The original is not kept.
-      - Audio: ffmpeg to AAC in m4a at 160 kbps, metadata removed, waveform JSON, and the preview cut (first `previewConfig.seconds`) as a separate file. The upload is kept in `originals/` only when downloads are allowed.
-      - Documents: pdfium renders pages 1 to 3 as previews, metadata removed, original kept in `originals/`. EPUB gets a cover render only.
-      - Video: Stream encodes. When the item has a preview, the processor calls `POST /stream/clip` from 0 to the preview length and stores the clip uid as PREVIEW_CLIP. A poster frame is copied into `derived/`.
+   2. **Malware scan** (decision 12) with ClamAV in the Container for documents, files and any R2 item with downloads allowed. ZIP and EPUB archives also fail above 10 times expansion or 2 GB uncompressed, and an encrypted archive or a file over the scan limits fails, because it cannot be scanned. INFECTED copies the object to `quarantine/`, sets BLOCKED and adds the hash to the blocklist. Video is not scanned: Stream re-encodes it and downloads are Stream MP4 files.
+   3. **Normalize** in the Container:
+      - Images: sharp re-encode, EXIF, GPS, XMP and IPTC removed, orientation applied, longest side capped at 4096, renditions 320, 640, 1280 and full in WebP and JPEG. HEIC converted. GIFs keep the first frame. The upload is not kept: the ORIGINAL is the clean full size JPEG.
+      - Audio: ffmpeg to AAC in m4a at 160 kbps, every tag, chapter and embedded picture removed, waveform JSON (1000 peaks), and the preview cut (first `previewConfig.seconds`) as a separate file. The upload is kept in `originals/` only when downloads are allowed; otherwise the ORIGINAL is the clean m4a.
+      - Documents: qpdf removes the PDF info dictionary and XMP metadata, and the cleaned file is kept in `originals/`. Poppler renders pages 1 to 3 as previews; page 1 is also the cover. A PDF that needs a password is refused. EPUB is kept as uploaded and gets a cover render only.
+      - Files (zip): kept as uploaded in `originals/` after the scan.
+      - Video: Stream encodes. The poster is Stream's thumbnail at 5 seconds, rendered as COVER into `derived/`. At READY the API calls `POST /stream/clip` from 0 to the preview length when the item has one (PREVIEW_CLIP) and turns on MP4 downloads when they are allowed.
+   4. **CSAM match** (decision 11; in beta a no op adapter that logs, PhotoDNA before general availability) on what a viewer would see: image renditions, document page renders and video keyframes (one per 5 seconds, at most 60, from the Stream thumbnail endpoint with a short token). A match copies the upload to `quarantine/` for the evidence path, removes the outputs and stops everything (3.11).
    5. **Blur cover** at 32 px for locked cards.
-   6. **Adult classifier** (decision 13) on images and 5 video frames. Explicit on an item labeled 18+ continues. Explicit on an unlabeled item sets HELD until a reviewer clears it or the creator labels it 18+ with 18+ enabled (#28).
-   7. READY. Reserved bytes move to used. Video minutes are added from Stream's `duration`. An in app notice goes to the creator.
+   6. **Adult classifier** (decision 13) on images and 5 video frames. Explicit on an item labeled 18+ continues. Explicit on an unlabeled item sets HELD until a reviewer clears it or the creator labels it 18+ with 18+ enabled (#28). Until the vendor adapter lands, staging runs a mock (titles containing `qa-explicit` are explicit) and production holds every image and video for review (`CLASSIFIER=none`, `CLASSIFIER_REQUIRED=true`), so nothing unclassified is published.
+   7. READY. Reserved bytes move to used. Video minutes are added from Stream's `duration`. The upload in `incoming/` is deleted. An in app notice goes to the creator.
 4. **Callbacks.** The processor posts each result to `POST /internal/content/processed`, signed with HMAC SHA-256 over the body and a timestamp (`CONTENT_PROCESSOR_SECRET`, 5 minute window). The API is the only writer of item state.
 5. **Stream webhook.** `POST /webhooks/cloudflare-stream` verifies `Webhook-Signature` (HMAC SHA-256 of `time.body`, 5 minute window). `readyToStream: true` queues the video steps for the processor. `status.state: "error"` sets FAILED with the Stream error code. Clips and live recordings (#27) raise their own events.
-6. **Failures.** Each step retries 3 times with backoff (Queue retries, then a dead letter queue). Items in UPLOADING for 24 hours or PROCESSING for 2 hours are failed by a sweep job and their reserved bytes released. `retryProcessing` lets the creator retry once an hour.
+6. **Failures.** A problem with the file itself (unreadable, refused by the scan limits) fails the item at once. Any other error retries 3 times with backoff (1, 2, then 4 minutes), then the dead letter queue fails the item (`processing_error`) and removes its files. Items in UPLOADING for 24 hours or PROCESSING for 2 hours are failed by a sweep job and their reserved bytes released. `retryProcessing` lets the creator retry once an hour.
 
 ### 3.6 Delivery
 
@@ -558,7 +559,7 @@ browser                 API (tRPC)                         R2 / Stream          
 - **Access check** follows the gating engine contract. The client calls `access.check({ resource: { type: "content", id: publicId } })` for the state, then `access.issueGrant` and `content.getReadUrl({ publicId, grant })` to open. `getReadUrl` calls `verifyAccessGrant` and signs with expiry `min(TTL above, grant expiry)`, except the stream rule. Public items need no grant.
 - **Stream rule.** Stream checks the token on every segment and stops at expiry, and the browser fetches audio in Range requests through the gateway for the whole play. So a Stream token and a gated audio URL both live the item duration plus 10 minutes (4 hours at most) even though a grant lives 10 minutes. A fan who loses access finishes that play session and is refused on the next. The gating engine spec records this exception for video and audio.
 - **Previews.** A locked viewer never holds a token for the full video or audio. `content.getPreview` signs the clip uid or the audio preview key only.
-- **Downloads.** `getReadUrl({ download: true })` counts downloads per buyer per item per day in Redis (decision 24) and puts a `jti` in the token. The gateway enforces single use with a Durable Object keyed by `jti` (KV is eventually consistent, so it cannot). Stream MP4 downloads are not single use: they carry a 2 minute token with `downloadable: true`, and the processor turns on the MP4 download (`POST /stream/{uid}/downloads`) only for videos with downloads allowed.
+- **Downloads.** `getReadUrl({ download: true })` counts downloads per buyer per item per day in Redis (decision 24) and puts a `jti` in the token. The gateway enforces single use with a Durable Object keyed by `jti` (KV is eventually consistent, so it cannot). Stream MP4 downloads are not single use: they carry a 2 minute token with `downloadable: true`, and the API turns on the MP4 download (`POST /stream/{uid}/downloads`) at READY, only for videos with downloads allowed.
 - **Takedown.** Block or delete writes the KV entry and purges the cache key. R2 tokens stop working within KV propagation (about 60 seconds). Stream videos are set `requireSignedURLs` already, so a blocked video is also deleted from Stream or has its signing denied by `getReadUrl`.
 - **Server rendering.** Bio, feed, store and product pages render gated items locked, with blur covers only. Full URLs are fetched by the browser after hydration and never appear in server HTML, page caches, JSON-LD, share tags, the sitemap or `llms.txt`.
 - **18+.** `getReadUrl`, `getPreview` and every public list refuse 18+ items for viewers without a passed age check (#28).
@@ -887,7 +888,7 @@ About 44 engineer days in total. PRs 3, 4 and 5 can run in parallel after PR 2.
 
 **PR 3. `feat/media-gateway`.** New `apps/media-gateway` (Wrangler, TypeScript, R2 binding `CONTENT`, KV binding `TAKEDOWN`). Token verify with two key rotation, path match, takedown check, cache by key, Range, headers per 3.6. Tests with the Workers Vitest pool. CI gains typecheck and test for the Worker. Deploy is `wrangler deploy` run by Gustavo per environment until deploy automation exists.
 
-**PR 4. `feat/media-processor`.** New `apps/media-processor`: Queue consumer Worker plus a Container image (ffmpeg, sharp, ClamAV with a daily signature update, pdfium). Steps per 3.5 with idempotent writes. PhotoDNA and classifier adapters with a mock adapter on staging until keys arrive. Callback client. Dead letter queue handling. Tests per step with fixture files (EICAR, GPS PNG, renamed EXE, zip bomb, 30 second MP3).
+**PR 4. `feat/media-processor`.** New `apps/media-processor`: Queue consumer Worker plus a Container image (ffmpeg, sharp, ClamAV with a daily signature update, poppler, qpdf). The API publishes jobs and serves them on `POST /internal/content/job`. Steps per 3.5 with idempotent writes. PhotoDNA and classifier adapters with a mock adapter on staging until keys arrive. Callback client. Dead letter queue handling. Tests per step with fixture files (EICAR, GPS PNG, renamed EXE, zip bomb, 30 second MP3).
 
 **PR 5. `feat/content-library-ui`.** Content destination with the Library tab (cs1), upload dialog with R2 multipart and `tus-js-client` for video (cs2), item editor with Public only (cs3; other rules show Later), storage meter, empty, loading and error states (cs8). Autosave. Flag `VITE_CONTENT`.
 
@@ -909,13 +910,13 @@ About 44 engineer days in total. PRs 3, 4 and 5 can run in parallel after PR 2.
 
 1. Two Cloudflare accounts (production and staging) on Workers Paid. Containers enabled.
 2. Register `ampedusercontent.com` (production account) and `ampedusercontent-staging.com` (staging account) and add each as a zone on its account. A Worker custom domain needs a zone on the Worker's own account, and the staging gateway binds the staging bucket, so staging needs its own domain. Hosts `media.ampedusercontent.com` and `media.ampedusercontent-staging.com`.
-3. R2 buckets `amped-content` and `amped-content-staging`. Public access and `r2.dev` off. CORS per 3.4. Lifecycle: abort multipart after 1 day, `quarantine/` expires after 30 days.
+3. R2 buckets `amped-content` and `amped-content-staging`. Public access and `r2.dev` off. CORS per 3.4. Lifecycle: abort multipart after 1 day, `incoming/` expires after 7 days (uploads that never finished processing), `quarantine/` expires after 30 days.
 4. R2 API tokens: one per environment, Object Read and Write on its bucket only.
-5. Event notification on each bucket: `object-create`, prefix `incoming/`, to Queues `content-ingest` and `content-ingest-staging`, each with a dead letter queue.
+5. Queues `content-ingest` and `content-ingest-staging`, each with a dead letter queue (`-dlq`). No bucket event notification: the API publishes jobs after completeUpload (3.5 step 3). An API token per account with Queues Edit, for the API.
 6. KV namespaces `takedown` and `takedown-staging`.
 7. Stream allows one webhook per account, so staging runs on its own Cloudflare account (its own Stream library, R2 bucket, Queue, KV and Workers). On each account: create the signing key, set the webhook URL to `https://{api host}/webhooks/cloudflare-stream`, record the webhook secret. Prepay storage for the pilot (start at 10,000 minutes) with an alarm at 80%.
 8. WAF rate limit on the media hosts. Turn on the CSAM Scanning Tool for the zone.
-9. Secrets in the server secret store: `CF_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `CF_STREAM_API_TOKEN`, `CF_STREAM_KEY_ID`, `CF_STREAM_KEY_PEM`, `CF_STREAM_WEBHOOK_SECRET`, `MEDIA_GATEWAY_ORIGIN`, `MEDIA_TOKEN_KEYS`, `CONTENT_PROCESSOR_SECRET`, `PHOTODNA_KEY`, `CLASSIFIER_API_KEY`. Worker secrets: `MEDIA_TOKEN_KEYS` (gateway), `CONTENT_PROCESSOR_SECRET`, `PHOTODNA_KEY`, `CLASSIFIER_API_KEY` (processor).
+9. Secrets in the server secret store: `CF_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `CF_STREAM_API_TOKEN`, `CF_STREAM_KEY_ID`, `CF_STREAM_KEY_PEM`, `CF_STREAM_WEBHOOK_SECRET`, `MEDIA_GATEWAY_ORIGIN`, `MEDIA_TOKEN_KEYS`, `CONTENT_PROCESSOR_SECRET`, `CF_QUEUES_API_TOKEN`, `CF_CONTENT_QUEUE_ID`, `CF_STREAM_CUSTOMER_CODE`, `PHOTODNA_KEY`, `CLASSIFIER_API_KEY`. Worker secrets: `MEDIA_TOKEN_KEYS` (gateway), `CONTENT_PROCESSOR_SECRET`, `PHOTODNA_KEY`, `CLASSIFIER_API_KEY` (processor).
 10. Open the classifier vendor account. Apply for PhotoDNA Cloud Service during beta so it is live before general availability.
 11. Register the DMCA agent. Publish the copyright policy page.
 12. Wrangler access for Gustavo per environment.
@@ -945,7 +946,9 @@ About 44 engineer days in total. PRs 3, 4 and 5 can run in parallel after PR 2.
 - R2 CORS: https://developers.cloudflare.com/r2/buckets/cors/
 - R2 public buckets: https://developers.cloudflare.com/r2/buckets/public-buckets/
 - R2 Workers API: https://developers.cloudflare.com/r2/api/workers/workers-api-reference/
-- R2 event notifications: https://developers.cloudflare.com/r2/buckets/event-notifications/
+- Queues, publish over HTTP: https://developers.cloudflare.com/queues/examples/publish-to-a-queue-via-http/
+- Queues, batching, retries and dead letter queues: https://developers.cloudflare.com/queues/configuration/batching-retries/
+- Containers: https://developers.cloudflare.com/containers/
 - R2 object lifecycles: https://developers.cloudflare.com/r2/buckets/object-lifecycles/
 - R2 bucket locks: https://developers.cloudflare.com/r2/buckets/bucket-locks/
 - R2 data location: https://developers.cloudflare.com/r2/reference/data-location/
@@ -982,3 +985,4 @@ About 44 engineer days in total. PRs 3, 4 and 5 can run in parallel after PR 2.
 - 2026-10-12: Full rewrite on `development`. Rob chose Cloudflare all in (R2, the media gateway Worker, Stream, Queues, Containers) and a creator store on the creator page where fans buy memberships and content directly from the creator. Added the store, products and bundles, store branding, the membership tab, checkout through the creator branded sheet, the split table with promoters and partners, the Sales view, UUID v7 keys, the Fan Library and Live streaming amendments, a new cost model, 13 PRs and the Cloudflare setup checklist.
 - 2026-10-12 (later): Rob moved PhotoDNA to after beta to keep development fast. Decision 11 answered with beta guardrails: invite only beta, Cloudflare CSAM Scanning Tool on, Report and admin takedown in Phase 1, a no op hash match adapter, PhotoDNA before general availability. Phase 0, Phase 1 gate, 3.5, 3.11, 3.14 and 3.17 updated.
 - 2026-10-17: PR 3 (media gateway). Staging media host moves to `media.ampedusercontent-staging.com` on its own domain, because a Worker custom domain needs a zone on the same account and staging runs on its own account (3.17 step 2). Token lifetime capped at 25 hours on both sides (`MEDIA_TOKEN_MAX_LIFETIME_SECONDS`). Viewer `Cache-Control` is `private` with at most 5 minutes on every gateway response, since the token does not carry a gated flag.
+- 2026-10-17 (later): PR 4 (media processor). The API publishes processing jobs to the Queue after completeUpload and the Stream webhook, instead of an R2 event notification, because an event can arrive before the upload is verified (3.5 step 3, 3.17 step 5). The processor fetches each job from the API (`POST /internal/content/job`). CSAM matching runs after normalize, on what a viewer would see. Poppler and qpdf replace pdfium. Video is not malware scanned. The Stream clip and MP4 downloads are set by the API at READY. Production holds every image and video for review until the classifier vendor is live. A 2 hour PROCESSING sweep and an `incoming/` lifecycle rule of 7 days are added.
