@@ -68,8 +68,9 @@ function activityTitle(
     : "";
   const person = personName(item.counterparty, profiles);
   // A transfer into a pool names the pool (058 I02)
-  const target =
-    item.counterparty && poolNames[item.counterparty.toLowerCase()]
+  const target = item.counterpartyLabel
+    ? item.counterpartyLabel
+    : item.counterparty && poolNames[item.counterparty.toLowerCase()]
       ? poolNames[item.counterparty.toLowerCase()]
       : person;
   const token = item.token ? `${item.token.symbol} ` : "";

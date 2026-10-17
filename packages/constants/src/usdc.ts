@@ -37,3 +37,78 @@ export const USDC_COPY = {
     invalid_recipient: "Enter a wallet address or choose a person.",
   } satisfies Record<UsdcSendRefusal, string>,
 } as const;
+
+/*
+ * Buy USDC through Coinbase (Build Board #5). Spec docs/features/usdc-wallet-onramp.md
+ * 3.5, 3.7 and 3.9. Coinbase sells, quotes, verifies and delivers; Amped.Bio
+ * shows the quote and reports arrival. Nothing is charged on Amped.Bio.
+ */
+
+/** How the fan pays Coinbase. Apple Pay and Google Pay run in the Headless Onramp (US). */
+export type OnrampMode = "coinbase_account" | "apple_pay" | "google_pay";
+
+/** OnrampSession.status. The chain decides arrival; a webhook never credits a balance. */
+export type OnrampStatus =
+  | "created"
+  | "pending_verification"
+  | "pending_payment"
+  | "processing"
+  | "success"
+  | "failed"
+  | "canceled"
+  | "expired";
+
+export const ONRAMP_FINAL_STATUSES: readonly OnrampStatus[] = [
+  "success",
+  "failed",
+  "canceled",
+  "expired",
+];
+
+export const ONRAMP_LIMITS = {
+  /** Fallback minimum in USD when Coinbase's options do not give one */
+  minUsd: 5,
+  /** Fallback maximum in USD for one purchase */
+  maxUsd: 5_000,
+  /** Amount presets on the Amount step (o1) */
+  presets: ["10", "25", "50", "100"],
+  /** A Coinbase account session with no Coinbase transaction after this long is expired */
+  sessionTtlMinutes: 120,
+  /** The single use Coinbase link lives this long */
+  hostedLinkMinutes: 5,
+} as const;
+
+/** Fan facing Buy USDC lines (spec 3.9). Counsel confirms the wording. No dashes. */
+export const ONRAMP_COPY = {
+  byline: "Sold and delivered by Coinbase",
+  /** Wallet, Fund row (w5). USDC-5 adds Apple Pay and Google Pay. */
+  fundRow: "Debit card, bank or your Coinbase balance. Coinbase sells, Amped.Bio charges nothing.",
+  quoteLine: "Coinbase sets the price and fees. Nothing is charged on Amped.Bio.",
+  agreement:
+    "By continuing you agree to Coinbase's Guest Checkout Terms, User Agreement and Privacy Policy.",
+  notCompleted: "Coinbase did not complete the purchase. Nothing was charged on Amped.Bio.",
+  region:
+    "Coinbase does not sell USDC in your region yet. You can deposit USDC from an exchange or another wallet.",
+  paused: "Buy USDC is paused for a moment. Try again shortly.",
+  slow: "This is taking longer than usual. Your USDC will show in Activity when it arrives.",
+  coinbaseAccount: {
+    title: "Pay with your Coinbase account",
+    usBody: "Debit card or bank in the US. Opens Coinbase in a new tab.",
+    intlBody: "Debit or credit card in most countries. Opens Coinbase in a new tab.",
+    waiting:
+      "Coinbase opened in a new tab. Pay there with your debit card, bank or balance. Come back here when it says done.",
+    linkLine:
+      "The Coinbase link works once and for five minutes. Open Coinbase again makes a new one.",
+  },
+  arrived: (amount: string) => `${amount} USDC is in your wallet.`,
+} as const;
+
+/**
+ * Coinbase legal links named in the agreement line (o2). Counsel and the Coinbase
+ * account representative confirm these before VITE_USDC_ONRAMP turns on in production.
+ */
+export const COINBASE_TERMS = {
+  guestCheckout: "https://www.coinbase.com/legal/guest-checkout/us",
+  userAgreement: "https://www.coinbase.com/legal/user_agreement",
+  privacy: "https://www.coinbase.com/legal/privacy",
+} as const;
