@@ -81,6 +81,8 @@ export const ONRAMP_LIMITS = {
 /** Fan facing Buy USDC lines (spec 3.9). Counsel confirms the wording. No dashes. */
 export const ONRAMP_COPY = {
   byline: "Sold and delivered by Coinbase",
+  /** Wallet, Fund row (w5). USDC-5 adds Apple Pay and Google Pay. */
+  fundRow: "Debit card, bank or your Coinbase balance. Coinbase sells, Amped.Bio charges nothing.",
   quoteLine: "Coinbase sets the price and fees. Nothing is charged on Amped.Bio.",
   agreement:
     "By continuing you agree to Coinbase's Guest Checkout Terms, User Agreement and Privacy Policy.",
