@@ -257,8 +257,14 @@ const envSchema = z.object({
   MEDIA_GATEWAY_ORIGIN: z.string().default(""),
   // kid:base64urlSecret,kid:base64urlSecret. The first signs; all verify (rotation, spec 3.6)
   MEDIA_TOKEN_KEYS: z.string().default(""),
-  // Shared with the processor Worker (PR 4): signs POST /internal/content/processed
+  // Shared with the processor Worker (PR 4): signs POST /internal/content/processed and /job
   CONTENT_PROCESSOR_SECRET: z.string().default(""),
+  // Queues HTTP publish (PR 4): API token with Queues Edit, and the content-ingest queue id
+  CF_QUEUES_API_TOKEN: z.string().default(""),
+  CF_CONTENT_QUEUE_ID: z.string().default(""),
+  // Stream customer code for thumbnail URLs (customer-{code}.cloudflarestream.com). Optional:
+  // read from the video when empty
+  CF_STREAM_CUSTOMER_CODE: z.string().default(""),
   // Per kind upload limits in MB (spec 3.2)
   UPLOAD_LIMIT_CONTENT_VIDEO_MB: numSchema(2048),
   UPLOAD_LIMIT_CONTENT_AUDIO_MB: numSchema(500),
