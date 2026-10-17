@@ -140,6 +140,8 @@ export interface StreamVideo {
   size?: number;
   status: { state: string; errReasonCode?: string; errReasonText?: string };
   meta?: Record<string, string>;
+  /** `https://customer-{code}.cloudflarestream.com/{uid}/thumbnails/thumbnail.jpg` */
+  thumbnail?: string;
 }
 
 export function getStreamVideo(uid: string): Promise<StreamVideo> {
@@ -174,7 +176,7 @@ export async function deleteStreamVideo(uid: string): Promise<void> {
   }
 }
 
-/** Preview clip from 0 to `seconds` as a separate signed video (used by PR 4). */
+/** Preview clip from 0 to `seconds` as a separate signed video (called at READY, PR 4). */
 export function createStreamClip(
   uid: string,
   seconds: number,
@@ -193,7 +195,7 @@ export function createStreamClip(
   });
 }
 
-/** Turns on the MP4 download, only for videos with downloads allowed (used by PR 4). */
+/** Turns on the MP4 download, only for videos with downloads allowed (called at READY, PR 4). */
 export function enableStreamDownloads(uid: string): Promise<unknown> {
   return streamJson<unknown>(`/${uid}/downloads`, { method: "POST" });
 }
