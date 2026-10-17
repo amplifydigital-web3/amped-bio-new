@@ -1,6 +1,6 @@
 # Amped.Bio Privacy Policy
 
-Last updated: October 12, 2026
+Last updated: October 17, 2026
 
 This policy explains what personal information Amped.Bio collects, why, who receives it, and the choices you have. It applies to creators, fans and anyone who visits an Amped.Bio page.
 
@@ -10,7 +10,7 @@ Oneiro N.A., Inc., doing business as Amplify Digital, Boston, Massachusetts ("Am
 
 This policy covers:
 
-- The Amped.Bio editor, account and wallet
+- The Amped.Bio editor, account and wallet, including USDC on Base and Buy USDC through Coinbase
 - Public creator pages at amped.bio/handle and the public site (home page, pools, blog and developer docs)
 - Sign in with Amped.Bio, when you use your account to sign in to another app
 - The Amped.Bio bot on Telegram, when you link your Telegram account
@@ -46,6 +46,12 @@ When you send tREVO, stake in a pool, claim rewards, create a pool, register or 
 **ndau conversion.** If you convert ndau, we store your ndau address, REVO address, amounts, the signatures and validation key you provide, the document hash of the terms you accepted, the status and any transaction ID. We keep these as the record of your request.
 
 Testnet only. Pool rewards come from the network, vary, and are not guaranteed.
+
+**USDC on Base.** Your wallet can also hold USDC on Base, using the same wallet address. When you send USDC, you sign the transfer in your wallet and Coinbase's server wallet submits it for us and pays the network fee. We record each send with your account: amount, sending and receiving addresses, status, transaction ID and time. We also record USDC that reaches or leaves your address, and who on Amped.Bio sent or received it. Transactions on Base, including your wallet address and amounts, are public and permanent.
+
+**Address screening.** Before a send, and when you first use USDC, we check the receiving address and your own address against sanctions and risk lists, using Circle and the Chainalysis sanctions oracle. We send only the wallet address. If an address is refused, we keep the address, the vendor's reference and the time.
+
+**Buy USDC through Coinbase.** Coinbase sells you the USDC and delivers it to your wallet. Amped.Bio never receives your card or bank details and charges nothing. When you buy, we send Coinbase your wallet address, your IP address, the amount, your region, and a random reference we made for you instead of your account ID or email. If you pay with Apple Pay or Google Pay, Coinbase asks for your phone number and email and verifies you inside its own window on our page, under Coinbase's privacy policy. We do not receive those details. Coinbase gives us a sign in token so you can skip that step next time; we store it encrypted for 60 days. We record each purchase: way to pay, amount, Coinbase's price and fees, status, Coinbase's order number and the transaction ID. Coinbase's own [privacy policy](https://www.coinbase.com/legal/privacy) covers what Coinbase collects.
 
 ## 4. Visitors to creator pages and the public site
 
@@ -113,6 +119,9 @@ We do not sell your personal information. We do not use it for our own advertisi
 | Link Telegram and deliver what you asked for there | Telegram user ID, name, username, photo link | Contract |
 | Creator updates on Telegram | Telegram user ID and your delivery choice | Consent |
 | ndau conversion records | Addresses, amounts, signatures, terms hash | Contract and legal obligation |
+| Send and receive USDC, show your activity | Wallet address, amounts, addresses, transaction IDs | Contract |
+| Buy USDC through Coinbase | Wallet address, IP address, amount, region, random reference, Coinbase's order record, the encrypted Coinbase token | Contract |
+| Screen addresses against sanctions and risk lists | Wallet addresses, the vendor's result | Legal obligation and legitimate interests |
 | Written summaries for creators | Page totals, top sources, devices, visitor counts and up to 10 link names | Legitimate interests |
 | Meet legal duties and handle disputes | Any of the above as needed | Legal obligation, legitimate interests |
 
@@ -129,8 +138,11 @@ We do not sell your personal information. We do not use it for our own advertisi
 | Authbase | Your verification request | Identity badge, if you choose it |
 | Creator tools (Google Analytics, Meta, TikTok) | Visit events, IP address and device, with permission per creator | The creator's own analytics and ads |
 | Apps you connect with Sign in with Amped.Bio | What you allow on the consent screen | Sign you in to that app |
+| Coinbase (United States) | For Buy USDC: your wallet address, IP address, amount, region and a random reference. For USDC sends: the transfer you signed, which Coinbase submits | Sell and deliver USDC; submit your sends and pay the network fee |
+| Circle (United States) | Wallet addresses to screen | Sanctions and risk screening |
+| Chainalysis (sanctions oracle on Base) | Wallet addresses, checked on chain | Sanctions screening |
 | Telegram (United Arab Emirates and other locations) | Your Telegram user ID and the messages the bot sends you | Deliver what you asked for on Telegram |
-| The public and the Revolution Network | Your public page, handle, wallet address, transactions, pools and the verification status you choose to show | Public by design |
+| The public, the Revolution Network and Base | Your public page, handle, wallet address, transactions, pools and the verification status you choose to show | Public by design |
 | Authorities, advisers, a buyer of the business | What the law requires or a transaction needs | Legal duties, rights, a sale or merger |
 
 Creators see totals for their own page. They do not see your IP address, your Amped.Bio account, or your browser ID.
@@ -159,14 +171,16 @@ Creator pages and the public site set nothing in your browser until you choose, 
 | Visit events | 25 months, then deleted or combined into totals |
 | Consent records (what you chose, when, policy version; no IP address) | 5 years |
 | Browser ID and Google Analytics cookies | Up to 24 months, or until you withdraw |
-| Wallet and transaction records | While your account is open, and 5 years after it closes, for disputes and legal duties |
+| Wallet and transaction records, including USDC sends, USDC transfers and Buy USDC purchases | While your account is open, and 5 years after it closes, for disputes and legal duties |
+| Coinbase sign in token (Apple Pay and Google Pay) | 60 days, or until your account closes |
+| Refused address screenings | 5 years |
 | ndau conversion records | 7 years after the request |
 | Connected app records | Until you remove the app, then 30 days |
 | Telegram link | Until you unlink or close your account |
 | Telegram link and delivery choice history (no IP address) | 5 years |
 | Support messages | 2 years |
 
-On chain records on the Revolution Network are permanent. We cannot delete them.
+On chain records on the Revolution Network and Base are permanent. We cannot delete them.
 
 ## 11. Your choices and rights
 
@@ -188,7 +202,7 @@ We cannot change or delete records on the blockchain, including your wallet addr
 
 **International transfers.** Our providers may process information outside your country, including in the United States and Germany. Where EU or UK law applies, we rely on the EU US Data Privacy Framework and its UK extension where a provider is certified, and otherwise on Standard Contractual Clauses with the UK addendum.
 
-**Security.** Passwords are stored as one way hashes. Creator Meta and TikTok tokens are encrypted at rest and never sent to any browser. Access to personal information is limited to staff who need it. No system is perfectly secure.
+**Security.** Passwords are stored as one way hashes. Creator Meta and TikTok tokens and Coinbase sign in tokens are encrypted at rest and never sent to any browser. Access to personal information is limited to staff who need it. No system is perfectly secure.
 
 **Children.** You must be 18 or older to create an Amped.Bio account, because accounts include a wallet and tokens. We do not knowingly collect information from anyone under 18. If you believe someone under 18 has an account, write to us and we will delete it.
 

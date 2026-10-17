@@ -23,7 +23,7 @@ Operator: Oneiro N.A., Inc., dba Amplify Digital, Boston, Massachusetts. Contact
 ## Lifetimes
 
 - 24 months for all visitors, including EU and UK: the consent choice (`CONSENT_MAX_AGE_MS`), the return visit ID (`amped_vid`), and GA cookies (`cookie_expires` 63072000 seconds).
-- Retention: visit events 25 months, consent records 5 years (no IP address), accounts deleted within 30 days of closing, wallet and transaction records 5 years after close, ndau conversion records 7 years, connected app records 30 days after removal, support messages 2 years, Telegram link until unlink or account close, Telegram link and delivery choice history 5 years.
+- Retention: visit events 25 months, consent records 5 years (no IP address), accounts deleted within 30 days of closing, wallet and transaction records 5 years after close, ndau conversion records 7 years, connected app records 30 days after removal, support messages 2 years, Telegram link until unlink or account close, Telegram link and delivery choice history 5 years, USDC sends, transfers and Buy USDC purchases 5 years after close (as wallet and transaction records), Coinbase userAuthToken 60 days, screening denies 5 years.
 
 ## Rules for new code
 
@@ -35,3 +35,5 @@ Operator: Oneiro N.A., Inc., dba Amplify Digital, Boston, Massachusetts. Contact
 - Copy rules: no income, yield, APY or APR. Use the standard testnet line where tREVO appears.
 - Telegram (Build Board #2): store only the Telegram user ID, name, username and photo link from Log In with Telegram; never request the `phone` scope. Encrypt username, name and photo link at rest (`services/telegram/secret.ts`). Never return a Telegram ID to anyone but its owner, never show a creator's Telegram username on a public surface, and show a fan's username to a creator only with the fan's `shareUsername` choice.
 - Telegram delivery of creator updates is opt in on the global preference row, recorded in `telegram_link_events` with `CONSENT_POLICY_VERSION`; `/stop` and unlink turn it off everywhere. The bot writes only to a reachable link (`botAccess` true, `blockedAt` null).
+- USDC and Buy USDC (Build Board #29 and #5): recipients are Coinbase (CDP relayer and Onramp), Circle (screening) and the Chainalysis sanctions oracle, as policy section 8 lists. Send Coinbase only the wallet address, IP address, amount, region and the opaque `onramp_ref` (`ob_` plus random characters); never the user ID, email, name or phone. Use embedded order mode so Coinbase collects phone and email in its own frame; never store what Coinbase collects. Store the `userAuthToken` encrypted (`services/onramp/secret.ts`) for 60 days and never return it to any browser or export. Screening sends the address only.
+- Admin, Money shows handles only, never fan email, names or the `onramp_ref`. Privacy requests for USDC records use `pnpm run --filter server usdc:records <email or handle>`; add `--forget-token` when an account closes.

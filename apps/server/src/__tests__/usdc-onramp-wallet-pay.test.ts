@@ -21,6 +21,7 @@ const db = vi.hoisted(() => {
     onrampEvent: { create: fn(), findUnique: fn(), update: fn() },
     onrampUserAuth: { findUnique: fn(), upsert: fn(), deleteMany: fn() },
     paymentEvent: { findFirst: fn(), updateMany: fn() },
+    siteSettings: { findUnique: fn() },
   };
 });
 

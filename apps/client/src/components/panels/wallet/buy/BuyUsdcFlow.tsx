@@ -528,6 +528,14 @@ export default function BuyUsdcFlow() {
         retryLabel="Retry"
       />
     );
+  } else if (options.data?.paused && phase !== "handoff" && phase !== "frame") {
+    // Pause Buy USDC in Admin, Money (spec 3.8). Open purchases keep reporting.
+    body = <Notice variant="warning" title={ONRAMP_COPY.paused} />;
+    footer = (
+      <Button type="button" variant="secondary" size="lg" className="w-full" onClick={close}>
+        Done
+      </Button>
+    );
   } else if (phase === "frame" && paymentLink) {
     // o3: Coinbase's frame inside the panel. Its verification, its button.
     body = (

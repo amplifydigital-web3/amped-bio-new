@@ -20,6 +20,7 @@ const db = vi.hoisted(() => {
     },
     onrampEvent: { create: fn(), findUnique: fn(), update: fn() },
     paymentEvent: { findFirst: fn(), updateMany: fn() },
+    siteSettings: { findUnique: fn() },
   };
 });
 
