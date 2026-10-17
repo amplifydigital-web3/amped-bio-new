@@ -15,6 +15,8 @@ import { SignJWT, importJWK, importPKCS8 } from "jose";
 
 const CDP_HOST = "api.cdp.coinbase.com";
 const CDP_BASE = `https://${CDP_HOST}/platform`;
+// Onramp v1 (buy config, buy options, transaction status) still lives on the developer host
+const ONRAMP_V1_HOST = "api.developer.coinbase.com";
 
 export type CdpCredentials = {
   apiKeyId: string;
@@ -75,13 +77,14 @@ export async function cdpBearerJwt(
   creds: Pick<CdpCredentials, "apiKeyId" | "apiKeySecret">,
   method: string,
   path: string,
-  now = Math.floor(Date.now() / 1000)
+  now = Math.floor(Date.now() / 1000),
+  host = CDP_HOST
 ): Promise<string> {
   const { key, alg } = await signingKey(creds.apiKeySecret);
   return new SignJWT({
     sub: creds.apiKeyId,
     iss: "cdp",
-    uris: [`${method} ${CDP_HOST}${path}`],
+    uris: [`${method} ${host}${path}`],
   })
     .setProtectedHeader({ alg, kid: creds.apiKeyId, typ: "JWT", nonce: jwtNonce() })
     .setIssuedAt(now)
@@ -185,4 +188,132 @@ export class CdpClient {
       { body, walletAuth: true, idempotencyKey }
     );
   }
+
+  /**
+   * Onramp v1 on the developer host (buy config, buy options, transaction status).
+   * The JWT names the path without the query string.
+   */
+  private async onrampV1<T>(path: string, query: Record<string, string | undefined> = {}) {
+    const headers = {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${await cdpBearerJwt(this.creds, "GET", path, undefined, ONRAMP_V1_HOST)}`,
+    };
+    const search = new URLSearchParams(
+      Object.entries(query).filter((entry): entry is [string, string] => !!entry[1])
+    ).toString();
+    const response = await this.fetcher(
+      `https://${ONRAMP_V1_HOST}${path}${search ? `?${search}` : ""}`,
+      { method: "GET", headers, signal: AbortSignal.timeout(15_000) }
+    );
+    const text = await response.text();
+    const json = text ? (JSON.parse(text) as Record<string, unknown>) : {};
+    if (!response.ok) {
+      throw new CdpError(
+        response.status,
+        String(json.errorType ?? json.code ?? "unknown"),
+        String(
+          json.errorMessage ?? json.message ?? `Onramp GET ${path} failed with ${response.status}`
+        )
+      );
+    }
+    return json as T;
+  }
+
+  /** Countries, US states and payment methods Coinbase serves (Buy Config). */
+  getOnrampBuyConfig() {
+    return this.onrampV1<OnrampBuyConfig>("/onramp/v1/buy/config");
+  }
+
+  /** Fiat limits per payment method and the assets on offer for one region (Buy Options). */
+  getOnrampBuyOptions(country: string, subdivision?: string) {
+    return this.onrampV1<OnrampBuyOptions>("/onramp/v1/buy/options", {
+      country,
+      subdivision,
+      networks: "base",
+    });
+  }
+
+  /** The user's onramp transactions, newest first (Transaction Status API). */
+  getOnrampTransactions(partnerUserRef: string, pageSize = 5) {
+    return this.onrampV1<OnrampTransactionsPage>(
+      `/onramp/v1/buy/user/${encodeURIComponent(partnerUserRef)}/transactions`,
+      { page_size: String(pageSize) }
+    );
+  }
+
+  /**
+   * Hosted Onramp session (Coinbase account path). With paymentAmount,
+   * paymentCurrency, paymentMethod, country and subdivision the response also
+   * carries Coinbase's quote. The URL is single use and lives five minutes.
+   */
+  createOnrampSession(body: OnrampSessionRequest) {
+    return this.request<{ session: { onrampUrl: string }; quote?: OnrampQuote }>(
+      "POST",
+      "/v2/onramp/sessions",
+      { body: body as unknown as Record<string, unknown> }
+    );
+  }
 }
+
+/* Coinbase Onramp shapes, as documented (v2 camelCase, v1 snake_case). */
+
+export type OnrampFee = { type: string; amount: string; currency: string };
+
+export type OnrampQuote = {
+  paymentTotal: string;
+  paymentSubtotal: string;
+  paymentCurrency: string;
+  purchaseAmount: string;
+  purchaseCurrency: string;
+  destinationNetwork: string;
+  fees: OnrampFee[];
+  exchangeRate: string;
+};
+
+export type OnrampSessionRequest = {
+  purchaseCurrency: "USDC";
+  destinationNetwork: "base";
+  destinationAddress: string;
+  paymentAmount?: string;
+  paymentCurrency?: string;
+  paymentMethod?: "CARD" | "ACH" | "APPLE_PAY" | "PAYPAL" | "FIAT_WALLET" | "CRYPTO_WALLET";
+  country?: string;
+  subdivision?: string;
+  redirectUrl?: string;
+  clientIp?: string;
+  partnerUserRef?: string;
+};
+
+export type OnrampBuyConfig = {
+  countries: { id: string; subdivisions?: string[]; payment_methods?: { id: string }[] }[];
+};
+
+export type OnrampBuyOptions = {
+  payment_currencies?: { id: string; limits?: { id: string; min: string; max: string }[] }[];
+  purchase_currencies?: {
+    id: string;
+    symbol: string;
+    networks?: { name: string; chain_id?: number | string; contract_address?: string }[];
+  }[];
+};
+
+type V1Amount = string | { value: string; currency?: string };
+
+export type OnrampTransaction = {
+  status: string;
+  transaction_id?: string;
+  tx_hash?: string;
+  purchase_amount?: V1Amount;
+  payment_total?: V1Amount;
+  payment_method?: string;
+  partner_user_ref?: string;
+  wallet_address?: string;
+  purchase_network?: string;
+  created_at?: string;
+};
+
+export type OnrampTransactionsPage = {
+  transactions?: OnrampTransaction[];
+  next_page_key?: string;
+  total_count?: string | number;
+};
