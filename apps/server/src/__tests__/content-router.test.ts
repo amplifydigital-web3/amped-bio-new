@@ -131,6 +131,11 @@ const cf = vi.hoisted(() => ({
   deleteStreamVideo: vi.fn(async () => {}),
 }));
 
+const queue = vi.hoisted(() => ({
+  publishContentJob: vi.fn(async (_message: unknown) => {}),
+  contentQueueConfigured: vi.fn(() => true),
+}));
+
 const quota = vi.hoisted(() => ({
   ensureQuota: vi.fn(async () => ({
     bytesLimit: 5_368_709_120n,
@@ -149,6 +154,7 @@ vi.mock("../utils/auth", () => ({ auth: { api: {} } }));
 vi.mock("../utils/rateLimit", () => ({ hitRateLimit: vi.fn(async () => 1) }));
 vi.mock("../services/cloudflare/r2", () => cf);
 vi.mock("../services/cloudflare/stream", () => cf);
+vi.mock("../services/cloudflare/queue", () => queue);
 vi.mock("../services/content/quota", async importOriginal => ({
   ...(await importOriginal<typeof import("../services/content/quota")>()),
   ...quota,
@@ -181,6 +187,7 @@ beforeEach(() => {
   db.assets.length = 0;
   Object.values(cf).forEach(fn => fn.mockClear());
   Object.values(quota).forEach(fn => fn.mockClear());
+  queue.publishContentJob.mockReset();
   quota.reserveBytes.mockResolvedValue(true);
   Object.assign(env, {
     CONTENT_UPLOADS_ENABLED: true,
@@ -189,6 +196,8 @@ beforeEach(() => {
     R2_SECRET_ACCESS_KEY: "secret",
     R2_BUCKET: "amped-content-test",
     CF_STREAM_API_TOKEN: "token",
+    CF_QUEUES_API_TOKEN: "queues",
+    CF_CONTENT_QUEUE_ID: "queue-id",
   });
 });
 
@@ -332,6 +341,25 @@ describe("completeUpload", () => {
       expect.arrayContaining(["audio/mpeg", "audio/wav"])
     );
     expect(db.items[0]).toMatchObject({ status: "PROCESSING", processingStep: "queued" });
+    expect(queue.publishContentJob).toHaveBeenCalledTimes(1);
+    expect(queue.publishContentJob).toHaveBeenCalledWith({ type: "r2", publicId });
+    // A second call answers with the state and does not queue the item again
+    expect(await owner.completeUpload({ publicId })).toMatchObject({ status: "processing" });
+    expect(queue.publishContentJob).toHaveBeenCalledTimes(1);
+  });
+
+  it("fails the item, deletes the file and releases bytes when the queue is down", async () => {
+    const { publicId } = await owner.createUpload(audio);
+    queue.publishContentJob.mockRejectedValueOnce(new Error("Queue publish failed: 503"));
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    await expect(owner.completeUpload({ publicId })).rejects.toMatchObject({
+      code: "INTERNAL_SERVER_ERROR",
+      message: "Could not start processing this file. Upload it again.",
+    });
+    expect(cf.deleteR2Object).toHaveBeenCalledWith(`incoming/${publicId}/original.mp3`);
+    expect(db.items[0]).toMatchObject({ status: "FAILED", failureReason: "queue_unavailable" });
+    expect(quota.releaseBytes).toHaveBeenCalledTimes(1);
+    error.mockRestore();
   });
 
   it("deletes a file whose size or type does not match, fails the item and releases its bytes", async () => {
@@ -394,6 +422,8 @@ describe("completeUpload", () => {
     await expect(owner.completeUpload({ publicId })).rejects.toMatchObject({ code: "BAD_REQUEST" });
     await owner.completeUpload({ publicId });
     expect(db.items[0]).toMatchObject({ status: "PROCESSING", processingStep: "encoding" });
+    // Videos are queued by the Stream webhook, not here
+    expect(queue.publishContentJob).not.toHaveBeenCalled();
   });
 });
 
