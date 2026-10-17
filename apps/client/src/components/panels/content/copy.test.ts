@@ -7,7 +7,8 @@ import { failureLine } from "./lib/status";
 
 // Spec 3.11 adds these to the shared list for content and store surfaces
 const CONTENT_EXTRA = ["return", "income", "gains", "share anything", "100% safe"];
-const DASHES = new RegExp("[–—]");
+// En and em dash, built from code points so this file holds neither character
+const DASHES = new RegExp(`[${String.fromCharCode(0x2013, 0x2014)}]`);
 
 /** Every string in the copy module, calling each template with sample values. */
 function collect(value: unknown, out: string[] = []): string[] {
