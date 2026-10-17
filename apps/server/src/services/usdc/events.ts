@@ -53,13 +53,22 @@ export async function recordUsdcTransfers(
     select: { id: true, txHash: true },
   });
   const sendByTx = new Map(sends.map(s => [s.txHash?.toLowerCase(), s.id]));
+  // Buy USDC (#5): a Coinbase delivery already reported by the webhook shows as Received from Coinbase
+  const purchases = await prisma.onrampSession.findMany({
+    where: { chainId: paymentChain.id, txHash: { in: [...new Set(transfers.map(t => t.txHash))] } },
+    select: { id: true, txHash: true, userId: true },
+  });
+  const purchaseByTx = new Map(purchases.map(p => [p.txHash?.toLowerCase(), p]));
 
   let written = 0;
   for (const transfer of transfers) {
     const payerUserId = owner.get(transfer.from.toLowerCase()) ?? null;
     const payeeUserId = owner.get(transfer.to.toLowerCase()) ?? null;
     if (payerUserId === null && payeeUserId === null) continue;
-    const refId = sendByTx.get(transfer.txHash.toLowerCase()) ?? null;
+    const sendId = sendByTx.get(transfer.txHash.toLowerCase()) ?? null;
+    const purchase = purchaseByTx.get(transfer.txHash.toLowerCase());
+    const fromCoinbase = !sendId && purchase && purchase.userId === payeeUserId ? purchase : null;
+    const refId = sendId ?? (fromCoinbase ? Buffer.from(fromCoinbase.id) : null);
     try {
       await prisma.paymentEvent.create({
         data: {
@@ -74,7 +83,7 @@ export async function recordUsdcTransfers(
           payerUserId,
           payeeUserId,
           amount: transfer.value,
-          refType: refId ? "usdc_send" : null,
+          refType: sendId ? "usdc_send" : fromCoinbase ? "onramp" : null,
           refId,
           occurredAt: await occurredAt(transfer.blockNumber),
         },
