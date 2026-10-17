@@ -92,3 +92,30 @@ cap in CDP where the Portal offers one, so a server fault cannot exceed it.
 
 Set the site setting `usdc_sends_paused` to `true` to stop every send within
 one request. The admin switch arrives with Admin, Money (USDC-3).
+
+## Buy USDC through Coinbase (Onramp)
+
+Build Board #5, spec `docs/features/usdc-wallet-onramp.md` 3.5 and 3.12. The
+Onramp calls are signed with the same CDP API key as the relayer; no Wallet
+Secret is involved.
+
+1. Apply for Onramp access in the CDP Portal (Payments, Onramp and Offramp).
+   Production access follows Coinbase's approval.
+2. Add `app.staging.amped.bio` and `app.amped.bio` to the Onramp domain
+   allowlist. The hosted redirect returns to
+   `https://{app}/wallet?fund=usdc&session={id}`.
+3. Create the webhook subscription for `onramp.transaction.created`,
+   `onramp.transaction.updated`, `onramp.transaction.success` and
+   `onramp.transaction.failed` with target
+   `https://api.staging.amped.bio/webhooks/coinbase-onramp` (and the production
+   API host). Store `metadata.secret` from the response in
+   `CDP_ONRAMP_WEBHOOK_SECRET`. The route verifies `X-Hook0-Signature` (v0,
+   HMAC-SHA256 over `{t}.{raw body}`, five minute window) and answers 401 to
+   anything else.
+4. Set `ONRAMP_ENABLED=true` on the server, then `VITE_USDC_ONRAMP=true` on the
+   client. Staging runs Coinbase's sandbox (`ONRAMP_SANDBOX` defaults to true
+   outside production): `partnerUserRef` gets the `sandbox-` prefix, nothing is
+   charged and nothing is delivered on chain, so the Arrived state on staging
+   follows the webhook alone.
+5. Production: the Privacy Policy names Coinbase, Circle and Chainalysis as
+   recipients before `VITE_USDC_ONRAMP` turns on (USDC-6).
