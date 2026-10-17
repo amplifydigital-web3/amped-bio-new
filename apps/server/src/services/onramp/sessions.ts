@@ -19,6 +19,7 @@ import {
 import { paymentChain, paymentClient } from "../usdc/chain";
 import { fromCents, toCents, toUsdcUnits } from "./amounts";
 import { isOnrampConfigured, onrampApi } from "./coinbase";
+import { onrampPausedSetting } from "./pause";
 import { partnerUserRefFor } from "./refs";
 import { decryptOnrampToken, encryptOnrampToken } from "./secret";
 import type { OnrampRegion } from "./region";
@@ -143,6 +144,8 @@ export type PathOption = {
 };
 
 export type OnrampOptions = {
+  /** Pause Buy USDC is on in Admin, Money: show the paused line, make nothing new */
+  paused: boolean;
   /** The region the options are for; null when it could not be told */
   region: OnrampRegion | null;
   /** True when the fan must pick a country or a US state before a quote */
@@ -221,6 +224,7 @@ export async function onrampOptions(
   now = Date.now()
 ): Promise<OnrampOptions> {
   if (!isOnrampConfigured()) throw new OnrampInputError("Buy USDC is not available yet.");
+  const paused = await onrampPausedSetting();
   let config;
   try {
     config = await buyConfig(now);
@@ -239,6 +243,7 @@ export async function onrampOptions(
     maxCents: ONRAMP_LIMITS.maxUsd * 100,
   };
   const base = {
+    paused,
     countries,
     fiatCurrency: "USD",
     paths: { coinbase_account: closed, apple_pay: closed, google_pay: closed },
@@ -280,6 +285,7 @@ export async function onrampOptions(
   const applePay = walletPayPath("apple_pay", region, methods, options, fiatCurrency);
   const googlePay = walletPayPath("google_pay", region, methods, options, fiatCurrency);
   return {
+    paused,
     countries,
     fiatCurrency,
     region,
@@ -339,6 +345,7 @@ async function assertAmount(
   now: number
 ): Promise<OnrampOptions> {
   const options = await onrampOptions(region, region, now);
+  if (options.paused) throw new OnrampInputError(ONRAMP_COPY.paused);
   if (!options.regionSupported) throw new OnrampInputError("Coinbase does not sell USDC here yet.");
   const path = options.paths[mode];
   if (!path?.available) throw new OnrampInputError("This way to pay is not offered here.");
