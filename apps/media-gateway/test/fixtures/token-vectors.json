@@ -1,0 +1,41 @@
+{
+  "description": "Media token conformance vectors (spec 3.6). Test keys only, never used for real tokens. The API signer (apps/server content-tokens.test.ts) must produce these exact tokens and the gateway (test/token.test.ts) must accept them. Verify with now = exp - 600.",
+  "keys": "t2:Z2F0ZXdheS10ZXN0LXNlY29uZC1rZXktbm90LWZvci1wcm9kdWN0aW9uLXVzZQ,t1:Z2F0ZXdheS10ZXN0LWtleS1ub3QtZm9yLXByb2R1Y3Rpb24tdXNlLWV2ZXItb2s",
+  "vectors": [
+    {
+      "note": "audio rendition, signed with the first key",
+      "kid": "t2",
+      "payload": {
+        "k": "audio/abcdefghijklmnop/full.m4a",
+        "r": "audio",
+        "exp": 1900000000,
+        "dl": 0
+      },
+      "token": "v1.t2.eyJrIjoiYXVkaW8vYWJjZGVmZ2hpamtsbW5vcC9mdWxsLm00YSIsInIiOiJhdWRpbyIsImV4cCI6MTkwMDAwMDAwMCwiZGwiOjB9.HeTRBgr2arfDEjXIiPeBzu4F7L63DvTc383xCwQbnfQ"
+    },
+    {
+      "note": "cover image, signed with the second key (rotation)",
+      "kid": "t1",
+      "payload": {
+        "k": "derived/abcdefghijklmnop/COVER/640",
+        "r": "cover",
+        "exp": 1900000000,
+        "dl": 0
+      },
+      "token": "v1.t1.eyJrIjoiZGVyaXZlZC9hYmNkZWZnaGlqa2xtbm9wL0NPVkVSLzY0MCIsInIiOiJjb3ZlciIsImV4cCI6MTkwMDAwMDAwMCwiZGwiOjB9.nZv9rEVcUZEWdlXrrZ4tSLnHceNnPH810ESCMIaONVo"
+    },
+    {
+      "note": "single use download with a UTF-8 file name",
+      "kid": "t2",
+      "payload": {
+        "k": "originals/abcdefghijklmnop/original.pdf",
+        "r": "original",
+        "exp": 1900000000,
+        "dl": 1,
+        "fn": "Studio notes é 日本.pdf",
+        "j": "Zk3vY0x2QmQzR1pXbW9M"
+      },
+      "token": "v1.t2.eyJrIjoib3JpZ2luYWxzL2FiY2RlZmdoaWprbG1ub3Avb3JpZ2luYWwucGRmIiwiciI6Im9yaWdpbmFsIiwiZXhwIjoxOTAwMDAwMDAwLCJkbCI6MSwiZm4iOiJTdHVkaW8gbm90ZXMgw6kg5pel5pysLnBkZiIsImoiOiJaazN2WTB4MlFtUXpSMXBYYlc5TSJ9.FfIze8QFGCAyKToYLtjtNFktN49Uyx8M28DVclpzBUc"
+    }
+  ]
+}

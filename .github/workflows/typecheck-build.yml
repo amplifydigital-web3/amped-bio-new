@@ -52,5 +52,9 @@ jobs:
         # The two OAuth integration files need staging and a database; they run by hand (AGENTS.md, Testing)
         run: pnpm --filter @repo/server run test:unit
 
+      - name: Media gateway Worker tests
+        # Runs inside workerd with local R2, KV, Durable Object and Cache API bindings
+        run: pnpm --filter @repo/media-gateway run test
+
       - name: Compliance copy check
         run: pnpm run check:copy

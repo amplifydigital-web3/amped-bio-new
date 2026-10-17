@@ -10,9 +10,35 @@
  *
  * URL: `{MEDIA_GATEWAY_ORIGIN}/{r2Key}?t={token}`. The gateway confirms the path
  * equals payload.k, so a token for one object never opens another.
+ *
+ * Imports nothing outside this package and nothing with side effects: the media
+ * gateway Worker imports this file by path to keep its bundle small.
  */
 
+import { CONTENT_R2_PREFIXES } from "./contentKeys";
+
 export const MEDIA_TOKEN_VERSION = "v1";
+
+/**
+ * Longest lifetime a token may carry: a 24 hour public token whose expiry is
+ * rounded up to the hour (spec 3.6). The API refuses to sign past it and the
+ * gateway refuses to honor past it, so a signing bug cannot mint a lasting URL.
+ * It is also the wait before an old key leaves MEDIA_TOKEN_KEYS after a rotation.
+ */
+export const MEDIA_TOKEN_MAX_LIFETIME_SECONDS = 25 * 60 * 60;
+
+/**
+ * R2 prefixes the gateway serves (spec 3.4). `incoming/` is unscanned and
+ * `quarantine/` holds malware positives, so neither is ever served.
+ */
+export const MEDIA_GATEWAY_SERVED_PREFIXES = [
+  CONTENT_R2_PREFIXES.originals,
+  CONTENT_R2_PREFIXES.audio,
+  CONTENT_R2_PREFIXES.derived,
+] as const;
+
+/** Single use download ids: base64url, as the API's newDownloadJti makes them. */
+export const MEDIA_TOKEN_JTI_REGEX = /^[A-Za-z0-9_-]{16,64}$/;
 
 export interface MediaTokenPayload {
   /** R2 object key */
@@ -133,7 +159,10 @@ export function decodeMediaTokenPayload(encoded: string): MediaTokenPayload | nu
       typeof value.k !== "string" ||
       typeof value.r !== "string" ||
       typeof value.exp !== "number" ||
-      (value.dl !== 0 && value.dl !== 1)
+      !Number.isInteger(value.exp) ||
+      (value.dl !== 0 && value.dl !== 1) ||
+      (value.fn !== undefined && typeof value.fn !== "string") ||
+      (value.j !== undefined && typeof value.j !== "string")
     ) {
       return null;
     }
@@ -165,8 +194,8 @@ export function parseMediaToken(token: string): ParsedMediaToken | null {
 /**
  * MEDIA_TOKEN_KEYS: `kid:base64urlSecret,kid:base64urlSecret`. The first key signs;
  * every listed key verifies, so a rotation adds the new key first and removes the
- * old one after the longest token lifetime (6 hours). Throws on a malformed value
- * instead of signing with a weak or ambiguous key.
+ * old one after MEDIA_TOKEN_MAX_LIFETIME_SECONDS (25 hours). Throws on a malformed
+ * value instead of signing with a weak or ambiguous key.
  */
 export function parseMediaTokenKeys(value: string): MediaTokenKey[] {
   const keys: MediaTokenKey[] = [];

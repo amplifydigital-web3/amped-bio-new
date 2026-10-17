@@ -1,8 +1,9 @@
 /**
  * Media gateway tokens, signing side (Build Board #20, spec 3.6). The format lives in
- * @repo/constants (mediaToken.ts) so the gateway Worker (PR 3) verifies the same bytes
- * with WebCrypto. Nothing in PR 2 hands these out yet: content.getReadUrl arrives in
- * PR 6. They exist now so PR 3 can test the gateway against tokens the API signs.
+ * @repo/constants (mediaToken.ts) so the gateway Worker (apps/media-gateway) verifies
+ * the same bytes with WebCrypto. Nothing hands these out yet: content.getReadUrl
+ * arrives in PR 6. The shared test vectors in
+ * apps/media-gateway/test/fixtures/token-vectors.json prove both runtimes agree.
  *
  * Also here: the processor callback signature (spec 3.5 step 4), the same HMAC idea
  * with CONTENT_PROCESSOR_SECRET.
@@ -10,6 +11,7 @@
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import {
   CONTENT_CALLBACK_WINDOW_SECONDS,
+  MEDIA_TOKEN_MAX_LIFETIME_SECONDS,
   base64UrlEncodeBytes,
   decodeMediaTokenPayload,
   encodeMediaTokenPayload,
@@ -39,10 +41,20 @@ function sameString(a: string, b: string): boolean {
   return left.length === right.length && timingSafeEqual(left, right);
 }
 
-/** Signs with the first key. */
-export function signMediaToken(payload: MediaTokenPayload, keys = mediaTokenKeys()): string {
+/**
+ * Signs with the first key. Refuses an expiry past MEDIA_TOKEN_MAX_LIFETIME_SECONDS,
+ * which the gateway would refuse anyway (spec 3.6 TTL table).
+ */
+export function signMediaToken(
+  payload: MediaTokenPayload,
+  keys = mediaTokenKeys(),
+  now: Date = new Date()
+): string {
   const signer = keys[0];
   if (!signer) throw new Error("MEDIA_TOKEN_KEYS is empty");
+  if (payload.exp - Math.floor(now.getTime() / 1000) > MEDIA_TOKEN_MAX_LIFETIME_SECONDS) {
+    throw new Error("Media token expiry is past the longest allowed lifetime");
+  }
   const encoded = encodeMediaTokenPayload(payload);
   const input = mediaTokenSigningInput(signer.kid, encoded);
   return `${input}.${hmac(signer.secret, input)}`;
