@@ -68,7 +68,13 @@ function text(value: unknown): string | null {
 export function normalizeOnrampEvent(
   body: Payload,
   eventType: string | null
-): (OnrampUpdate & { partnerUserRef: string | null; kind: "order" | "transaction" }) | null {
+):
+  | (OnrampUpdate & {
+      partnerUserRef: string | null;
+      partnerOrderRef: string | null;
+      kind: "order" | "transaction";
+    })
+  | null {
   const record = (body.data && typeof body.data === "object" ? body.data : body) as Payload;
   const orderId = text(record.orderId);
   const transactionId = text(record.transactionId) ?? text(record.transaction_id);
@@ -93,6 +99,7 @@ export function normalizeOnrampEvent(
         ? (text(record.failureReason) ?? text(record.errorCode) ?? "coinbase_failed").slice(0, 64)
         : null,
     partnerUserRef: text(record.partnerUserRef) ?? text(record.partner_user_ref),
+    partnerOrderRef: text(record.partnerOrderRef),
   };
 }
 
@@ -132,6 +139,17 @@ async function sessionFor(update: NonNullable<ReturnType<typeof normalizeOnrampE
       where: { provider: PROVIDER, sessionRef: update.ref },
     });
     if (known) return known;
+  }
+  // Apple Pay and Google Pay orders carry our session id as partnerOrderRef
+  if (
+    update.kind === "order" &&
+    update.partnerOrderRef &&
+    /^[0-9a-f]{32}$/.test(update.partnerOrderRef)
+  ) {
+    const own = await prisma.onrampSession.findFirst({
+      where: { id: Buffer.from(update.partnerOrderRef, "hex"), provider: PROVIDER },
+    });
+    if (own) return own;
   }
   if (update.kind !== "transaction" || !update.partnerUserRef) return null;
   return prisma.onrampSession.findFirst({

@@ -253,6 +253,25 @@ export class CdpClient {
       { body: body as unknown as Record<string, unknown> }
     );
   }
+
+  /**
+   * Headless Onramp order (Apple Pay, Google Pay; US). With isQuote the order
+   * is priced and not created. Otherwise the response carries the payment link
+   * Coinbase renders in our page and, in embedded mode, the userAuthToken.
+   */
+  createOnrampOrder(body: OnrampOrderRequest) {
+    return this.request<OnrampOrderResponse>("POST", "/v2/onramp/orders", {
+      body: body as unknown as Record<string, unknown>,
+    });
+  }
+
+  /** One Headless Onramp order by Coinbase's id. */
+  getOnrampOrder(orderId: string) {
+    return this.request<{ order: OnrampOrder }>(
+      "GET",
+      `/v2/onramp/orders/${encodeURIComponent(orderId)}`
+    );
+  }
 }
 
 /* Coinbase Onramp shapes, as documented (v2 camelCase, v1 snake_case). */
@@ -282,6 +301,49 @@ export type OnrampSessionRequest = {
   redirectUrl?: string;
   clientIp?: string;
   partnerUserRef?: string;
+};
+
+export type OnrampOrderRequest = {
+  paymentAmount: string;
+  paymentCurrency: string;
+  purchaseCurrency: "USDC";
+  paymentMethod: "GUEST_CHECKOUT_APPLE_PAY" | "GUEST_CHECKOUT_GOOGLE_PAY";
+  destinationAddress: string;
+  destinationNetwork: "base";
+  /** ISO 8601 time the fan accepted Coinbase's terms (the agreement line). Not sent on a quote. */
+  agreementAcceptedAt?: string;
+  partnerUserRef: string;
+  partnerOrderRef?: string;
+  clientIp?: string;
+  /** Host the payment link is embedded on; must be on the Onramp domain allowlist */
+  domain?: string;
+  /** Embedded mode: a returning fan's token skips Coinbase's phone and email steps */
+  userAuthToken?: string;
+  isQuote?: boolean;
+};
+
+export type OnrampOrder = {
+  orderId: string;
+  status: string;
+  paymentTotal?: string;
+  paymentSubtotal?: string;
+  paymentCurrency?: string;
+  purchaseAmount?: string;
+  purchaseCurrency?: string;
+  fees?: OnrampFee[];
+  exchangeRate?: string;
+  destinationAddress?: string;
+  destinationNetwork?: string;
+  txHash?: string;
+  partnerUserRef?: string;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type OnrampOrderResponse = {
+  order: OnrampOrder;
+  paymentLink?: { url: string; paymentLinkType?: string };
+  userAuthToken?: string;
 };
 
 export type OnrampBuyConfig = {
