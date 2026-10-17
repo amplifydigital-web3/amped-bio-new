@@ -3,6 +3,8 @@ export {
   OnrampProviderError,
   cancelOnrampSession,
   createCoinbaseSession,
+  createWalletPayOrder,
+  onrampFrameEvent,
   onrampOptions,
   onrampQuote,
   onrampStatus,
