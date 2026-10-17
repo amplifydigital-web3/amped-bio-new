@@ -9,8 +9,16 @@ import {
   Loader2,
   MapPin,
   RefreshCw,
+  Smartphone,
 } from "lucide-react";
-import { COINBASE_TERMS, ONRAMP_COPY, ONRAMP_LIMITS, type OnrampStatus } from "@repo/constants";
+import {
+  COINBASE_TERMS,
+  ONRAMP_COPY,
+  ONRAMP_FRAME_ERRORS,
+  ONRAMP_LIMITS,
+  type OnrampMode,
+  type OnrampStatus,
+} from "@repo/constants";
 import { USDC_SYMBOL, formatUsdc } from "@repo/web3";
 import {
   AmountPresets,
@@ -29,8 +37,9 @@ import { Slab, SlabRow } from "../../explore/pool-panel/sections";
 import ReceiveDialog from "../dialogs/ReceiveDialog";
 import { countryName, regionLabel, stateName } from "./regions";
 
-type Phase = "amount" | "pay" | "handoff";
+type Phase = "amount" | "pay" | "frame" | "handoff";
 type Region = { country: string; subdivision: string | null };
+type WalletPayMode = "apple_pay" | "google_pay";
 
 // o1 to o6: Amount, Choose how to pay, then Coinbase and the result
 const STEPS = ["Amount", "How to pay", "Coinbase"];
@@ -76,6 +85,55 @@ function usdcFromUnits(units: string | null | undefined) {
   }
 }
 
+/** Apple Pay where the browser has it (Safari), Google Pay elsewhere. */
+function deviceWalletPay(): WalletPayMode {
+  return typeof window !== "undefined" && "ApplePaySession" in window ? "apple_pay" : "google_pay";
+}
+
+/**
+ * Inside the Telegram Mini App the Coinbase frame cannot run Apple Pay or
+ * Google Pay (spec 3.7), so that lens is not rendered there.
+ */
+function inTelegramMiniApp(): boolean {
+  if (typeof window === "undefined") return false;
+  const telegram = (window as unknown as { Telegram?: { WebApp?: { initData?: string } } })
+    .Telegram;
+  return !!telegram?.WebApp?.initData;
+}
+
+/** Coinbase's payment frame posts from its own origin only. */
+function fromCoinbase(origin: string): boolean {
+  try {
+    const host = new URL(origin).hostname;
+    return host === "coinbase.com" || host.endsWith(".coinbase.com");
+  } catch {
+    return false;
+  }
+}
+
+/** The frame's message, as a string of JSON or an object: { eventName, data }. */
+function frameMessage(raw: unknown): { name: string; code: string | null } | null {
+  let value = raw;
+  if (typeof raw === "string") {
+    try {
+      value = JSON.parse(raw);
+    } catch {
+      return null;
+    }
+  }
+  if (!value || typeof value !== "object") return null;
+  const record = value as { eventName?: unknown; data?: { errorCode?: unknown } };
+  if (typeof record.eventName !== "string") return null;
+  const code = record.data?.errorCode;
+  return { name: record.eventName, code: typeof code === "string" ? code.slice(0, 64) : null };
+}
+
+const METHOD_LABEL: Record<OnrampMode, string> = {
+  coinbase_account: "Your Coinbase account",
+  apple_pay: "Apple Pay through Coinbase",
+  google_pay: "Google Pay through Coinbase",
+};
+
 /** In app paths only; anything else is dropped. */
 function safeReturn(value: string | null) {
   return value && value.startsWith("/") && !value.startsWith("//") ? value : null;
@@ -87,8 +145,9 @@ function safeReturn(value: string | null) {
  * step shows Coinbase's quote, Choose how to pay hands the fan to Coinbase in
  * a new tab, and the panel waits for Coinbase and then for Base. Arrived shows
  * only once the USDC is on chain in the fan's wallet. Nothing is charged on
- * Amped.Bio. USDC-4 ships the Coinbase account path; Apple Pay and Google Pay
- * follow in USDC-5.
+ * Amped.Bio. Two ways to pay: Apple Pay or Google Pay in Coinbase's frame
+ * inside the panel (o3, US, no Coinbase account), or the fan's Coinbase account
+ * in a new tab (o4).
  */
 export default function BuyUsdcFlow() {
   const [params, setParams] = useSearchParams();
@@ -108,6 +167,10 @@ export default function BuyUsdcFlow() {
   const [cause, setCause] = useState("");
   const [depositOpen, setDepositOpen] = useState(false);
   const [quoteStartedAt, setQuoteStartedAt] = useState(() => Date.now());
+  const [paymentLink, setPaymentLink] = useState<string | null>(null);
+  const [frameLoaded, setFrameLoaded] = useState(false);
+  const walletPayMode = useMemo(deviceWalletPay, []);
+  const miniApp = useMemo(inTelegramMiniApp, []);
   const amountRef = useRef(amount);
   amountRef.current = amount;
 
@@ -126,20 +189,43 @@ export default function BuyUsdcFlow() {
     staleTime: 10 * 60_000,
   });
   const effectiveRegion = region ?? options.data?.region ?? null;
-  const path = options.data?.paths.coinbase_account;
+  const accountPath = options.data?.paths.coinbase_account;
+  const walletPath = miniApp ? undefined : options.data?.paths[walletPayMode];
   const currency = options.data?.fiatCurrency ?? "USD";
+  const cents = /^\d{1,7}(\.\d{1,2})?$/.test(amount.trim())
+    ? Math.round(Number(amount.trim()) * 100)
+    : null;
+  const walletFits =
+    !!walletPath?.available &&
+    cents !== null &&
+    cents >= walletPath.minCents &&
+    cents <= walletPath.maxCents;
+  // The quote follows the regional default: Apple Pay or Google Pay when it fits the amount
+  const quoteMode: OnrampMode = walletFits ? walletPayMode : "coinbase_account";
+  // The amount limits span every way to pay that is open here
+  const path = useMemo(() => {
+    const open = [accountPath, walletPath].filter(entry => entry?.available) as NonNullable<
+      typeof accountPath
+    >[];
+    if (open.length === 0) return accountPath;
+    return {
+      available: true,
+      reason: null,
+      minCents: Math.min(...open.map(entry => entry.minCents)),
+      maxCents: Math.max(...open.map(entry => entry.maxCents)),
+    };
+  }, [accountPath, walletPath]);
 
   // 064 I06: one amount error, named by the fix
   const amountError = useMemo(() => {
     const text = amount.trim();
     if (!text) return undefined;
-    if (!/^\d{1,7}(\.\d{1,2})?$/.test(text)) return "Use numbers with up to 2 decimals.";
-    const cents = Math.round(Number(text) * 100);
+    if (cents === null) return "Use numbers with up to 2 decimals.";
     if (!path) return undefined;
     if (cents < path.minCents) return `Minimum ${(path.minCents / 100).toFixed(2)} ${currency}.`;
     if (cents > path.maxCents) return `Maximum ${(path.maxCents / 100).toFixed(2)} ${currency}.`;
     return undefined;
-  }, [amount, path, currency]);
+  }, [amount, cents, path, currency]);
 
   // Debounced 400 ms (spec 3.7 step 1)
   const [quotedAmount, setQuotedAmount] = useState(amount);
@@ -166,7 +252,7 @@ export default function BuyUsdcFlow() {
   const quote = useQuery({
     ...trpc.onramp.quote.queryOptions({
       amount: quotedAmount || "0",
-      mode: "coinbase_account",
+      mode: quoteMode,
       region: effectiveRegion ?? { country: "US", subdivision: null },
     }),
     enabled: canQuote,
@@ -178,6 +264,8 @@ export default function BuyUsdcFlow() {
   const quoteStale = Date.now() - quoteStartedAt >= QUOTE_REFRESH_FOR_MS;
 
   const createSession = useMutation(trpc.onramp.createSession.mutationOptions());
+  const createOrder = useMutation(trpc.onramp.createOrder.mutationOptions());
+  const frameEvent = useMutation(trpc.onramp.frameEvent.mutationOptions());
   const cancel = useMutation(trpc.onramp.cancel.mutationOptions());
 
   const status = useQuery({
@@ -223,9 +311,106 @@ export default function BuyUsdcFlow() {
     setSessionId(null);
     setCause("");
     setEditingRegion(false);
+    setPaymentLink(null);
+    setFrameLoaded(false);
     createSession.reset();
+    createOrder.reset();
     cancel.reset();
   };
+
+  const showSession = (id: string) => {
+    setSessionId(id);
+    setHandoffAt(Date.now());
+    setParams(
+      current => {
+        const next = new URLSearchParams(current);
+        next.set("session", id);
+        return next;
+      },
+      { replace: true }
+    );
+  };
+
+  /**
+   * Apple Pay or Google Pay (o3). Tapping the lens accepts Coinbase's terms on
+   * the agreement line, then the server makes the Coinbase order and the panel
+   * renders Coinbase's payment frame. Nothing is charged until the fan presses
+   * Coinbase's own button inside it.
+   */
+  const openWalletPay = async () => {
+    if (!effectiveRegion) return;
+    setCause("");
+    try {
+      const result = await createOrder.mutateAsync({
+        amount: amountRef.current.trim(),
+        mode: walletPayMode,
+        region: effectiveRegion,
+        agreementAcceptedAt: new Date().toISOString(),
+        returnTo: returnTo ?? undefined,
+      });
+      setFrameLoaded(false);
+      setPaymentLink(result.paymentLinkUrl);
+      showSession(result.sessionId);
+      setPhase("frame");
+    } catch (error) {
+      setCause(serverMessage(error, "Coinbase checkout did not open. Nothing was charged."));
+    }
+  };
+
+  // The frame's post messages (spec 3.7 step 3). Only Coinbase's origin is read.
+  const frameSession = useRef(sessionId);
+  frameSession.current = sessionId;
+  const reportFrame = useRef(frameEvent.mutate);
+  reportFrame.current = frameEvent.mutate;
+  useEffect(() => {
+    if (phase !== "frame") return;
+    const onMessage = (event: MessageEvent) => {
+      if (!fromCoinbase(event.origin)) return;
+      const message = frameMessage(event.data);
+      const id = frameSession.current;
+      if (!message || !id) return;
+      switch (message.name) {
+        case "onramp_api.load_success":
+          setFrameLoaded(true);
+          break;
+        case "onramp_api.commit_success":
+          reportFrame.current({ sessionId: id, event: "commit_success" });
+          setPhase("handoff");
+          break;
+        case "onramp_api.commit_error":
+        case "onramp_api.validate_merchant_error":
+        case "onramp_api.session_error":
+        case "onramp_api.load_error":
+          reportFrame.current(
+            { sessionId: id, event: "error", code: message.code },
+            {
+              onSettled: () =>
+                void queryClient.invalidateQueries({
+                  queryKey: trpc.onramp.status.queryKey({ sessionId: id }),
+                }),
+            }
+          );
+          setPhase("handoff");
+          break;
+        case "onramp_api.cancel":
+          reportFrame.current({ sessionId: id, event: "cancel" });
+          setPaymentLink(null);
+          setSessionId(null);
+          setPhase("pay");
+          setParams(
+            current => {
+              const next = new URLSearchParams(current);
+              next.delete("session");
+              return next;
+            },
+            { replace: true }
+          );
+          break;
+      }
+    };
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, [phase, queryClient, setParams]);
 
   const close = () => {
     setParams(
@@ -259,17 +444,8 @@ export default function BuyUsdcFlow() {
       });
       if (tab) tab.location.href = result.onrampUrl;
       else window.open(result.onrampUrl, "_blank", "noopener,noreferrer");
-      setSessionId(result.sessionId);
-      setHandoffAt(Date.now());
+      showSession(result.sessionId);
       setPhase("handoff");
-      setParams(
-        current => {
-          const next = new URLSearchParams(current);
-          next.set("session", result.sessionId);
-          return next;
-        },
-        { replace: true }
-      );
     } catch (error) {
       tab?.close();
       setCause(serverMessage(error, "Coinbase did not open. Nothing was charged."));
@@ -302,7 +478,11 @@ export default function BuyUsdcFlow() {
   };
 
   const stepIndex = phase === "amount" ? 0 : phase === "pay" ? 1 : arrived ? 3 : 2;
-  const quoteView = phase === "handoff" ? session?.quote : quote.data?.quote;
+  const quoteView =
+    phase === "handoff" || phase === "frame"
+      ? (session?.quote ?? quote.data?.quote)
+      : quote.data?.quote;
+  const sessionWalletPay = session?.mode === "apple_pay" || session?.mode === "google_pay";
 
   const quoteSlab = quoteView ? (
     <Slab>
@@ -348,6 +528,51 @@ export default function BuyUsdcFlow() {
         retryLabel="Retry"
       />
     );
+  } else if (phase === "frame" && paymentLink) {
+    // o3: Coinbase's frame inside the panel. Its verification, its button.
+    body = (
+      <div className="space-y-[21px]">
+        {quoteSlab}
+        <div className="prism-slab relative min-h-[420px] w-full overflow-hidden !rounded-prism-21">
+          {!frameLoaded && (
+            <div
+              className="absolute inset-0 flex items-center justify-center gap-3 text-prism-label text-prism-ink-2"
+              aria-busy
+            >
+              <Loader2 aria-hidden className="h-[21px] w-[21px] motion-safe:animate-spin" />
+              {ONRAMP_COPY.walletPay.loading}
+            </div>
+          )}
+          <iframe
+            title="Coinbase secure checkout"
+            src={paymentLink}
+            allow="payment"
+            sandbox="allow-scripts allow-same-origin"
+            referrerPolicy="no-referrer"
+            className="relative block min-h-[420px] w-full border-0"
+          />
+        </div>
+        <p className="font-prism text-prism-meta text-prism-ink-2">
+          {ONRAMP_COPY.walletPay.buttonLine}
+        </p>
+        <p className="flex items-start gap-2 font-prism text-prism-meta text-prism-ink-2">
+          <img src={CoinbaseIcon} alt="" aria-hidden className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>{ONRAMP_COPY.walletPay.frameLine}</span>
+        </p>
+      </div>
+    );
+    footer = (
+      <Button
+        type="button"
+        variant="secondary"
+        size="lg"
+        className="w-full"
+        disabled={cancel.isPending}
+        onClick={() => void cancelPurchase()}
+      >
+        Cancel
+      </Button>
+    );
   } else if (phase === "handoff") {
     // o4, o5, o6 and the waiting state
     if (status.isPending) {
@@ -391,7 +616,7 @@ export default function BuyUsdcFlow() {
               label="You paid Coinbase"
               value={money(session.quote?.paymentTotal ?? session.fiatAmount, session.fiatCurrency)}
             />
-            <SlabRow label="Method" value="Your Coinbase account" />
+            <SlabRow label="Method" value={METHOD_LABEL[session.mode]} />
             {session.orderRef && <SlabRow label="Order" value={session.orderRef} />}
           </Slab>
           {session.txHash && explorer && !session.sandbox && (
@@ -437,6 +662,7 @@ export default function BuyUsdcFlow() {
         </div>
       );
     } else if (notCompleted) {
+      const plain = session.failureCode ? ONRAMP_FRAME_ERRORS[session.failureCode] : undefined;
       body = (
         <div className="space-y-[21px]" aria-live="polite">
           <Notice variant="warning" title={ONRAMP_COPY.notCompleted} />
@@ -446,9 +672,10 @@ export default function BuyUsdcFlow() {
               value={
                 session.status === "expired"
                   ? "The purchase was not finished in time"
-                  : session.failureCode
-                    ? session.failureCode.replace(/_/g, " ")
-                    : "The purchase did not complete"
+                  : (plain ??
+                    (session.failureCode
+                      ? session.failureCode.replace(/_/g, " ").toLowerCase()
+                      : "The purchase did not complete"))
               }
             />
             {session.orderRef && <SlabRow label="Order" value={session.orderRef} />}
@@ -488,11 +715,13 @@ export default function BuyUsdcFlow() {
                 ? ONRAMP_COPY.slow
                 : sending
                   ? "It shows in your wallet as soon as Base confirms it."
-                  : ONRAMP_COPY.coinbaseAccount.waiting}
+                  : sessionWalletPay
+                    ? ONRAMP_COPY.walletPay.waiting
+                    : ONRAMP_COPY.coinbaseAccount.waiting}
             </p>
           </div>
           {quoteSlab}
-          {!sending && (
+          {!sending && !sessionWalletPay && (
             <p className="font-prism text-prism-meta text-prism-ink-2">
               {ONRAMP_COPY.coinbaseAccount.linkLine}
             </p>
@@ -500,23 +729,8 @@ export default function BuyUsdcFlow() {
           {cause && <Notice variant="warning" title={cause} />}
         </div>
       );
-      footer = !sending ? (
-        <div className="flex flex-col gap-2">
-          <Button
-            type="button"
-            size="lg"
-            className="w-full"
-            disabled={createSession.isPending}
-            aria-busy={createSession.isPending || undefined}
-            onClick={() => void openCoinbase()}
-          >
-            {createSession.isPending ? (
-              <Loader2 aria-hidden className="motion-safe:animate-spin" />
-            ) : (
-              <ExternalLink aria-hidden />
-            )}
-            Open Coinbase again
-          </Button>
+      footer =
+        !sending && sessionWalletPay ? (
           <Button
             type="button"
             variant="secondary"
@@ -525,14 +739,41 @@ export default function BuyUsdcFlow() {
             disabled={cancel.isPending}
             onClick={() => void cancelPurchase()}
           >
-            Cancel
+            Start over
           </Button>
-        </div>
-      ) : (
-        <Button type="button" variant="secondary" size="lg" className="w-full" onClick={close}>
-          Close, keep going in the background
-        </Button>
-      );
+        ) : !sending ? (
+          <div className="flex flex-col gap-2">
+            <Button
+              type="button"
+              size="lg"
+              className="w-full"
+              disabled={createSession.isPending}
+              aria-busy={createSession.isPending || undefined}
+              onClick={() => void openCoinbase()}
+            >
+              {createSession.isPending ? (
+                <Loader2 aria-hidden className="motion-safe:animate-spin" />
+              ) : (
+                <ExternalLink aria-hidden />
+              )}
+              Open Coinbase again
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              size="lg"
+              className="w-full"
+              disabled={cancel.isPending}
+              onClick={() => void cancelPurchase()}
+            >
+              Cancel
+            </Button>
+          </div>
+        ) : (
+          <Button type="button" variant="secondary" size="lg" className="w-full" onClick={close}>
+            Close, keep going in the background
+          </Button>
+        );
     }
   } else if (options.data && !options.data.regionSupported && !editingRegion) {
     // o6 region variant: Try again becomes Deposit USDC
@@ -665,16 +906,59 @@ export default function BuyUsdcFlow() {
       </Button>
     );
   } else if (phase === "pay" && options.data && effectiveRegion) {
-    // o2. Apple Pay and Google Pay join this list in USDC-5.
+    // o2. The regional default first: Apple Pay or Google Pay in the US.
     const us = effectiveRegion.country === "US";
+    const busy = createSession.isPending || createOrder.isPending;
+    const walletTitle =
+      walletPayMode === "apple_pay"
+        ? ONRAMP_COPY.walletPay.appleTitle
+        : ONRAMP_COPY.walletPay.googleTitle;
+    const walletReason = !walletPath?.available
+      ? walletPath?.reason
+      : !walletFits && cents !== null && cents > walletPath.maxCents
+        ? `Up to ${(walletPath.maxCents / 100).toFixed(2)} ${currency} with ${walletTitle}. Use your Coinbase account for more.`
+        : !walletFits && cents !== null
+          ? `At least ${(walletPath.minCents / 100).toFixed(2)} ${currency} with ${walletTitle}.`
+          : null;
     body = (
       <>
         {quoteSlab}
         <fieldset className="space-y-[13px]">
           <legend className="sr-only">How to pay Coinbase</legend>
+          {us && walletPath && (
+            <button
+              type="button"
+              disabled={!walletFits || busy}
+              onClick={() => void openWalletPay()}
+              className="prism-lens flex w-full items-start gap-3 !rounded-prism-21 p-4 text-left font-prism disabled:opacity-60"
+            >
+              <span className="prism-glass-clear flex h-[44px] w-[44px] shrink-0 items-center justify-center !rounded-prism-13">
+                <Smartphone aria-hidden className="h-6 w-6 text-prism-ink" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-prism-label font-semibold text-prism-ink">
+                  {walletTitle}
+                </span>
+                <span className="block text-prism-meta text-prism-ink-2">
+                  {ONRAMP_COPY.walletPay.body}
+                </span>
+                {walletReason && (
+                  <span className="block text-prism-meta text-prism-ink-2">{walletReason}</span>
+                )}
+              </span>
+              {createOrder.isPending ? (
+                <Loader2
+                  aria-hidden
+                  className="mt-3 h-5 w-5 text-prism-nav motion-safe:animate-spin"
+                />
+              ) : (
+                <ArrowRight aria-hidden className="mt-3 h-5 w-5 text-prism-ink-2" />
+              )}
+            </button>
+          )}
           <button
             type="button"
-            disabled={!path?.available || createSession.isPending}
+            disabled={!accountPath?.available || busy}
             onClick={() => void openCoinbase()}
             className="prism-lens flex w-full items-start gap-3 !rounded-prism-21 p-4 text-left font-prism disabled:opacity-60"
           >
@@ -688,8 +972,8 @@ export default function BuyUsdcFlow() {
               <span className="block text-prism-meta text-prism-ink-2">
                 {us ? ONRAMP_COPY.coinbaseAccount.usBody : ONRAMP_COPY.coinbaseAccount.intlBody}
               </span>
-              {!path?.available && path?.reason && (
-                <span className="block text-prism-meta text-prism-ink-2">{path.reason}</span>
+              {!accountPath?.available && accountPath?.reason && (
+                <span className="block text-prism-meta text-prism-ink-2">{accountPath.reason}</span>
               )}
             </span>
             {createSession.isPending ? (
@@ -741,7 +1025,7 @@ export default function BuyUsdcFlow() {
         variant="secondary"
         size="lg"
         className="w-full"
-        disabled={createSession.isPending}
+        disabled={createSession.isPending || createOrder.isPending}
         onClick={() => setPhase("amount")}
       >
         Back
@@ -756,7 +1040,7 @@ export default function BuyUsdcFlow() {
         onOpenChange={next => {
           if (!next) close();
         }}
-        calm={phase === "handoff"}
+        calm={phase === "handoff" || phase === "frame"}
         eyebrow={`Buy ${USDC_SYMBOL}`}
         title={`${USDC_SYMBOL} on ${paymentChain.name}`}
         byline={ONRAMP_COPY.byline}

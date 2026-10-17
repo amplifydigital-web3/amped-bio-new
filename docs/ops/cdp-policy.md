@@ -119,3 +119,32 @@ Secret is involved.
    follows the webhook alone.
 5. Production: the Privacy Policy names Coinbase, Circle and Chainalysis as
    recipients before `VITE_USDC_ONRAMP` turns on (USDC-6).
+
+### Apple Pay and Google Pay (Headless Onramp, USDC-5)
+
+US fans without a Coinbase account pay with Apple Pay or Google Pay inside
+Coinbase's payment frame in the Buy USDC panel. Orders run in embedded mode:
+Coinbase collects and verifies phone and email in its frame, and returns a
+`userAuthToken` that the server stores encrypted for 60 days so a returning
+fan skips that step. Amped.Bio sends no phone or email.
+
+1. Ask the Coinbase account representative to enable the Headless Onramp and
+   embedded order mode on the CDP project.
+2. The domain allowlist from step 2 above covers the frame. The server sends
+   `domain` on every order: `ONRAMP_DOMAIN`, or the `APP_URL` host when empty.
+   It must match the host the panel runs on.
+3. Apple Pay domain verification: download Coinbase's
+   `apple-developer-merchantid-domain-association` file from the CDP Portal and
+   commit it at `apps/client/public/.well-known/` so lighttpd serves
+   `https://{app}/.well-known/apple-developer-merchantid-domain-association`.
+   The domain must not be tied to another Apple Merchant ID.
+4. Optional: set `ONRAMP_DATA_KEY` to a long random value. Empty falls back to
+   `BETTER_AUTH_SECRET`. Rotating it makes stored tokens unreadable; fans then
+   verify with Coinbase once more.
+5. Staging sandbox: the payment link gets `useApplePaySandbox=true` or
+   `useGooglePaySandbox=true`. Verify with a phone number starting `+1000`, an
+   email ending `@sandbox.test` and the code `000000`. Sandbox orders succeed,
+   charge nothing and deliver nothing on chain.
+6. The orders webhook events arrive on the subscription from step 3. Orders are
+   matched by `orderId`, or by `partnerOrderRef`, which is the Amped.Bio session
+   id.

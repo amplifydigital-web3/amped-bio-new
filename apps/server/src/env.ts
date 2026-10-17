@@ -241,6 +241,11 @@ const envSchema = z.object({
   // Coinbase sandbox: partnerUserRef gets the sandbox- prefix, orders never charge and deliver
   // nothing on chain, so arrival follows the webhook. On by default outside production.
   ONRAMP_SANDBOX: boolSchema(false),
+  // Apple Pay and Google Pay (Headless Onramp, USDC-5): the domain the Coinbase payment frame is
+  // embedded on. Must be on the CDP Onramp domain allowlist. Empty means the APP_URL host.
+  ONRAMP_DOMAIN: z.string().default(""),
+  // Key for the stored Coinbase userAuthToken (AES-256-GCM). Falls back to BETTER_AUTH_SECRET.
+  ONRAMP_DATA_KEY: z.string().default(""),
   // Content system (Build Board #20), PR 2. Spec 3.17. Secrets never live in committed .env files.
   // Master switch for uploads. Off everywhere until the Cloudflare setup checklist is done.
   // Turning it off during an incident stops new uploads; items already stored keep working.
