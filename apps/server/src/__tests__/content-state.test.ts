@@ -54,6 +54,15 @@ const db = vi.hoisted(() => {
         assets.push({ ...data });
         return data;
       }),
+      upsert: vi.fn(async ({ where, create, update }: any) => {
+        const row = assets.find(asset => same(asset.id, where.id));
+        if (row) {
+          Object.assign(row, update);
+          return row;
+        }
+        assets.push({ ...create });
+        return create;
+      }),
     },
     blockedContentHash: {
       findUnique: vi.fn(
@@ -216,7 +225,7 @@ describe("processor callback", () => {
     const asset = {
       role: "RENDITION",
       storage: "R2",
-      r2Key: "derived/abc/RENDITION/640",
+      r2Key: "derived/abcdefghijklmnop/RENDITION/640",
       variant: "640",
       scanStatus: "SKIPPED",
     } as const;
@@ -229,6 +238,26 @@ describe("processor callback", () => {
     });
     expect(db.assets).toHaveLength(1);
     expect(db.assets[0]).toMatchObject({ role: "RENDITION", variant: "640", size: 900n });
+  });
+
+  it("refuses an asset key that belongs to another item", async () => {
+    seed();
+    await expect(
+      applyProcessorCallback({
+        ...base,
+        step: "normalize",
+        outcome: "ok",
+        assets: [
+          {
+            role: "RENDITION",
+            storage: "R2",
+            r2Key: "derived/zzzzzzzzzzzzzzzz/RENDITION/640",
+            variant: "640",
+            scanStatus: "SKIPPED",
+          },
+        ],
+      })
+    ).rejects.toThrow(/refusing asset key/);
   });
 
   it("blocks an upload whose hash is on the blocklist and tells the processor to stop", async () => {

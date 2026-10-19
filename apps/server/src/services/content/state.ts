@@ -9,7 +9,7 @@
  * Every transition is a conditional update on the current status, so a retried
  * webhook or callback cannot commit quota twice.
  */
-import { prisma, Prisma, type ContentItem, type ContentAssetRole, type ScanStatus } from "@repo/database";
+import { prisma, type ContentItem, type ContentAssetRole, type ScanStatus } from "@repo/database";
 import type { ContentProcessedCallback } from "@repo/constants";
 import { createHash } from "node:crypto";
 import { commitBytes, minutesForDuration, releaseBytes } from "./quota";
@@ -139,11 +139,14 @@ function assetRowId(
     .subarray(0, 16);
 }
 
+/** The client or an interactive transaction: both carry this member. */
+type AssetDb = Pick<typeof prisma, "contentAsset">;
+
 async function upsertAssets(
   contentItemId: Uint8Array,
   publicId: string,
   assets: NonNullable<ContentProcessedCallback["assets"]>,
-  db: Prisma.TransactionClient | typeof prisma = prisma
+  db: AssetDb = prisma
 ): Promise<void> {
   for (const asset of assets) {
     // The toolbox is untrusted: it may only describe assets under this item's own
