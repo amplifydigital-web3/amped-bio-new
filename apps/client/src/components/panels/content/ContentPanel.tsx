@@ -28,13 +28,17 @@ export function ContentPanel() {
 
   const openItem = useCallback(
     (publicId: string | null) =>
-      setParams(current => {
-        const next = new URLSearchParams(current);
-        next.set("tab", "library");
-        if (publicId) next.set("item", publicId);
-        else next.delete("item");
-        return next;
-      }),
+      setParams(
+        current => {
+          const next = new URLSearchParams(current);
+          next.set("tab", "library");
+          if (publicId) next.set("item", publicId);
+          else next.delete("item");
+          return next;
+        },
+        // Closing replaces the item entry, so Back leaves Content instead of reopening it
+        { replace: publicId === null }
+      ),
     [setParams]
   );
 

@@ -368,7 +368,6 @@ export function ItemEditor({ publicId, onBack }: { publicId: string; onBack: () 
                     <input
                       aria-label={e.chapterStart(index + 1)}
                       value={row.start}
-                      inputMode="numeric"
                       placeholder="0:00"
                       onChange={event =>
                         changeRows(

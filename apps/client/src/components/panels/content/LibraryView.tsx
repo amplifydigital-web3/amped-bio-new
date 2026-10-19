@@ -99,7 +99,14 @@ export function LibraryView({ onOpenItem }: { onOpenItem: (publicId: string) => 
     return needle ? all.filter(item => item.title.toLowerCase().includes(needle)) : all;
   }, [list.data, search]);
 
-  const queued = new Set(entries.map(e => e.upload?.publicId).filter(Boolean));
+  // Only a file still being handled blocks Remove; a failed or blocked item must
+  // remain removable from the card, even while its row is in the dialog
+  const queued = new Set(
+    entries
+      .filter(e => e.server?.status !== "failed" && e.server?.status !== "blocked")
+      .map(e => e.upload?.publicId)
+      .filter(Boolean)
+  );
   const snapshot: StorageSnapshot | null = storage.data
     ? {
         bytesLimit: storage.data.bytesLimit,

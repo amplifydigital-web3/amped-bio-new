@@ -109,14 +109,18 @@ export function useAutosave<P extends object>(
       // save) goes to the deferred store, which keeps sending it after unmount
       const left = pending.current;
       pending.current = null;
-      if (left && Object.keys(left).length > 0) {
-        const key = deferKeyRef.current ?? "autosave";
-        const send = (patch: P) => saveRef.current(patch);
-        // A save still running finishes first, so the newer fields land last
-        const inflight = inFlight.current;
-        if (inflight) void inflight.finally(() => deferSave(key, left as P, send));
-        else deferSave(key, left as P, send);
-      }
+      const key = deferKeyRef.current ?? "autosave";
+      const send = (patch: P) => saveRef.current(patch);
+      const handOff = () => {
+        // A save that failed while we unmounted put its patch back into pending
+        const merged = { ...(pending.current ?? {}), ...(left ?? {}) } as P;
+        pending.current = null;
+        if (Object.keys(merged).length > 0) deferSave(key, merged, send);
+      };
+      // A save still running finishes first, so the newer fields land last
+      const inflight = inFlight.current;
+      if (inflight) void inflight.finally(handOff);
+      else handOff();
     };
   }, [run]);
 
