@@ -17,6 +17,7 @@ import { DownloadClaims } from "./downloads";
 import {
   CACHE_MAX_BYTES,
   allowedOrigins,
+  applyCors,
   applySecurity,
   cacheCopyHeaders,
   preflight,
