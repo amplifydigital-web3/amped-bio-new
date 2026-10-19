@@ -237,7 +237,7 @@ export class CdpClient {
   getOnrampTransactions(partnerUserRef: string, pageSize = 5) {
     return this.onrampV1<OnrampTransactionsPage>(
       `/onramp/v1/buy/user/${encodeURIComponent(partnerUserRef)}/transactions`,
-      { page_size: String(pageSize) }
+      { pageSize: String(pageSize) }
     );
   }
 

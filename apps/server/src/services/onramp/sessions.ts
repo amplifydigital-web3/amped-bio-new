@@ -8,6 +8,7 @@ import {
 } from "@repo/constants";
 import { env } from "../../env";
 import { uuidv7 } from "../../utils/uuid-v7";
+import { enforceRateLimits } from "../../utils/rateLimit";
 import { CdpError, type OnrampQuote, type OnrampTransaction } from "../usdc/cdp";
 import { paymentChain, paymentClient } from "../usdc/chain";
 import { fromCents, toCents, toUsdcUnits } from "./amounts";
@@ -321,6 +322,11 @@ export async function onrampQuote(
   if (hit && now - hit.at < QUOTE_TTL_MS) {
     return { quote: quoteView(hit.value), refreshedAt: new Date(hit.at).toISOString() };
   }
+  // Only a real Coinbase request spends the hourly budget: a cached quote is free
+  await enforceRateLimits(
+    [{ key: `onramp:quote:${userId}`, limit: 60, windowSeconds: 3600 }],
+    "Too many price checks. Try again in a few minutes."
+  );
   const destinationAddress = await walletAddress(userId);
   let quote: OnrampQuote | undefined;
   try {
@@ -342,17 +348,25 @@ export async function onrampQuote(
   }
   if (!quote)
     throw new OnrampProviderError("Coinbase did not return a quote. Try again.", "no_quote");
+  // Drop expired entries so the map does not grow for the process lifetime
+  for (const [cached, entry] of quoteCache) {
+    if (now - entry.at >= QUOTE_TTL_MS) quoteCache.delete(cached);
+  }
   quoteCache.set(key, { value: quote, at: now });
   return { quote: quoteView(quote), refreshedAt: new Date(now).toISOString() };
 }
 
-/** The quote the fan last saw for this amount, for the session record. */
-function lastQuote(userId: number, mode: OnrampMode, cents: number, now: number) {
-  for (const [key, entry] of quoteCache) {
-    if (key.startsWith(`${userId}:${mode}:${cents}:`) && now - entry.at < 5 * 60_000)
-      return entry.value;
-  }
-  return null;
+/** The quote the fan last saw for this amount and region, for the session record. */
+function lastQuote(
+  userId: number,
+  mode: OnrampMode,
+  cents: number,
+  region: OnrampRegion,
+  now: number
+) {
+  const key = `${userId}:${mode}:${cents}:${region.country}:${region.subdivision ?? ""}`;
+  const entry = quoteCache.get(key);
+  return entry && now - entry.at < 5 * 60_000 ? entry.value : null;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -391,7 +405,7 @@ export async function createCoinbaseSession(
   const options = await assertAmount(input.cents, input.region, "coinbase_account", now.getTime());
   const destination = await walletAddress(userId);
   const partnerUserRef = await partnerUserRefFor(userId);
-  const quote = lastQuote(userId, "coinbase_account", input.cents, now.getTime());
+  const quote = lastQuote(userId, "coinbase_account", input.cents, input.region, now.getTime());
   const id = uuidv7();
   const sessionId = sessionIdOf(id);
 

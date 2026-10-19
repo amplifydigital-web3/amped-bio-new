@@ -81,10 +81,6 @@ export const onrampRouter = router({
     .input(z.object({ amount: z.string().trim().min(1).max(12), mode, region: regionInput }))
     .query(async ({ ctx, input }) => {
       const userId = ctx.user!.sub;
-      await enforceRateLimits(
-        [{ key: `onramp:quote:${userId}`, limit: 60, windowSeconds: 3600 }],
-        "Too many price checks. Try again in a few minutes."
-      );
       return onrampQuote(userId, {
         cents: cents(input.amount),
         mode: input.mode,
