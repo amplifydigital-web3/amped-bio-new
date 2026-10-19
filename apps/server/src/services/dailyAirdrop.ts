@@ -196,13 +196,20 @@ export async function sendPendingBatch(): Promise<void> {
       }
     };
 
-    const withHash = entries.flatMap(entry =>
-      entry.txHash && entry.txHash !== TX_PENDING
-        ? [{ id: entry.id, txHash: entry.txHash as `0x${string}` }]
-        : []
-    );
-    if (withHash.length > 0) {
-      await settleInFlight(withHash);
+    // Group by hash: one interrupted send per hash, and only its own rows are
+    // settled by that receipt
+    const byHash = new Map<`0x${string}`, Array<{ id: Uint8Array; txHash: `0x${string}` }>>();
+    for (const entry of entries) {
+      if (!entry.txHash || entry.txHash === TX_PENDING) continue;
+      const hash = entry.txHash as `0x${string}`;
+      const group = byHash.get(hash) ?? [];
+      group.push({ id: entry.id, txHash: hash });
+      byHash.set(hash, group);
+    }
+    if (byHash.size > 0) {
+      for (const settling of byHash.values()) {
+        await settleInFlight(settling);
+      }
       entries = await prisma.airdropQueueEntry.findMany({
         orderBy: { createdAt: "asc" },
         include: { userWallet: { select: { address: true } } },

@@ -42,14 +42,16 @@ export function startCronJobs(): void {
       const minEntries = setting("daily_airdrop_min_entries", env.DAILY_AIRDROP_MIN_ENTRIES ?? 5);
       const maxWaitHours = setting("daily_airdrop_max_wait_hours", env.DAILY_AIRDROP_MAX_WAIT_HOURS ?? 6);
 
-      const isPastBatchHour = now.getUTCHours() >= batchHourUTC;
+      // Only the configured UTC hour is the daily batch window. Using >= would
+      // send every queued entry for the rest of the day, one batch every tick.
+      const isBatchHour = now.getUTCHours() === batchHourUTC;
       const hasMinEntries = entryCount >= minEntries;
       const isOld =
         now.getTime() - firstEntry.createdAt.getTime() > maxWaitHours * 3_600_000;
 
-      if (isPastBatchHour || hasMinEntries || isOld) {
+      if (isBatchHour || hasMinEntries || isOld) {
         console.log(
-          `[CRON_BATCH_TRIGGER] entries=${entryCount}, isPastBatchHour=${isPastBatchHour}, hasMinEntries=${hasMinEntries}, isOld=${isOld}`
+          `[CRON_BATCH_TRIGGER] entries=${entryCount}, isBatchHour=${isBatchHour}, hasMinEntries=${hasMinEntries}, isOld=${isOld}`
         );
         await sendPendingBatch();
       }
