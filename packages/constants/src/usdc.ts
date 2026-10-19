@@ -138,6 +138,7 @@ export const ONRAMP_FRAME_ERRORS: Record<string, string> = {
     "Coinbase sells through Apple Pay and Google Pay in the US only.",
   ERROR_CODE_GUEST_APPLE_PAY_NOT_SUPPORTED: "Apple Pay is not available in this browser.",
   ERROR_CODE_GUEST_APPLE_PAY_NOT_SETUP: "Add a debit card to Apple Wallet, then try again.",
+  ERROR_CODE_GUEST_GOOGLE_PAY_NOT_SUPPORTED: "Google Pay is not available in this browser.",
   ERROR_CODE_GUEST_PERMISSION_DENIED: "Coinbase could not sell to this account.",
 };
 

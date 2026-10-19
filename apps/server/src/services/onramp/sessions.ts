@@ -9,6 +9,7 @@ import {
 } from "@repo/constants";
 import { env } from "../../env";
 import { uuidv7 } from "../../utils/uuid-v7";
+import { enforceRateLimits } from "../../utils/rateLimit";
 import {
   CdpError,
   type OnrampOrder,
@@ -380,6 +381,11 @@ export async function onrampQuote(
   if (hit && now - hit.at < QUOTE_TTL_MS) {
     return { quote: quoteView(hit.value), refreshedAt: new Date(hit.at).toISOString() };
   }
+  // Only a real Coinbase request spends the hourly budget: a cached quote is free
+  await enforceRateLimits(
+    [{ key: `onramp:quote:${userId}`, limit: 60, windowSeconds: 3600 }],
+    "Too many price checks. Try again in a few minutes."
+  );
   const destinationAddress = await walletAddress(userId);
   const partnerUserRef = await partnerUserRefFor(userId);
   const sessionQuote = async (paymentMethod: "CARD" | "APPLE_PAY") => {
@@ -420,17 +426,25 @@ export async function onrampQuote(
   }
   if (!quote)
     throw new OnrampProviderError("Coinbase did not return a quote. Try again.", "no_quote");
+  // Drop expired entries so the map does not grow for the process lifetime
+  for (const [cached, entry] of quoteCache) {
+    if (now - entry.at >= QUOTE_TTL_MS) quoteCache.delete(cached);
+  }
   quoteCache.set(key, { value: quote, at: now });
   return { quote: quoteView(quote), refreshedAt: new Date(now).toISOString() };
 }
 
-/** The quote the fan last saw for this amount, for the session record. */
-function lastQuote(userId: number, mode: OnrampMode, cents: number, now: number) {
-  for (const [key, entry] of quoteCache) {
-    if (key.startsWith(`${userId}:${mode}:${cents}:`) && now - entry.at < 5 * 60_000)
-      return entry.value;
-  }
-  return null;
+/** The quote the fan last saw for this amount and region, for the session record. */
+function lastQuote(
+  userId: number,
+  mode: OnrampMode,
+  cents: number,
+  region: OnrampRegion,
+  now: number
+) {
+  const key = `${userId}:${mode}:${cents}:${region.country}:${region.subdivision ?? ""}`;
+  const entry = quoteCache.get(key);
+  return entry && now - entry.at < 5 * 60_000 ? entry.value : null;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -469,7 +483,7 @@ export async function createCoinbaseSession(
   const options = await assertAmount(input.cents, input.region, "coinbase_account", now.getTime());
   const destination = await walletAddress(userId);
   const partnerUserRef = await partnerUserRefFor(userId);
-  const quote = lastQuote(userId, "coinbase_account", input.cents, now.getTime());
+  const quote = lastQuote(userId, "coinbase_account", input.cents, input.region, now.getTime());
   const id = uuidv7();
   const sessionId = sessionIdOf(id);
 
@@ -540,7 +554,7 @@ function orderBase(
   cents: number,
   destinationAddress: string,
   partnerUserRef: string
-): Omit<OnrampOrderRequest, "agreementAcceptedAt"> {
+): OnrampOrderRequest {
   return {
     paymentAmount: fromCents(cents),
     paymentCurrency: "USD",
@@ -664,7 +678,6 @@ export async function createWalletPayOrder(
 
   const body: OnrampOrderRequest = {
     ...orderBase(input.mode, input.cents, destination, partnerUserRef),
-    agreementAcceptedAt: input.agreementAcceptedAt.toISOString(),
     partnerOrderRef: sessionId,
     clientIp: input.clientIp,
   };
@@ -759,7 +772,9 @@ const ORDER: Record<OnrampStatus, number> = {
 
 /** A final Coinbase result wins over a cancel or expiry on our side; nothing moves backwards. */
 export function nextStatus(current: OnrampStatus, incoming: OnrampStatus): OnrampStatus {
-  if (current === "success" || current === "failed") return current;
+  if (current === "success") return current;
+  // A client frame error is not final: Coinbase's own success still reconciles it
+  if (current === "failed" && incoming !== "success") return current;
   if (incoming === "success" || incoming === "failed") return incoming;
   if (current === "canceled" || current === "expired") return current;
   return ORDER[incoming] > ORDER[current] ? incoming : current;
@@ -1003,6 +1018,9 @@ export async function onrampStatus(userId: number, sessionId: string, now = new 
   }
   const ttl = ONRAMP_LIMITS.sessionTtlMinutes * 60_000;
   if (
+    // A wallet-pay order already has a Coinbase transaction, so it is reconciled by
+    // its sessionRef/webhook and never force-expired here
+    !row.sessionRef &&
     (row.status === "created" ||
       row.status === "pending_verification" ||
       row.status === "pending_payment") &&
@@ -1030,4 +1048,36 @@ export async function cancelOnrampSession(userId: number, sessionId: string) {
   const row = await prisma.onrampSession.findFirst({ where: { id, userId } });
   if (!row) throw new OnrampInputError("Unknown purchase.");
   return view(row, await hasArrived(row));
+}
+
+/* -------------------------------------------------------------------------- */
+/* Retention                                                                  */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Deletes Coinbase userAuthTokens past their 60 day life. They are only removed
+ * today when the same fan starts another order, so unused rows outlive the notice.
+ */
+export async function purgeExpiredOnrampTokens(now = new Date()): Promise<number> {
+  const { count } = await prisma.onrampUserAuth.deleteMany({
+    where: { expiresAt: { lte: now } },
+  });
+  return count;
+}
+
+let tokenPurger: NodeJS.Timeout | null = null;
+
+export function startOnrampTokenPurge(): void {
+  if (tokenPurger) return;
+  tokenPurger = setInterval(
+    () =>
+      void purgeExpiredOnrampTokens().catch(error =>
+        console.error("[onramp] token purge failed", error)
+      ),
+    24 * 60 * 60 * 1000
+  );
+  tokenPurger.unref?.();
+  void purgeExpiredOnrampTokens().catch(error =>
+    console.error("[onramp] token purge failed", error)
+  );
 }
