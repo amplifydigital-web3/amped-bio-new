@@ -265,12 +265,13 @@ describe("createWalletPayOrder", () => {
     const body = api.createOnrampOrder.mock.calls[0]![0];
     expect(body).toMatchObject({
       paymentMethod: "GUEST_CHECKOUT_APPLE_PAY",
-      agreementAcceptedAt: input.agreementAcceptedAt.toISOString(),
       partnerOrderRef: result.sessionId,
       partnerUserRef: "sandbox-ob_abc",
       clientIp: "203.0.113.9",
       domain: "app.staging.amped.bio",
     });
+    // Embedded mode: Coinbase collects the agreement in its own flow
+    expect(body).not.toHaveProperty("agreementAcceptedAt");
     // Embedded mode: no phone or email from us
     expect(body).not.toHaveProperty("email");
     expect(body).not.toHaveProperty("phoneNumber");

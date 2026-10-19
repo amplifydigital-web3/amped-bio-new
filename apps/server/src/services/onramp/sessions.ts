@@ -653,7 +653,7 @@ export async function createWalletPayOrder(
   await assertAmount(input.cents, input.region, input.mode, now.getTime());
   const destination = await walletAddress(userId);
   const partnerUserRef = await partnerUserRefFor(userId);
-  const quote = lastQuote(userId, input.mode, input.cents, now.getTime());
+  const quote = lastQuote(userId, input.mode, input.cents, input.region, now.getTime());
   const id = uuidv7();
   const sessionId = sessionIdOf(id);
 
