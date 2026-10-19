@@ -76,7 +76,7 @@ export class ProcessorContainer extends Container<Env> {
   override defaultPort = 8080;
   override sleepAfter = "10m";
   override enableInternet = false;
-  override allowedHosts = ["database.clamav.net"];
+  override allowedHosts = ["database.clamav.net", "r2.internal"];
 }
 
 ProcessorContainer.outboundByHost = {

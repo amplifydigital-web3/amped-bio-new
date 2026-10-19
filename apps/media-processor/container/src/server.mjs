@@ -93,9 +93,11 @@ export async function handle(path, job) {
   if (!handler) return { status: 404, body: { error: "not_found" } };
   if (!validJob(job)) return { status: 400, body: { error: "invalid_job" } };
   await slot();
-  const workDir = await mkdtemp(join(tmpdir(), "job-"));
+  let workDir = "";
   const started = Date.now();
   try {
+    // Inside the try: a failure here must still release the slot
+    workDir = await mkdtemp(join(tmpdir(), "job-"));
     const result = await handler(job, workDir);
     log("done", { path, publicId: job.publicId, ms: Date.now() - started });
     return { status: 200, body: result };
@@ -110,7 +112,7 @@ export async function handle(path, job) {
     log("error", { path, publicId: job.publicId, error: String(error?.message ?? error) });
     return { status: 500, body: { error: "internal" } };
   } finally {
-    await rm(workDir, { recursive: true, force: true });
+    if (workDir) await rm(workDir, { recursive: true, force: true });
     release();
   }
 }

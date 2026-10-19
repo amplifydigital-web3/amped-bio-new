@@ -9,8 +9,9 @@
  * Every transition is a conditional update on the current status, so a retried
  * webhook or callback cannot commit quota twice.
  */
-import { prisma, type ContentItem, type ContentAssetRole, type ScanStatus } from "@repo/database";
+import { prisma, Prisma, type ContentItem, type ContentAssetRole, type ScanStatus } from "@repo/database";
 import type { ContentProcessedCallback } from "@repo/constants";
+import { createHash } from "node:crypto";
 import { commitBytes, minutesForDuration, releaseBytes } from "./quota";
 import { uuidv7 } from "../../utils/uuid-v7";
 import { publishContentJob } from "../cloudflare/queue";
@@ -121,11 +122,38 @@ export async function applyStreamWebhook(body: StreamWebhookBody): Promise<Strea
  */
 export type ProcessorCallbackResult = "not_found" | "ignored" | "applied" | "blocked";
 
+/** R2 prefixes the processor may report; anything else is rejected (untrusted toolbox). */
+const ASSET_KEY_PREFIXES = ["originals", "audio", "derived"];
+
+/** Deterministic asset row id, so concurrent callbacks upsert instead of duplicating. */
+function assetRowId(
+  contentItemId: Uint8Array,
+  role: string,
+  variant: string | null,
+  lang: string | null
+): Buffer {
+  return createHash("sha256")
+    .update(Buffer.from(contentItemId))
+    .update(`\0${role}\0${variant ?? ""}\0${lang ?? ""}`)
+    .digest()
+    .subarray(0, 16);
+}
+
 async function upsertAssets(
   contentItemId: Uint8Array,
-  assets: NonNullable<ContentProcessedCallback["assets"]>
+  publicId: string,
+  assets: NonNullable<ContentProcessedCallback["assets"]>,
+  db: Prisma.TransactionClient | typeof prisma = prisma
 ): Promise<void> {
   for (const asset of assets) {
+    // The toolbox is untrusted: it may only describe assets under this item's own
+    // public id, or a compromised worker could point one item at another's file
+    if (asset.storage !== "STREAM" && asset.r2Key) {
+      const [prefix, id] = asset.r2Key.split("/");
+      if (id !== publicId || !ASSET_KEY_PREFIXES.includes(prefix ?? "")) {
+        throw new Error(`refusing asset key ${asset.r2Key} for ${publicId}`);
+      }
+    }
     const match = {
       contentItemId: Buffer.from(contentItemId),
       role: asset.role as ContentAssetRole,
@@ -143,12 +171,12 @@ async function upsertAssets(
       durationMs: asset.durationMs ?? null,
       scanStatus: asset.scanStatus as ScanStatus,
     };
-    const existing = await prisma.contentAsset.findFirst({ where: match, select: { id: true } });
-    if (existing) {
-      await prisma.contentAsset.update({ where: { id: existing.id }, data });
-    } else {
-      await prisma.contentAsset.create({ data: { id: uuidv7(), ...match, ...data } });
-    }
+    const id = assetRowId(contentItemId, match.role, match.variant, match.lang);
+    await db.contentAsset.upsert({
+      where: { id },
+      create: { id, ...match, ...data },
+      update: data,
+    });
   }
 }
 
@@ -160,7 +188,12 @@ export async function applyProcessorCallback(
   // A late or repeated callback for an item that already finished changes nothing
   if (item.status !== "PROCESSING") return "ignored";
 
-  if (callback.assets?.length) await upsertAssets(item.id, callback.assets);
+  // On a successful done the asset rows move inside the READY transaction below:
+  // an upsert that outlives a failed transaction would leave ORIGINAL switched
+  // while the item stays PROCESSING, and the retry would see a missing source
+  if (callback.assets?.length && !(callback.step === "done" && callback.outcome === "ok")) {
+    await upsertAssets(item.id, item.publicId, callback.assets);
+  }
 
   const metadata = {
     ...(callback.sha256 ? { sha256: callback.sha256 } : {}),
@@ -228,6 +261,9 @@ export async function applyProcessorCallback(
         return "applied";
       }
       await prisma.$transaction(async tx => {
+        if (callback.assets?.length) {
+          await upsertAssets(item.id, item.publicId, callback.assets, tx);
+        }
         const durationMs = callback.durationMs ?? item.durationMs;
         const ready = await tx.contentItem.updateMany({
           where: { id: item.id, status: "PROCESSING" },
