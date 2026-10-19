@@ -533,7 +533,7 @@ function orderBase(
   cents: number,
   destinationAddress: string,
   partnerUserRef: string
-): Omit<OnrampOrderRequest, "agreementAcceptedAt"> {
+): OnrampOrderRequest {
   return {
     paymentAmount: fromCents(cents),
     paymentCurrency: "USD",
@@ -657,7 +657,6 @@ export async function createWalletPayOrder(
 
   const body: OnrampOrderRequest = {
     ...orderBase(input.mode, input.cents, destination, partnerUserRef),
-    agreementAcceptedAt: input.agreementAcceptedAt.toISOString(),
     partnerOrderRef: sessionId,
     clientIp: input.clientIp,
   };
@@ -752,7 +751,9 @@ const ORDER: Record<OnrampStatus, number> = {
 
 /** A final Coinbase result wins over a cancel or expiry on our side; nothing moves backwards. */
 export function nextStatus(current: OnrampStatus, incoming: OnrampStatus): OnrampStatus {
-  if (current === "success" || current === "failed") return current;
+  if (current === "success") return current;
+  // A client frame error is not final: Coinbase's own success still reconciles it
+  if (current === "failed" && incoming !== "success") return current;
   if (incoming === "success" || incoming === "failed") return incoming;
   if (current === "canceled" || current === "expired") return current;
   return ORDER[incoming] > ORDER[current] ? incoming : current;
@@ -996,6 +997,9 @@ export async function onrampStatus(userId: number, sessionId: string, now = new 
   }
   const ttl = ONRAMP_LIMITS.sessionTtlMinutes * 60_000;
   if (
+    // A wallet-pay order already has a Coinbase transaction, so it is reconciled by
+    // its sessionRef/webhook and never force-expired here
+    !row.sessionRef &&
     (row.status === "created" ||
       row.status === "pending_verification" ||
       row.status === "pending_payment") &&
@@ -1023,4 +1027,36 @@ export async function cancelOnrampSession(userId: number, sessionId: string) {
   const row = await prisma.onrampSession.findFirst({ where: { id, userId } });
   if (!row) throw new OnrampInputError("Unknown purchase.");
   return view(row, await hasArrived(row));
+}
+
+/* -------------------------------------------------------------------------- */
+/* Retention                                                                  */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Deletes Coinbase userAuthTokens past their 60 day life. They are only removed
+ * today when the same fan starts another order, so unused rows outlive the notice.
+ */
+export async function purgeExpiredOnrampTokens(now = new Date()): Promise<number> {
+  const { count } = await prisma.onrampUserAuth.deleteMany({
+    where: { expiresAt: { lte: now } },
+  });
+  return count;
+}
+
+let tokenPurger: NodeJS.Timeout | null = null;
+
+export function startOnrampTokenPurge(): void {
+  if (tokenPurger) return;
+  tokenPurger = setInterval(
+    () =>
+      void purgeExpiredOnrampTokens().catch(error =>
+        console.error("[onramp] token purge failed", error)
+      ),
+    24 * 60 * 60 * 1000
+  );
+  tokenPurger.unref?.();
+  void purgeExpiredOnrampTokens().catch(error =>
+    console.error("[onramp] token purge failed", error)
+  );
 }

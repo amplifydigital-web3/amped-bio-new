@@ -5,6 +5,7 @@ import { startTelegramLoop } from "./services/telegram/loop";
 import { registerTelegramOutboxHandlers } from "./services/telegram/broadcast";
 import { startUsdcIndexer } from "./services/usdc";
 import { startContentSweeper } from "./services/content/state";
+import { startOnrampTokenPurge } from "./services/onramp/sessions";
 
 
 
@@ -27,6 +28,8 @@ startTelegramLoop();
 startUsdcIndexer();
 // Content system (Build Board #20): fail uploads left unfinished for 24 hours and release their bytes.
 startContentSweeper();
+// Buy USDC: delete expired Coinbase userAuthTokens after their 60 day life
+startOnrampTokenPurge();
 
 
 // Log whether the SMTP relay (SMTP2GO on staging and production) accepts our

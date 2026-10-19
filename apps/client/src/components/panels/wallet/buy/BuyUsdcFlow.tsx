@@ -85,9 +85,12 @@ function usdcFromUnits(units: string | null | undefined) {
   }
 }
 
-/** Apple Pay where the browser has it (Safari), Google Pay elsewhere. */
+/** Apple Pay where the browser has it (Safari and every non-Android browser), Google Pay only in an Android WebView. */
 function deviceWalletPay(): WalletPayMode {
-  return typeof window !== "undefined" && "ApplePaySession" in window ? "apple_pay" : "google_pay";
+  if (typeof window === "undefined") return "apple_pay";
+  // Coinbase's Google Pay link targets Android WebViews only
+  const androidWebView = /Android/i.test(window.navigator.userAgent) && /;\s*wv\)/.test(window.navigator.userAgent);
+  return androidWebView ? "google_pay" : "apple_pay";
 }
 
 /**
