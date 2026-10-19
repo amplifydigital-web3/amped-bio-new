@@ -5,8 +5,7 @@ import { startTelegramLoop } from "./services/telegram/loop";
 import { registerTelegramOutboxHandlers } from "./services/telegram/broadcast";
 import { startUsdcIndexer } from "./services/usdc";
 import { startContentSweeper } from "./services/content/state";
-
-
+import { getGeoIpReader } from "./services/analytics/geoipDatabase";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
@@ -28,6 +27,9 @@ startUsdcIndexer();
 // Content system (Build Board #20): fail uploads left unfinished for 24 hours and release their bytes.
 startContentSweeper();
 
+// Analytics location: open (or download) GeoLite2 City at boot so the first
+// visits are located and a missing license key shows in the startup log.
+void getGeoIpReader();
 
 // Log whether the SMTP relay (SMTP2GO on staging and production) accepts our
 // credentials, so a broken verification email shows at boot, not at sign up.
