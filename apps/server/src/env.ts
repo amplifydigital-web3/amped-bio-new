@@ -58,6 +58,20 @@ const envSchema = z.object({
   // a subnet ("10.0.0.0/8") or a comma-separated list. Empty disables trust.
   TRUST_PROXY: z.string().default(""),
 
+  // Analytics visitor location (MaxMind GeoLite2 City, IPv4 and IPv6).
+  // Either point GEOIP_DB_PATH at an .mmdb kept current by geoipupdate, or set
+  // a free GeoLite account ID and license key and the server downloads and
+  // refreshes the database itself. With neither, only IPv4 is located, from
+  // data bundled with the fast-geoip package.
+  GEOIP_DB_PATH: z.string().default(""),
+  MAXMIND_ACCOUNT_ID: z.string().default(""),
+  MAXMIND_LICENSE_KEY: z.string().default(""),
+  // Where the downloaded database is cached (defaults to the OS temp dir)
+  GEOIP_CACHE_DIR: z.string().default(""),
+  // MaxMind publishes GeoLite2 twice a week; daily checks stay well inside
+  // the 30 downloads a day GeoLite accounts allow
+  GEOIP_REFRESH_HOURS: z.coerce.number().int().min(1).default(24),
+
   // New SMTP variables with MailDev defaults
   // SMTP server host
   SMTP_HOST: z.string().default("localhost"), // Default for MailDev
