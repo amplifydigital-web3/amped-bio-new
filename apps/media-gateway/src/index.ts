@@ -17,6 +17,7 @@ import { DownloadClaims } from "./downloads";
 import {
   CACHE_MAX_BYTES,
   allowedOrigins,
+  applyCors,
   applySecurity,
   cacheCopyHeaders,
   preflight,
@@ -108,13 +109,16 @@ export async function handle(
     return refuse("takedown", { key: served.key });
   }
 
-  if (request.method === "GET" && payload.j !== undefined) {
-    const claims = env.DOWNLOADS.get(env.DOWNLOADS.idFromName(payload.j));
-    if (!(await claims.claim(payload.exp))) return refuse("download_used", { key: served.key });
-  }
-
   const context: ViewerContext = { payload, origin, allowed, now };
   const key = served.key;
+
+  // Single-use downloads are claimed only when bytes are about to be served, so a
+  // failed or missing read never burns the buyer's token
+  const claimDownload = async (): Promise<Response | null> => {
+    if (payload.j === undefined) return null;
+    const claims = env.DOWNLOADS.get(env.DOWNLOADS.idFromName(payload.j));
+    return (await claims.claim(payload.exp)) ? null : refuse("download_used", { key });
+  };
 
   if (request.method === "HEAD") {
     const object = await env.CONTENT.head(key);
@@ -126,15 +130,32 @@ export async function handle(
   const cacheUrl = new URL(pathForKey(key), url.origin);
   const hit = await caches.default.match(cacheLookup(cacheUrl, request));
   if (hit) {
+    const denied = await claimDownload();
+    if (denied) return denied;
     log({ status: hit.status, key, role: payload.r, cache: "hit" });
     return viewerResponse(hit.status, hit.body, hit.headers, context);
   }
 
   const range = parseRange(request.headers.get("Range"));
+  // Only the validators the gateway answers itself: an If-Match or
+  // If-Unmodified-Since failure needs a 412, not the 304 the block below returns
+  const conditionals = new Headers();
+  for (const name of ["If-None-Match", "If-Modified-Since"]) {
+    const value = request.headers.get(name);
+    if (value !== null) conditionals.set(name, value);
+  }
   let object: R2ObjectBody | R2Object | null;
   try {
-    object = await env.CONTENT.get(key, { range: range ?? undefined, onlyIf: request.headers });
-  } catch {
+    object = await env.CONTENT.get(key, {
+      range: range ?? undefined,
+      onlyIf: conditionals,
+    });
+  } catch (error) {
+    if (!range) {
+      // A failed read without a Range is a backend fault, not a client mistake
+      console.error(JSON.stringify({ event: "media_read_failed", key, error: String(error) }));
+      return refusal(503);
+    }
     // R2 refuses a range past the end of the object
     const head = await env.CONTENT.head(key);
     if (!head) return refuse("missing", { key });
@@ -158,6 +179,11 @@ export async function handle(
       await object.body.cancel();
       return unsatisfiable(object.size, context, key);
     }
+    const denied = await claimDownload();
+    if (denied) {
+      await object.body.cancel();
+      return denied;
+    }
     const headers = new Headers(full);
     headers.set("Content-Length", String(resolved.length));
     headers.set(
@@ -167,6 +193,12 @@ export async function handle(
     if (cacheable) ctx.waitUntil(fillCache(env, key, cacheUrl));
     log({ status: 206, key, role: payload.r, cache: cacheable ? "fill" : "none" });
     return viewerResponse(206, object.body, headers, context);
+  }
+
+  const denied = await claimDownload();
+  if (denied) {
+    await object.body.cancel();
+    return denied;
   }
 
   let body: ReadableStream = object.body;
@@ -191,6 +223,7 @@ function unsatisfiable(size: number, context: ViewerContext, key: string): Respo
   log({ status: 416, key, role: context.payload.r });
   const headers = new Headers({ "Content-Range": `bytes */${size}`, "Cache-Control": "no-store" });
   applySecurity(headers);
+  applyCors(headers, context.origin, context.allowed);
   return new Response(null, { status: 416, headers });
 }
 

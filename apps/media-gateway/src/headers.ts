@@ -82,10 +82,11 @@ export function contentDisposition(fileName: string | undefined, key: string): s
   const name =
     [...(fileName ?? "")]
       .filter(char => char.charCodeAt(0) >= 32 && char.charCodeAt(0) !== 127)
+      // Slice code points, never UTF-16 units: half a surrogate pair breaks encodeURIComponent
+      .slice(0, 150)
       .join("")
       .replace(/["\\/]/g, "_")
-      .trim()
-      .slice(0, 150) || lastSegment(key);
+      .trim() || lastSegment(key);
   const ascii = [...name].map(char => (char.charCodeAt(0) < 127 ? char : "_")).join("");
   const encoded = encodeURIComponent(name).replace(
     /['()*]/g,

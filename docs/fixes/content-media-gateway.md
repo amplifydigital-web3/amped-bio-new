@@ -208,7 +208,7 @@ URL=$(node scripts/sign-url.mjs derived/qatestqatestqa00/cover.png)
 4. **Range.** `curl -s -o /dev/null -w '%{http_code}\n' -H 'Range: bytes=0-99' "$URL"` prints 206.
 5. **Cache.** Run step 1 twice, with `pnpm exec wrangler tail --env staging` open. The second request logs `"cache":"hit"`. The tail never shows the `t=` value.
 6. **Takedown.** `pnpm exec wrangler kv key put --env staging --binding TAKEDOWN --remote "blocked:qatestqatestqa00" qa`, wait a minute, then step 1 returns 403. Remove it with `wrangler kv key delete` and it serves again within a minute.
-7. **Single use download.** `D=$(node scripts/sign-url.mjs derived/qatestqatestqa00/cover.png --download)`. `curl -sI "$D"` returns 200 with `content-disposition: attachment`. The same command again returns 403.
+7. **Single use download.** `D=$(node scripts/sign-url.mjs derived/qatestqatestqa00/cover.png --download)`. `curl -s -o /dev/null -w '%{http_code}\n' "$D"` returns 200 and `curl -sD - -o /dev/null "$D"` shows `content-disposition: attachment`. A second GET returns 403. Only a GET consumes the token; HEAD does not.
 8. **CORS.** `curl -sI -H 'Origin: https://app.staging.amped.bio' "$URL"` shows `access-control-allow-origin: https://app.staging.amped.bio`. With `Origin: https://example.com` the header is absent.
 9. **No other door.** `https://amped-content-staging.<account>.r2.dev` does not resolve, and `amped-media-gateway.<subdomain>.workers.dev` does not answer.
 10. Clean up: `pnpm exec wrangler r2 object delete "amped-content-staging/derived/qatestqatestqa00/cover.png" --remote`.
