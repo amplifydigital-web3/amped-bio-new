@@ -35,6 +35,21 @@ export async function usdcRecordsFor(userId: number) {
     }),
   ]);
   if (!user) return null;
+  // The Coinbase webhook records for this fan's purchases, without the raw payload
+  const purchaseEvents = sessions.length
+    ? await prisma.onrampEvent.findMany({
+        where: { sessionId: { in: sessions.map(session => session.id) } },
+        orderBy: { receivedAt: "asc" },
+        select: {
+          id: true,
+          sessionId: true,
+          eventType: true,
+          receivedAt: true,
+          processedAt: true,
+          error: true,
+        },
+      })
+    : [];
   const hex = (value: Uint8Array | null) => (value ? Buffer.from(value).toString("hex") : null);
   return {
     account: {
@@ -79,6 +94,15 @@ export async function usdcRecordsFor(userId: number) {
       txHash: session.txHash,
       failureCode: session.failureCode,
       sandbox: session.sandbox,
+    })),
+    // Coinbase's webhook records for these purchases, without the raw payload
+    coinbaseEvents: purchaseEvents.map(event => ({
+      id: hex(event.id),
+      purchase: hex(event.sessionId),
+      type: event.eventType,
+      receivedAt: event.receivedAt.toISOString(),
+      processed: event.processedAt !== null,
+      error: event.error,
     })),
     // The token itself is never exported: it is Coinbase's credential, not your data
     coinbaseSignInKept: auth
