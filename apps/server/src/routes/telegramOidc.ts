@@ -3,7 +3,11 @@ import { env } from "../env";
 import { auth } from "../utils/auth";
 import { hitRateLimit } from "../utils/rateLimit";
 import { TelegramLinkConflictError, linkTelegram } from "../services/telegram/accounts";
-import { finishTelegramLink, isOidcConfigured, takePendingLink } from "../services/telegram/oidc";
+import {
+  finishTelegramLink,
+  isOidcConfigured,
+  takePendingLink,
+} from "../services/telegram/oidc";
 
 /**
  * Messaging on Telegram (Build Board #2), spec 3.4.
@@ -53,15 +57,15 @@ export async function handleTelegramOidcCallback(req: Request, res: Response) {
   }
 
   const state = typeof query.state === "string" ? query.state : null;
-  const pending = await takePendingLink(state);
-  if (!pending || !state) {
+  // Check the session before consuming the state: a callback opened in another
+  // browser or after signing out must not burn the user's own link attempt
+  const userId = await sessionUserId(req);
+  if (!userId) {
     res.redirect(302, accountRedirect("expired"));
     return;
   }
-
-  const userId = await sessionUserId(req);
-  if (userId !== pending.userId) {
-    // A callback opened in another browser or after signing out. Never link.
+  const pending = await takePendingLink(state);
+  if (!pending || !state || userId !== pending.userId) {
     res.redirect(302, accountRedirect("expired"));
     return;
   }

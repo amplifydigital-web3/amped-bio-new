@@ -155,6 +155,8 @@ async function fanSend(
       body: text,
       channel: "TELEGRAM",
       tgMessageId: BigInt(tgMessageId),
+      // A replayed inbox row must not store and forward the same message twice
+      idempotencyKey: `tg:${tgMessageId}`,
     });
     await setActiveCreator(Number(account.telegramUserId), creatorUserId);
     await react(ctx);
@@ -264,6 +266,8 @@ export async function handlePrivateText(ctx: Context) {
           body: message.text,
           channel: "TELEGRAM",
           tgMessageId: BigInt(message.message_id),
+          // A replayed inbox row must not store and forward the reply twice
+          idempotencyKey: `tg:${message.message_id}`,
         });
         await react(ctx);
       } catch (error) {

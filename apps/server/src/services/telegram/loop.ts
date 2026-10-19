@@ -308,6 +308,19 @@ let draining = false;
 
 export function startTelegramLoop() {
   if (ticker || process.env.NODE_ENV === "test") return;
+  // Message retention must run even when the bot is not configured: web messages
+  // are stored either way, and the notice promises a 12 month window
+  if (!purger) {
+    purger = setInterval(() => {
+      void purgeStaleMessages().catch(error =>
+        console.error("[telegram] message purge failed", error)
+      );
+      if (isTelegramConfigured()) {
+        void purgeTelegramLogs().catch(error => console.error("[telegram] purge failed", error));
+      }
+    }, PURGE_MS);
+    purger.unref();
+  }
   if (!isTelegramConfigured()) return;
   const tick = async () => {
     if (draining) return;
@@ -322,13 +335,6 @@ export function startTelegramLoop() {
   };
   ticker = setInterval(() => void tick(), TICK_MS);
   ticker.unref();
-  purger = setInterval(() => {
-    void purgeTelegramLogs().catch(error => console.error("[telegram] purge failed", error));
-    void purgeStaleMessages().catch(error =>
-      console.error("[telegram] message purge failed", error)
-    );
-  }, PURGE_MS);
-  purger.unref();
   console.log("[telegram] sender loop started");
 }
 

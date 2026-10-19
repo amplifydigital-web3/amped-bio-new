@@ -197,16 +197,20 @@ export async function checkFanBlockThreshold(fanUserId: number, now = new Date()
  */
 export async function checkCreatorReportThreshold(creatorUserId: number, now = new Date()) {
   const since = new Date(now.getTime() - 7 * DAY);
-  const [reports, threads] = await Promise.all([
-    prisma.messageReport.count({
+  // Count distinct reporters: one fan filing several reports is not a crowd
+  const [reporters, threads] = await Promise.all([
+    prisma.messageReport.findMany({
       where: {
         createdAt: { gte: since },
         thread: { creatorUserId },
         reporterUserId: { not: creatorUserId },
       },
+      distinct: ["reporterUserId"],
+      select: { reporterUserId: true },
     }),
     prisma.messageThread.count({ where: { creatorUserId, lastMessageAt: { gte: since } } }),
   ]);
+  const reports = reporters.length;
   if (reports < Math.max(5, Math.ceil(threads * 0.01))) return false;
   const settings = await getCreatorSettings(creatorUserId);
   if (!settings || settings.pausedAt) return false;

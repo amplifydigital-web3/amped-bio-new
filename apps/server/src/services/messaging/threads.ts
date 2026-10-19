@@ -81,67 +81,81 @@ export async function sendFanMessage(input: {
     if (repeat) return { message: repeat, threadId: verdict.threadId, newThread: false };
   }
 
-  const result = await prisma.$transaction(async tx => {
-    let threadId: Uint8Array;
-    let newThread = false;
-    if (verdict.threadId) {
-      threadId = verdict.threadId;
-    } else {
-      threadId = uuidv7();
-      try {
-        await tx.messageThread.create({
-          data: {
-            id: threadId,
-            creatorUserId: input.creatorUserId,
-            fanUserId: input.fanUserId,
-          },
-        });
-        newThread = true;
-      } catch (error) {
-        // Two first messages at once: the other one created the thread
-        if (!(error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002")) {
-          throw error;
-        }
-        const existing = await tx.messageThread.findUniqueOrThrow({
-          where: {
-            creatorUserId_fanUserId: {
+  const result = await prisma
+    .$transaction(async tx => {
+      let threadId: Uint8Array;
+      let newThread = false;
+      if (verdict.threadId) {
+        threadId = verdict.threadId;
+      } else {
+        threadId = uuidv7();
+        try {
+          await tx.messageThread.create({
+            data: {
+              id: threadId,
               creatorUserId: input.creatorUserId,
               fanUserId: input.fanUserId,
             },
-          },
-          select: { id: true },
-        });
-        threadId = existing.id;
+          });
+          newThread = true;
+        } catch (error) {
+          // Two first messages at once: the other one created the thread
+          if (!(error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002")) {
+            throw error;
+          }
+          const existing = await tx.messageThread.findUniqueOrThrow({
+            where: {
+              creatorUserId_fanUserId: {
+                creatorUserId: input.creatorUserId,
+                fanUserId: input.fanUserId,
+              },
+            },
+            select: { id: true },
+          });
+          threadId = existing.id;
+        }
       }
-    }
-    const message = await tx.message.create({
-      data: {
-        id: uuidv7(),
-        threadId,
-        sender: "FAN",
-        channel: input.channel,
-        body,
-        idempotencyKey: input.idempotencyKey ?? null,
-        tgMessageId: input.tgMessageId ?? null,
-      },
+      const message = await tx.message.create({
+        data: {
+          id: uuidv7(),
+          threadId,
+          sender: "FAN",
+          channel: input.channel,
+          body,
+          idempotencyKey: input.idempotencyKey ?? null,
+          tgMessageId: input.tgMessageId ?? null,
+        },
+      });
+      // A fan who closed the thread opens it again by writing
+      await tx.messageThread.update({
+        where: { id: threadId },
+        data: {
+          lastMessageAt: now,
+          fanReadAt: now,
+          fanUnread: 0,
+          creatorUnread: { increment: 1 },
+        },
+      });
+      await tx.messageThread.updateMany({
+        where: { id: threadId, status: "BLOCKED_BY_FAN" },
+        data: { status: "OPEN", blockedAt: null },
+      });
+      await queueDelivery(tx, message.id, "creator");
+      return { message, threadId, newThread };
+    })
+    .catch(async error => {
+      // A concurrent retry with the same key lost the unique index: return the winner
+      if (
+        verdict.threadId &&
+        input.idempotencyKey &&
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2002"
+      ) {
+        const repeat = await existingByKey(verdict.threadId, input.idempotencyKey);
+        if (repeat) return { message: repeat, threadId: verdict.threadId, newThread: false };
+      }
+      throw error;
     });
-    // A fan who closed the thread opens it again by writing
-    await tx.messageThread.update({
-      where: { id: threadId },
-      data: {
-        lastMessageAt: now,
-        fanReadAt: now,
-        fanUnread: 0,
-        creatorUnread: { increment: 1 },
-      },
-    });
-    await tx.messageThread.updateMany({
-      where: { id: threadId, status: "BLOCKED_BY_FAN" },
-      data: { status: "OPEN", blockedAt: null },
-    });
-    await queueDelivery(tx, message.id, "creator");
-    return { message, threadId, newThread };
-  });
 
   if (result.newThread) {
     emitTelegramEvent("dm_thread_started", {
@@ -190,30 +204,43 @@ export async function sendCreatorReply(input: {
   const firstReply =
     (await prisma.message.count({ where: { threadId: thread.id, sender: "CREATOR" } })) === 0;
 
-  const message = await prisma.$transaction(async tx => {
-    const created = await tx.message.create({
-      data: {
-        id: uuidv7(),
-        threadId: thread.id,
-        sender: "CREATOR",
-        channel: input.channel,
-        body,
-        idempotencyKey: input.idempotencyKey ?? null,
-        tgMessageId: input.tgMessageId ?? null,
-      },
+  const message = await prisma
+    .$transaction(async tx => {
+      const created = await tx.message.create({
+        data: {
+          id: uuidv7(),
+          threadId: thread.id,
+          sender: "CREATOR",
+          channel: input.channel,
+          body,
+          idempotencyKey: input.idempotencyKey ?? null,
+          tgMessageId: input.tgMessageId ?? null,
+        },
+      });
+      await tx.messageThread.update({
+        where: { id: thread.id },
+        data: {
+          lastMessageAt: now,
+          creatorReadAt: now,
+          creatorUnread: 0,
+          fanUnread: { increment: 1 },
+        },
+      });
+      await queueDelivery(tx, created.id, "fan");
+      return created;
+    })
+    .catch(async error => {
+      // A concurrent retry with the same key lost the unique index: return the winner
+      if (
+        input.idempotencyKey &&
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2002"
+      ) {
+        const repeat = await existingByKey(thread.id, input.idempotencyKey);
+        if (repeat) return repeat;
+      }
+      throw error;
     });
-    await tx.messageThread.update({
-      where: { id: thread.id },
-      data: {
-        lastMessageAt: now,
-        creatorReadAt: now,
-        creatorUnread: 0,
-        fanUnread: { increment: 1 },
-      },
-    });
-    await queueDelivery(tx, created.id, "fan");
-    return created;
-  });
 
   emitTelegramEvent("dm_message_sent", { sender: "CREATOR", channel: input.channel });
   if (firstReply) {
@@ -237,7 +264,8 @@ async function noticeTo(userId: number, text: string) {
  */
 export async function creatorBlock(creatorUserId: number, threadId: Uint8Array, now = new Date()) {
   const thread = await creatorThread(creatorUserId, threadId);
-  if (thread.status === "BLOCKED_BY_CREATOR") return thread;
+  // Never clobber the fan's block: a non-open thread already stops delivery both ways
+  if (thread.status !== "OPEN") return thread;
   const updated = await prisma.messageThread.update({
     where: { id: thread.id },
     data: { status: "BLOCKED_BY_CREATOR", blockedAt: now },

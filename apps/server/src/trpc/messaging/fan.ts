@@ -38,8 +38,8 @@ export const messagingFanRouter = router({
   canMessage: privateProcedure
     .input(z.object({ creatorUserId: z.number().int().positive() }))
     .query(async ({ ctx, input }) => {
-      const creator = await prisma.user.findUnique({
-        where: { id: input.creatorUserId },
+      const creator = await prisma.user.findFirst({
+        where: { id: input.creatorUserId, page_status: "PUBLISHED" },
         select: { name: true },
       });
       if (!creator) throw new TRPCError({ code: "NOT_FOUND", message: "Creator not found." });

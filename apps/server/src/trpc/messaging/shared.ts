@@ -44,8 +44,9 @@ export function refusalMessage(reason: MessagingRefusalReason, creatorName: stri
 }
 
 async function creatorName(creatorUserId: number) {
-  const user = await prisma.user.findUnique({
-    where: { id: creatorUserId },
+  // Only published pages have a public name; anything else stays anonymous
+  const user = await prisma.user.findFirst({
+    where: { id: creatorUserId, page_status: "PUBLISHED" },
     select: { name: true },
   });
   return user?.name || "This creator";
