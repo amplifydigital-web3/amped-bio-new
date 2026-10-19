@@ -780,7 +780,7 @@ function OnrampStatusCard({ data }: { data: OnrampOverview }) {
         title={confirm ? "Pause Buy USDC?" : "Resume Buy USDC?"}
         body={
           confirm
-            ? "No new Coinbase price, link or order is made from the next request. Fans see: Buy USDC is paused for a moment. Try again shortly. Purchases already open keep reporting, and USDC Coinbase sends still arrives."
+            ? "No new Coinbase price, link or order is made from the next request. Fans see: Buy USDC is paused for a moment. Try again shortly. Purchases already open keep reporting, and USDC that Coinbase already sent still arrives."
             : "Fans can buy USDC through Coinbase again on the next request."
         }
         confirmLabel={confirm ? "Pause Buy USDC" : "Resume Buy USDC"}
@@ -799,6 +799,9 @@ function OnrampTiles({ data }: { data: OnrampOverview }) {
     week.byStatus.pending_verification +
     week.byStatus.pending_payment +
     week.byStatus.processing;
+  const paid = week.paid.length
+    ? week.paid.map(entry => `${entry.amount} ${entry.currency}`).join(" + ")
+    : "0.00";
   return (
     <div className="grid gap-[13px] sm:grid-cols-2 xl:grid-cols-4">
       <Tile
@@ -812,7 +815,7 @@ function OnrampTiles({ data }: { data: OnrampOverview }) {
       <Tile
         label="Bought, last 7 days"
         value={usdc(week.usdcUnits)}
-        lines={[`Fans paid Coinbase ${week.paidUsd} USD`, "Amped.Bio charged nothing"]}
+        lines={[`Fans paid Coinbase ${paid}`, "Amped.Bio charged nothing"]}
       />
       <Tile
         label="Ways to pay"

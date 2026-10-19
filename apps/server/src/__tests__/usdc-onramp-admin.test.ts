@@ -120,10 +120,13 @@ describe("Admin, Money on-ramp read outs", () => {
         { mode: "coinbase_account", _count: { _all: 2 } },
       ])
       .mockResolvedValueOnce([
+        { fiatCurrency: "USD", _sum: { fiatAmount: 7500 } },
+      ])
+      .mockResolvedValueOnce([
         { failureCode: "ERROR_CODE_GUEST_TRANSACTION_LIMIT", _count: { _all: 2 } },
       ]);
     db.onrampSession.aggregate.mockResolvedValue({
-      _sum: { fiatAmount: 7500, usdcAmount: 71_000_000n },
+      _sum: { usdcAmount: 71_000_000n },
     });
     db.onrampEvent.findFirst.mockResolvedValue({ receivedAt: NOW });
     db.onrampEvent.count.mockResolvedValue(1);
@@ -132,7 +135,7 @@ describe("Admin, Money on-ramp read outs", () => {
     expect(overview.week.total).toBe(6);
     expect(overview.week.byStatus.success).toBe(3);
     expect(overview.week.byMode.apple_pay).toBe(4);
-    expect(overview.week.paidUsd).toBe("75.00");
+    expect(overview.week.paid).toEqual([{ currency: "USD", amount: "75.00" }]);
     expect(overview.week.usdcUnits).toBe("71000000");
     expect(overview.week.failures[0]).toEqual({
       code: "ERROR_CODE_GUEST_TRANSACTION_LIMIT",

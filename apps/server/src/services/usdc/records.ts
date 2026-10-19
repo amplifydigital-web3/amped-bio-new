@@ -22,7 +22,10 @@ export async function usdcRecordsFor(userId: number) {
     }),
     prisma.usdcSend.findMany({ where: { userId }, orderBy: { createdAt: "asc" } }),
     prisma.paymentEvent.findMany({
-      where: { OR: [{ payerUserId: userId }, { payeeUserId: userId }] },
+      where: {
+        kind: "usdc_transfer",
+        OR: [{ payerUserId: userId }, { payeeUserId: userId }],
+      },
       orderBy: { occurredAt: "asc" },
     }),
     prisma.onrampSession.findMany({ where: { userId }, orderBy: { createdAt: "asc" } }),

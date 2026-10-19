@@ -32,28 +32,36 @@ const STATUSES: OnrampStatus[] = [
 export async function onrampOverview(now = new Date()) {
   const week = new Date(now.getTime() - 7 * DAY_MS);
   const where = { provider: PROVIDER, chainId: paymentChain.id, createdAt: { gte: week } };
-  const [paused, byStatus, byMode, bought, failures, lastEvent, eventErrors] = await Promise.all([
-    onrampPausedSetting(),
-    prisma.onrampSession.groupBy({ by: ["status"], where, _count: { _all: true } }),
-    prisma.onrampSession.groupBy({ by: ["mode"], where, _count: { _all: true } }),
-    prisma.onrampSession.aggregate({
-      where: { ...where, status: "success" },
-      _sum: { fiatAmount: true, usdcAmount: true },
-    }),
-    prisma.onrampSession.groupBy({
-      by: ["failureCode"],
-      where: { ...where, status: "failed" },
-      _count: { _all: true },
-    }),
-    prisma.onrampEvent.findFirst({
-      where: { provider: PROVIDER },
-      orderBy: { receivedAt: "desc" },
-      select: { receivedAt: true },
-    }),
-    prisma.onrampEvent.count({
-      where: { provider: PROVIDER, receivedAt: { gte: week }, error: { not: null } },
-    }),
-  ]);
+  const [paused, byStatus, byMode, bought, paidByCurrency, failures, lastEvent, eventErrors] =
+    await Promise.all([
+      onrampPausedSetting(),
+      prisma.onrampSession.groupBy({ by: ["status"], where, _count: { _all: true } }),
+      prisma.onrampSession.groupBy({ by: ["mode"], where, _count: { _all: true } }),
+      // USDC units do not depend on the fiat currency, so one sum is enough
+      prisma.onrampSession.aggregate({
+        where: { ...where, status: "success" },
+        _sum: { usdcAmount: true },
+      }),
+      // Fiat amounts are minor units per currency: never add GBP and USD together
+      prisma.onrampSession.groupBy({
+        by: ["fiatCurrency"],
+        where: { ...where, status: "success" },
+        _sum: { fiatAmount: true },
+      }),
+      prisma.onrampSession.groupBy({
+        by: ["failureCode"],
+        where: { ...where, status: "failed" },
+        _count: { _all: true },
+      }),
+      prisma.onrampEvent.findFirst({
+        where: { provider: PROVIDER },
+        orderBy: { receivedAt: "desc" },
+        select: { receivedAt: true },
+      }),
+      prisma.onrampEvent.count({
+        where: { provider: PROVIDER, receivedAt: { gte: week }, error: { not: null } },
+      }),
+    ]);
 
   const statusCounts = Object.fromEntries(STATUSES.map(status => [status, 0])) as Record<
     OnrampStatus,
@@ -82,8 +90,13 @@ export async function onrampOverview(now = new Date()) {
       total: Object.values(statusCounts).reduce((sum, count) => sum + count, 0),
       byStatus: statusCounts,
       byMode: modeCounts,
-      // Cents the fans paid Coinbase on successful purchases, as Coinbase reported
-      paidUsd: fromCents(bought._sum.fiatAmount ?? 0),
+      // Minor units the fans paid Coinbase on successful purchases, per currency
+      paid: paidByCurrency
+        .map(row => ({
+          currency: row.fiatCurrency ?? "USD",
+          amount: fromCents(row._sum.fiatAmount ?? 0),
+        }))
+        .sort((a, b) => (a.currency < b.currency ? -1 : 1)),
       usdcUnits: (bought._sum.usdcAmount ?? 0n).toString(),
       failures: failures
         .map(row => ({ code: row.failureCode ?? "unknown", count: row._count._all }))
