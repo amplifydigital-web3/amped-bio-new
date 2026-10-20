@@ -1,14 +1,15 @@
-import { ReactNode, useState, useEffect, useMemo } from "react";
+import { ReactNode, useCallback, useState, useEffect, useMemo } from "react";
 import { useBalance } from "wagmi";
 import { TRPCClientError } from "@trpc/client";
 import { WalletContext } from "../contexts/WalletContext";
 import { useMetaMaskWallet } from "../hooks/useWallet";
 import { trpcClient } from "@repo/ui";
-import { useAuth } from "@repo/ui";
+import { queryClient, useAuth } from "@repo/ui";
 import { type Address } from "viem";
+import { clearWalletBrowserState, isWalletMismatch } from "../utils/walletSession";
 
 export const MetaMaskWalletProvider = ({ children }: { children: ReactNode }) => {
-  const { authUser } = useAuth();
+  const { authUser, signOut } = useAuth();
   const wallet = useMetaMaskWallet();
   const [isUSD, setIsUSD] = useState(false);
 
@@ -49,6 +50,21 @@ export const MetaMaskWalletProvider = ({ children }: { children: ReactNode }) =>
     query: { refetchInterval: 10000 },
   });
 
+  // MetaMask owns its accounts; the app cannot switch them. A mismatch blocks
+  // signing and the reconnect card tells the person to change account.
+  const walletMismatch = isWalletMismatch(authUser?.wallet, wallet.address);
+
+  const signOutEverywhere = useCallback(async () => {
+    try {
+      wallet.disconnect();
+    } catch (error) {
+      console.warn("[wallet-session] MetaMask disconnect failed", error);
+    }
+    clearWalletBrowserState();
+    await signOut();
+    queryClient.clear();
+  }, [wallet, signOut]);
+
   const updateBalanceDelayed = () => {
     setTimeout(() => balance?.refetch(), 2000);
   };
@@ -66,7 +82,10 @@ export const MetaMaskWalletProvider = ({ children }: { children: ReactNode }) =>
         publicKey: null,
         address: address,
         getIdentityToken: undefined,
-        isWeb3Wallet: wallet?.address !== undefined,
+        isWeb3Wallet: wallet?.address !== undefined && !walletMismatch,
+        liveAddress: wallet.address,
+        walletMismatch,
+        signOutEverywhere,
       }}
     >
       {children}
