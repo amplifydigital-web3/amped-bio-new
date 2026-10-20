@@ -369,6 +369,8 @@ export const walletRouter = router({
       } catch (error) {
         console.error("Error getting faucet amount:", error);
 
+        if (error instanceof TRPCError) throw error;
+
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Failed to retrieve faucet amount",
