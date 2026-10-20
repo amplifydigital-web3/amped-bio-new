@@ -1,6 +1,11 @@
 import { getAddress, isAddress, isAddressEqual, zeroAddress, type Address, type Hex } from "viem";
 import { prisma } from "@repo/database";
-import { SITE_SETTINGS, USDC_SEND_LIMITS, type UsdcSendRefusal } from "@repo/constants";
+import {
+  SITE_SETTINGS,
+  USDC_SEND_LIMITS,
+  type UsdcClientFailure,
+  type UsdcSendRefusal,
+} from "@repo/constants";
 import { parseUsdc } from "@repo/web3";
 import { env } from "../../env";
 import { uuidv7 } from "../../utils/uuid-v7";
@@ -115,7 +120,7 @@ async function recordRefusal(params: {
 
 export async function prepareUsdcSend(
   userId: number,
-  input: { to: string; amount: string },
+  input: { to: string; amount: string; signer?: string },
   now = new Date()
 ): Promise<PrepareResult> {
   if (await sendsPaused()) return { refused: true, reason: "paused" };
@@ -127,6 +132,24 @@ export async function prepareUsdcSend(
   if (!user?.wallet?.address) return { refused: true, reason: "no_wallet" };
   if (!user.email_verified) return { refused: true, reason: "email_unverified" };
   const from = getAddress(user.wallet.address);
+
+  // The browser reports the live wallet. After an account switch in one
+  // browser it can still hold the previous account's wallet, which would sign
+  // for the wrong authorizer. Refuse before screening or storing typed data.
+  if (input.signer !== undefined) {
+    if (!isAddress(input.signer, { strict: false }) || !isAddressEqual(input.signer, from)) {
+      const to = isAddress(input.to, { strict: false }) ? getAddress(input.to) : zeroAddress;
+      await recordRefusal({
+        userId,
+        from,
+        to,
+        amount: parseUsdc(input.amount) ?? 0n,
+        reason: "wallet_mismatch",
+        now,
+      });
+      return { refused: true, reason: "wallet_mismatch" };
+    }
+  }
 
   if (!isAddress(input.to, { strict: false }))
     return { refused: true, reason: "invalid_recipient" };
@@ -340,6 +363,28 @@ export async function submitUsdcSend(
   await prisma.usdcSend.update({ where: { id: row.id }, data: { status: "submitted", txHash } });
   const status = await settle(row, txHash, receiptWaitMs);
   return { refused: false, status, txHash };
+}
+
+/**
+ * Ends a prepared send that never reached submit. Only a `screened` row
+ * moves, so a late report can never overwrite a submitted or confirmed send.
+ * Calling it twice is harmless.
+ */
+export async function abandonUsdcSend(
+  userId: number,
+  input: { sendId: string; code: UsdcClientFailure }
+): Promise<{ status: string }> {
+  const row = await findSend(userId, input.sendId);
+  if (row.status !== "screened") return { status: row.status };
+  const updated = await prisma.usdcSend.updateMany({
+    where: { id: row.id, status: "screened" },
+    data: { status: "failed", failureCode: `client_${input.code}` },
+  });
+  if (updated.count === 0) {
+    const current = await findSend(userId, input.sendId);
+    return { status: current.status };
+  }
+  return { status: "failed" };
 }
 
 export async function usdcSendStatus(userId: number, sendId: string) {
