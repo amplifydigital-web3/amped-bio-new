@@ -89,7 +89,7 @@ export function UsdcTile() {
         <span aria-hidden className="prism-halo-card" />
         <span
           aria-hidden
-          className="pointer-events-none absolute inset-0 z-[-1] rounded-[inherit] [background:linear-gradient(180deg,rgba(255,255,255,0.5)_0%,rgba(255,255,255,0)_34%),linear-gradient(rgba(86,80,162,0.10),rgba(86,80,162,0.10)),rgba(255,255,255,0.62)]"
+          className="prism-lens-fill pointer-events-none absolute inset-0 z-[-1] rounded-[inherit]"
         />
         <span id="wallet-usdc-title" className="relative">
           <Eyebrow />
