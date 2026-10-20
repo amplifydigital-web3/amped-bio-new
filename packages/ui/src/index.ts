@@ -127,6 +127,7 @@ export {
   type RnsIdCardProps,
 } from "./creator/rns-id-card";
 export { ExternalRedirect } from "./external-redirect";
+export { NewVersionDialog } from "./new-version";
 
 // Auth
 export { AuthProvider, useAuth } from "./auth-context";
