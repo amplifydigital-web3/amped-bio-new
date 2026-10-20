@@ -21,9 +21,12 @@ function Eyebrow() {
 }
 
 /**
- * Screen Review 137 (board w1). The USDC tile on the payment chain: the one
- * G3 lens on the Wallet with the rim, the balance in Bebas 68/55 as USD with
- * two decimals (spec decision 8), the network line, and Send, Receive and
+ * Screen Review 137 (board w1). The USDC tile on the payment chain. It keeps
+ * the lens shading (the card halo under the G3 lens fill) inside the same
+ * clear glass border and shadow as the tREVO card, and fills the grid row so
+ * both cards share one height. The halo is clipped to the card, so no glow
+ * spills below or around it. The balance is in Bebas 68/55 as USD with two
+ * decimals (spec decision 8), then the network line, and Send, Receive and
  * Fund. Send opens the gasless USDC send (?send=usdc). No testnet line: it
  * belongs to tREVO surfaces only.
  */
@@ -81,10 +84,13 @@ export function UsdcTile() {
   }
 
   return (
-    <section aria-labelledby="wallet-usdc-title" className="relative isolate">
-      <span aria-hidden className="prism-halo-card" />
-      <div className="prism-lens relative rounded-prism-21 p-5 font-prism sm:p-8">
-        <span aria-hidden className="prism-rim" />
+    <section aria-labelledby="wallet-usdc-title" className="h-full">
+      <div className="prism-glass-clear relative isolate h-full overflow-hidden !rounded-prism-21 p-5 font-prism sm:p-8">
+        <span aria-hidden className="prism-halo-card" />
+        <span
+          aria-hidden
+          className="prism-lens-fill pointer-events-none absolute inset-0 z-[-1] rounded-[inherit]"
+        />
         <span id="wallet-usdc-title" className="relative">
           <Eyebrow />
         </span>
