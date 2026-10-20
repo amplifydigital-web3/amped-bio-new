@@ -214,7 +214,7 @@ Spec 3.17 in executable form. Do staging first, on **its own Cloudflare account*
 | `CF_STREAM_KEY_ID`, `CF_STREAM_KEY_PEM` | From 5.2 step 1 |
 | `CF_STREAM_WEBHOOK_SECRET` | From 5.2 step 3 |
 | `CF_STREAM_ALLOWED_ORIGINS` | `staging.amped.bio,app.staging.amped.bio` |
-| `MEDIA_GATEWAY_ORIGIN` | `https://media-staging.ampedusercontent.com` (used from PR 3) |
+| `MEDIA_GATEWAY_ORIGIN` | `https://media.ampedusercontent-staging.com` (used from PR 3; host changed in PR 3, see `docs/fixes/content-media-gateway.md`) |
 | `MEDIA_TOKEN_KEYS` | `s1:` followed by the output of `openssl rand -base64 48 \| tr '+/' '-_' \| tr -d '='` (used from PR 3) |
 | `CONTENT_PROCESSOR_SECRET` | `openssl rand -hex 32` (used from PR 4) |
 | `UPLOAD_LIMIT_CONTENT_*_MB`, `CONTENT_QUOTA_*` | Leave unset for the spec defaults |

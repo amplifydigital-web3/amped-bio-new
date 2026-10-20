@@ -54,6 +54,7 @@ import {
   videoMinutesLeft,
 } from "../services/content/quota";
 import { failItem } from "../services/content/state";
+import { publishContentJob } from "../services/cloudflare/queue";
 import { fromDbKind, newContentPublicId, toDbKind } from "../services/content/ids";
 import { UPLOAD_VERIFICATION_MESSAGES } from "../services/uploadVerification";
 
@@ -72,6 +73,7 @@ const MESSAGES = {
   parts: "Upload parts are missing. Retry the upload.",
   notFound: "Item not found.",
   preview: "That preview setting does not apply to this kind of item.",
+  queue: "Could not start processing this file. Upload it again.",
 } as const;
 
 function lowerStatus(status: ContentItem["status"]) {
@@ -386,11 +388,30 @@ export const contentRouter = router({
         });
       }
 
-      // The R2 object-create event on incoming/ starts the processor (PR 4)
-      await prisma.contentItem.updateMany({
+      const moved = await prisma.contentItem.updateMany({
         where: { id: item.id, status: "UPLOADING" },
         data: { status: "PROCESSING", processingStep: "queued" },
       });
+      // Only the call that moved the item queues it, so a retry never queues twice
+      if (moved.count === 1) {
+        try {
+          await publishContentJob({ type: "r2", publicId: item.publicId });
+        } catch (error) {
+          console.error(
+            "[content] queue publish failed",
+            JSON.stringify({
+              publicId: item.publicId,
+              error: error instanceof Error ? error.message : String(error),
+            })
+          );
+          await deleteR2Object(key).catch(() => {});
+          await failItem(item, "queue_unavailable", { from: ["PROCESSING"] });
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: MESSAGES.queue,
+          });
+        }
+      }
       return { publicId: item.publicId, status: "processing" as const };
     }),
 

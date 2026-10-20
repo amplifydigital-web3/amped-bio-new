@@ -11,11 +11,21 @@ const state = vi.hoisted(() => ({
   applyStreamWebhook: vi.fn(async (): Promise<string> => "ready"),
   applyProcessorCallback: vi.fn(async (): Promise<string> => "applied"),
 }));
+const job = vi.hoisted(() => ({
+  buildProcessorJob: vi.fn(
+    async (publicId: string): Promise<unknown> => ({ publicId, kind: "audio" })
+  ),
+}));
 vi.mock("../services/content/state", () => state);
+vi.mock("../services/content/job", () => job);
 vi.mock("@repo/database", () => ({ prisma: {} }));
 
 import { env } from "../env";
-import { handleProcessorCallback, handleStreamWebhook } from "../routes/content";
+import {
+  handleProcessorCallback,
+  handleProcessorJob,
+  handleStreamWebhook,
+} from "../routes/content";
 import { signProcessorCallback } from "../services/cloudflare/mediaToken";
 
 function call(handler: typeof handleStreamWebhook, body: string, headers: Record<string, string>) {
@@ -44,6 +54,7 @@ function call(handler: typeof handleStreamWebhook, body: string, headers: Record
 beforeEach(() => {
   state.applyStreamWebhook.mockClear();
   state.applyProcessorCallback.mockClear();
+  job.buildProcessorJob.mockClear();
   Object.assign(env, {
     CF_STREAM_WEBHOOK_SECRET: "stream-secret",
     CONTENT_PROCESSOR_SECRET: "processor-secret",
@@ -124,5 +135,41 @@ describe("POST /internal/content/processed", () => {
     expect(state.applyProcessorCallback).toHaveBeenCalledWith(callback);
     state.applyProcessorCallback.mockResolvedValueOnce("not_found");
     expect((await call(handleProcessorCallback, body, headers(body))).statusCode).toBe(404);
+  });
+});
+
+describe("POST /internal/content/job", () => {
+  const body = JSON.stringify({ publicId: "abcdefghijklmnop" });
+  const headers = (raw: string, secret = "processor-secret") => ({
+    "x-amped-signature": signProcessorCallback(raw, secret),
+  });
+
+  it("answers 404 until the processor secret is set", async () => {
+    Object.assign(env, { CONTENT_PROCESSOR_SECRET: "" });
+    expect((await call(handleProcessorJob, body, headers(body))).statusCode).toBe(404);
+    expect(job.buildProcessorJob).not.toHaveBeenCalled();
+  });
+
+  it("refuses a missing or wrong signature with 401", async () => {
+    expect((await call(handleProcessorJob, body, {})).statusCode).toBe(401);
+    expect((await call(handleProcessorJob, body, headers(body, "other"))).statusCode).toBe(401);
+    expect(job.buildProcessorJob).not.toHaveBeenCalled();
+  });
+
+  it("refuses bad JSON or a bad public id with 400", async () => {
+    expect((await call(handleProcessorJob, "{", headers("{"))).statusCode).toBe(400);
+    const bad = JSON.stringify({ publicId: "../../etc" });
+    expect((await call(handleProcessorJob, bad, headers(bad))).statusCode).toBe(400);
+    expect(job.buildProcessorJob).not.toHaveBeenCalled();
+  });
+
+  it("answers the job, or 404 for an unknown item", async () => {
+    const res = await call(handleProcessorJob, body, headers(body));
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toEqual({ publicId: "abcdefghijklmnop", kind: "audio" });
+    job.buildProcessorJob.mockResolvedValueOnce(null);
+    const missing = await call(handleProcessorJob, body, headers(body));
+    expect(missing.statusCode).toBe(404);
+    expect(missing.body).toEqual({ error: "not_found" });
   });
 });
