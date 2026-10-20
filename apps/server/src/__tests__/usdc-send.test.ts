@@ -427,6 +427,24 @@ describe("Admin, Money recent sends", () => {
     const rows = await recentSends({ limit: 25 });
     expect(rows.map(row => row.status)).toEqual(["expired", "screened"]);
   });
+
+  it("lists only rows still inside their window under Awaiting signature", async () => {
+    db.usdcSend.findMany.mockResolvedValue([]);
+    await recentSends({ limit: 25, status: "screened" });
+    const where = db.usdcSend.findMany.mock.calls.at(-1)![0].where;
+    expect(where.status).toBe("screened");
+    expect(where.validBefore.gt).toBeInstanceOf(Date);
+    expect(where.validBefore.gt.getTime()).toBeGreaterThan(Date.now() - 1_000);
+  });
+
+  it("lists the screened rows past their window under Expired", async () => {
+    db.usdcSend.findMany.mockResolvedValue([]);
+    await recentSends({ limit: 25, status: "expired" });
+    const where = db.usdcSend.findMany.mock.calls.at(-1)![0].where;
+    expect(where.status).toBe("screened");
+    expect(where.validBefore.lte).toBeInstanceOf(Date);
+    expect(where.validBefore.lte.getTime()).toBeLessThanOrEqual(Date.now());
+  });
 });
 
 describe("wallet.sendUsdc.submit", () => {

@@ -95,6 +95,7 @@ export function useUsdcSigner() {
       const expected = typed.message.from;
       if (!walletClient) throw new WalletDisconnectedError();
       const before = walletClient.account?.address ?? accountAddress;
+      if (!before) throw new WalletDisconnectedError();
       if (!sameAddress(before, expected)) {
         console.warn("[usdc-sign] signer does not match the send", { expected, live: before });
         throw new WalletMismatchError(expected, before);

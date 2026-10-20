@@ -230,16 +230,27 @@ async function handles(userIds: number[]) {
 }
 
 export async function recentSends(params: { status?: string; limit: number; before?: Date }) {
+  const now = Date.now();
+  // `expired` is derived below, not stored, so the filter has to translate it:
+  // without this "Awaiting signature" would list rows the table then shows as
+  // expired, and there would be no way to list the expired ones at all.
+  const statusWhere =
+    params.status === "expired"
+      ? { status: "screened", validBefore: { lte: new Date(now) } }
+      : params.status === "screened"
+        ? { status: "screened", validBefore: { gt: new Date(now) } }
+        : params.status
+          ? { status: params.status }
+          : {};
   const rows = await prisma.usdcSend.findMany({
     where: {
       chainId: paymentChain.id,
-      ...(params.status ? { status: params.status } : {}),
+      ...statusWhere,
       ...(params.before ? { createdAt: { lt: params.before } } : {}),
     },
     orderBy: { createdAt: "desc" },
     take: params.limit,
   });
-  const now = Date.now();
   const names = await handles(rows.flatMap(row => [row.userId, row.toUserId ?? 0]));
   return rows.map(row => ({
     id: Buffer.from(row.id).toString("hex"),

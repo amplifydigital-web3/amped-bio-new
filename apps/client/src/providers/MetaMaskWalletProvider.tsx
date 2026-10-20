@@ -60,8 +60,10 @@ export const MetaMaskWalletProvider = ({ children }: { children: ReactNode }) =>
     } catch (error) {
       console.warn("[wallet-session] MetaMask disconnect failed", error);
     }
-    clearWalletBrowserState();
+    // Amped.Bio first: it writes its own storage, so clearing the wallet keys
+    // before it would leave whatever the sign out writes behind
     await signOut();
+    clearWalletBrowserState();
     queryClient.clear();
   }, [wallet, signOut]);
 

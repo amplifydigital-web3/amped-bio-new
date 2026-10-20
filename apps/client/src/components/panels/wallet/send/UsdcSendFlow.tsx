@@ -8,7 +8,6 @@ import {
   Copy,
   ExternalLink,
   Loader2,
-  LogOut,
   Send,
   Wallet,
 } from "lucide-react";
@@ -37,7 +36,7 @@ import { ReconnectCard } from "./ReconnectCard";
 import { RecipientAvatar, RecipientPicker } from "./RecipientPicker";
 import { recipientLine, recipientTitle, shortAddress, type Recipient } from "./model";
 import { classifyUsdcSignError, useUsdcSigner, type UsdcTypedData } from "./useUsdcSigner";
-import { signInUrl } from "@/components/shell/ShellGate";
+import { SignOutAndBackButton } from "./SignOutAndBackButton";
 
 // These causes cannot be fixed by signing again in this session
 const NO_RETRY_FAILURES: ReadonlySet<UsdcClientFailure> = new Set([
@@ -545,20 +544,7 @@ export default function UsdcSendFlow() {
         ) : null}
         {step === "failed" &&
           (clientFailure === "wallet_mismatch" || clientFailure === "signer_changed") && (
-            <Button
-              type="button"
-              variant="secondary"
-              size="lg"
-              className="w-full"
-              onClick={() => {
-                void wallet.signOutEverywhere().then(() => {
-                  window.location.href = signInUrl();
-                });
-              }}
-            >
-              <LogOut aria-hidden />
-              Sign out and sign back in
-            </Button>
+            <SignOutAndBackButton />
           )}
         {step === "failed" && (
           <Button

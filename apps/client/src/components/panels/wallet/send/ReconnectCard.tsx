@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { AlertTriangle, Loader2, LogOut } from "lucide-react";
+import { AlertTriangle, Loader2 } from "lucide-react";
 import { Button } from "@repo/ui";
 import { useWalletContext } from "@/contexts/WalletContext";
-import { signInUrl } from "@/components/shell/ShellGate";
+import { SignOutAndBackButton } from "./SignOutAndBackButton";
 
 const RETRY_DELAYS_MS = [0, 1000, 3000];
 
@@ -23,11 +23,6 @@ export function ReconnectCard() {
   const wallet = useWalletContext();
   const [state, setState] = useState<"idle" | "reconnecting" | "failed">("idle");
 
-  const signOutAndBack = async () => {
-    await wallet.signOutEverywhere();
-    window.location.href = signInUrl();
-  };
-
   if (wallet.walletMismatch) {
     return (
       <div role="status" className="prism-glass-clear !rounded-prism-21 p-[21px] font-prism">
@@ -46,15 +41,7 @@ export function ReconnectCard() {
             </p>
           </div>
         </div>
-        <Button
-          type="button"
-          size="lg"
-          className="mt-[21px] w-full"
-          onClick={() => void signOutAndBack()}
-        >
-          <LogOut aria-hidden />
-          Sign out and sign back in
-        </Button>
+        <SignOutAndBackButton className="mt-[21px]" />
       </div>
     );
   }
@@ -111,14 +98,7 @@ export function ReconnectCard() {
             : "Reconnect wallet"}
       </Button>
       {state === "failed" && (
-        <Button
-          type="button"
-          variant="ghost"
-          className="mt-2 w-full"
-          onClick={() => void signOutAndBack()}
-        >
-          Sign out
-        </Button>
+        <SignOutAndBackButton label="Sign out" variant="ghost" className="mt-2" />
       )}
     </div>
   );
