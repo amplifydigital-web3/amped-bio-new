@@ -40,7 +40,7 @@ import { formatCount, formatDayTime, shortHex } from "../kit/format";
 // changes through an explicit button with a confirm (087 D1).
 
 type Overview = RouterOutputs["admin"]["money"]["overview"];
-type SendFilter = "all" | "confirmed" | "failed" | "refused";
+type SendFilter = "all" | "confirmed" | "failed" | "refused" | "screened";
 
 function eth(wei: string | bigint | null | undefined, digits = 6): string {
   if (wei === null || wei === undefined) return "None";
@@ -505,6 +505,8 @@ function Sends({ explorerUrl }: { explorerUrl: string | null }) {
           { value: "confirmed", label: "Confirmed" },
           { value: "failed", label: "Failed" },
           { value: "refused", label: "Refused" },
+          // Screened rows not yet signed; ones past their window show as expired
+          { value: "screened", label: "Awaiting signature" },
         ]}
       />
       <SlabTable label="Recent USDC sends">
