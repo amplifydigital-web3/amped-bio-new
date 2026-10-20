@@ -239,6 +239,7 @@ export async function recentSends(params: { status?: string; limit: number; befo
     orderBy: { createdAt: "desc" },
     take: params.limit,
   });
+  const now = Date.now();
   const names = await handles(rows.flatMap(row => [row.userId, row.toUserId ?? 0]));
   return rows.map(row => ({
     id: Buffer.from(row.id).toString("hex"),
@@ -248,7 +249,9 @@ export async function recentSends(params: { status?: string; limit: number; befo
     toHandle: row.toUserId ? (names.get(row.toUserId) ?? null) : null,
     toAddress: row.toAddress,
     amount: row.amount.toString(),
-    status: row.status,
+    // A screened row past its authorization window can never be submitted.
+    // Show it as expired so it does not read as a send still in flight.
+    status: row.status === "screened" && row.validBefore.getTime() <= now ? "expired" : row.status,
     failureCode: row.failureCode,
     txHash: row.txHash,
     gasCostWei: row.gasCostWei?.toString() ?? null,
