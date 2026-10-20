@@ -17,7 +17,24 @@ function ctrl(type: number, size: number): Buffer {
   return Buffer.from(parts);
 }
 
+/** int32 (type 8) in the smallest two's complement byte count, sign preserved. */
+function int32(value: number): Buffer {
+  const full = Buffer.alloc(4);
+  full.writeInt32BE(value);
+  let start = 0;
+  while (
+    start < 3 &&
+    ((full[start] === 0x00 && (full[start + 1] & 0x80) === 0) ||
+      (full[start] === 0xff && (full[start + 1] & 0x80) !== 0))
+  ) {
+    start += 1;
+  }
+  const bytes = full.subarray(start);
+  return Buffer.concat([ctrl(8, bytes.length), bytes]);
+}
+
 function encode(value: unknown): Buffer {
+  if (Buffer.isBuffer(value)) return value;
   if (typeof value === "string") {
     const bytes = Buffer.from(value, "utf8");
     return Buffer.concat([ctrl(2, bytes.length), bytes]);
@@ -166,6 +183,13 @@ describe("MmdbReader", () => {
     const reader = new MmdbReader(buildMmdb(entries));
     expect(reader.get("::ffff:73.1.2.3")).toEqual(MIAMI);
     expect(reader.get("2a00:23c5:0000:0000:0000:0000:0000:0001")).toEqual(LONDON);
+  });
+
+  it("reads negative int32 values stored in fewer than four bytes", () => {
+    const reader = new MmdbReader(
+      buildMmdb([{ bits: v4Bits("73.0.0.0/8"), record: { metro_code: int32(-300) } }])
+    );
+    expect(reader.get("73.1.1.1")).toEqual({ metro_code: -300 });
   });
 
   it("reads metadata", () => {

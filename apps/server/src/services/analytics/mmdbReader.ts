@@ -93,9 +93,10 @@ class Decoder {
         return { value: map, next };
       }
       case 8: {
-        // int32, stored in 0 to 4 bytes
+        // int32, stored in 0 to 4 bytes. Negative values are two's complement
+        // over the bytes actually stored, so the sign comes from the first one.
         if (size === 0) return { value: 0, next: offset };
-        const padded = Buffer.alloc(4, this.db[offset] & 0x80 && size === 4 ? 0xff : 0);
+        const padded = Buffer.alloc(4, this.db[offset] & 0x80 ? 0xff : 0);
         this.db.copy(padded, 4 - size, offset, offset + size);
         return { value: padded.readInt32BE(0), next: offset + size };
       }
