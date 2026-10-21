@@ -41,6 +41,7 @@ export function IdentityVerified({
   const lockHelpId = useId();
 
   const copy = () =>
+    wallet &&
     navigator.clipboard
       .writeText(wallet)
       .then(() => toast.add({ title: "Address copied", type: "success" }))
@@ -78,17 +79,19 @@ export function IdentityVerified({
           <MetaCell label="Tier">{TIER[tier]}</MetaCell>
           <MetaCell label="Verified on">{authbaseDate(status.verification.verified_at)}</MetaCell>
           <MetaCell label="Valid until">{authbaseDate(status.verification.valid_until)}</MetaCell>
-          <MetaCell label="Linked wallet">
-            {shortAddress(wallet)}
-            <button
-              type="button"
-              onClick={copy}
-              aria-label={`Copy linked wallet ${shortAddress(wallet)}`}
-              className="prism-focus inline-flex h-touch w-touch shrink-0 items-center justify-center rounded-full text-prism-ink-2"
-            >
-              <Copy aria-hidden className="h-[21px] w-[21px]" />
-            </button>
-          </MetaCell>
+          {wallet && (
+            <MetaCell label="Linked wallet">
+              {shortAddress(wallet)}
+              <button
+                type="button"
+                onClick={copy}
+                aria-label={`Copy linked wallet ${shortAddress(wallet)}`}
+                className="prism-focus inline-flex h-touch w-touch shrink-0 items-center justify-center rounded-full text-prism-ink-2"
+              >
+                <Copy aria-hidden className="h-[21px] w-[21px]" />
+              </button>
+            </MetaCell>
+          )}
         </dl>
         <p className="text-prism-meta text-prism-ink-2">{RNS_COPY.verifiedDisclaimer}</p>
         {opensAt &&
