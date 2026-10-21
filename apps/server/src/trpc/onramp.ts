@@ -8,6 +8,8 @@ import {
   cancelOnrampSession,
   clientIpFromRequest,
   createCoinbaseSession,
+  createWalletPayOrder,
+  onrampFrameEvent,
   onrampOptions,
   onrampQuote,
   onrampStatus,
@@ -63,7 +65,7 @@ function cents(amount: string): number {
 }
 
 const sessionId = z.string().regex(/^[0-9a-f]{32}$/);
-const mode = z.enum(["coinbase_account"]);
+const mode = z.enum(["coinbase_account", "apple_pay", "google_pay"]);
 
 export const onrampRouter = router({
   /** Ways to pay and Coinbase's limits for the fan's region (detected, or the one they picked). */
@@ -109,6 +111,52 @@ export const onrampRouter = router({
         returnTo: input.returnTo,
         clientIp: clientIpFromRequest(ctx.req),
       }).catch(asClientError);
+    }),
+
+  /**
+   * Apple Pay or Google Pay (o3): the Coinbase order in embedded mode. Returns
+   * the payment link the panel renders in Coinbase's frame. Nothing is charged
+   * until the fan presses Coinbase's Apple Pay or Google Pay button.
+   */
+  createOrder: privateProcedure
+    .input(
+      z.object({
+        amount: z.string().trim().min(1).max(12),
+        mode: z.enum(["apple_pay", "google_pay"]),
+        region: regionInput,
+        agreementAcceptedAt: z.string().datetime(),
+        returnTo: z.string().max(255).optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.user!.sub;
+      await enforceRateLimits(
+        [{ key: `onramp:order:${userId}`, limit: 5, windowSeconds: 3600 }],
+        "Too many Coinbase checkouts in an hour. Try again later."
+      );
+      return createWalletPayOrder(userId, {
+        cents: cents(input.amount),
+        mode: input.mode,
+        region: region(input.region),
+        agreementAcceptedAt: new Date(input.agreementAcceptedAt),
+        returnTo: input.returnTo,
+        clientIp: clientIpFromRequest(ctx.req),
+      }).catch(asClientError);
+    }),
+
+  /** What Coinbase's frame posted (commit, error with its code, cancel). Coinbase's status still wins. */
+  frameEvent: privateProcedure
+    .input(
+      z.object({
+        sessionId,
+        event: z.enum(["commit_success", "error", "cancel"]),
+        code: z.string().max(64).nullable().optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      return onrampFrameEvent(ctx.user!.sub, input.sessionId, input.event, input.code).catch(
+        asClientError
+      );
     }),
 
   /** Where the purchase is. Arrived only once the USDC is on chain (chainConfirmed). */

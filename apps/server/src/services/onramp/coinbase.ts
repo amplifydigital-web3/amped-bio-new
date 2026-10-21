@@ -10,7 +10,12 @@ import { CdpClient } from "../usdc/cdp";
 
 export type OnrampApi = Pick<
   CdpClient,
-  "getOnrampBuyConfig" | "getOnrampBuyOptions" | "getOnrampTransactions" | "createOnrampSession"
+  | "getOnrampBuyConfig"
+  | "getOnrampBuyOptions"
+  | "getOnrampTransactions"
+  | "createOnrampSession"
+  | "createOnrampOrder"
+  | "getOnrampOrder"
 >;
 
 let override: OnrampApi | null = null;

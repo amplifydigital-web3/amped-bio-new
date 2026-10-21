@@ -1,6 +1,7 @@
 import { getAddress, type Hex } from "viem";
 import { Prisma, prisma } from "@repo/database";
 import {
+  ONRAMP_COPY,
   ONRAMP_FINAL_STATUSES,
   ONRAMP_LIMITS,
   type OnrampMode,
@@ -9,11 +10,18 @@ import {
 import { env } from "../../env";
 import { uuidv7 } from "../../utils/uuid-v7";
 import { enforceRateLimits } from "../../utils/rateLimit";
-import { CdpError, type OnrampQuote, type OnrampTransaction } from "../usdc/cdp";
+import {
+  CdpError,
+  type OnrampOrder,
+  type OnrampOrderRequest,
+  type OnrampQuote,
+  type OnrampTransaction,
+} from "../usdc/cdp";
 import { paymentChain, paymentClient } from "../usdc/chain";
 import { fromCents, toCents, toUsdcUnits } from "./amounts";
 import { isOnrampConfigured, onrampApi } from "./coinbase";
 import { partnerUserRefFor } from "./refs";
+import { decryptOnrampToken, encryptOnrampToken } from "./secret";
 import type { OnrampRegion } from "./region";
 
 /**
@@ -115,6 +123,17 @@ const ACCOUNT_METHODS = [
   "RTP",
 ];
 
+/** Buy Config ids for the Headless Onramp (US). Either spelling counts. */
+const WALLET_PAY_METHODS: Record<"apple_pay" | "google_pay", string[]> = {
+  apple_pay: ["GUEST_CHECKOUT_APPLE_PAY", "APPLE_PAY"],
+  google_pay: ["GUEST_CHECKOUT_GOOGLE_PAY", "GOOGLE_PAY"],
+};
+
+/** The headless modes, which run in Coinbase's frame inside the panel. */
+export function isWalletPay(mode: string): mode is "apple_pay" | "google_pay" {
+  return mode === "apple_pay" || mode === "google_pay";
+}
+
 export type PathOption = {
   available: boolean;
   /** Plain reason when Coinbase rules the path out for this region */
@@ -134,13 +153,14 @@ export type OnrampOptions = {
   /** Countries Coinbase serves, with US states, for the region picker */
   countries: { id: string; subdivisions: string[] }[];
   fiatCurrency: string;
-  paths: Record<"coinbase_account", PathOption>;
+  paths: Record<OnrampMode, PathOption>;
 };
 
 function limitsFor(
   options: Awaited<ReturnType<typeof buyOptions>>,
   currency: string,
-  methods: string[]
+  methods: string[],
+  fallbackMaxUsd: number = ONRAMP_LIMITS.maxUsd
 ): { minCents: number; maxCents: number } {
   const limits =
     options.payment_currencies
@@ -150,8 +170,36 @@ function limitsFor(
   const maxes = limits.map(limit => toCents(limit.max)).filter((v): v is number => v !== null);
   return {
     minCents: mins.length ? Math.max(Math.min(...mins), 1) : ONRAMP_LIMITS.minUsd * 100,
-    maxCents: maxes.length ? Math.max(...maxes) : ONRAMP_LIMITS.maxUsd * 100,
+    maxCents: maxes.length ? Math.max(...maxes) : fallbackMaxUsd * 100,
   };
+}
+
+/**
+ * Apple Pay or Google Pay (o2): US and USD only. Buy Config may not list the
+ * guest methods at all; when it lists some guest method but not this one,
+ * Coinbase has ruled it out and the lens shows disabled.
+ */
+function walletPayPath(
+  mode: "apple_pay" | "google_pay",
+  region: OnrampRegion,
+  methods: string[],
+  options: Awaited<ReturnType<typeof buyOptions>>,
+  fiatCurrency: string
+): PathOption {
+  const limits = limitsFor(options, "USD", WALLET_PAY_METHODS[mode], ONRAMP_LIMITS.guestMaxUsd);
+  if (region.country !== "US" || fiatCurrency !== "USD") {
+    return { available: false, reason: ONRAMP_COPY.walletPay.notOffered, ...limits };
+  }
+  const listsGuest = methods.some(method => method.startsWith("GUEST_CHECKOUT_"));
+  const listed = methods.some(method => WALLET_PAY_METHODS[mode].includes(method));
+  if (listsGuest && !listed) {
+    return {
+      available: false,
+      reason: "Coinbase does not offer this in your state yet.",
+      ...limits,
+    };
+  }
+  return { available: true, reason: null, ...limits };
 }
 
 function sellsUsdcOnBase(options: Awaited<ReturnType<typeof buyOptions>>): boolean {
@@ -191,7 +239,11 @@ export async function onrampOptions(
     minCents: ONRAMP_LIMITS.minUsd * 100,
     maxCents: ONRAMP_LIMITS.maxUsd * 100,
   };
-  const base = { countries, fiatCurrency: "USD", paths: { coinbase_account: closed } };
+  const base = {
+    countries,
+    fiatCurrency: "USD",
+    paths: { coinbase_account: closed, apple_pay: closed, google_pay: closed },
+  };
 
   if (!region) return { ...base, region: null, needsRegion: true, regionSupported: true };
   const country = countries.find(entry => entry.id === region.country);
@@ -226,13 +278,15 @@ export async function onrampOptions(
     reason: accountMethods.length > 0 ? null : "Coinbase offers no way to pay here yet.",
     ...limitsFor(options, fiatCurrency, accountMethods.length ? accountMethods : ACCOUNT_METHODS),
   };
+  const applePay = walletPayPath("apple_pay", region, methods, options, fiatCurrency);
+  const googlePay = walletPayPath("google_pay", region, methods, options, fiatCurrency);
   return {
     countries,
     fiatCurrency,
     region,
     needsRegion: false,
-    regionSupported: coinbaseAccount.available,
-    paths: { coinbase_account: coinbaseAccount },
+    regionSupported: coinbaseAccount.available || applePay.available || googlePay.available,
+    paths: { coinbase_account: coinbaseAccount, apple_pay: applePay, google_pay: googlePay },
   };
 }
 
@@ -287,7 +341,7 @@ async function assertAmount(
 ): Promise<OnrampOptions> {
   const options = await onrampOptions(region, region, now);
   if (!options.regionSupported) throw new OnrampInputError("Coinbase does not sell USDC here yet.");
-  const path = options.paths[mode as "coinbase_account"];
+  const path = options.paths[mode];
   if (!path?.available) throw new OnrampInputError("This way to pay is not offered here.");
   if (cents < path.minCents) {
     throw new OnrampInputError(
@@ -314,8 +368,6 @@ export async function onrampQuote(
   now = Date.now()
 ): Promise<{ quote: QuoteView; refreshedAt: string }> {
   if (!isOnrampConfigured()) throw new OnrampInputError("Buy USDC is not available yet.");
-  if (input.mode !== "coinbase_account")
-    throw new OnrampInputError("This way to pay is not offered here.");
   const options = await assertAmount(input.cents, input.region, input.mode, now);
   const key = `${userId}:${input.mode}:${input.cents}:${input.region.country}:${input.region.subdivision ?? ""}`;
   const hit = quoteCache.get(key);
@@ -328,21 +380,40 @@ export async function onrampQuote(
     "Too many price checks. Try again in a few minutes."
   );
   const destinationAddress = await walletAddress(userId);
-  let quote: OnrampQuote | undefined;
-  try {
+  const partnerUserRef = await partnerUserRefFor(userId);
+  const sessionQuote = async (paymentMethod: "CARD" | "APPLE_PAY") => {
     const response = await onrampApi().createOnrampSession({
       purchaseCurrency: "USDC",
       destinationNetwork: "base",
       destinationAddress,
       paymentAmount: fromCents(input.cents),
       paymentCurrency: options.fiatCurrency,
-      paymentMethod: "CARD",
+      paymentMethod,
       country: input.region.country,
       subdivision:
         input.region.country === "US" ? (input.region.subdivision ?? undefined) : undefined,
-      partnerUserRef: await partnerUserRefFor(userId),
+      partnerUserRef,
     });
-    quote = response.quote;
+    return response.quote;
+  };
+  let quote: OnrampQuote | undefined;
+  try {
+    if (isWalletPay(input.mode)) {
+      // Spec decision 6: the Order API priced with isQuote, which creates no order
+      try {
+        const response = await onrampApi().createOnrampOrder({
+          ...orderBase(input.mode, input.cents, destinationAddress, partnerUserRef),
+          isQuote: true,
+        });
+        quote = quoteFromOrder(response.order);
+      } catch (error) {
+        // An order quote Coinbase will not price falls back to its session quote
+        if (!(error instanceof CdpError) || error.status !== 400) throw error;
+        quote = await sessionQuote(input.mode === "apple_pay" ? "APPLE_PAY" : "CARD");
+      }
+    } else {
+      quote = await sessionQuote("CARD");
+    }
   } catch (error) {
     throw providerError(error);
   }
@@ -457,6 +528,218 @@ export async function createCoinbaseSession(
   }
 }
 
+/* -------------------------------------------------------------------------- */
+/* Apple Pay and Google Pay (Headless Onramp, embedded order mode)            */
+/* -------------------------------------------------------------------------- */
+
+/** The host the Coinbase frame is embedded on (the Onramp domain allowlist). */
+export function onrampDomain(): string {
+  if (env.ONRAMP_DOMAIN) return env.ONRAMP_DOMAIN;
+  try {
+    return new URL(env.APP_URL).hostname;
+  } catch {
+    return "";
+  }
+}
+
+function orderBase(
+  mode: "apple_pay" | "google_pay",
+  cents: number,
+  destinationAddress: string,
+  partnerUserRef: string
+): OnrampOrderRequest {
+  return {
+    paymentAmount: fromCents(cents),
+    paymentCurrency: "USD",
+    purchaseCurrency: "USDC",
+    paymentMethod: mode === "apple_pay" ? "GUEST_CHECKOUT_APPLE_PAY" : "GUEST_CHECKOUT_GOOGLE_PAY",
+    destinationAddress,
+    destinationNetwork: "base",
+    partnerUserRef,
+    domain: onrampDomain() || undefined,
+  };
+}
+
+/** An order's figures in the quote shape the panel shows. Coinbase's numbers only. */
+export function quoteFromOrder(order: OnrampOrder | undefined): OnrampQuote | undefined {
+  if (!order?.paymentTotal || !order.purchaseAmount) return undefined;
+  return {
+    paymentTotal: order.paymentTotal,
+    paymentSubtotal: order.paymentSubtotal ?? order.paymentTotal,
+    paymentCurrency: order.paymentCurrency ?? "USD",
+    purchaseAmount: order.purchaseAmount,
+    purchaseCurrency: order.purchaseCurrency ?? "USDC",
+    destinationNetwork: order.destinationNetwork ?? "base",
+    fees: order.fees ?? [],
+    exchangeRate: order.exchangeRate ?? "",
+  };
+}
+
+/** The fan's live Coinbase userAuthToken, or null (none, expired or unreadable). */
+async function liveUserAuthToken(userId: number, now: Date): Promise<string | null> {
+  const row = await prisma.onrampUserAuth.findUnique({ where: { userId } });
+  if (!row || row.provider !== PROVIDER) return null;
+  if (row.expiresAt.getTime() <= now.getTime()) {
+    await prisma.onrampUserAuth.deleteMany({ where: { userId } });
+    return null;
+  }
+  return decryptOnrampToken(row.tokenEnc);
+}
+
+/** Keeps Coinbase's token for 60 days, encrypted (spec decision 5). */
+async function storeUserAuthToken(userId: number, token: string, now: Date) {
+  const expiresAt = new Date(now.getTime() + ONRAMP_LIMITS.userAuthTokenDays * 86_400_000);
+  const tokenEnc = encryptOnrampToken(token);
+  await prisma.onrampUserAuth.upsert({
+    where: { userId },
+    create: { id: uuidv7(), userId, provider: PROVIDER, tokenEnc, expiresAt },
+    update: { provider: PROVIDER, tokenEnc, expiresAt },
+  });
+}
+
+/** Coinbase turned the stored token down: it is dropped and the order retried without it. */
+function tokenRejected(error: unknown): boolean {
+  return (
+    error instanceof CdpError &&
+    (error.status === 401 || (error.status === 400 && /token|auth/i.test(error.errorType)))
+  );
+}
+
+/** Coinbase's sandbox flag on the payment link (spec decision 11). Staging only. */
+export function paymentLinkFor(url: string, mode: "apple_pay" | "google_pay"): string {
+  if (!env.ONRAMP_SANDBOX) return url;
+  const link = new URL(url);
+  link.searchParams.set(
+    mode === "apple_pay" ? "useApplePaySandbox" : "useGooglePaySandbox",
+    "true"
+  );
+  return link.toString();
+}
+
+/**
+ * Apple Pay or Google Pay (o3). Creates the session row, then the Coinbase
+ * order in embedded mode: no phone or email from us; Coinbase verifies the fan
+ * in its own frame and returns a userAuthToken we keep so a returning fan skips
+ * that step. The fan accepted Coinbase's terms on the agreement line (o2).
+ */
+export async function createWalletPayOrder(
+  userId: number,
+  input: {
+    cents: number;
+    mode: "apple_pay" | "google_pay";
+    region: OnrampRegion;
+    agreementAcceptedAt: Date;
+    returnTo?: string | null;
+    clientIp?: string;
+  },
+  now = new Date()
+): Promise<{ sessionId: string; paymentLinkUrl: string }> {
+  if (!isOnrampConfigured()) throw new OnrampInputError("Buy USDC is not available yet.");
+  const accepted = input.agreementAcceptedAt.getTime();
+  if (
+    !Number.isFinite(accepted) ||
+    accepted > now.getTime() + 60_000 ||
+    accepted < now.getTime() - ONRAMP_LIMITS.sessionTtlMinutes * 60_000
+  ) {
+    throw new OnrampInputError("Accept Coinbase's terms again to continue.");
+  }
+  await assertAmount(input.cents, input.region, input.mode, now.getTime());
+  const destination = await walletAddress(userId);
+  const partnerUserRef = await partnerUserRefFor(userId);
+  const quote = lastQuote(userId, input.mode, input.cents, input.region, now.getTime());
+  const id = uuidv7();
+  const sessionId = sessionIdOf(id);
+
+  await prisma.onrampSession.create({
+    data: {
+      id,
+      userId,
+      provider: PROVIDER,
+      mode: input.mode,
+      partnerUserRef,
+      status: "created",
+      fiatAmount: input.cents,
+      fiatCurrency: "USD",
+      usdcAmount: quote ? toUsdcUnits(quote.purchaseAmount) : null,
+      quote: quote ? (quote as unknown as Prisma.InputJsonObject) : Prisma.JsonNull,
+      destination,
+      chainId: paymentChain.id,
+      returnTo: safeReturnTo(input.returnTo),
+      sandbox: env.ONRAMP_SANDBOX,
+    },
+  });
+
+  const body: OnrampOrderRequest = {
+    ...orderBase(input.mode, input.cents, destination, partnerUserRef),
+    partnerOrderRef: sessionId,
+    clientIp: input.clientIp,
+  };
+  const token = await liveUserAuthToken(userId, now);
+
+  try {
+    let response;
+    try {
+      response = await onrampApi().createOnrampOrder({
+        ...body,
+        userAuthToken: token ?? undefined,
+      });
+    } catch (error) {
+      if (!token || !tokenRejected(error)) throw error;
+      await prisma.onrampUserAuth.deleteMany({ where: { userId } });
+      response = await onrampApi().createOnrampOrder(body);
+    }
+    if (response.userAuthToken) await storeUserAuthToken(userId, response.userAuthToken, now);
+    const url = response.paymentLink?.url;
+    if (!url)
+      throw new OnrampProviderError("Coinbase did not open checkout. Try again.", "no_link");
+    const orderQuote = quoteFromOrder(response.order);
+    const row = await prisma.onrampSession.update({
+      where: { id },
+      data: {
+        quote: orderQuote ? (orderQuote as unknown as Prisma.InputJsonObject) : undefined,
+        usdcAmount: orderQuote ? toUsdcUnits(orderQuote.purchaseAmount) : undefined,
+      },
+    });
+    await applyOnrampUpdate(row, {
+      ref: response.order?.orderId ?? null,
+      status: mapCoinbaseStatus(response.order?.status) ?? "created",
+    });
+    return { sessionId, paymentLinkUrl: paymentLinkFor(url, input.mode) };
+  } catch (error) {
+    const failure = error instanceof OnrampProviderError ? error : providerError(error);
+    await prisma.onrampSession.update({
+      where: { id },
+      data: { status: "failed", failureCode: failure.code },
+    });
+    throw failure;
+  }
+}
+
+/** What the Coinbase frame posted (o3). The panel forwards it; Coinbase's status still wins. */
+export type FrameEvent = "commit_success" | "error" | "cancel";
+
+export async function onrampFrameEvent(
+  userId: number,
+  sessionId: string,
+  event: FrameEvent,
+  code?: string | null
+) {
+  const id = parseSessionId(sessionId);
+  const row = await prisma.onrampSession.findFirst({ where: { id, userId } });
+  if (!row || !isWalletPay(row.mode)) throw new OnrampInputError("Unknown purchase.");
+  if (event === "cancel") return cancelOnrampSession(userId, sessionId);
+  const stored = await applyOnrampUpdate(
+    row,
+    event === "commit_success"
+      ? { status: "processing" }
+      : {
+          status: "failed",
+          failureCode: code && /^[A-Z0-9_]{1,64}$/.test(code) ? code : "frame_error",
+        }
+  );
+  return view(stored, await hasArrived(stored));
+}
+
 type SessionRow = NonNullable<Awaited<ReturnType<typeof prisma.onrampSession.findFirst>>>;
 
 /** One update from Coinbase (webhook or status API), in our words. */
@@ -482,7 +765,9 @@ const ORDER: Record<OnrampStatus, number> = {
 
 /** A final Coinbase result wins over a cancel or expiry on our side; nothing moves backwards. */
 export function nextStatus(current: OnrampStatus, incoming: OnrampStatus): OnrampStatus {
-  if (current === "success" || current === "failed") return current;
+  if (current === "success") return current;
+  // A client frame error is not final: Coinbase's own success still reconciles it
+  if (current === "failed" && incoming !== "success") return current;
   if (incoming === "success" || incoming === "failed") return incoming;
   if (current === "canceled" || current === "expired") return current;
   return ORDER[incoming] > ORDER[current] ? incoming : current;
@@ -586,6 +871,7 @@ const FIRST_POLL_AFTER_MS = 20_000;
  * that no other session holds. At most once every 15 seconds per session.
  */
 async function refreshFromCoinbase(row: SessionRow, now: Date): Promise<SessionRow> {
+  if (isWalletPay(row.mode)) return refreshOrder(row, now);
   if (row.mode !== "coinbase_account") return row;
   if (now.getTime() - row.createdAt.getTime() < FIRST_POLL_AFTER_MS) return row;
   if (row.checkedAt && now.getTime() - row.checkedAt.getTime() < POLL_EVERY_MS) return row;
@@ -621,6 +907,36 @@ async function refreshFromCoinbase(row: SessionRow, now: Date): Promise<SessionR
       .at(-1);
   }
   const update = pick ? updateFromTransaction(pick) : null;
+  return update ? applyOnrampUpdate(row, update) : row;
+}
+
+/** v2 order to an update. */
+export function updateFromOrder(order: OnrampOrder): OnrampUpdate | null {
+  const status = mapCoinbaseStatus(order.status);
+  if (!status) return null;
+  return {
+    ref: order.orderId ?? null,
+    status,
+    txHash: order.txHash || null,
+    usdcAmount: toUsdcUnits(order.purchaseAmount),
+    fiatCents: toCents(order.paymentTotal),
+    failureCode: status === "failed" ? "coinbase_failed" : null,
+  };
+}
+
+/** Apple Pay and Google Pay: reads the order by Coinbase's id, at most every 15 seconds. */
+async function refreshOrder(row: SessionRow, now: Date): Promise<SessionRow> {
+  if (!row.sessionRef) return row;
+  if (row.checkedAt && now.getTime() - row.checkedAt.getTime() < POLL_EVERY_MS) return row;
+  await prisma.onrampSession.update({ where: { id: row.id }, data: { checkedAt: now } });
+  let order: OnrampOrder | undefined;
+  try {
+    order = (await onrampApi().getOnrampOrder(row.sessionRef)).order;
+  } catch (error) {
+    console.warn("[onramp] order status did not load", error);
+    return row;
+  }
+  const update = order ? updateFromOrder(order) : null;
   return update ? applyOnrampUpdate(row, update) : row;
 }
 
@@ -695,6 +1011,9 @@ export async function onrampStatus(userId: number, sessionId: string, now = new 
   }
   const ttl = ONRAMP_LIMITS.sessionTtlMinutes * 60_000;
   if (
+    // A wallet-pay order already has a Coinbase transaction, so it is reconciled by
+    // its sessionRef/webhook and never force-expired here
+    !row.sessionRef &&
     (row.status === "created" ||
       row.status === "pending_verification" ||
       row.status === "pending_payment") &&
@@ -722,4 +1041,36 @@ export async function cancelOnrampSession(userId: number, sessionId: string) {
   const row = await prisma.onrampSession.findFirst({ where: { id, userId } });
   if (!row) throw new OnrampInputError("Unknown purchase.");
   return view(row, await hasArrived(row));
+}
+
+/* -------------------------------------------------------------------------- */
+/* Retention                                                                  */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Deletes Coinbase userAuthTokens past their 60 day life. They are only removed
+ * today when the same fan starts another order, so unused rows outlive the notice.
+ */
+export async function purgeExpiredOnrampTokens(now = new Date()): Promise<number> {
+  const { count } = await prisma.onrampUserAuth.deleteMany({
+    where: { expiresAt: { lte: now } },
+  });
+  return count;
+}
+
+let tokenPurger: NodeJS.Timeout | null = null;
+
+export function startOnrampTokenPurge(): void {
+  if (tokenPurger) return;
+  tokenPurger = setInterval(
+    () =>
+      void purgeExpiredOnrampTokens().catch(error =>
+        console.error("[onramp] token purge failed", error)
+      ),
+    24 * 60 * 60 * 1000
+  );
+  tokenPurger.unref?.();
+  void purgeExpiredOnrampTokens().catch(error =>
+    console.error("[onramp] token purge failed", error)
+  );
 }

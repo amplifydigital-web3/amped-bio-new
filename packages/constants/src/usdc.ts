@@ -111,13 +111,17 @@ export const ONRAMP_LIMITS = {
   sessionTtlMinutes: 120,
   /** The single use Coinbase link lives this long */
   hostedLinkMinutes: 5,
+  /** Fallback maximum for one Apple Pay or Google Pay purchase when Coinbase gives none */
+  guestMaxUsd: 500,
+  /** Coinbase's userAuthToken (embedded order mode) is kept this long */
+  userAuthTokenDays: 60,
 } as const;
 
 /** Fan facing Buy USDC lines (spec 3.9). Counsel confirms the wording. No dashes. */
 export const ONRAMP_COPY = {
   byline: "Sold and delivered by Coinbase",
-  /** Wallet, Fund row (w5). USDC-5 adds Apple Pay and Google Pay. */
-  fundRow: "Debit card, bank or your Coinbase balance. Coinbase sells, Amped.Bio charges nothing.",
+  /** Wallet, Fund row (w5) */
+  fundRow: "Apple Pay, Google Pay, debit card or bank. Coinbase sells, Amped.Bio charges nothing.",
   quoteLine: "Coinbase sets the price and fees. Nothing is charged on Amped.Bio.",
   agreement:
     "By continuing you agree to Coinbase's Guest Checkout Terms, User Agreement and Privacy Policy.",
@@ -135,8 +139,43 @@ export const ONRAMP_COPY = {
     linkLine:
       "The Coinbase link works once and for five minutes. Open Coinbase again makes a new one.",
   },
+  /** Apple Pay and Google Pay through the Headless Onramp (o2, o3). US only. */
+  walletPay: {
+    appleTitle: "Apple Pay",
+    googleTitle: "Google Pay",
+    body: "Debit card in your phone's wallet. No Coinbase account needed. US only. Stays on this page.",
+    loading: "Loading Coinbase secure checkout",
+    buttonLine: "Only you can press this button. Coinbase renders it.",
+    frameLine:
+      "Coinbase runs these steps inside its own frame under its privacy policy. Amped.Bio sees only the order result.",
+    waiting: "Coinbase is taking your payment. It usually takes under a minute.",
+    notOffered: "Apple Pay and Google Pay through Coinbase are for US buyers.",
+  },
   arrived: (amount: string) => `${amount} USDC is in your wallet.`,
 } as const;
+
+/**
+ * Plain words for the error codes Coinbase's payment frame posts (o6). Anything
+ * not listed shows ONRAMP_COPY.notCompleted with the code.
+ */
+export const ONRAMP_FRAME_ERRORS: Record<string, string> = {
+  ERROR_CODE_GUEST_TRANSACTION_LIMIT:
+    "This is over Coinbase's weekly limit for Apple Pay and Google Pay. Try a smaller amount or your Coinbase account.",
+  ERROR_CODE_GUEST_TRANSACTION_COUNT:
+    "Coinbase allows only a few Apple Pay and Google Pay purchases a week. Try your Coinbase account.",
+  ERROR_CODE_GUEST_CARD_INSUFFICIENT_BALANCE: "Your card did not have enough funds.",
+  ERROR_CODE_GUEST_CARD_SOFT_DECLINED: "Your card was declined. Try again or use another card.",
+  ERROR_CODE_GUEST_CARD_HARD_DECLINED: "Your card was declined. Use another card.",
+  ERROR_CODE_GUEST_CARD_RISK_DECLINED: "Coinbase declined this purchase.",
+  ERROR_CODE_GUEST_CARD_PREPAID_DECLINED: "Coinbase does not take prepaid cards.",
+  ERROR_CODE_GUEST_INVALID_CARD: "Coinbase could not use this card. Use another card.",
+  ERROR_CODE_GUEST_REGION_MISMATCH:
+    "Coinbase sells through Apple Pay and Google Pay in the US only.",
+  ERROR_CODE_GUEST_APPLE_PAY_NOT_SUPPORTED: "Apple Pay is not available in this browser.",
+  ERROR_CODE_GUEST_APPLE_PAY_NOT_SETUP: "Add a debit card to Apple Wallet, then try again.",
+  ERROR_CODE_GUEST_GOOGLE_PAY_NOT_SUPPORTED: "Google Pay is not available in this browser.",
+  ERROR_CODE_GUEST_PERMISSION_DENIED: "Coinbase could not sell to this account.",
+};
 
 /**
  * Coinbase legal links named in the agreement line (o2). Counsel and the Coinbase
