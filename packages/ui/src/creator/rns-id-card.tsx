@@ -283,21 +283,20 @@ export function RnsIdCard({
   const verifiedOn = check ? formatRnsDate(check.verifiedAt) : null;
   const validUntil = check ? formatRnsDate(check.validUntil) : null;
   const sinceMonth = config.show.since ? formatSinceMonth(since) : null;
-  // Shared attributes the block switches on, in catalog order (server applied too)
-  const shown = verified
-    ? AUTHBASE_ATTRIBUTE_KEYS.flatMap(key => {
-        const value = config.show[RNSID_ATTRIBUTE_SWITCH[key]] ? identity.attributes?.[key] : null;
-        return value
-          ? [
-              {
-                key,
-                title: AUTHBASE_ATTRIBUTE_LABELS[key],
-                line: formatAuthbaseAttribute(key, value),
-              },
-            ]
-          : [];
-      })
-    : [];
+  // Shared attributes the block switches on, in catalog order (server applied too).
+  // Independent of the Verified chip: the owner's switches decide, not the badge.
+  const shown = AUTHBASE_ATTRIBUTE_KEYS.flatMap(key => {
+    const value = config.show[RNSID_ATTRIBUTE_SWITCH[key]] ? identity.attributes?.[key] : null;
+    return value
+      ? [
+          {
+            key,
+            title: AUTHBASE_ATTRIBUTE_LABELS[key],
+            line: formatAuthbaseAttribute(key, value),
+          },
+        ]
+      : [];
+  });
   const nameOnId = shown.find(fact => fact.key === "name")?.line ?? null;
   const interactive = !!onTap && config.tap !== "none";
   const initial = displayName.trim().charAt(0).toUpperCase() || "?";

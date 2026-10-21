@@ -256,11 +256,11 @@ describe("RNS ID block: shared attributes", () => {
     expect(identity?.attributes).toBeUndefined();
   });
 
-  it("never rides on the name chip (badge off or not verified)", async () => {
+  it("survives Show Verified badge off, and only verification gates it", async () => {
     state.attributesFlag = true;
     const badgeOff = await withBlock({ showBadge: false });
     expect(badgeOff.identity?.chip).toBe("name");
-    expect(badgeOff.identity?.attributes).toBeUndefined();
+    expect(badgeOff.identity?.attributes).toEqual({ name: "Maya Lin" });
     state.authbase = "not_verified";
     const unverified = await withBlock();
     expect(unverified.identity?.chip).toBe("name");

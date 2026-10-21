@@ -281,11 +281,12 @@ export async function computeRnsIdentity(
       tier: verification.tier,
     };
   }
-  // 112 D1: shared attributes ride on the verified chip only, and only when
-  // the public attributes flag is on and the owner's block asks for each one.
-  // The flag is re-checked at read time so a cached verification cannot
-  // release them after the flag turns off (cache entries can be up to 5 min old).
-  if (verified && env.RNS_PUBLIC_ATTRIBUTES && verification.state === "verified") {
+  // 112 D1: shared attributes follow the owner's block switches, not the badge.
+  // Hiding the Verified chip must not hide them: only the public attributes flag
+  // and a current verification gate them. The flag is re-checked at read time so
+  // a cached verification cannot release them after the flag turns off (cache
+  // entries can be up to 5 min old).
+  if (env.RNS_PUBLIC_ATTRIBUTES && verification.state === "verified") {
     const shown = pickShownAttributes(verification.attributes, block?.attributes ?? []);
     if (Object.keys(shown).length) identity.attributes = shown;
   }

@@ -275,18 +275,17 @@ export function RnsIdentityDialog({
               line={validUntil ? RNS_IDENTITY_COPY.factLine(validUntil) : undefined}
             />
           )}
-          {verified &&
-            AUTHBASE_ATTRIBUTE_KEYS.map(key => {
-              const value = identity.attributes?.[key];
-              return value ? (
-                <Fact
-                  key={key}
-                  icon={IdCard}
-                  title={AUTHBASE_ATTRIBUTE_LABELS[key]}
-                  line={RNS_IDENTITY_COPY.checkedLine(formatAuthbaseAttribute(key, value))}
-                />
-              ) : null;
-            })}
+          {AUTHBASE_ATTRIBUTE_KEYS.map(key => {
+            const value = identity.attributes?.[key];
+            return value ? (
+              <Fact
+                key={key}
+                icon={IdCard}
+                title={AUTHBASE_ATTRIBUTE_LABELS[key]}
+                line={RNS_IDENTITY_COPY.checkedLine(formatAuthbaseAttribute(key, value))}
+              />
+            ) : null;
+          })}
           {identity.name && (
             <Fact
               icon={Send}
