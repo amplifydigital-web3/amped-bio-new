@@ -112,23 +112,30 @@ export const PLANNED_USES: { title: string; body: string }[] = [
   },
 ];
 
-/** Authbase site for linking, the ID check and sharing settings (103 I18, 104 I14). */
-export const AUTHBASE_URL: string | undefined = import.meta.env.VITE_AUTHBASE_URL || undefined;
+/** Authbase origin for linking, the ID check and sharing settings (103 I18, 104 I14). */
+const AUTHBASE_ORIGIN: string | undefined = import.meta.env.VITE_AUTHBASE_URL || undefined;
 
 /**
- * Authbase consent manager, where the owner changes what they share. Through
- * Authbase's Amped.Bio SSO entry, which signs the owner in first when needed
- * and then lands on returnTo (a bare /profile/... link sends a signed out
- * owner to the Authbase home). Built from the origin, since VITE_AUTHBASE_URL
- * may already carry an SSO path and query.
+ * A link into Authbase through its Amped.Bio SSO entry, which signs the owner
+ * in with their Amped.Bio account when needed and then lands on `returnTo`.
+ * Linking straight to a page sends a signed out owner to the Authbase home
+ * instead. The destinations live here so the env var stays the plain origin.
  */
-export const AUTHBASE_CONSENT_URL: string | undefined = (() => {
-  if (!AUTHBASE_URL) return undefined;
+const authbaseSsoUrl = (returnTo: string): string | undefined => {
+  if (!AUTHBASE_ORIGIN) return undefined;
   try {
-    const url = new URL("/sso/amped", AUTHBASE_URL);
-    url.searchParams.set("returnTo", "/profile/consent-manager");
+    // An absolute path resolves against the origin, so an env value that still
+    // carries a path of its own lands in the same place.
+    const url = new URL("/sso/amped", AUTHBASE_ORIGIN);
+    url.searchParams.set("returnTo", returnTo);
     return url.toString();
   } catch {
     return undefined;
   }
-})();
+};
+
+/** The Authbase ID check (103 I18). */
+export const AUTHBASE_VERIFY_URL = authbaseSsoUrl("/verify");
+
+/** Where the owner changes what they share with Amped.Bio (104 I14). */
+export const AUTHBASE_CONSENT_URL = authbaseSsoUrl("/profile/consent-manager");
