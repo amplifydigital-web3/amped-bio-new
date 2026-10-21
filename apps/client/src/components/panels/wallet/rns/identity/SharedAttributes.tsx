@@ -24,9 +24,10 @@ export const NOT_VERIFIED_SHARING_LINE =
 
 /**
  * Screen Review 079 D2 and I23 (with 104 I09): attributes the owner shared
- * through Authbase, under SHARED BY THE OWNER. Callers render this only for a
- * Verified status; never for Not verified or Not linked. Labels come from the
- * Authbase attribute catalog in @repo/constants, so raw keys never show.
+ * through Authbase, under SHARED BY YOU for the owner and SHARED BY THE OWNER
+ * for a visitor. Callers render this only for a Verified status; never for Not
+ * verified or Not linked. Labels come from the Authbase attribute catalog in
+ * @repo/constants, so raw keys never show.
  *
  * The owner reads every shared value from authbase.getMyStatus (104 D1).
  * Visitors get them only when the server turns on RNS_PUBLIC_ATTRIBUTES, and
@@ -55,7 +56,9 @@ export function SharedAttributes({
       className="prism-glass-clear space-y-[13px] p-[21px]"
     >
       <div id="rns-shared-title">
-        <IdEyebrow as="h3">Shared by the owner</IdEyebrow>
+        <IdEyebrow as="h3">
+          {viewer === "owner" ? "Shared by you" : "Shared by the owner"}
+        </IdEyebrow>
       </div>
       {entries.length === 0 ? (
         <p className="text-prism-body text-prism-ink-2">
