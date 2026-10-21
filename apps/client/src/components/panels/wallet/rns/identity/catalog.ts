@@ -112,11 +112,30 @@ export const PLANNED_USES: { title: string; body: string }[] = [
   },
 ];
 
-/** 104 I09: the shared attribute keys Amped.Bio labels. Others are counted, never shown raw. */
-export const SHARED_ATTRIBUTE_LABELS: Record<string, string> = {
-  name: "Name",
-  country: "Country",
+/** Authbase origin for linking, the ID check and sharing settings (103 I18, 104 I14). */
+const AUTHBASE_ORIGIN: string | undefined = import.meta.env.VITE_AUTHBASE_URL || undefined;
+
+/**
+ * A link into Authbase through its Amped.Bio SSO entry, which signs the owner
+ * in with their Amped.Bio account when needed and then lands on `returnTo`.
+ * Linking straight to a page sends a signed out owner to the Authbase home
+ * instead. The destinations live here so the env var stays the plain origin.
+ */
+const authbaseSsoUrl = (returnTo: string): string | undefined => {
+  if (!AUTHBASE_ORIGIN) return undefined;
+  try {
+    // An absolute path resolves against the origin, so an env value that still
+    // carries a path of its own lands in the same place.
+    const url = new URL("/sso/amped", AUTHBASE_ORIGIN);
+    url.searchParams.set("returnTo", returnTo);
+    return url.toString();
+  } catch {
+    return undefined;
+  }
 };
 
-/** Authbase site for linking, the ID check and sharing settings (103 I18, 104 I14). */
-export const AUTHBASE_URL: string | undefined = import.meta.env.VITE_AUTHBASE_URL || undefined;
+/** The Authbase ID check (103 I18). */
+export const AUTHBASE_VERIFY_URL = authbaseSsoUrl("/verify");
+
+/** Where the owner changes what they share with Amped.Bio (104 I14). */
+export const AUTHBASE_CONSENT_URL = authbaseSsoUrl("/profile/consent-manager");

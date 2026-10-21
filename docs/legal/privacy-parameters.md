@@ -31,6 +31,7 @@ Operator: Oneiro N.A., Inc., dba Amplify Digital, Boston, Massachusetts. Contact
 - Nothing is written to cookies or browser storage on public pages before a choice, except what the policy's storage table lists.
 - Never send visitor level data to AI providers. Creator summaries send page totals only.
 - Minimum account age is 18.
+- Authbase attributes (`AUTHBASE_ATTRIBUTE_KEYS`: name on ID, over 18, gender, country) are private to the owner. One reaches a visitor only when the owner is Verified, `RNS_PUBLIC_ATTRIBUTES` is on, and its switch is on in the owner's RNS ID block, applied on the server. Never show the date of birth.
 - Link the policy from new public surfaces and emails: `/privacy` on amped.bio, `new URL("/privacy", env.LANDINGPAGE_URL)` in server emails (so staging links to staging), `https://amped.bio/privacy` elsewhere.
 - Copy rules: no income, yield, APY or APR. Use the standard testnet line where tREVO appears.
 - Telegram (Build Board #2): store only the Telegram user ID, name, username and photo link from Log In with Telegram; never request the `phone` scope. Encrypt username, name and photo link at rest (`services/telegram/secret.ts`). Never return a Telegram ID to anyone but its owner, never show a creator's Telegram username on a public surface, and show a fan's username to a creator only with the fan's `shareUsername` choice.
