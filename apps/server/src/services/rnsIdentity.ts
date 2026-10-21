@@ -56,12 +56,23 @@ export function parseRnsDisplay(value: unknown): RnsDisplay {
 
 export type RnsCheckTier = "standard" | "enhanced";
 
+/**
+ * The on chain verification badge Authbase mints for a VERIFIED_WITH_BADGE
+ * status. The token id stays on the server: the page shows the tier and the
+ * mint date only.
+ */
+export type RnsBadge = { tier: RnsCheckTier; mintedAt: string };
+
+const toTier = (value: string): RnsCheckTier => (value === "ENHANCED" ? "enhanced" : "standard");
+
 export type RnsVerification =
   | {
       state: "verified";
       verifiedAt: string;
       validUntil: string;
       tier: RnsCheckTier;
+      /** Present only for a VERIFIED_WITH_BADGE status */
+      badge?: RnsBadge;
       /**
        * The attributes the owner shared through Authbase, only under the 079
        * D2 rule (RNS_PUBLIC_ATTRIBUTES). Leave this module only through
@@ -69,6 +80,13 @@ export type RnsVerification =
        */
       attributes?: SharedAttributes;
     }
+  /**
+   * Authbase still reports a VERIFIED* status but valid_until has passed by
+   * this server's clock. Authbase flips it to NOT_VERIFIED at the source, with
+   * no dates, so this is only seen in that window. The owner sees it in the
+   * editor; a visitor sees the same as not_verified.
+   */
+  | { state: "expired"; validUntil: string }
   | { state: "not_verified" | "off" | "unavailable" };
 
 export type SharedAttributes = Partial<Record<AuthbaseAttributeKey, string>>;
@@ -82,10 +100,7 @@ const VERIFICATION_TTL_SECONDS = 300;
  * `fresh` skips the read (and refills the entry), so the owner's own view shows
  * a consent change on Authbase at once instead of up to 5 minutes later.
  */
-export async function getRnsVerification(
-  wallet: string,
-  fresh = false
-): Promise<RnsVerification> {
+export async function getRnsVerification(wallet: string, fresh = false): Promise<RnsVerification> {
   if (!isAuthbaseConfigured()) return { state: "off" };
   const key = `rns_verification:${wallet.toLowerCase()}`;
   const hit = fresh ? null : await cache.get<RnsVerification>(key);
@@ -104,10 +119,15 @@ export async function getRnsVerification(
             state: "verified",
             verifiedAt: status.verification.verified_at,
             validUntil: status.verification.valid_until,
-            tier: status.verification.type === "ENHANCED" ? "enhanced" : "standard",
+            tier: toTier(status.verification.type),
+            ...(status.badge
+              ? { badge: { tier: toTier(status.badge.tier), mintedAt: status.badge.minted_at } }
+              : {}),
             ...(Object.keys(attributes).length ? { attributes } : {}),
           }
-        : { state: "not_verified" };
+        : status.verified && status.verification && alreadyExpired
+          ? { state: "expired", validUntil: status.verification.valid_until }
+          : { state: "not_verified" };
     // Cache entries expire at most at validUntil so stale verified state is never shown
     const ttl =
       result.state === "verified"
@@ -149,8 +169,25 @@ export function nameStateFrom(result: RnsBindingResult): RnsNameState {
 // ── Public identity (109 I01) ──────────────────────────────────
 
 export type PublicRnsIdentity = {
-  /** verified: name bound, Authbase verified, badge on. name: name bound, shown. */
-  chip: "verified" | "name";
+  /**
+   * verified: Authbase verified and the owner shows the Verified badge.
+   * name: a linked name, no Verified claim. none: no linked name and no
+   * Verified claim, only shared attributes (RNS ID block, 112 D8 and D9).
+   */
+  chip: "verified" | "name" | "none";
+  /**
+   * The RNS name binding holds (bound, active, resolves to the page wallet).
+   * False only on the RNS ID block's identity without a linked name (112 D9).
+   * The header chip and every "name points here" line need it.
+   */
+  linked: boolean;
+  /**
+   * 112 D8: a current Authbase check, with the Verified badge switched off by
+   * the owner. The page drops the Verified claim and the Not verified caution.
+   */
+  checkHidden?: true;
+  /** The on chain badge, only with chip "verified" (Authbase VERIFIED_WITH_BADGE) */
+  badge?: RnsBadge;
   /** The RNS name (label plus suffix). Always present for chip "name"; for "verified" only when details.name is on. */
   name?: string;
   /** The bare label, for Send and the RNS profile link. Present whenever name is. */
@@ -162,7 +199,7 @@ export type PublicRnsIdentity = {
   /**
    * Attributes the owner shared through Authbase (112 D1). Only when verified,
    * RNS_PUBLIC_ATTRIBUTES is on, and each key's switch is on in the owner's
-   * RNS ID block. Never in the name chip state.
+   * RNS ID block. Independent of the Verified badge (112 D8).
    */
   attributes?: SharedAttributes;
 } | null;
@@ -221,8 +258,10 @@ export type RnsIdentityResult = {
 
 /**
  * Applies the owner's limits on the server, so a hidden field never reaches a
- * visitor. Fails closed: any doubt about the binding shows no chip, any doubt
- * about the check shows the name chip.
+ * visitor. Fails closed: any doubt about the binding shows no name, any doubt
+ * about the check shows no Verified claim. Without a linked name only a
+ * visible RNS ID block on a current check gets an identity (112 D9), and it
+ * never carries a name or a "points here" claim (linked false).
  */
 export async function computeRnsIdentity(
   { storedName, wallet, display, block }: RnsIdentityInput,
@@ -247,48 +286,68 @@ export async function computeRnsIdentity(
       verification: await verificationPromise,
     };
   }
-  if (!label) {
-    return { ...base, identity: null, nameState: "none", verification: await verificationPromise };
-  }
-
   let binding: RnsBindingResult | null = null;
-  try {
-    binding = options.fresh
-      ? await checkRnsBinding(label, walletAddress)
-      : await checkRnsBindingCached(label, walletAddress);
-  } catch (error) {
-    console.warn("[rnsIdentity] RNS binding read failed, hiding the name:", error);
+  if (label) {
+    try {
+      binding = options.fresh
+        ? await checkRnsBinding(label, walletAddress)
+        : await checkRnsBindingCached(label, walletAddress);
+    } catch (error) {
+      console.warn("[rnsIdentity] RNS binding read failed, hiding the name:", error);
+    }
   }
   const verification = await verificationPromise;
-  const nameState: RnsNameState = binding ? nameStateFrom(binding) : "unavailable";
+  const nameState: RnsNameState = !label
+    ? "none"
+    : binding
+      ? nameStateFrom(binding)
+      : "unavailable";
   const expiry = binding?.expiry ?? null;
+  const linked = !!binding?.ok;
+  const current = verification.state === "verified" ? verification : null;
 
-  if (!binding?.ok || !display.showName) {
+  // Show on my page off hides the whole identity. Without a linked name only
+  // the RNS ID block can show the check, and only a current one (112 D9).
+  if (!display.showName || (!linked && !(block?.visible && current))) {
     return { ...base, expiry, identity: null, nameState, verification };
   }
 
-  const verified = verification.state === "verified" && display.showBadge;
-  const identity: NonNullable<PublicRnsIdentity> = { chip: verified ? "verified" : "name" };
-  if (!verified || display.details.name) {
+  const verified = !!current && display.showBadge;
+  const identity: NonNullable<PublicRnsIdentity> = {
+    chip: verified ? "verified" : linked ? "name" : "none",
+    linked,
+  };
+  if (linked && (!verified || display.details.name)) {
     identity.name = name!;
-    identity.label = label;
+    identity.label = label!;
   }
   if (display.details.wallet) identity.wallet = walletAddress;
-  if (verified && display.details.check && verification.state === "verified") {
-    identity.check = {
-      verifiedAt: verification.verifiedAt,
-      validUntil: verification.validUntil,
-      tier: verification.tier,
-    };
+  if (verified && current) {
+    if (display.details.check) {
+      identity.check = {
+        verifiedAt: current.verifiedAt,
+        validUntil: current.validUntil,
+        tier: current.tier,
+      };
+    }
+    if (current.badge) identity.badge = current.badge;
   }
+  // 112 D8: the owner hid the badge on a current check. The page drops the
+  // Verified claim and must not say Not verified either.
+  if (current && !display.showBadge) identity.checkHidden = true;
   // 112 D1: shared attributes follow the owner's block switches, not the badge.
   // Hiding the Verified chip must not hide them: only the public attributes flag
   // and a current verification gate them. The flag is re-checked at read time so
   // a cached verification cannot release them after the flag turns off (cache
   // entries can be up to 5 min old).
-  if (env.RNS_PUBLIC_ATTRIBUTES && verification.state === "verified") {
-    const shown = pickShownAttributes(verification.attributes, block?.attributes ?? []);
+  if (env.RNS_PUBLIC_ATTRIBUTES && current) {
+    const shown = pickShownAttributes(current.attributes, block?.attributes ?? []);
     if (Object.keys(shown).length) identity.attributes = shown;
+  }
+  // 112 D9: with no linked name and no Verified claim, the block has nothing
+  // to show unless the owner shared attributes
+  if (identity.chip === "none" && !identity.attributes) {
+    return { ...base, expiry, identity: null, nameState, verification };
   }
   return { ...base, expiry, identity, nameState, verification };
 }
