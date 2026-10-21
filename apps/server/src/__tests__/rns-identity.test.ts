@@ -54,7 +54,7 @@ vi.mock("../services/authbase", async () => ({
             valid_until: "2027-08-12T00:00:00Z",
           }
         : null,
-      attributes: { legal_name: "Secret Name", name: "Maya Lin", country: "US" },
+      attributes: { legal_name: "Secret Name", name: "Maya Lin", country: "US", gender: "F" },
       message: "upstream message",
       authbase_wallet_address: WALLET,
     };
@@ -88,7 +88,9 @@ import {
   parseRnsDisplay,
   rnsIdBlockOptions,
   RNS_DISPLAY_DEFAULTS,
+  type RnsIdBlockOptions,
 } from "../services/rnsIdentity";
+import { formatAuthbaseAttribute } from "@repo/constants";
 
 const display = (over: Partial<typeof RNS_DISPLAY_DEFAULTS> = {}, details = {}) => ({
   ...RNS_DISPLAY_DEFAULTS,
@@ -211,11 +213,11 @@ describe("public RNS identity", () => {
   });
 });
 
-// RNS ID block (Build Board #33, Screen Review 112 D1): the checked name
+// RNS ID block (Build Board #33, Screen Review 112 D1): a shared attribute
 // reaches the page only with the attributes flag on, a verified chip and
-// the owner's block switch on. Every other path leaves it out.
-describe("RNS ID block: Name on ID", () => {
-  const block = { nameOnId: true };
+// the owner's block switch on for it. Every other path leaves it out.
+describe("RNS ID block: shared attributes", () => {
+  const block: RnsIdBlockOptions = { attributes: ["name"], visible: true };
   const withBlock = (over: Partial<typeof RNS_DISPLAY_DEFAULTS> = {}, options = block) =>
     computeRnsIdentity({
       storedName: "mayalin",
@@ -227,57 +229,66 @@ describe("RNS ID block: Name on ID", () => {
   it("is left out while RNS_PUBLIC_ATTRIBUTES is off, whatever the block asks", async () => {
     const { identity } = await withBlock();
     expect(identity?.chip).toBe("verified");
-    expect(identity && "nameOnId" in identity).toBe(false);
+    expect(identity && "attributes" in identity).toBe(false);
   });
 
-  it("shows the Authbase name with the flag, a verified chip and the switch on", async () => {
+  it("shows only the switched on attributes with the flag and a verified chip", async () => {
     state.attributesFlag = true;
     const { identity } = await withBlock();
-    expect(identity?.nameOnId).toBe("Maya Lin");
+    expect(identity?.attributes).toEqual({ name: "Maya Lin" });
     const json = JSON.stringify(identity);
     expect(json).not.toContain("Secret Name");
     expect(json).not.toContain("US");
+    const more = await withBlock({}, { attributes: ["gender", "country"], visible: true });
+    expect(more.identity?.attributes).toEqual({ gender: "F", country: "US" });
   });
 
   it("is left out when the block switch is off or there is no block", async () => {
     state.attributesFlag = true;
-    expect((await withBlock({}, { nameOnId: false })).identity?.nameOnId).toBeUndefined();
+    expect(
+      (await withBlock({}, { attributes: [], visible: true })).identity?.attributes
+    ).toBeUndefined();
     const { identity } = await computeRnsIdentity({
       storedName: "mayalin",
       wallet: WALLET,
       display: display(),
     });
-    expect(identity?.nameOnId).toBeUndefined();
+    expect(identity?.attributes).toBeUndefined();
   });
 
   it("never rides on the name chip (badge off or not verified)", async () => {
     state.attributesFlag = true;
     const badgeOff = await withBlock({ showBadge: false });
     expect(badgeOff.identity?.chip).toBe("name");
-    expect(badgeOff.identity?.nameOnId).toBeUndefined();
+    expect(badgeOff.identity?.attributes).toBeUndefined();
     state.authbase = "not_verified";
     const unverified = await withBlock();
     expect(unverified.identity?.chip).toBe("name");
-    expect(unverified.identity?.nameOnId).toBeUndefined();
+    expect(unverified.identity?.attributes).toBeUndefined();
   });
 });
 
 describe("rnsIdBlockOptions", () => {
-  it("reads the switch from a visible rnsid block only", () => {
-    expect(rnsIdBlockOptions([])).toEqual({ nameOnId: false, visible: false });
+  it("reads the switches from a visible rnsid block only", () => {
+    expect(rnsIdBlockOptions([])).toEqual({ attributes: [], visible: false });
     expect(rnsIdBlockOptions([{ type: "link", config: { url: "x" } }])).toEqual({
-      nameOnId: false,
+      attributes: [],
       visible: false,
     });
     expect(rnsIdBlockOptions([{ type: "rnsid", config: { show: { nameOnId: true } } }])).toEqual({
-      nameOnId: true,
+      attributes: ["name"],
       visible: true,
     });
     expect(
+      rnsIdBlockOptions([
+        { type: "rnsid", config: { show: { country: true, ageOver18: true, gender: true } } },
+      ])
+    ).toEqual({ attributes: ["age_over_18", "gender", "country"], visible: true });
+    expect(
       rnsIdBlockOptions([{ type: "rnsid", config: { show: { nameOnId: true }, hidden: true } }])
-    ).toEqual({ nameOnId: false, visible: false });
+    ).toEqual({ attributes: [], visible: false });
     expect(rnsIdBlockOptions([{ type: "rnsid", config: null }])).toEqual({
-      nameOnId: false,
+      attributes: [],
       visible: false,
     });
   });
@@ -287,7 +298,7 @@ describe("rnsIdBlockOptions", () => {
       { type: "rnsid", config: { show: { nameOnId: true } } },
       { type: "rnsid", config: { show: { nameOnId: false }, hidden: true } },
     ];
-    expect(rnsIdBlockOptions(two)).toEqual({ nameOnId: true, visible: true });
+    expect(rnsIdBlockOptions(two)).toEqual({ attributes: ["name"], visible: true });
     // The server side addBlock gate keeps this from happening (see
     // rns-id-block-singleton.test.ts); the read side stays deterministic anyway
   });
@@ -298,14 +309,45 @@ describe("rnsIdBlockOptions", () => {
         storedName: "mayalin",
         wallet: WALLET,
         display: display({}, { check: true }),
-        block: { nameOnId: true },
+        block: { attributes: ["name"], visible: true },
       });
     // Warm the cache while the flag is on: the entry carries the name
     state.attributesFlag = true;
-    expect((await run()).identity?.nameOnId).toBe("Maya Lin");
+    expect((await run()).identity?.attributes).toEqual({ name: "Maya Lin" });
     // The flag turns off; the cached entry can still hold the name for the TTL
     state.attributesFlag = false;
     state.cacheHits = true;
-    expect((await run()).identity?.nameOnId).toBeUndefined();
+    expect((await run()).identity?.attributes).toBeUndefined();
+  });
+
+  it("fresh skips the cached verification, so a consent change on Authbase shows at once", async () => {
+    state.attributesFlag = true;
+    state.cacheHits = true;
+    // Consent granted since this entry was written
+    state.cache[`rns_verification:${WALLET}`] = { state: "not_verified" };
+    const read = (options?: { fresh?: boolean }) =>
+      computeRnsIdentity(
+        {
+          storedName: "mayalin",
+          wallet: WALLET,
+          display: display(),
+          block: { attributes: ["name"], visible: true },
+        },
+        options
+      );
+    expect((await read()).identity?.chip).toBe("name");
+    expect((await read({ fresh: true })).identity?.attributes).toEqual({ name: "Maya Lin" });
+  });
+});
+
+describe("formatAuthbaseAttribute", () => {
+  it("reads Authbase values as people do, and passes anything else through", () => {
+    expect(formatAuthbaseAttribute("age_over_18", "true")).toBe("Yes");
+    expect(formatAuthbaseAttribute("age_over_18", "false")).toBe("No");
+    expect(formatAuthbaseAttribute("gender", "F")).toBe("Female");
+    expect(formatAuthbaseAttribute("gender", "M")).toBe("Male");
+    expect(formatAuthbaseAttribute("country", "us")).toBe("United States");
+    expect(formatAuthbaseAttribute("country", "Narnia")).toBe("Narnia");
+    expect(formatAuthbaseAttribute("name", "Maya Lin")).toBe("Maya Lin");
   });
 });

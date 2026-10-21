@@ -112,11 +112,23 @@ export const PLANNED_USES: { title: string; body: string }[] = [
   },
 ];
 
-/** 104 I09: the shared attribute keys Amped.Bio labels. Others are counted, never shown raw. */
-export const SHARED_ATTRIBUTE_LABELS: Record<string, string> = {
-  name: "Name",
-  country: "Country",
-};
-
 /** Authbase site for linking, the ID check and sharing settings (103 I18, 104 I14). */
 export const AUTHBASE_URL: string | undefined = import.meta.env.VITE_AUTHBASE_URL || undefined;
+
+/**
+ * Authbase consent manager, where the owner changes what they share. Through
+ * Authbase's Amped.Bio SSO entry, which signs the owner in first when needed
+ * and then lands on returnTo (a bare /profile/... link sends a signed out
+ * owner to the Authbase home). Built from the origin, since VITE_AUTHBASE_URL
+ * may already carry an SSO path and query.
+ */
+export const AUTHBASE_CONSENT_URL: string | undefined = (() => {
+  if (!AUTHBASE_URL) return undefined;
+  try {
+    const url = new URL("/sso/amped", AUTHBASE_URL);
+    url.searchParams.set("returnTo", "/profile/consent-manager");
+    return url.toString();
+  } catch {
+    return undefined;
+  }
+})();

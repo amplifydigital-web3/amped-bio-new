@@ -1,6 +1,13 @@
 import * as React from "react";
 import { Fingerprint, ShieldCheck } from "lucide-react";
-import type { RnsIdBlockConfig, ThemeConfig } from "@repo/constants";
+import {
+  AUTHBASE_ATTRIBUTE_KEYS,
+  AUTHBASE_ATTRIBUTE_LABELS,
+  formatAuthbaseAttribute,
+  RNSID_ATTRIBUTE_SWITCH,
+  type RnsIdBlockConfig,
+  type ThemeConfig,
+} from "@repo/constants";
 import { cn } from "../utils";
 import { THEME_DEFAULTS } from "../theme-style";
 import { formatRnsDate, RNS_IDENTITY_COPY, type RnsIdentity } from "../prism/rns-identity";
@@ -12,7 +19,7 @@ import { formatRnsDate, RNS_IDENTITY_COPY, type RnsIdentity } from "../prism/rns
  *
  * The card renders only the fields in `identity`, which the server already
  * filtered by the binding rule, the owner's Page > RNS switches and the
- * block's Name on ID switch (112 D1, D2). It wears the creator's theme:
+ * block's Authbase attribute switches (112 D1, D2). It wears the creator's theme:
  * surface in the button color at the container transparency, text in the
  * creator's font and color. The only fixed colors are the Verified chip and
  * its check, a utility pair that passes 4.5:1 on light and dark themes.
@@ -276,7 +283,22 @@ export function RnsIdCard({
   const verifiedOn = check ? formatRnsDate(check.verifiedAt) : null;
   const validUntil = check ? formatRnsDate(check.validUntil) : null;
   const sinceMonth = config.show.since ? formatSinceMonth(since) : null;
-  const nameOnId = verified && config.show.nameOnId ? (identity.nameOnId ?? null) : null;
+  // Shared attributes the block switches on, in catalog order (server applied too)
+  const shown = verified
+    ? AUTHBASE_ATTRIBUTE_KEYS.flatMap(key => {
+        const value = config.show[RNSID_ATTRIBUTE_SWITCH[key]] ? identity.attributes?.[key] : null;
+        return value
+          ? [
+              {
+                key,
+                title: AUTHBASE_ATTRIBUTE_LABELS[key],
+                line: formatAuthbaseAttribute(key, value),
+              },
+            ]
+          : [];
+      })
+    : [];
+  const nameOnId = shown.find(fact => fact.key === "name")?.line ?? null;
   const interactive = !!onTap && config.tap !== "none";
   const initial = displayName.trim().charAt(0).toUpperCase() || "?";
 
@@ -371,6 +393,11 @@ export function RnsIdCard({
               color={fontColor}
             />
           )}
+          {shown
+            .filter(fact => fact.key !== "name")
+            .map(fact => (
+              <Stamp key={fact.key} title={fact.title} line={fact.line} color={fontColor} />
+            ))}
           <Stamp title={RNS_ID_COPY.pointsHere} line="RNS · on chain" color={fontColor} />
         </div>
         <div
@@ -406,9 +433,15 @@ export function RnsIdCard({
               color={fontColor}
             />
           )}
-          {nameOnId && (
-            <Proof kind="verified" title={RNS_ID_COPY.nameOnId} line={nameOnId} color={fontColor} />
-          )}
+          {shown.map(fact => (
+            <Proof
+              key={fact.key}
+              kind="verified"
+              title={fact.title}
+              line={fact.line}
+              color={fontColor}
+            />
+          ))}
           <Proof
             kind="link"
             title="Name points here"
@@ -474,14 +507,14 @@ export function RnsIdCard({
           </span>
         </span>
       )}
-      {nameOnId && (
-        <span className="flex justify-between gap-[13px]">
-          <span>{RNS_ID_COPY.nameOnId}</span>
+      {shown.map(fact => (
+        <span key={fact.key} className="flex justify-between gap-[13px]">
+          <span>{fact.title}</span>
           <span className="text-right" style={{ color: fontColor }}>
-            {nameOnId}
+            {fact.line}
           </span>
         </span>
-      )}
+      ))}
       <span className="font-semibold" style={{ color: fontColor }}>
         {verified ? RNS_ID_COPY.footnote : RNS_IDENTITY_COPY.caution}
       </span>

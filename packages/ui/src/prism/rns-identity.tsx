@@ -10,6 +10,12 @@ import {
   Send,
   ShieldCheck,
 } from "lucide-react";
+import {
+  AUTHBASE_ATTRIBUTE_KEYS,
+  AUTHBASE_ATTRIBUTE_LABELS,
+  formatAuthbaseAttribute,
+  type AuthbaseAttributeKey,
+} from "@repo/constants";
 import { Badge } from "../badge";
 import { Button } from "../button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "../dialog";
@@ -38,8 +44,8 @@ export type RnsIdentity = {
   label?: string;
   wallet?: string;
   check?: RnsIdentityCheck;
-  /** 112 D1: the name Authbase checked, only when the owner's RNS ID block shows it */
-  nameOnId?: string;
+  /** 112 D1: attributes shared through Authbase, each only when the owner's RNS ID block shows it */
+  attributes?: Partial<Record<AuthbaseAttributeKey, string>>;
 } | null;
 
 /**
@@ -61,7 +67,7 @@ export const RNS_IDENTITY_COPY = {
   payTitle: "Pay by name",
   payLine: (name: string) => `Send tREVO to ${name} instead of a wallet address.`,
   nameOnIdTitle: "Name on ID",
-  nameOnIdLine: (name: string) => `${name}, as checked by Authbase.`,
+  checkedLine: (value: string) => `${value}, as checked by Authbase.`,
   detailsLabel: "Show details",
   detailsHelp: "The owner of this page chose to show them.",
   rnsLink: "View on Revolution Name Service",
@@ -269,13 +275,18 @@ export function RnsIdentityDialog({
               line={validUntil ? RNS_IDENTITY_COPY.factLine(validUntil) : undefined}
             />
           )}
-          {verified && identity.nameOnId && (
-            <Fact
-              icon={IdCard}
-              title={RNS_IDENTITY_COPY.nameOnIdTitle}
-              line={RNS_IDENTITY_COPY.nameOnIdLine(identity.nameOnId)}
-            />
-          )}
+          {verified &&
+            AUTHBASE_ATTRIBUTE_KEYS.map(key => {
+              const value = identity.attributes?.[key];
+              return value ? (
+                <Fact
+                  key={key}
+                  icon={IdCard}
+                  title={AUTHBASE_ATTRIBUTE_LABELS[key]}
+                  line={RNS_IDENTITY_COPY.checkedLine(formatAuthbaseAttribute(key, value))}
+                />
+              ) : null;
+            })}
           {identity.name && (
             <Fact
               icon={Send}

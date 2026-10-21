@@ -3,6 +3,7 @@ import { getAddress, isAddress } from "viem";
 import { TRPCError } from "@trpc/server";
 import { privateProcedure, publicProcedure, router } from "./trpc";
 import { prisma } from "@repo/database";
+import type { AuthbaseAttributeKey } from "@repo/constants";
 import { getRnsAddressSummary } from "../services/rnsSummary";
 import { getRecipientTrust } from "../services/rnsTrust";
 import {
@@ -145,11 +146,11 @@ export const rnsRouter = router({
         blockOptions.visible && account?.created_at
           ? account.created_at.toISOString().slice(0, 7)
           : null,
-      /** 112 D1: whether Name on ID can show at all (flag on and Authbase shared a name) */
-      nameOnIdAvailable:
-        env.RNS_PUBLIC_ATTRIBUTES &&
-        result.verification.state === "verified" &&
-        !!result.verification.nameOnId,
+      /** 112 D1: the attributes the block can show (flag on and Authbase shared a value) */
+      sharedAttributes:
+        env.RNS_PUBLIC_ATTRIBUTES && result.verification.state === "verified"
+          ? (Object.keys(result.verification.attributes ?? {}) as AuthbaseAttributeKey[])
+          : [],
       /** off: Authbase is not configured or the public identity flag is off; no badge row */
       verification:
         isAuthbaseConfigured() && env.RNS_PUBLIC_IDENTITY
