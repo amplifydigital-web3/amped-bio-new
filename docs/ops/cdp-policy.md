@@ -118,7 +118,14 @@ Secret is involved.
    charged and nothing is delivered on chain, so the Arrived state on staging
    follows the webhook alone.
 5. Production: the Privacy Policy names Coinbase, Circle and Chainalysis as
-   recipients before `VITE_USDC_ONRAMP` turns on (USDC-6).
+   recipients (USDC-6, policy dated October 17, 2026). Counsel confirms the
+   wording before `VITE_USDC_ONRAMP` turns on.
+6. Pause: Admin, Money, Buy USDC through Coinbase, Pause Buy USDC (site setting
+   `usdc_onramp_paused`). No new Coinbase price, link or order is made; open
+   purchases keep reporting and the webhook keeps recording.
+7. Privacy requests: `pnpm run --filter server usdc:records <email or handle>`
+   prints the fan's USDC records as JSON. Add `--forget-token` when an account
+   closes to delete the stored Coinbase token.
 
 ### Apple Pay and Google Pay (Headless Onramp, USDC-5)
 
