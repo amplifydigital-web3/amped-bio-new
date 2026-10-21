@@ -1,6 +1,7 @@
 import express, { Router, type Request, type Response } from "express";
 import {
   CONTENT_CALLBACK_SIGNATURE_HEADER,
+  CONTENT_PUBLIC_ID_REGEX,
   STREAM_WEBHOOK_SIGNATURE_HEADER,
   contentProcessedCallbackSchema,
 } from "@repo/constants";
@@ -12,14 +13,16 @@ import {
   applyStreamWebhook,
   type StreamWebhookBody,
 } from "../services/content/state";
+import { buildProcessorJob } from "../services/content/job";
 
 /**
  * Content system (Build Board #20), PR 2. Spec 3.5 steps 4 and 5.
  *
  * POST /webhooks/cloudflare-stream   Stream tells us a video is ready or failed.
  * POST /internal/content/processed   The processor Worker (PR 4) reports a step.
+ * POST /internal/content/job         The processor Worker (PR 4) reads a job.
  *
- * Both are signed over the exact request bytes, so they are mounted in
+ * All three are signed over the exact request bytes, so they are mounted in
  * services/API.ts before the global JSON parser and read the raw body here.
  * Neither depends on CONTENT_UPLOADS_ENABLED: videos and files already in flight
  * must still finish when uploads are paused. Each answers 404 until its secret is
@@ -87,6 +90,40 @@ export async function handleProcessorCallback(req: Request, res: Response) {
   res.status(200).json({ result });
 }
 
+/**
+ * The processor asks what to do with an item (PR 4). Same signature as the callback.
+ * The answer carries no user data, and signed Stream thumbnail URLs for video.
+ */
+export async function handleProcessorJob(req: Request, res: Response) {
+  if (!env.CONTENT_PROCESSOR_SECRET) {
+    res.status(404).end();
+    return;
+  }
+  const raw = rawText(req);
+  const header = req.headers[CONTENT_CALLBACK_SIGNATURE_HEADER] as string | undefined;
+  if (!verifyProcessorCallback(raw, header, env.CONTENT_PROCESSOR_SECRET)) {
+    res.status(401).end();
+    return;
+  }
+  let publicId: unknown;
+  try {
+    publicId = (JSON.parse(raw.toString("utf8")) as { publicId?: unknown }).publicId;
+  } catch {
+    res.status(400).json({ error: "invalid_json" });
+    return;
+  }
+  if (typeof publicId !== "string" || !CONTENT_PUBLIC_ID_REGEX.test(publicId)) {
+    res.status(400).json({ error: "invalid_body" });
+    return;
+  }
+  const job = await buildProcessorJob(publicId);
+  if (!job) {
+    res.status(404).json({ error: "not_found" });
+    return;
+  }
+  res.status(200).json(job);
+}
+
 function wrap(handler: (req: Request, res: Response) => Promise<void>, label: string) {
   return (req: Request, res: Response) => {
     void handler(req, res).catch(error => {
@@ -108,4 +145,11 @@ contentCallbackRouter.post(
   "/",
   express.raw({ type: "*/*", limit: RAW_BODY_LIMIT }),
   wrap(handleProcessorCallback, "processor callback")
+);
+
+export const contentJobRouter: Router = Router();
+contentJobRouter.post(
+  "/",
+  express.raw({ type: "*/*", limit: RAW_BODY_LIMIT }),
+  wrap(handleProcessorJob, "processor job")
 );

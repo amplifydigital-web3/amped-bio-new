@@ -1,7 +1,10 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
 import {
+  AUTHBASE_ATTRIBUTE_KEYS,
+  AUTHBASE_ATTRIBUTE_LABELS,
   DEFAULT_RNSID_CONFIG,
+  RNSID_ATTRIBUTE_SWITCH,
   RNSID_LABEL_MAX,
   rnsIdTapsFor,
   type BlockType,
@@ -83,7 +86,7 @@ export function RnsIdBlockFields({ block, onValid }: { block: RnsIdBlock; onVali
   const verified = data?.verification?.state === "verified";
   const showsBadge = verified && data?.display.showBadge !== false;
   const onPage = linked && data?.display.showName !== false;
-  const nameOnIdAvailable = !!data?.nameOnIdAvailable;
+  const sharedAttributes = data?.sharedAttributes ?? [];
 
   const push = (patch: Partial<RnsIdBlockConfig>) => {
     const next = { ...config, ...patch, hidden: block.config.hidden };
@@ -223,19 +226,25 @@ export function RnsIdBlockFields({ block, onValid }: { block: RnsIdBlock; onVali
 
       <div className="space-y-2">
         <Eyebrow>What fans can see</Eyebrow>
-        <ShowRow
-          checked={config.show.nameOnId}
-          onChange={value => pushShow("nameOnId", value)}
-          label="Name on ID"
-          helper={
-            !verified
-              ? "Needs a current Authbase check"
-              : nameOnIdAvailable
-                ? "The name Authbase checked. Verified pages only"
-                : "Not available yet"
-          }
-          disabled={!verified || !nameOnIdAvailable}
-        />
+        {AUTHBASE_ATTRIBUTE_KEYS.map(key => {
+          const shared = sharedAttributes.includes(key);
+          return (
+            <ShowRow
+              key={key}
+              checked={config.show[RNSID_ATTRIBUTE_SWITCH[key]]}
+              onChange={value => pushShow(RNSID_ATTRIBUTE_SWITCH[key], value)}
+              label={AUTHBASE_ATTRIBUTE_LABELS[key]}
+              helper={
+                !verified
+                  ? "Needs a current Authbase check"
+                  : shared
+                    ? "Shared through Authbase. Verified pages only"
+                    : "Not shared with Amped.Bio. Manage sharing on Authbase"
+              }
+              disabled={!verified || !shared}
+            />
+          );
+        })}
         <ShowRow
           checked={config.show.displayName}
           onChange={value => pushShow("displayName", value)}

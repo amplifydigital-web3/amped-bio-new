@@ -33,7 +33,7 @@ When you create an account and build your page, we collect:
 - **Browser check:** a proof of work check on sign up and sign in to stop automated abuse. It runs on our own service and sets no cookies.
 - **Messages to us:** what you send to support.
 
-If you verify your identity with Authbase, we receive your verification status and badge, and only the attributes you choose to share with Amped.Bio. Only you can see those shared attributes. Others see only your verification status, and only where you choose to show it.
+If you verify your identity with Authbase, we receive your verification status and badge, and only the attributes you choose to share with Amped.Bio: your name as checked on your ID, whether you are over 18, your gender and your country. We never receive your date of birth. Only you can see those shared attributes unless you choose to show one. You can show each attribute on your own, while you are verified, by turning it on in your page's RNS ID block. Anyone who views your page or your RNS name can then see it. Others see only your verification status, and only where you choose to show it, plus the attributes you turned on.
 
 ## 3. Wallets, tREVO and on chain activity
 

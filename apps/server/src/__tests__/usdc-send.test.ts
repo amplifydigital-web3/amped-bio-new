@@ -53,7 +53,8 @@ import {
   screenAddress,
   ScreeningUnavailableError,
 } from "../services/usdc/screen";
-import { prepareUsdcSend, submitUsdcSend } from "../services/usdc/send";
+import { abandonUsdcSend, prepareUsdcSend, submitUsdcSend } from "../services/usdc/send";
+import { recentSends } from "../services/usdc/admin";
 import { nextRange, CONFIRMATIONS, INITIAL_LOOKBACK, MAX_RANGE } from "../services/usdc/indexer";
 import { recordUsdcTransfers } from "../services/usdc/events";
 import { cdpWalletJwt, sortKeys } from "../services/usdc/cdp";
@@ -320,6 +321,130 @@ describe("wallet.sendUsdc.prepare", () => {
   it("reports paused, never allowed, when screening cannot answer in production", async () => {
     env.USDC_SCREENING_REQUIRED = true;
     expect(await prepare()).toEqual({ refused: true, reason: "paused" });
+  });
+});
+
+describe("wallet mismatch after an account switch", () => {
+  const other = privateKeyToAccount(generatePrivateKey());
+
+  it("prepares when the live wallet is the account's wallet", async () => {
+    const result = await prepareUsdcSend(7, { to: friend, amount: "25", signer: fan.address }, NOW);
+    expect(result.refused).toBe(false);
+  });
+
+  it("matches the account's wallet without regard to address case", async () => {
+    const result = await prepareUsdcSend(
+      7,
+      { to: friend, amount: "25", signer: fan.address.toLowerCase() },
+      NOW
+    );
+    expect(result.refused).toBe(false);
+  });
+
+  it("refuses and records wallet_mismatch when another account's wallet is live", async () => {
+    const result = await prepareUsdcSend(
+      7,
+      { to: friend, amount: "25", signer: other.address },
+      NOW
+    );
+    expect(result).toEqual({ refused: true, reason: "wallet_mismatch" });
+    expect(USDC_COPY.refusal.wallet_mismatch).toMatch(/Sign out and sign back in/);
+    const stored = db.usdcSend.create.mock.calls[0][0].data;
+    expect(stored).toMatchObject({ status: "refused", failureCode: "wallet_mismatch" });
+    // Nothing was screened and no typed data was issued
+    expect(db.screeningEvent.create).not.toHaveBeenCalled();
+  });
+});
+
+describe("wallet.sendUsdc.abandon", () => {
+  const id = Buffer.from("0190f1a2b3c4d5e6f708192a3b4c5d6e", "hex");
+  const sendId = id.toString("hex");
+
+  it("marks a screened send failed with the client cause", async () => {
+    db.usdcSend.findFirst.mockResolvedValue({ id, status: "screened" });
+    db.usdcSend.updateMany.mockResolvedValue({ count: 1 });
+    const result = await abandonUsdcSend(7, { sendId, code: "wallet_mismatch" });
+    expect(result).toEqual({ status: "failed" });
+    expect(db.usdcSend.updateMany).toHaveBeenCalledWith({
+      where: { id, status: "screened" },
+      data: { status: "failed", failureCode: "client_wallet_mismatch" },
+    });
+  });
+
+  it("never overwrites a send that already reached the relayer", async () => {
+    db.usdcSend.findFirst.mockResolvedValue({ id, status: "confirmed" });
+    const result = await abandonUsdcSend(7, { sendId, code: "sign_failed" });
+    expect(result).toEqual({ status: "confirmed" });
+    expect(db.usdcSend.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("reports the current state when submit wins the race", async () => {
+    db.usdcSend.findFirst
+      .mockResolvedValueOnce({ id, status: "screened" })
+      .mockResolvedValueOnce({ id, status: "submitting" });
+    db.usdcSend.updateMany.mockResolvedValue({ count: 0 });
+    const result = await abandonUsdcSend(7, { sendId, code: "sign_failed" });
+    expect(result).toEqual({ status: "submitting" });
+  });
+
+  it("refuses another account's send", async () => {
+    db.usdcSend.findFirst.mockResolvedValue(null);
+    await expect(abandonUsdcSend(8, { sendId, code: "sign_failed" })).rejects.toThrow(
+      "Unknown send."
+    );
+  });
+});
+
+describe("Admin, Money recent sends", () => {
+  it("shows a screened send past its window as expired", async () => {
+    const base = {
+      userId: 7,
+      toUserId: null,
+      toAddress: friend,
+      amount: 1_000_000n,
+      failureCode: null,
+      txHash: null,
+      gasCostWei: null,
+      screening: { unscreened: true },
+      createdAt: new Date(),
+    };
+    db.usdcSend.findMany.mockResolvedValue([
+      {
+        ...base,
+        id: Buffer.alloc(16, 1),
+        status: "screened",
+        validBefore: new Date(Date.now() - 60_000),
+      },
+      {
+        ...base,
+        id: Buffer.alloc(16, 2),
+        status: "screened",
+        validBefore: new Date(Date.now() + 60_000),
+      },
+    ]);
+    (db.user as unknown as { findMany: ReturnType<typeof vi.fn> }).findMany = vi
+      .fn()
+      .mockResolvedValue([{ id: 7, handle: "johnlesterstaging" }]);
+    const rows = await recentSends({ limit: 25 });
+    expect(rows.map(row => row.status)).toEqual(["expired", "screened"]);
+  });
+
+  it("lists only rows still inside their window under Awaiting signature", async () => {
+    db.usdcSend.findMany.mockResolvedValue([]);
+    await recentSends({ limit: 25, status: "screened" });
+    const where = db.usdcSend.findMany.mock.calls.at(-1)![0].where;
+    expect(where.status).toBe("screened");
+    expect(where.validBefore.gt).toBeInstanceOf(Date);
+    expect(where.validBefore.gt.getTime()).toBeGreaterThan(Date.now() - 1_000);
+  });
+
+  it("lists the screened rows past their window under Expired", async () => {
+    db.usdcSend.findMany.mockResolvedValue([]);
+    await recentSends({ limit: 25, status: "expired" });
+    const where = db.usdcSend.findMany.mock.calls.at(-1)![0].where;
+    expect(where.status).toBe("screened");
+    expect(where.validBefore.lte).toBeInstanceOf(Date);
+    expect(where.validBefore.lte.getTime()).toBeLessThanOrEqual(Date.now());
   });
 });
 

@@ -55,6 +55,9 @@ lerna-debug.log*
 
 # Mac OS
 .DS_Store
+
+# Staging USDC/CDP credentials (never commit)
+staging-usdc.txt
 apps/client/cypress/screenshots
 apps/client/.env
 .env
