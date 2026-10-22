@@ -6,18 +6,18 @@ import { z } from "zod";
 // - defaults only apply when the variable is not set at all
 // - booleans accept true/t/1 and false/f/0
 // - ports must be an integer between 1 and 65535
-function boolSchema(fallback: boolean) {
-  return z
-    .preprocess(value => {
-      if (value === true || value === "true" || value === "t" || value === "1") return true;
-      if (value === false || value === "false" || value === "f" || value === "0") return false;
-      return value;
-    }, z.boolean())
-    .default(fallback);
+function boolSchema(fallback?: boolean) {
+  const schema = z.preprocess(value => {
+    if (value === true || value === "true" || value === "t" || value === "1") return true;
+    if (value === false || value === "false" || value === "f" || value === "0") return false;
+    return value;
+  }, z.boolean());
+  return fallback === undefined ? schema : schema.default(fallback);
 }
 
-function portSchema(fallback: number) {
-  return z.preprocess(value => Number(value), z.number().int().min(1).max(65535)).default(fallback);
+function portSchema(fallback?: number) {
+  const schema = z.preprocess(value => Number(value), z.number().int().min(1).max(65535));
+  return fallback === undefined ? schema : schema.default(fallback);
 }
 
 // ================ environment schema ================
@@ -75,17 +75,18 @@ const envSchema = z.object({
 
   // ---------- SMTP ----------
   // SMTP server host
-  SMTP_HOST: z.string().default("localhost"), // Default for MailDev
+  SMTP_HOST: z.string().min(1),
   // SMTP server port
-  SMTP_PORT: portSchema(1025), // Default for MailDev
+  SMTP_PORT: portSchema(),
   // Whether to use secure connection (TLS)
-  SMTP_SECURE: boolSchema(false),
+  SMTP_SECURE: boolSchema(),
   // SMTP authentication username
-  SMTP_USER: z.string().default(""),
+  SMTP_USER: z.string().min(1),
   // SMTP authentication password
-  SMTP_PASSWORD: z.string().default(""),
+  SMTP_PASSWORD: z.string().min(1),
   // Email address to use as sender
-  SMTP_FROM_EMAIL: z.string().default("noreply@amped.bio"),
+  // Required since #321: a missing sender must fail at boot, not fall back to a default
+  SMTP_FROM_EMAIL: z.string().min(1),
   // ---------- Email delivery (SMTP2GO) ----------
   // auto: the SMTP2GO API when SMTP2GO_API_KEY is set, SMTP otherwise
   EMAIL_TRANSPORT: z.enum(["auto", "smtp", "smtp2go-api"]).default("auto"),

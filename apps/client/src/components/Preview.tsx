@@ -15,7 +15,7 @@ import { FollowBlock } from "./blocks/FollowBlock";
 import { FollowersBlock } from "./blocks/FollowersBlock";
 import { RnsIdBlock } from "./blocks/RnsIdBlock";
 import { isHTML } from "@/utils/htmlutils";
-import { type BlockType, sanitizeRichHtml } from "@repo/constants";
+import { type BlockType, DEFAULT_RNSID_CONFIG, sanitizeRichHtml } from "@repo/constants";
 import { Theme, UserProfile } from "@/types/editor";
 import { trpcClient } from "@repo/ui";
 import { RnsIdentityChip, RnsVerifiedMark, THEME_DEFAULTS, themeCssVars } from "@repo/ui";
@@ -24,7 +24,7 @@ import { useReferralHandler } from "@/hooks/useReferralHandler";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { AlertCircle } from "lucide-react";
 import { blockNeed, isHidden, mediaName } from "./panels/page/blocks/blockInfo";
-import { useMyPageIdentity } from "./panels/page/rns/useMyPageIdentity";
+import { useMyPageIdentity, withLiveAttributes } from "./panels/page/rns/useMyPageIdentity";
 
 // Helper function to extract the root domain from a URL
 const extractRootDomain = (url: string): string => {
@@ -103,7 +103,13 @@ export function Preview({
   // 108 I11, 109 I14: the chip exactly as the public page renders it, from
   // the same server rule (rns.getMyPageIdentity), with the sheet read only
   const pageIdentity = useMyPageIdentity(isEditing);
-  const identity = pageIdentity.data?.identity ?? null;
+  const rnsIdBlock = blocks.find(block => block.type === "rnsid" && !isHidden(block));
+  const identity = withLiveAttributes(
+    pageIdentity.data,
+    rnsIdBlock?.type === "rnsid"
+      ? { ...DEFAULT_RNSID_CONFIG.show, ...rnsIdBlock.config.show }
+      : null
+  );
 
   const handleLinkClick = (block: BlockType) => {
     // The editor preview is the creator looking at their own page. Those clicks

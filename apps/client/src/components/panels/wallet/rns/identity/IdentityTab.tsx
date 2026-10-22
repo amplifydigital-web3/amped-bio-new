@@ -8,7 +8,7 @@ import {
 } from "@/hooks/rns/useAuthbaseIdentityStatus";
 import { RowBadge, VerifiedChip } from "../shared";
 import { isBound, type RnsNameState } from "../name/useRnsName";
-import { AUTHBASE_URL } from "./catalog";
+import { AUTHBASE_VERIFY_URL } from "./catalog";
 import { authbaseDate } from "./dates";
 import { IdentityPromo } from "./IdentityPromo";
 import { IdentityVerified } from "./IdentityVerified";
@@ -172,7 +172,7 @@ function OwnerIdentity({
   }
 
   // 103 I18: without the Authbase link there is nothing to start, so the owner sees the status card
-  if (!AUTHBASE_URL) {
+  if (!AUTHBASE_VERIFY_URL) {
     return <StatusCard fullName={fullName} verified={false} />;
   }
 

@@ -4,6 +4,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { Check, Copy, Share2 } from "lucide-react";
 import {
   Button,
+  ChipGroup,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -17,10 +18,22 @@ import { useWalletContext } from "@/contexts/WalletContext";
 import { useEditor } from "@/contexts/EditorContext";
 import { useDelayed } from "@/hooks/useDelayed";
 import { toast } from "@/components/ui/toast";
+import { USDC_FLAGS } from "@/config/usdc/flags";
+import { paymentChain } from "@/utils/paymentChain";
+import { USDC_SYMBOL } from "@repo/web3";
+
+/**
+ * Screen Review 137 (board w2). The wallet address is the same on every
+ * network; Receive picks which network's notice and unit to show. "payment"
+ * is the USDC chain (Base), "native" is tREVO on Libertas.
+ */
+export type ReceiveNetwork = "native" | "payment";
 
 interface ReceiveDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Which network opens first. Defaults to the native tREVO network. */
+  network?: ReceiveNetwork;
 }
 
 // 052 I08: how long Receive waits for an address before it says the wallet did not connect
@@ -38,7 +51,7 @@ function useNetworkName() {
   return chains.find(chain => chain.id === chainId)?.name ?? "this network";
 }
 
-function IdentityRow() {
+function IdentityRow({ unit }: { unit: string }) {
   const { profile } = useEditor();
   const [failed, setFailed] = useState(false);
   const letter = (profile.name?.trim() || profile.handle || "?").charAt(0).toUpperCase();
@@ -64,7 +77,7 @@ function IdentityRow() {
           {profile.name || `@${profile.handle}`}
         </p>
         <p className="truncate text-prism-meta text-prism-ink-2">
-          @{profile.handle} · Share this code or address to receive tREVO.
+          @{profile.handle} · Share this code or address to receive {unit}.
         </p>
       </div>
     </div>
@@ -90,7 +103,17 @@ function ReceiveSkeleton() {
   );
 }
 
-function ReceiveBody({ address, network }: { address: string; network: string }) {
+function ReceiveBody({
+  address,
+  network,
+  unit,
+  payment,
+}: {
+  address: string;
+  network: string;
+  unit: string;
+  payment: boolean;
+}) {
   const [copied, setCopied] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout>>();
   useEffect(() => () => clearTimeout(timer.current), []);
@@ -113,7 +136,7 @@ function ReceiveBody({ address, network }: { address: string; network: string })
   // 052 I05: shares the raw address
   const share = async () => {
     try {
-      await navigator.share({ text: `My tREVO address on ${network}: ${address}` });
+      await navigator.share({ text: `My ${unit} address on ${network}: ${address}` });
     } catch {
       // The person closed the share sheet; nothing to report
     }
@@ -121,7 +144,7 @@ function ReceiveBody({ address, network }: { address: string; network: string })
 
   return (
     <div className="space-y-[21px]">
-      <IdentityRow />
+      <IdentityRow unit={unit} />
 
       {/* 052 I06: white tile r13, padding 13, a 233 QR in ink, level M, raw address payload */}
       <div className="mx-auto w-fit rounded-prism-13 bg-white p-[13px]">
@@ -164,13 +187,25 @@ function ReceiveBody({ address, network }: { address: string; network: string })
         </div>
       </div>
 
-      {/* 052 I07: one solid compliance notice */}
-      <Notice variant="warning" title="Testnet only.">
-        <p>
-          tREVO has no cash value. Pool rewards come from the network, vary, and are not guaranteed.
-          Send only {network} tREVO to this address. Tokens sent from another network can be lost.
+      {/* 052 I07: one solid compliance notice. 137 D2: the Base notice, verbatim, counsel confirms. */}
+      {payment ? (
+        <Notice variant="warning" title={`Send only ${unit} on ${network} to this address.`}>
+          <p>Other networks and tokens are lost.</p>
+        </Notice>
+      ) : (
+        <Notice variant="warning" title="Testnet only.">
+          <p>
+            Pool rewards come from the network, vary, and are not guaranteed. Send only {network}
+            tREVO to this address. Tokens sent from another network can be lost.
+          </p>
+        </Notice>
+      )}
+      {payment && (
+        <p className="text-prism-meta text-prism-ink-2">
+          {unit} arrives in about a minute and shows in Activity. The address is the same on every
+          network.
         </p>
-      </Notice>
+      )}
     </div>
   );
 }
@@ -182,10 +217,17 @@ function ReceiveBody({ address, network }: { address: string; network: string })
  * address first), the same source as the header chip, so Receive keeps working
  * when a reconnect fails.
  */
-function ReceiveDialog({ open, onOpenChange }: ReceiveDialogProps) {
+function ReceiveDialog({ open, onOpenChange, network: initialNetwork }: ReceiveDialogProps) {
   const wallet = useWalletContext();
-  const network = useNetworkName();
+  const nativeNetwork = useNetworkName();
   const address = wallet.address;
+  const [selected, setSelected] = useState<ReceiveNetwork>(initialNetwork ?? "native");
+  useEffect(() => {
+    if (open) setSelected(initialNetwork ?? "native");
+  }, [open, initialNetwork]);
+  const payment = USDC_FLAGS.wallet && selected === "payment";
+  const network = payment ? paymentChain.name : nativeNetwork;
+  const unit = payment ? USDC_SYMBOL : "tREVO";
   const [timedOut, setTimedOut] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const showSkeleton = useDelayed(open && !address, 400);
@@ -206,14 +248,28 @@ function ReceiveDialog({ open, onOpenChange }: ReceiveDialogProps) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle className="text-prism-panel-title text-prism-ink">Receive tREVO</DialogTitle>
+          <DialogTitle className="text-prism-panel-title text-prism-ink">
+            Receive {unit}
+          </DialogTitle>
           <DialogDescription className="text-prism-meta text-prism-ink-2">
             On {network}
           </DialogDescription>
         </DialogHeader>
 
+        {USDC_FLAGS.wallet && (
+          <ChipGroup
+            label="Network"
+            value={selected}
+            onChange={setSelected}
+            options={[
+              { value: "payment", label: paymentChain.name },
+              { value: "native", label: nativeNetwork },
+            ]}
+          />
+        )}
+
         {address ? (
-          <ReceiveBody address={address} network={network} />
+          <ReceiveBody address={address} network={network} unit={unit} payment={payment} />
         ) : timedOut ? (
           <ErrorCard
             title="Wallet did not connect"

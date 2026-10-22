@@ -226,6 +226,7 @@ export const auth = betterAuth({
     ),
     asBetterAuthPlugin(oauthDeviceAuthorization({ verificationUri: OAUTH_DEVICE_PATH })),
   ],
+  // @ts-expect-error — $extends changes the return type; prismaAdapter needs PrismaClient at runtime
   database: prismaAdapter(withNumericIdCoercion(prisma), {
     provider: "mysql",
   }),

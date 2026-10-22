@@ -10,6 +10,8 @@ import { NetworkChip } from "./NetworkChip";
 import { SummaryFigures } from "./SummaryFigures";
 import { BalanceFigure } from "./BalanceFigure";
 import { WalletActions } from "./WalletActions";
+import { UsdcTile } from "./UsdcTile";
+import { USDC_FLAGS } from "@/config/usdc/flags";
 
 // How long the Wallet waits for an address before it says the wallet did not connect
 const NO_ADDRESS_AFTER_MS = 10_000;
@@ -18,7 +20,7 @@ function Eyebrow() {
   return (
     <h2 className="flex items-center gap-2 text-prism-eyebrow uppercase text-prism-ink-2">
       <span aria-hidden className="h-[3px] w-[13px] rounded-full bg-prism-value" />
-      Balance
+      {USDC_FLAGS.wallet ? "tREVO" : "Balance"}
     </h2>
   );
 }
@@ -157,7 +159,7 @@ export function WalletSummary() {
     return showSkeleton ? <SummarySkeleton /> : <div className="h-[233px]" aria-hidden />;
   }
 
-  return (
+  const native = (
     <section
       aria-labelledby="wallet-summary-title"
       className="prism-glass-clear !rounded-prism-21 p-5 font-prism sm:p-8"
@@ -179,5 +181,15 @@ export function WalletSummary() {
         <span className="pt-0.5">{TESTNET_NOTICE}</span>
       </p>
     </section>
+  );
+
+  // Screen Review 137 (board w1): with USDC on, two tiles side by side from
+  // 1024, USDC first as the one lens, tREVO as the clear card it always was.
+  if (!USDC_FLAGS.wallet) return native;
+  return (
+    <div className="grid gap-5 sm:gap-8 lg:grid-cols-2">
+      <UsdcTile />
+      {native}
+    </div>
   );
 }

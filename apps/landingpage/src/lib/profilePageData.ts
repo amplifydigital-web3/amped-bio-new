@@ -18,6 +18,8 @@ export interface UserProfile {
   identity?: HandleUser["identity"];
   /** 112: the month the page joined, "YYYY-MM", for the RNS ID block */
   since?: string | null;
+  /** Messaging on Telegram (#2): "Messages on Telegram" beside the name. Never the username. */
+  telegramMark?: boolean;
 }
 
 // Theme from tRPC, but with the JSON column typed as the app's ThemeConfig
@@ -110,6 +112,7 @@ export function mapGetHandleData(result: HandleOutput, handle: string): ProfileP
       photoCmp: "",
       identity: user.identity ?? null,
       since: user.since ?? null,
+      telegramMark: user.telegramMark === true,
     },
     theme: theme ? (theme as unknown as Theme) : null,
     blocks: [...blocksRaw].sort((a, b) => a.order - b.order) as unknown as BlockType[],

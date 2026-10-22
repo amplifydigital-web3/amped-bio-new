@@ -1,6 +1,6 @@
 # Amped.Bio Privacy Policy
 
-Last updated: October 3, 2026
+Last updated: October 12, 2026
 
 This policy explains what personal information Amped.Bio collects, why, who receives it, and the choices you have. It applies to creators, fans and anyone who visits an Amped.Bio page.
 
@@ -13,6 +13,7 @@ This policy covers:
 - The Amped.Bio editor, account and wallet
 - Public creator pages at amped.bio/handle and the public site (home page, pools, blog and developer docs)
 - Sign in with Amped.Bio, when you use your account to sign in to another app
+- The Amped.Bio bot on Telegram, when you link your Telegram account
 - Emails we send you
 
 It does not cover the creator's own tools on their page, or apps you connect through Sign in with Amped.Bio. Those follow their own privacy policies.
@@ -32,7 +33,7 @@ When you create an account and build your page, we collect:
 - **Browser check:** a proof of work check on sign up and sign in to stop automated abuse. It runs on our own service and sets no cookies.
 - **Messages to us:** what you send to support.
 
-If you verify your identity with Authbase, we receive your verification status and badge, and only the attributes you choose to share with Amped.Bio. Only you can see those shared attributes. Others see only your verification status, and only where you choose to show it.
+If you verify your identity with Authbase, we receive your verification status and badge, and only the attributes you choose to share with Amped.Bio: your name as checked on your ID, whether you are over 18, your gender and your country. We never receive your date of birth. Only you can see those shared attributes unless you choose to show one. You can show each attribute on your own, while you are verified, by turning it on in your page's RNS ID block. Anyone who views your page or your RNS name can then see it. Others see only your verification status, and only where you choose to show it, plus the attributes you turned on.
 
 ## 3. Wallets, tREVO and on chain activity
 
@@ -44,7 +45,7 @@ When you send tREVO, stake in a pool, claim rewards, create a pool, register or 
 
 **ndau conversion.** If you convert ndau, we store your ndau address, REVO address, amounts, the signatures and validation key you provide, the document hash of the terms you accepted, the status and any transaction ID. We keep these as the record of your request.
 
-Testnet only. tREVO has no cash value. Pool rewards come from the network, vary, and are not guaranteed.
+Testnet only. Pool rewards come from the network, vary, and are not guaranteed.
 
 ## 4. Visitors to creator pages and the public site
 
@@ -86,6 +87,16 @@ Some Amped.Bio apps may skip the consent screen. They still appear in Connected 
 
 If you register an app as a developer, we store the app's name, website, redirect addresses and credentials.
 
+### Telegram
+
+You can link your Telegram account in Account settings, under Connected apps. Linking uses Telegram's own sign in. We receive your Telegram user ID, your name, your username if you have one, and a link to your profile photo. We never receive your phone number, your contacts or your other chats. We store your username, name and photo link encrypted.
+
+We use the link to deliver updates from creators you follow to your Telegram, but only after you turn Get creator updates on Telegram on. Each time you turn it on or off we record the choice, when you made it and the policy version, with no IP address. Sending /stop to the bot turns it off for every creator.
+
+A creator never sees your Telegram username unless you turn on Let creators see my Telegram username. A creator who shows the Telegram mark on their page never shows their username either.
+
+Unlink at any time under Connected apps. Unlinking stops all Telegram delivery at once and deletes the link. Telegram's own privacy policy covers how Telegram handles your messages.
+
 ## 7. How we use information and why
 
 We do not sell your personal information. We do not use it for our own advertising.
@@ -99,6 +110,8 @@ We do not sell your personal information. We do not use it for our own advertisi
 | Show returning visitors | Random ID, Google Analytics cookies | Consent |
 | Creator tags and server side events | IP address, device, page events | Consent |
 | Sign in with Amped.Bio | What you allow on the consent screen | Consent and contract |
+| Link Telegram and deliver what you asked for there | Telegram user ID, name, username, photo link | Contract |
+| Creator updates on Telegram | Telegram user ID and your delivery choice | Consent |
 | ndau conversion records | Addresses, amounts, signatures, terms hash | Contract and legal obligation |
 | Written summaries for creators | Page totals, top sources, devices, visitor counts and up to 10 link names | Legitimate interests |
 | Meet legal duties and handle disputes | Any of the above as needed | Legal obligation, legitimate interests |
@@ -116,6 +129,7 @@ We do not sell your personal information. We do not use it for our own advertisi
 | Authbase | Your verification request | Identity badge, if you choose it |
 | Creator tools (Google Analytics, Meta, TikTok) | Visit events, IP address and device, with permission per creator | The creator's own analytics and ads |
 | Apps you connect with Sign in with Amped.Bio | What you allow on the consent screen | Sign you in to that app |
+| Telegram (United Arab Emirates and other locations) | Your Telegram user ID and the messages the bot sends you | Deliver what you asked for on Telegram |
 | The public and the Revolution Network | Your public page, handle, wallet address, transactions, pools and the verification status you choose to show | Public by design |
 | Authorities, advisers, a buyer of the business | What the law requires or a transaction needs | Legal duties, rights, a sale or merger |
 
@@ -148,6 +162,8 @@ Creator pages and the public site set nothing in your browser until you choose, 
 | Wallet and transaction records | While your account is open, and 5 years after it closes, for disputes and legal duties |
 | ndau conversion records | 7 years after the request |
 | Connected app records | Until you remove the app, then 30 days |
+| Telegram link | Until you unlink or close your account |
+| Telegram link and delivery choice history (no IP address) | 5 years |
 | Support messages | 2 years |
 
 On chain records on the Revolution Network are permanent. We cannot delete them.

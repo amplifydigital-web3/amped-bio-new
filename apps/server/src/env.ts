@@ -215,6 +215,75 @@ const envSchema = z.object({
   MESSAGING_INVITE_ONLY: boolSchema(true),
   // Gated creator groups (phase 2)
   TELEGRAM_GROUPS: boolSchema(false),
+
+  // USDC in the wallet (Build Board #29), spec docs/features/usdc-wallet-onramp.md 3.3 and 3.4.
+  // Master switch for gasless sends and the indexer. Off until the CDP relayer account exists.
+  USDC_ENABLED: boolSchema(false),
+  // "base" in production; anything else is Base Sepolia
+  PAYMENT_CHAIN: z.string().default("base-sepolia"),
+  // CDP Node RPC for Base in production; empty uses the chain's public endpoint (staging)
+  BASE_RPC_URL: z.string().default(""),
+  // CDP Server Wallet relayer (Coinbase holds the key). API key id and secret, Wallet Secret,
+  // and the account name created once per environment in the CDP Portal.
+  CDP_API_KEY_ID: z.string().default(""),
+  CDP_API_KEY_SECRET: z.string().default(""),
+  CDP_WALLET_SECRET: z.string().default(""),
+  CDP_RELAYER_ACCOUNT: z.string().default(""),
+  // Relayer ETH on Base, in ETH: alarm below the first, sends pause below the second
+  RELAYER_GAS_ALARM_ETH: z.string().default("0.05"),
+  RELAYER_GAS_STOP_ETH: z.string().default("0.01"),
+  // Circle Compliance Engine standalone address screening, once Circle grants access
+  CIRCLE_API_KEY: z.string().default(""),
+  // Circle's chain enum for an EVM address screen. The API lists no Base value; ETH screens the same address.
+  CIRCLE_SCREENING_CHAIN: z.string().default("ETH"),
+  // Chainalysis sanctions oracle on Base (0x3A91A31cB3dC49b4db9Ce721F50a9D076c8D739B). Not deployed on Base Sepolia.
+  CHAINALYSIS_ORACLE: z.string().default(""),
+  // Comma separated addresses always refused. Staging uses it for the screening acceptance test.
+  USDC_SCREEN_DENYLIST: z.string().default(""),
+  // When no screening vendor is configured: refuse every send (production) or allow and record unscreened (staging)
+  USDC_SCREENING_REQUIRED: boolSchema(true),
+  // Content system (Build Board #20), PR 2. Spec 3.17. Secrets never live in committed .env files.
+  // Master switch for uploads. Off everywhere until the Cloudflare setup checklist is done.
+  // Turning it off during an incident stops new uploads; items already stored keep working.
+  CONTENT_UPLOADS_ENABLED: boolSchema(false),
+  // Cloudflare account that owns the R2 bucket and the Stream library (staging has its own account)
+  CF_ACCOUNT_ID: z.string().default(""),
+  // R2 API token (S3 compatible), Object Read and Write on R2_BUCKET only
+  R2_ACCESS_KEY_ID: z.string().default(""),
+  R2_SECRET_ACCESS_KEY: z.string().default(""),
+  // amped-content (production) or amped-content-staging
+  R2_BUCKET: z.string().default(""),
+  // Stream API token: Stream Edit on this account
+  CF_STREAM_API_TOKEN: z.string().default(""),
+  // Stream signing key from POST /stream/keys: the key id and the PEM (base64 as Cloudflare returns it, or raw PEM)
+  CF_STREAM_KEY_ID: z.string().default(""),
+  CF_STREAM_KEY_PEM: z.string().default(""),
+  // Secret Cloudflare returns when the Stream webhook URL is set
+  CF_STREAM_WEBHOOK_SECRET: z.string().default(""),
+  // Hostnames Stream accepts playback from, comma separated (amped.bio,app.amped.bio on production)
+  CF_STREAM_ALLOWED_ORIGINS: z.string().default(""),
+  // Media gateway origin, e.g. https://media.ampedusercontent.com (PR 3 deploys the Worker)
+  MEDIA_GATEWAY_ORIGIN: z.string().default(""),
+  // kid:base64urlSecret,kid:base64urlSecret. The first signs; all verify (rotation, spec 3.6)
+  MEDIA_TOKEN_KEYS: z.string().default(""),
+  // Shared with the processor Worker (PR 4): signs POST /internal/content/processed and /job
+  CONTENT_PROCESSOR_SECRET: z.string().default(""),
+  // Queues HTTP publish (PR 4): API token with Queues Edit, and the content-ingest queue id
+  CF_QUEUES_API_TOKEN: z.string().default(""),
+  CF_CONTENT_QUEUE_ID: z.string().default(""),
+  // Stream customer code for thumbnail URLs (customer-{code}.cloudflarestream.com). Optional:
+  // read from the video when empty
+  CF_STREAM_CUSTOMER_CODE: z.string().default(""),
+  // Per kind upload limits in MB (spec 3.2)
+  UPLOAD_LIMIT_CONTENT_VIDEO_MB: numSchema(2048),
+  UPLOAD_LIMIT_CONTENT_AUDIO_MB: numSchema(500),
+  UPLOAD_LIMIT_CONTENT_IMAGE_MB: numSchema(25),
+  UPLOAD_LIMIT_CONTENT_DOCUMENT_MB: numSchema(100),
+  UPLOAD_LIMIT_CONTENT_FILE_MB: numSchema(500),
+  // Default per creator quota (spec 3.2, decision 5)
+  CONTENT_QUOTA_DEFAULT_MB: numSchema(5120),
+  CONTENT_QUOTA_VIDEO_MINUTES: numSchema(300),
+
 });
 
 // ================ parse & export ================
@@ -237,3 +306,4 @@ export const env = result.data;
 if (process.env.BROADCAST_INVITE_ONLY === undefined && env.APP_ENV !== "production") {
   env.BROADCAST_INVITE_ONLY = false;
 }
+

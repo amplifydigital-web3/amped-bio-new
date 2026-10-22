@@ -85,7 +85,7 @@ export const DM_RULE_HELPERS: Record<DmRuleKind, string> = {
 
 /** Verbatim wherever tREVO appears. Exempt from the copy check by exact match. */
 export const TESTNET_LINE =
-  "Testnet only. tREVO has no cash value. Pool rewards are set by the creator, vary, and are not guaranteed.";
+  "Testnet only. Pool rewards are set by the creator, vary, and are not guaranteed.";
 
 /** Badge beside a fan's handle in the thread list. */
 export const FAN_RELATION_LABELS = {
@@ -155,6 +155,22 @@ export const TELEGRAM_APP_STRINGS = {
     groupNotAdmin: "The bot is not an admin yet. Add it and try again.",
   },
   unlinkUndo: "Telegram unlinked.",
+  // PR 2: Account, Connected apps (row 112) and the Broadcast composer (row 117)
+  accountRowTitle: "Telegram",
+  accountLinkedAs: (username: string) => `Linked as @${username}.`,
+  accountLinkedNoUsername: "Linked. Your Telegram account has no username.",
+  accountBlockedNotice:
+    "You blocked the Amped.Bio bot in Telegram, so nothing reaches you there. Unblock it in Telegram and send /start.",
+  linkButton: "Link Telegram",
+  unlinkButton: "Unlink",
+  unlinkConfirmTitle: "Unlink Telegram?",
+  unlinkConfirmBody:
+    "Updates stop reaching your Telegram at once. Your Amped.Bio inbox keeps everything. You can link again any time.",
+  linkedToast: "Telegram linked.",
+  composerChannelLabel: "Telegram",
+  composerChannelHelper: "Members who linked Telegram and turned on updates get this there too.",
+  composerFlaggedNote:
+    "Broadcasts with words from the word list go to the Amped.Bio inbox only, not to Telegram.",
 } as const;
 
 // ----------------------------------------------------------------------------

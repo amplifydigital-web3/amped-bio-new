@@ -10,6 +10,9 @@ import blocksSchemasRouter from "../routes/blocks-schemas";
 import healthRouter from "../routes/health";
 import analyticsRouter from "../routes/analytics";
 import telegramRouter from "../routes/telegram";
+import telegramOidcRouter from "../routes/telegramOidc";
+import { contentCallbackRouter, contentJobRouter, streamWebhookRouter } from "../routes/content";
+
 import mcpRouter from "../routes/mcp";
 
 const app: Application = express();
@@ -90,6 +93,13 @@ app.use("/mcp", mcpRouter);
 // own body limit; it checks the secret header, dedupes and writes the update, nothing else.
 app.use("/webhooks/telegram", telegramRouter);
 
+// Content system (Build Board #20): Cloudflare Stream webhook and the processor
+// Worker callback and job read. All are signed over the raw body, so they parse it
+// themselves before the global JSON parser.
+app.use("/webhooks/cloudflare-stream", streamWebhookRouter);
+app.use("/internal/content/processed", contentCallbackRouter);
+app.use("/internal/content/job", contentJobRouter);
+
 // Protected resource metadata (RFC 9728) for MCP clients.
 // Tells clients that the authorization server is at auth.amped.bio.
 // This is served BEFORE the body parser because Better Auth needs the raw body.
@@ -114,6 +124,8 @@ app.use("/.well-known", wellKnownRouter);
 app.use("/api/blocks/schemas", blocksSchemasRouter);
 app.use("/health", healthRouter);
 app.use("/api/analytics", analyticsRouter);
+// Log In with Telegram callback (Build Board #2). After cookieParser: it reads the session.
+app.use("/telegram", telegramOidcRouter);
 
 app.get("/", (req, res) => {
   res.redirect(env.APP_URL);

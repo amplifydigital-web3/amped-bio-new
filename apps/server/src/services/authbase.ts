@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { AUTHBASE_ATTRIBUTE_KEYS } from "@repo/constants";
 import { env } from "../env";
 
 // ── Upstream payload schemas ───────────────────────────────────
@@ -19,16 +20,22 @@ const badgeSchema = z.object({
   tier: tierSchema,
   // uint256 string — never coerce with Number()
   token_id: z.string(),
-  transaction_hash: z.string(),
+  // Provenance, not proof: null on a badge renewed in place with no new tx
+  transaction_hash: z.string().nullable(),
   minted_at: z.string(),
 });
 
 // Consent-filtered PII: only attributes the user actively shared with this
 // platform that also have a stored value. Un-granted/empty keys are absent
 // (never null), so "denied" and "empty" are indistinguishable — an absent map
-// means "nothing shared" and defaults to {}, while present values are still
-// validated as strings. Governed purely by consent, independent of status.
-const attributesSchema = z.record(z.string(), z.string()).default({});
+// means "nothing shared" and defaults to {}. Upstream sends attributes only
+// with a VERIFIED* status; every other status carries {}. The contract types
+// values as unknown and `age_over_18` arrives as a boolean, so a scalar value
+// is normalized to its string form rather than rejecting the whole payload;
+// anything non-scalar is still a contract violation.
+const attributesSchema = z
+  .record(z.string(), z.union([z.string(), z.number(), z.boolean()]).transform(String))
+  .default({});
 
 // Fields shared by every variant; spread into each member of the union below.
 const baseShape = {
@@ -48,21 +55,21 @@ const walletStatusSchema = z.discriminatedUnion("status", [
   z.object({
     ...baseShape,
     status: z.literal("NOT_VERIFIED"),
-    authbase_wallet_address: z.string(),
+    authbase_wallet_address: z.string().nullable(),
     verification: z.null(),
     badge: z.null(),
   }),
   z.object({
     ...baseShape,
     status: z.literal("VERIFIED"),
-    authbase_wallet_address: z.string(),
+    authbase_wallet_address: z.string().nullable(),
     verification: verificationSchema,
     badge: z.null(),
   }),
   z.object({
     ...baseShape,
     status: z.literal("VERIFIED_WITH_BADGE"),
-    authbase_wallet_address: z.string(),
+    authbase_wallet_address: z.string().nullable(),
     verification: verificationSchema,
     badge: badgeSchema,
   }),
@@ -222,11 +229,12 @@ function hasAuthbaseBadge(result: AuthbaseWalletStatus): boolean {
 }
 
 /**
- * Screen Review 079 D2: the attribute keys a name page may show, with their
- * labels in apps/client identity/catalog.ts. Unknown keys never leave the
- * server on the public lookup, and empty values are dropped.
+ * Screen Review 079 D2: the attribute keys a name page may show, labelled in
+ * @repo/constants. Unknown keys never leave the server on the public lookup,
+ * and empty values are dropped. Each one still needs the owner's RNS ID block
+ * switch (pickShownAttributes in rnsIdentity).
  */
-export const PUBLIC_ATTRIBUTE_KEYS = ["name", "country"] as const;
+export const PUBLIC_ATTRIBUTE_KEYS = AUTHBASE_ATTRIBUTE_KEYS;
 
 export function publicSharedAttributes(
   attributes: Record<string, string> | undefined

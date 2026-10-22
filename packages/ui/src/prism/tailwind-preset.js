@@ -320,6 +320,13 @@ function prismComponents({ addComponents, addBase }) {
         "inset 0 2px 0 #FFFFFF, inset 2px 0 0 rgba(255,255,255,0.75), inset 5px 5px 13px rgba(255,255,255,0.55), inset 0 -3px 0 rgba(86,80,162,0.16), inset -5px -8px 21px rgba(48,47,93,0.12), 0 0 0 4px rgba(86,80,162,0.14), 0 3px 8px rgba(22,21,43,0.08), 13px 34px 68px rgba(48,47,93,0.32)",
     },
 
+    // Section 5. G3 lens fill: the lens shading alone, for a card that keeps
+    // the clear glass border and elevation (the USDC tile beside tREVO).
+    ".prism-lens-fill": {
+      background:
+        "linear-gradient(180deg, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0) 34%), linear-gradient(rgba(86,80,162,0.10), rgba(86,80,162,0.10)), rgba(255,255,255,0.62)",
+    },
+
     // Section 5. G3 value panel: the commitment region's focused object.
     ".prism-value-panel": {
       position: "relative",

@@ -8,7 +8,7 @@ import { EditorProvider } from "./contexts/EditorContext";
 import { SessionEndedDialog } from "./components/shell/SessionEndedDialog";
 import { signInUrl } from "./components/shell/ShellGate";
 import { useReferralHandler } from "./hooks/useReferralHandler";
-import { ExternalRedirect, ToastCard, useAuth } from "@repo/ui";
+import { ExternalRedirect, NewVersionDialog, ToastCard, useAuth } from "@repo/ui";
 import { ERROR_TOAST_DURATION } from "@/components/ui/toast";
 
 // Internal Prism component gallery for review (not linked in the app). Served in
@@ -23,6 +23,8 @@ function AppRouter() {
     <>
       {/* 081 I09: any 401 during a session opens Your session ended */}
       <SessionEndedDialog />
+      {/* Detects a newer deployed build and offers to reload */}
+      <NewVersionDialog />
       <Routes>
         {SHOW_PRISM_GALLERY && (
           <Route
