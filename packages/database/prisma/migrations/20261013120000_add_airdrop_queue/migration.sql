@@ -12,7 +12,6 @@ CREATE TABLE `airdrop_queue` (
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
 
     UNIQUE INDEX `airdrop_queue_userWalletId_key`(`userWalletId`),
-    INDEX `airdrop_queue_userWalletId_idx`(`userWalletId`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
