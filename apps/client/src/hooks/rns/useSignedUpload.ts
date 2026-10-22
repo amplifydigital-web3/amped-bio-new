@@ -20,6 +20,7 @@ export function useSignedUpload() {
   const { address } = useAccount();
   const { signMessageAsync } = useSignMessage();
 
+  /** `name` is the full RNS name (label.revotest.eth); the RNS API rejects a bare label. */
   const uploadAll = async (
     name: string,
     fields: { avatar?: File; banner?: File }

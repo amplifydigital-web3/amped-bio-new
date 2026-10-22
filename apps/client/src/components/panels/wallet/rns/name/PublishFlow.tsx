@@ -124,14 +124,16 @@ export function PublishFlow({
   const publish = async () => {
     setUploadFailed(false);
     const values: Record<string, string> = {};
-    // A new banner file uploads first (the RNS backend asks for a signature)
+    // A new banner file uploads first (the RNS backend asks for a signature).
+    // The RNS upload API takes the full name (label.revotest.eth), not the label.
     if (banner?.file) {
       setUploading(true);
       try {
-        const urls = await uploadAll(name.label, { banner: banner.file });
+        const urls = await uploadAll(fullName, { banner: banner.file });
         if (!urls.banner) throw new Error("No banner URL");
         values.banner = urls.banner;
-      } catch {
+      } catch (error) {
+        console.error("RNS banner upload failed", error);
         setUploadFailed(true);
         setUploading(false);
         return;
