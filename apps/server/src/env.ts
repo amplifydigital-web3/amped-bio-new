@@ -321,3 +321,9 @@ if (process.env.BROADCAST_INVITE_ONLY === undefined && env.APP_ENV !== "producti
   env.BROADCAST_INVITE_ONLY = false;
 }
 
+// USDC sends fail closed without a screening vendor in production only. Base Sepolia has no
+// Chainalysis oracle, so staging records sends as unscreened unless the variable is set.
+if (process.env.USDC_SCREENING_REQUIRED === undefined && env.APP_ENV !== "production") {
+  env.USDC_SCREENING_REQUIRED = false;
+}
+
