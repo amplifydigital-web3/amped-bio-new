@@ -85,7 +85,17 @@ const envSchema = z.object({
   // SMTP authentication password
   SMTP_PASSWORD: z.string().min(1),
   // Email address to use as sender
+  // Required since #321: a missing sender must fail at boot, not fall back to a default
   SMTP_FROM_EMAIL: z.string().min(1),
+  // ---------- Email delivery (SMTP2GO) ----------
+  // auto: the SMTP2GO API when SMTP2GO_API_KEY is set, SMTP otherwise
+  EMAIL_TRANSPORT: z.enum(["auto", "smtp", "smtp2go-api"]).default("auto"),
+  // SMTP2GO API key (Sending > API Keys), needs the Email send permission
+  SMTP2GO_API_KEY: z.string().default(""),
+  // SMTP2GO API base. Regional: https://us-api.smtp2go.com/v3, eu-api, au-api
+  SMTP2GO_API_URL: z.string().url().default("https://api.smtp2go.com/v3"),
+  // Display name on the From line
+  SMTP_FROM_NAME: z.string().default("Amped.Bio"),
 });
 
 // ================ parse & export ================

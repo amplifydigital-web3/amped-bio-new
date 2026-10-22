@@ -71,6 +71,15 @@ const envSchema = z.object({
   SMTP_PASSWORD: z.string().default(""), // MailDev doesn't require authentication
   // Email address to use as sender
   SMTP_FROM_EMAIL: z.string().default("noreply@amped.bio"),
+  // ---------- Email delivery (SMTP2GO) ----------
+  // auto: the SMTP2GO API when SMTP2GO_API_KEY is set, SMTP otherwise
+  EMAIL_TRANSPORT: z.enum(["auto", "smtp", "smtp2go-api"]).default("auto"),
+  // SMTP2GO API key (Sending > API Keys), needs the Email send permission
+  SMTP2GO_API_KEY: z.string().default(""),
+  // SMTP2GO API base. Regional: https://us-api.smtp2go.com/v3, eu-api, au-api
+  SMTP2GO_API_URL: z.string().url().default("https://api.smtp2go.com/v3"),
+  // Display name on the From line
+  SMTP_FROM_NAME: z.string().default("Amped.Bio"),
 
   // Faucet configuration
   // Private key for the faucet wallet to send tokens from
@@ -298,8 +307,3 @@ if (process.env.BROADCAST_INVITE_ONLY === undefined && env.APP_ENV !== "producti
   env.BROADCAST_INVITE_ONLY = false;
 }
 
-// USDC sends fail closed without a screening vendor in production only. Base Sepolia has no
-// Chainalysis oracle, so staging records sends as unscreened unless the variable is set.
-if (process.env.USDC_SCREENING_REQUIRED === undefined && env.APP_ENV !== "production") {
-  env.USDC_SCREENING_REQUIRED = false;
-}
