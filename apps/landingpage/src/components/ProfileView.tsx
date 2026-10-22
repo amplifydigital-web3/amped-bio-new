@@ -10,6 +10,7 @@ import {
   Button,
   RnsIdentityChip,
   RnsVerifiedMark,
+  headerRnsIdentity,
   Skeleton,
   cn,
   THEME_DEFAULTS,
@@ -340,7 +341,10 @@ export function ProfileView({
   // 109 I05: Send opens the editor Send flow with the recipient filled in;
   // signed out visitors pass through sign in and come back to it
   const identity = showRns ? (profile.identity ?? null) : null;
-  const sendTo = identity?.label ?? identity?.wallet ?? null;
+  // The header shows a linked name only; the RNS ID block can also show a
+  // check without one (112 D9), and paying by name needs one
+  const headerIdentity = headerRnsIdentity(identity);
+  const sendTo = identity?.linked ? (identity.label ?? identity.wallet ?? null) : null;
   const sendHref = sendTo
     ? `${process.env.NEXT_PUBLIC_PANEL_URL}/wallet?send=1&to=${encodeURIComponent(sendTo)}`
     : null;
@@ -460,7 +464,9 @@ export function ProfileView({
               style={textStyle}
             >
               {profile.name}
-              {identity?.chip === "verified" && <RnsVerifiedMark className="ml-2 align-[-3px]" />}
+              {headerIdentity?.chip === "verified" && (
+                <RnsVerifiedMark className="ml-2 align-[-3px]" />
+              )}
               {/* Messaging on Telegram (#2): a mark only, never the creator's username (spec 3.8) */}
               {telegramMarkOn && profile.telegramMark && (
                 <span
@@ -473,10 +479,10 @@ export function ProfileView({
               )}
             </h1>
             {/* 109 I06, I07: the RNS chip in the creator font and color, never animated */}
-            {identity && (
+            {headerIdentity && (
               <div className="mt-2 flex justify-center">
                 <RnsIdentityChip
-                  identity={identity}
+                  identity={headerIdentity}
                   displayName={profile.name}
                   avatarUrl={photo || null}
                   fontFamily={textStyle?.fontFamily}

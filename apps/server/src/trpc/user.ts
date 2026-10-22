@@ -823,7 +823,11 @@ export const userRouter = router({
           // Month only, matching what the card shows (the day is not part of the payload)
           joinedAt: user.created_at.toISOString().slice(0, 7),
           cover,
-          rns: identity ? { chip: identity.chip, name: identity.name } : null,
+          // Explore shows a linked name or Verified only (no block identity, 112 D9)
+          rns:
+            identity?.linked && identity.chip !== "none"
+              ? { chip: identity.chip, name: identity.name }
+              : null,
           followerCount: count.followerCount,
           showCount: count.showCount,
           newOnAmped: count.newOnAmped,

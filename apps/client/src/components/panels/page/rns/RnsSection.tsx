@@ -367,10 +367,20 @@ export function RnsSection() {
           checked={display.showBadge}
           onChange={showBadge => update({ ...display, showBadge })}
           label="Show Verified badge"
-          description={
+          description={`${
             validUntil ? `Verified by Authbase until ${validUntil}` : "Verified by Authbase"
-          }
+          }${verification.badge ? ". Badge on chain" : ""}`}
         />
+      );
+    } else if (verification.state === "expired") {
+      // Authbase has not flipped the status yet, but valid_until has passed
+      badgeRow = (
+        <div className="flex min-h-touch flex-wrap items-center gap-[13px]">
+          <Badge variant="secondary">Check expired</Badge>
+          <Button variant="ghost" onClick={() => label && goToIdentity(label)}>
+            Renew verification
+          </Button>
+        </div>
       );
     } else if (verification.state === "not_verified") {
       badgeRow = (

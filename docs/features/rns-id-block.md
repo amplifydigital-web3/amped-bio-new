@@ -1,7 +1,7 @@
 # RNS ID block
 
 Status: built 2026-10-10, behind `VITE_SHOW_RNS` and `NEXT_PUBLIC_SHOW_RNS` (the same flags as the header chip). Build Board item #33, Screen Review row 112.
-Owner: Rob Frasca. Concepts and build by Claude, 2026-10-10. Decisions 112 D1 to D6 approved by Rob on 10 Oct 2026.
+Owner: Rob Frasca. Concepts and build by Claude, 2026-10-10. Decisions 112 D1 to D6 approved by Rob on 10 Oct 2026; D8 and D9 approved on 21 Oct 2026 (section 8b).
 Parent: RNS as Amped.Bio identity (Build Board #25), rows 108 (Page > RNS) and 109 (public identity sheet). This document adds a block on top of that read model; it changes none of its rules.
 Concept boards: https://claude.ai/artifact/UGmNDUJefvSDb3Aqt23rHU. Staging code review: project doc `claude/amped-rns-staging-review-2026-10-10.md`.
 
@@ -21,12 +21,14 @@ A tap opens the identity sheet (the same dialog as the header chip), expands the
 ## 2. Decisions (112)
 
 1. **Name on ID.** Shown only from the name Authbase checked, only on the Verified chip, only when the owner's block switch is on, and only while `RNS_PUBLIC_ATTRIBUTES` is on (079 D2). Off by default. Never on the name chip, never in the linked or lapsed state. Source: `publicSharedAttributes(status.attributes).name`, carried on the cached verification and applied in `computeRnsIdentity`. The raw public lookup is never read by the block.
-2. **Verified cannot be hidden on the block.** The block reads `rns_display` (108 I04). Show Verified badge off means the block reads Linked name, the same as the header chip. No second switch.
+2. **Verified cannot be hidden on the block.** The block reads `rns_display` (108 I04). Show Verified badge off means the block reads Linked name, the same as the header chip. No second switch. Since 21 Oct it never reads Not verified in that case (D8).
 3. **Default tap opens the identity sheet.** `RnsIdentityDialog` is the chip's dialog, extracted so the block and the chip share it. Expand in place is offered for ID Card and Proof Strip; Nothing for Nameplate and Seal.
-4. **Linked but not verified shows as Linked name.** Not bound, expired, Show on my page off or no wallet: `identity` is null and the block renders nothing; the editor explains why and links to Page > RNS or Wallet.
+4. **Linked but not verified shows as Linked name.** Not bound, expired, Show on my page off or no wallet: `identity` is null and the block renders nothing, unless the check is current (D9); the editor explains why and links to Page > RNS or Wallet.
 5. **Lapsed verification drops the chip, Name on ID and the check at once.** Already how the read model behaves: the verification cache is capped at `valid_until`, the binding cache evicts on expiry, no grace period.
 6. **A block, one per page, placed anywhere.** The header chip stays as it is.
-7. **Open (counsel).** With `RNS_PUBLIC_ATTRIBUTES` on, `authbase.getWalletStatus` returns name and country for every Verified wallet, whatever the page owner chose. Recommendation on the Build Board card: the owner's Name on ID switch should govern that lookup too. Not changed in this build.
+7. **Closed 21 Oct (PR #341).** `authbase.getWalletStatus` now returns only the attributes the owner switched on in their RNS ID block.
+8. **Badge off, attributes on (21 Oct).** A current check with Show Verified badge off sets `identity.checkHidden`. The card drops the Verified chip and shows a neutral line in place of the Not verified caution. Attribute rows keep "as checked by Authbase".
+9. **Verified without a linked name (21 Oct).** A visible RNS ID block on a current check gets an identity with `linked: false`: the check, the badge and the shared attributes, never a name, a "points here" line or a pay row. With the badge off and no shared attribute on, nothing shows. The header chip keeps to a linked name (`headerRnsIdentity`).
 
 ## 3. Data model
 
@@ -34,14 +36,14 @@ No new tables. Block config (JSON on the block row), validated by `rnsIdConfigSc
 
 ```ts
 export type RnsIdBlockConfig = {
-  style: "nameplate" | "idcard" | "proofstrip" | "seal";  // default nameplate
-  label: string;                                           // 1 to 24, default Identity (ID Card, Proof Strip)
-  tap: "sheet" | "inline" | "none";                        // default sheet; rnsIdTapsFor(style) lists the allowed values
+  style: "nameplate" | "idcard" | "proofstrip" | "seal"; // default nameplate
+  label: string; // 1 to 24, default Identity (ID Card, Proof Strip)
+  tap: "sheet" | "inline" | "none"; // default sheet; rnsIdTapsFor(style) lists the allowed values
   show: {
-    displayName: boolean;  // default true (ID Card)
-    avatar: boolean;       // default true (ID Card)
-    since: boolean;        // default true, the month the page joined
-    nameOnId: boolean;     // default false (112 D1)
+    displayName: boolean; // default true (ID Card)
+    avatar: boolean; // default true (ID Card)
+    since: boolean; // default true, the month the page joined
+    nameOnId: boolean; // default false (112 D1)
   };
 };
 ```
@@ -55,18 +57,18 @@ Server additions:
 
 ## 4. Where the code lives
 
-| Piece | Path |
-| --- | --- |
-| Block type, schema, defaults, `rnsIdTapsFor`, `SINGLETON_BLOCK_TYPES` | `packages/constants/src/blocks.ts` |
-| Name on ID rule, `rnsIdBlockOptions`, `nameOnId` on the verification | `apps/server/src/services/rnsIdentity.ts` |
-| Block switches read before the identity; `user.since` | `apps/server/src/trpc/handle.ts` |
-| Preview parity: block switches, `since`, `nameOnIdAvailable` | `apps/server/src/trpc/rns.ts` |
-| Config defaults on save and serve | `apps/server/src/utils/sanitizeBlockConfig.ts` |
-| Shared card, four styles, inline facts | `packages/ui/src/creator/rns-id-card.tsx` |
-| Identity dialog extracted from the chip, Name on ID fact | `packages/ui/src/prism/rns-identity.tsx` |
-| Public page renderer | `apps/landingpage/src/components/blocks/RnsIdBlock.tsx`, `ProfileView.tsx`, `lib/profilePageData.ts` |
-| Editor: Add block Identity, row, fields, preview | `apps/client/src/components/panels/page/blocks/AddBlockDialog.tsx`, `BlocksSection.tsx`, `BlockRow.tsx`, `blockInfo.ts`, `BlockFields.tsx`, `RnsIdBlockFields.tsx`; `apps/client/src/components/blocks/RnsIdBlock.tsx`; `Preview.tsx` |
-| Tests: Name on ID gating, `rnsIdBlockOptions` | `apps/server/src/__tests__/rns-identity.test.ts` |
+| Piece                                                                 | Path                                                                                                                                                                                                                                  |
+| --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Block type, schema, defaults, `rnsIdTapsFor`, `SINGLETON_BLOCK_TYPES` | `packages/constants/src/blocks.ts`                                                                                                                                                                                                    |
+| Name on ID rule, `rnsIdBlockOptions`, `nameOnId` on the verification  | `apps/server/src/services/rnsIdentity.ts`                                                                                                                                                                                             |
+| Block switches read before the identity; `user.since`                 | `apps/server/src/trpc/handle.ts`                                                                                                                                                                                                      |
+| Preview parity: block switches, `since`, `nameOnIdAvailable`          | `apps/server/src/trpc/rns.ts`                                                                                                                                                                                                         |
+| Config defaults on save and serve                                     | `apps/server/src/utils/sanitizeBlockConfig.ts`                                                                                                                                                                                        |
+| Shared card, four styles, inline facts                                | `packages/ui/src/creator/rns-id-card.tsx`                                                                                                                                                                                             |
+| Identity dialog extracted from the chip, Name on ID fact              | `packages/ui/src/prism/rns-identity.tsx`                                                                                                                                                                                              |
+| Public page renderer                                                  | `apps/landingpage/src/components/blocks/RnsIdBlock.tsx`, `ProfileView.tsx`, `lib/profilePageData.ts`                                                                                                                                  |
+| Editor: Add block Identity, row, fields, preview                      | `apps/client/src/components/panels/page/blocks/AddBlockDialog.tsx`, `BlocksSection.tsx`, `BlockRow.tsx`, `blockInfo.ts`, `BlockFields.tsx`, `RnsIdBlockFields.tsx`; `apps/client/src/components/blocks/RnsIdBlock.tsx`; `Preview.tsx` |
+| Tests: Name on ID gating, `rnsIdBlockOptions`                         | `apps/server/src/__tests__/rns-identity.test.ts`                                                                                                                                                                                      |
 
 ## 5. Wording
 
@@ -94,6 +96,41 @@ Typecheck clean for `@repo/constants`, `@repo/ui`, server, client and landingpag
 
 - `user.since` (the join month) leaves the server only when the page carries a visible RNS ID block; a page without the block exposes no join month. Both `getHandle` and `rns.getMyPageIdentity` gate on `rnsIdBlockOptions(...).visible`.
 - `nameOnId` is re-checked against `RNS_PUBLIC_ATTRIBUTES` at read time, so a verification cached while the flag was on cannot release the name after the flag turns off (cache entries live up to 5 minutes).
+
+## 8b. Badge and status (21 Oct 2026)
+
+What Authbase sends: `NOT_LINKED`, `NOT_VERIFIED`, `VERIFIED`, `VERIFIED_WITH_BADGE` (the last with a badge tier, token id and mint date). Before this change the page identity dropped the badge, so only the Wallet Identity tab showed it.
+
+Server (`apps/server/src/services/rnsIdentity.ts`):
+
+- `RnsVerification` (verified) gains `badge?: { tier, mintedAt }`. The token id stays on the server.
+- New `RnsVerification` state `expired` with `validUntil`: Authbase still reports VERIFIED\* but `valid_until` has passed by this server's clock. Authbase flips to `NOT_VERIFIED` with no dates, so this is only seen in that window. Visitors see it as not verified; the owner sees Check expired and Renew.
+- `PublicRnsIdentity` gains `linked`, `checkHidden`, `badge`, and the chip value `none` (no linked name, no Verified claim, shared attributes only).
+- Explore person cards take a linked identity only.
+
+Card (`packages/ui/src/creator/rns-id-card.tsx`), per style:
+
+| Style       | Verified with badge                                              | Verified                   | Badge hidden (D8)                              | No linked name (D9)                         |
+| ----------- | ---------------------------------------------------------------- | -------------------------- | ---------------------------------------------- | ------------------------------------------- |
+| Nameplate   | Badge glyph, Verified chip, "Enhanced ID check · Badge on chain" | Verified chip, check level | Linked name chip, attributes                   | Display name, Verified chip or details only |
+| ID Card     | ID checked stamp with level and date, Badge stamp, Valid until   | ID checked stamp           | Linked name, attribute stamps, no Not verified | No "Name points to this page" stamp         |
+| Proof Strip | Verified ID with level, Badge on chain with mint date            | Verified ID                | Attribute proofs                               | No "Name points here" proof                 |
+| Seal        | Inner ring solid, "Badge minted {date}"                          | Ring VERIFIED              | Ring LINKED NAME                               | Ring ID VERIFIED or SHARED BY THE OWNER     |
+
+Sheet (`packages/ui/src/prism/rns-identity.tsx`): Verification badge fact and Badge minted and Badge level detail rows; Shared details title for chip `none`; the neutral line for D8; no pay row without a linked name.
+
+Editor (`RnsIdBlockFields.tsx`, `RnsSection.tsx`): notices for verified with or without a badge, expired with Renew, D8 and D9. Page > RNS adds Check expired with Renew verification.
+
+New strings for counsel: "Verification badge", "Minted on chain on {date}.", "Badge", "Badge on chain", "Badge minted {date}", "{Level} ID check", "Shared details", "The owner of this page shared these through Authbase.", "Details shared by the owner", "Check the address with the owner before you send. Names can look alike." (the approved caution without "Not verified."), "Check expired", ring text "ID VERIFIED · AUTHBASE" and "SHARED BY THE OWNER · AUTHBASE".
+
+Privacy: no notice change. The notice already says Amped.Bio receives the verification status and badge, and that the public sees the verification status the owner chooses to show. The badge follows Show Verified badge. D8 note for counsel: the neutral line differs from the Not verified caution, so a visitor can infer a hidden check; shared attributes already imply it.
+
+Acceptance walk additions:
+
+1. A VERIFIED_WITH_BADGE wallet: each style shows the badge; the sheet shows Verification badge with the mint date. A VERIFIED wallet shows no badge and the editor says the badge shows once Authbase mints it.
+2. Show Verified badge off: no Verified chip, no badge, no Not verified anywhere on the card or sheet; switched on attributes still show.
+3. Clear the RNS name on a verified page with the block visible: the block shows the check without a name; the header chip is gone; the sheet has no Send. Hide the block: nothing.
+4. Badge off and no name: nothing unless an attribute is switched on and shared.
 
 ## 9. Later
 

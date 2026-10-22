@@ -18,7 +18,13 @@ import { isHTML } from "@/utils/htmlutils";
 import { type BlockType, DEFAULT_RNSID_CONFIG, sanitizeRichHtml } from "@repo/constants";
 import { Theme, UserProfile } from "@/types/editor";
 import { trpcClient } from "@repo/ui";
-import { RnsIdentityChip, RnsVerifiedMark, THEME_DEFAULTS, themeCssVars } from "@repo/ui";
+import {
+  RnsIdentityChip,
+  RnsVerifiedMark,
+  THEME_DEFAULTS,
+  headerRnsIdentity,
+  themeCssVars,
+} from "@repo/ui";
 import { type ReactNode } from "react";
 import { useReferralHandler } from "@/hooks/useReferralHandler";
 import { ErrorBoundary } from "./ErrorBoundary";
@@ -110,6 +116,8 @@ export function Preview({
       ? { ...DEFAULT_RNSID_CONFIG.show, ...rnsIdBlock.config.show }
       : null
   );
+  // 112 D9: the header keeps to a linked name, as on the public page
+  const headerIdentity = headerRnsIdentity(identity);
 
   const handleLinkClick = (block: BlockType) => {
     // The editor preview is the creator looking at their own page. Those clicks
@@ -329,14 +337,14 @@ export function Preview({
                       }}
                     >
                       {profile.name}
-                      {identity?.chip === "verified" && (
+                      {headerIdentity?.chip === "verified" && (
                         <RnsVerifiedMark className="ml-2 align-[-3px]" />
                       )}
                     </h1>
-                    {identity && (
+                    {headerIdentity && (
                       <div className="mt-2 flex justify-center">
                         <RnsIdentityChip
-                          identity={identity}
+                          identity={headerIdentity}
                           displayName={profile.name}
                           avatarUrl={profile.photoUrl || null}
                           fontFamily={themeConfig?.fontFamily}

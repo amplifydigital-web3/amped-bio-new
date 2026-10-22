@@ -42,6 +42,9 @@ export function withLiveAttributes(
       show?.[RNSID_ATTRIBUTE_SWITCH[key]] && shared?.[key] ? [[key, shared[key]]] : []
     )
   );
+  // 112 D8 and D9: shared details alone carry the block; with every switch off
+  // there is nothing to show, as on the server
+  if (data.identity.chip === "none" && Object.keys(attributes).length === 0) return null;
   return { ...data.identity, attributes };
 }
 
