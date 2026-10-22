@@ -73,6 +73,11 @@ model User {
   notificationPreferences NotificationPreference[]
   telegramAccount         TelegramAccount?
   telegramLinkEvents      TelegramLinkEvent[]
+  messagingSettings       CreatorMessagingSettings?
+  messagingSenderStatus   MessagingSenderStatus?
+  threadsAsCreator        MessageThread[]          @relation("ThreadCreator")
+  threadsAsFan            MessageThread[]          @relation("ThreadFan")
+  messageReports          MessageReport[]
 
   // USDC in the wallet (#29): first time the fan opened USDC on Base. The
   // indexer watches this address from then on, and its first screening runs.
@@ -1477,5 +1482,153 @@ model BlockedContentHash {
   createdAt DateTime @default(now()) @map("created_at")
 
   @@map("blocked_content_hashes")
+}
 
+// ===== Messaging on Telegram, phase 1: fan to creator messages (PR 3) =====
+// Spec: docs/features/telegram-messaging.md, sections 3.3, 3.5 and 3.9. Amped is the
+// system of record: every message is stored here; Telegram is a transport.
+
+// Who may message a creator. Tile labels per Memberships decision 8.
+enum DmRuleKind {
+  ANYONE
+  FOLLOWER // followers, paid members and pool fans
+  PAID_MEMBER // Memberships (#25); no one qualifies until it ships
+  POOL_MEMBER // "Pool fans only"
+  STAKE_MIN // "Fans with a minimum stake"
+}
+
+model CreatorMessagingSettings {
+  userId            Int        @id
+  enabled           Boolean    @default(false)
+  ruleKind          DmRuleKind @default(FOLLOWER)
+  // STAKE_MIN only: whole tREVO as a decimal string, compared like StakedPool.stakeAmount
+  stakeMin          String?    @db.VarChar(80)
+  dailyNewThreadCap Int        @default(50)
+  replyFromTelegram Boolean    @default(true)
+  // MESSAGING_INVITE_ONLY pilot: set by an admin invite
+  invitedAt         DateTime?
+  // Set by an admin or by the report threshold (spec 3.9); Fan messages stay off while set
+  pausedAt          DateTime?
+  pausedReason      String?    @db.VarChar(255)
+  updatedAt         DateTime   @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("creator_messaging_settings")
+}
+
+// A fan's ability to send. pausedUntil null with pausedAt set means paused until an admin resumes.
+model MessagingSenderStatus {
+  userId       Int       @id
+  pausedAt     DateTime?
+  pausedUntil  DateTime?
+  pausedReason String?   @db.VarChar(255)
+  updatedAt    DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("messaging_sender_status")
+}
+
+enum ThreadStatus {
+  OPEN
+  BLOCKED_BY_CREATOR
+  BLOCKED_BY_FAN
+  CLOSED
+}
+
+model MessageThread {
+  id            Bytes        @id @db.Binary(16)
+  creatorUserId Int
+  fanUserId     Int
+  status        ThreadStatus @default(OPEN)
+  lastMessageAt DateTime?
+  creatorReadAt DateTime?
+  fanReadAt     DateTime?
+  // Messages from the other side since each side last opened the thread (inbox badge)
+  creatorUnread Int          @default(0)
+  fanUnread     Int          @default(0)
+  // Creator mute: Telegram forwards pause, the Amped inbox still gets every message
+  mutedUntil    DateTime?
+  blockedAt     DateTime?
+  createdAt     DateTime     @default(now())
+
+  // TODO(#326): both sides cascade, so deleting either the creator or the fan
+  // deletes the whole thread, including the other participant's messages. The
+  // proposal is ON DELETE RESTRICT on both sides plus an anonymization flow on
+  // account deletion, so conversations survive the departed participant.
+  // Decide before this migration is applied anywhere.
+  creator  User            @relation("ThreadCreator", fields: [creatorUserId], references: [id], onDelete: Cascade)
+  fan      User            @relation("ThreadFan", fields: [fanUserId], references: [id], onDelete: Cascade)
+  messages Message[]
+  reports  MessageReport[]
+
+  @@unique([creatorUserId, fanUserId])
+  @@index([creatorUserId, lastMessageAt])
+  @@index([fanUserId, lastMessageAt])
+  @@index([creatorUserId, createdAt])
+  @@map("message_threads")
+}
+
+enum MessageSender {
+  FAN
+  CREATOR
+}
+
+enum MessageChannel {
+  TELEGRAM
+  WEB
+}
+
+model Message {
+  id                 Bytes          @id @db.Binary(16)
+  threadId           Bytes          @db.Binary(16)
+  sender             MessageSender
+  // Where it was written
+  channel            MessageChannel
+  // Plain text, at most TELEGRAM_LIMITS.messageBodyMax characters
+  body               String         @db.Text
+  // A repeat of a web send with the same key returns the first message
+  idempotencyKey     String?        @db.VarChar(64)
+  // Id in the sender's own Telegram chat with the bot
+  tgMessageId        BigInt?
+  // Id of the copy the bot sent to the other side's chat; a reply to it resolves the thread
+  tgForwardMessageId BigInt?
+  deliveredAt        DateTime?
+  // not_reachable | blocked | thread_closed
+  failedReason       String?        @db.VarChar(64)
+  createdAt          DateTime       @default(now())
+
+  thread MessageThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+
+  @@unique([threadId, idempotencyKey])
+  @@index([threadId, createdAt])
+  @@index([tgForwardMessageId])
+  @@map("messages")
+}
+
+enum MessageReportReason {
+  SPAM
+  HARASSMENT
+  FINANCIAL_PROMISE
+  OTHER
+}
+
+model MessageReport {
+  id             Bytes               @id @db.Binary(16)
+  threadId       Bytes               @db.Binary(16)
+  messageId      Bytes?              @db.Binary(16)
+  reporterUserId Int
+  reason         MessageReportReason
+  note           String?             @db.VarChar(500)
+  // Set when an admin closes the report
+  resolvedAt     DateTime?
+  createdAt      DateTime            @default(now())
+
+  thread   MessageThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  reporter User          @relation(fields: [reporterUserId], references: [id], onDelete: Cascade)
+
+  @@index([threadId])
+  @@index([createdAt])
+  @@map("message_reports")
 }

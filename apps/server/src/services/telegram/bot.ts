@@ -3,6 +3,13 @@ import { prisma } from "@repo/database";
 import { TELEGRAM_BOT_BUTTONS, TELEGRAM_BOT_STRINGS } from "@repo/constants";
 import { env } from "../../env";
 import { findByTelegramId, recordLinkEvent, setGlobalTelegramDelivery } from "./accounts";
+import {
+  handleCreators,
+  handleDmStart,
+  handleNonText,
+  handlePickCallback,
+  handlePrivateText,
+} from "./dm";
 
 /**
  * Messaging on Telegram (Build Board #2), spec 3.5, phase 0. The bot's commands
@@ -10,9 +17,10 @@ import { findByTelegramId, recordLinkEvent, setGlobalTelegramDelivery } from "./
  * packages/constants/src/telegram.ts (the counsel reviewed bot copy).
  *
  * Phase 0 handles /start, /stop, /help, /privacy and my_chat_member in private
- * chats. Start payloads (dm_, join_, ref_), fan messages and groups arrive in
- * later PRs; until then a payload is answered as a plain /start. The bot never
- * answers in a group.
+ * chats. Phase 1 (./dm.ts) adds /start dm_{handle}, /creators, fan and creator
+ * text messages and the creator picker. join_ and ref_ payloads arrive with
+ * groups; until then they are answered as a plain /start. The bot never answers
+ * in a group.
  */
 
 const MAX_CREATOR_BUTTONS = 5;
@@ -81,6 +89,10 @@ export async function handleStart(ctx: Context) {
     });
     await recordLinkEvent(account.userId, account.telegramUserId, "bot_started", "start_command");
   }
+
+  // Message me on Telegram: t.me/<bot>?start=dm_{handle}
+  const payload = typeof ctx.match === "string" ? ctx.match.trim() : "";
+  if (payload.startsWith("dm_") && (await handleDmStart(ctx, account, payload.slice(3)))) return;
 
   const [user, creators] = await Promise.all([
     prisma.user.findUnique({
@@ -163,6 +175,10 @@ export function installBotHandlers(bot: Bot) {
   priv.command("stop", handleStop);
   priv.command("help", handleHelp);
   priv.command("privacy", handlePrivacy);
+  priv.command("creators", handleCreators);
+  priv.on("message:text", handlePrivateText);
+  priv.on("message", handleNonText);
+  bot.callbackQuery(/^pick:\d+$/, handlePickCallback);
   // A handler error propagates out of bot.handleUpdate, so the sender loop
   // records it on the inbox row and retries the update
   bot.on("my_chat_member", handlePrivateChatMember);
