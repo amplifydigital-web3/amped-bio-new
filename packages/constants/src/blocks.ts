@@ -110,6 +110,12 @@ export type RnsIdBlockConfig = {
     since: boolean;
     /** The name Authbase checked. Verified pages only, server applied (112 D1) */
     nameOnId: boolean;
+    /** Authbase's 18+ fact. Verified pages only, server applied */
+    ageOver18: boolean;
+    /** Gender from the Authbase ID check. Verified pages only, server applied */
+    gender: boolean;
+    /** Country from the Authbase ID check. Verified pages only, server applied */
+    country: boolean;
   };
 };
 
@@ -121,8 +127,58 @@ export const DEFAULT_RNSID_CONFIG: RnsIdBlockConfig = {
   style: "nameplate",
   label: "Identity",
   tap: "sheet",
-  show: { displayName: true, avatar: true, since: true, nameOnId: false },
+  show: {
+    displayName: true,
+    avatar: true,
+    since: true,
+    nameOnId: false,
+    ageOver18: false,
+    gender: false,
+    country: false,
+  },
 };
+
+/**
+ * The attributes Authbase shares with Amped.Bio, in display order. Mirrors
+ * `ConsentAttribute` in authbase-backend: values arrive only when the owner
+ * consented to share them and is Verified. Publishing one also needs the
+ * owner's RNS ID block switch below.
+ */
+export const AUTHBASE_ATTRIBUTE_KEYS = ["name", "age_over_18", "gender", "country"] as const;
+
+export type AuthbaseAttributeKey = (typeof AUTHBASE_ATTRIBUTE_KEYS)[number];
+
+/** The RNS ID block switch that shows each attribute */
+export const RNSID_ATTRIBUTE_SWITCH: Record<
+  AuthbaseAttributeKey,
+  "nameOnId" | "ageOver18" | "gender" | "country"
+> = {
+  name: "nameOnId",
+  age_over_18: "ageOver18",
+  gender: "gender",
+  country: "country",
+};
+
+export const AUTHBASE_ATTRIBUTE_LABELS: Record<AuthbaseAttributeKey, string> = {
+  name: "Name on ID",
+  age_over_18: "Over 18",
+  gender: "Gender",
+  country: "Country",
+};
+
+/** A shared value as people read it: "true" to Yes, "F" to Female, "US" to United States. */
+export function formatAuthbaseAttribute(key: AuthbaseAttributeKey, value: string): string {
+  if (key === "age_over_18") return value === "true" ? "Yes" : value === "false" ? "No" : value;
+  if (key === "gender") return value === "M" ? "Male" : value === "F" ? "Female" : value;
+  if (key === "country" && /^[A-Za-z]{2}$/.test(value)) {
+    try {
+      return new Intl.DisplayNames(["en"], { type: "region" }).of(value.toUpperCase()) ?? value;
+    } catch {
+      return value;
+    }
+  }
+  return value;
+}
 
 /** Which tap behaviours a style offers (112 D3) */
 export function rnsIdTapsFor(style: RnsIdBlockStyle): readonly RnsIdBlockTap[] {
@@ -272,8 +328,19 @@ export const rnsIdConfigSchema = z.object({
       avatar: z.boolean().default(true),
       since: z.boolean().default(true),
       nameOnId: z.boolean().default(false),
+      ageOver18: z.boolean().default(false),
+      gender: z.boolean().default(false),
+      country: z.boolean().default(false),
     })
-    .default({ displayName: true, avatar: true, since: true, nameOnId: false }),
+    .default({
+      displayName: true,
+      avatar: true,
+      since: true,
+      nameOnId: false,
+      ageOver18: false,
+      gender: false,
+      country: false,
+    }),
   hidden: z.boolean().optional(),
 });
 

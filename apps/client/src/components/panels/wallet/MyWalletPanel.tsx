@@ -9,6 +9,8 @@ import { USDC_FLAGS } from "@/config/usdc/flags";
 const SendFlow = lazy(() => import("./send/SendFlow"));
 // Screen Review 137 (w3, w4, w6): the gasless USDC send at ?send=usdc
 const UsdcSendFlow = lazy(() => import("./send/UsdcSendFlow"));
+// Screen Review 138 (o1 to o7): Buy USDC through Coinbase at ?fund=usdc
+const BuyUsdcFlow = lazy(() => import("./buy/BuyUsdcFlow"));
 // Screen Review 059: Stakes replaces StakedPoolsSection on the Wallet
 const StakesCard = lazy(() => import("./stakes/StakesCard"));
 const ProfileTabs = lazy(() => import("./ProfileTabs"));
@@ -120,6 +122,11 @@ function WalletContent() {
       {USDC_FLAGS.wallet && (
         <Suspense>
           <UsdcSendFlow />
+        </Suspense>
+      )}
+      {USDC_FLAGS.onramp && (
+        <Suspense>
+          <BuyUsdcFlow />
         </Suspense>
       )}
     </div>

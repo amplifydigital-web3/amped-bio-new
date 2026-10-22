@@ -230,10 +230,22 @@ async function handles(userIds: number[]) {
 }
 
 export async function recentSends(params: { status?: string; limit: number; before?: Date }) {
+  const now = Date.now();
+  // `expired` is derived below, not stored, so the filter has to translate it:
+  // without this "Awaiting signature" would list rows the table then shows as
+  // expired, and there would be no way to list the expired ones at all.
+  const statusWhere =
+    params.status === "expired"
+      ? { status: "screened", validBefore: { lte: new Date(now) } }
+      : params.status === "screened"
+        ? { status: "screened", validBefore: { gt: new Date(now) } }
+        : params.status
+          ? { status: params.status }
+          : {};
   const rows = await prisma.usdcSend.findMany({
     where: {
       chainId: paymentChain.id,
-      ...(params.status ? { status: params.status } : {}),
+      ...statusWhere,
       ...(params.before ? { createdAt: { lt: params.before } } : {}),
     },
     orderBy: { createdAt: "desc" },
@@ -248,7 +260,9 @@ export async function recentSends(params: { status?: string; limit: number; befo
     toHandle: row.toUserId ? (names.get(row.toUserId) ?? null) : null,
     toAddress: row.toAddress,
     amount: row.amount.toString(),
-    status: row.status,
+    // A screened row past its authorization window can never be submitted.
+    // Show it as expired so it does not read as a send still in flight.
+    status: row.status === "screened" && row.validBefore.getTime() <= now ? "expired" : row.status,
     failureCode: row.failureCode,
     txHash: row.txHash,
     gasCostWei: row.gasCostWei?.toString() ?? null,

@@ -15,16 +15,22 @@ import { FollowBlock } from "./blocks/FollowBlock";
 import { FollowersBlock } from "./blocks/FollowersBlock";
 import { RnsIdBlock } from "./blocks/RnsIdBlock";
 import { isHTML } from "@/utils/htmlutils";
-import { type BlockType, sanitizeRichHtml } from "@repo/constants";
+import { type BlockType, DEFAULT_RNSID_CONFIG, sanitizeRichHtml } from "@repo/constants";
 import { Theme, UserProfile } from "@/types/editor";
 import { trpcClient } from "@repo/ui";
-import { RnsIdentityChip, RnsVerifiedMark, THEME_DEFAULTS, themeCssVars } from "@repo/ui";
+import {
+  RnsIdentityChip,
+  RnsVerifiedMark,
+  THEME_DEFAULTS,
+  headerRnsIdentity,
+  themeCssVars,
+} from "@repo/ui";
 import { type ReactNode } from "react";
 import { useReferralHandler } from "@/hooks/useReferralHandler";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { AlertCircle } from "lucide-react";
 import { blockNeed, isHidden, mediaName } from "./panels/page/blocks/blockInfo";
-import { useMyPageIdentity } from "./panels/page/rns/useMyPageIdentity";
+import { useMyPageIdentity, withLiveAttributes } from "./panels/page/rns/useMyPageIdentity";
 
 // Helper function to extract the root domain from a URL
 const extractRootDomain = (url: string): string => {
@@ -103,7 +109,15 @@ export function Preview({
   // 108 I11, 109 I14: the chip exactly as the public page renders it, from
   // the same server rule (rns.getMyPageIdentity), with the sheet read only
   const pageIdentity = useMyPageIdentity(isEditing);
-  const identity = pageIdentity.data?.identity ?? null;
+  const rnsIdBlock = blocks.find(block => block.type === "rnsid" && !isHidden(block));
+  const identity = withLiveAttributes(
+    pageIdentity.data,
+    rnsIdBlock?.type === "rnsid"
+      ? { ...DEFAULT_RNSID_CONFIG.show, ...rnsIdBlock.config.show }
+      : null
+  );
+  // 112 D9: the header keeps to a linked name, as on the public page
+  const headerIdentity = headerRnsIdentity(identity);
 
   const handleLinkClick = (block: BlockType) => {
     // The editor preview is the creator looking at their own page. Those clicks
@@ -323,14 +337,14 @@ export function Preview({
                       }}
                     >
                       {profile.name}
-                      {identity?.chip === "verified" && (
+                      {headerIdentity?.chip === "verified" && (
                         <RnsVerifiedMark className="ml-2 align-[-3px]" />
                       )}
                     </h1>
-                    {identity && (
+                    {headerIdentity && (
                       <div className="mt-2 flex justify-center">
                         <RnsIdentityChip
-                          identity={identity}
+                          identity={headerIdentity}
                           displayName={profile.name}
                           avatarUrl={profile.photoUrl || null}
                           fontFamily={themeConfig?.fontFamily}

@@ -92,3 +92,66 @@ cap in CDP where the Portal offers one, so a server fault cannot exceed it.
 
 Set the site setting `usdc_sends_paused` to `true` to stop every send within
 one request. The admin switch arrives with Admin, Money (USDC-3).
+
+## Buy USDC through Coinbase (Onramp)
+
+Build Board #5, spec `docs/features/usdc-wallet-onramp.md` 3.5 and 3.12. The
+Onramp calls are signed with the same CDP API key as the relayer; no Wallet
+Secret is involved.
+
+1. Apply for Onramp access in the CDP Portal (Payments, Onramp and Offramp).
+   Production access follows Coinbase's approval.
+2. Add `app.staging.amped.bio` and `app.amped.bio` to the Onramp domain
+   allowlist. The hosted redirect returns to
+   `https://{app}/wallet?fund=usdc&session={id}`.
+3. Create the webhook subscription for `onramp.transaction.created`,
+   `onramp.transaction.updated`, `onramp.transaction.success` and
+   `onramp.transaction.failed` with target
+   `https://api.staging.amped.bio/webhooks/coinbase-onramp` (and the production
+   API host). Store `metadata.secret` from the response in
+   `CDP_ONRAMP_WEBHOOK_SECRET`. The route verifies `X-Hook0-Signature` (v0,
+   HMAC-SHA256 over `{t}.{raw body}`, five minute window) and answers 401 to
+   anything else.
+4. Set `ONRAMP_ENABLED=true` on the server, then `VITE_USDC_ONRAMP=true` on the
+   client. Staging runs Coinbase's sandbox (`ONRAMP_SANDBOX` defaults to true
+   outside production): `partnerUserRef` gets the `sandbox-` prefix, nothing is
+   charged and nothing is delivered on chain, so the Arrived state on staging
+   follows the webhook alone.
+5. Production: the Privacy Policy names Coinbase, Circle and Chainalysis as
+   recipients (USDC-6, policy dated October 17, 2026). Counsel confirms the
+   wording before `VITE_USDC_ONRAMP` turns on.
+6. Pause: Admin, Money, Buy USDC through Coinbase, Pause Buy USDC (site setting
+   `usdc_onramp_paused`). No new Coinbase price, link or order is made; open
+   purchases keep reporting and the webhook keeps recording.
+7. Privacy requests: `pnpm run --filter server usdc:records <email or handle>`
+   prints the fan's USDC records as JSON. Add `--forget-token` when an account
+   closes to delete the stored Coinbase token.
+
+### Apple Pay and Google Pay (Headless Onramp, USDC-5)
+
+US fans without a Coinbase account pay with Apple Pay or Google Pay inside
+Coinbase's payment frame in the Buy USDC panel. Orders run in embedded mode:
+Coinbase collects and verifies phone and email in its frame, and returns a
+`userAuthToken` that the server stores encrypted for 60 days so a returning
+fan skips that step. Amped.Bio sends no phone or email.
+
+1. Ask the Coinbase account representative to enable the Headless Onramp and
+   embedded order mode on the CDP project.
+2. The domain allowlist from step 2 above covers the frame. The server sends
+   `domain` on every order: `ONRAMP_DOMAIN`, or the `APP_URL` host when empty.
+   It must match the host the panel runs on.
+3. Apple Pay domain verification: download Coinbase's
+   `apple-developer-merchantid-domain-association` file from the CDP Portal and
+   commit it at `apps/client/public/.well-known/` so lighttpd serves
+   `https://{app}/.well-known/apple-developer-merchantid-domain-association`.
+   The domain must not be tied to another Apple Merchant ID.
+4. Optional: set `ONRAMP_DATA_KEY` to a long random value. Empty falls back to
+   `BETTER_AUTH_SECRET`. Rotating it makes stored tokens unreadable; fans then
+   verify with Coinbase once more.
+5. Staging sandbox: the payment link gets `useApplePaySandbox=true` or
+   `useGooglePaySandbox=true`. Verify with a phone number starting `+1000`, an
+   email ending `@sandbox.test` and the code `000000`. Sandbox orders succeed,
+   charge nothing and deliver nothing on chain.
+6. The orders webhook events arrive on the subscription from step 3. Orders are
+   matched by `orderId`, or by `partnerOrderRef`, which is the Amped.Bio session
+   id.

@@ -3,7 +3,7 @@ import type { RnsIdBlock as RnsIdBlockType } from "@repo/constants";
 import { DEFAULT_RNSID_CONFIG } from "@repo/constants";
 import { RnsIdCard, RnsIdentityDialog } from "@repo/ui";
 import type { ThemeConfig } from "../../types/editor";
-import { useMyPageIdentity } from "../panels/page/rns/useMyPageIdentity";
+import { useMyPageIdentity, withLiveAttributes } from "../panels/page/rns/useMyPageIdentity";
 
 /**
  * The live preview's RNS ID block (Build Board #33, Screen Review 112). The
@@ -31,7 +31,7 @@ export function RnsIdBlock({
   const page = useMyPageIdentity();
   const [open, setOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
-  const identity = page.data?.identity ?? null;
+  const identity = withLiveAttributes(page.data, config.show);
   if (!identity) return null;
 
   const onTap =

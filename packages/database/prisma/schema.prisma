@@ -83,6 +83,11 @@ model User {
   // indexer watches this address from then on, and its first screening runs.
   usdc_wallet_seen_at DateTime?
   usdcSends           UsdcSend[]
+  // Buy USDC through Coinbase (#5): the opaque partnerUserRef sent to Coinbase
+  // (ob_ plus 16 random characters). Never the user id or email.
+  onramp_ref          String?         @unique @db.VarChar(32)
+  onrampSessions      OnrampSession[]
+  onrampAuth          OnrampUserAuth?
 
   // Content system (Build Board #20), PR 2
   contentItems ContentItem[]
@@ -1193,6 +1198,89 @@ model RelayerFundingEvent {
   @@unique([chainId, txHash])
   @@index([chainId, createdAt])
   @@map("relayer_funding_events")
+}
+
+// One Buy USDC attempt through Coinbase (Build Board #5, spec 3.2 and 3.5).
+// Coinbase is the seller: it quotes, charges, verifies and delivers. Amped.Bio
+// stores what the fan saw and what Coinbase reported. The chain decides
+// arrival: a webhook or status poll never credits a balance (the indexer
+// writes the PaymentEvent when the Transfer lands).
+// mode: coinbase_account | apple_pay | google_pay
+// status: created | pending_verification | pending_payment | processing |
+// success | failed | canceled | expired
+model OnrampSession {
+  id             Bytes     @id @db.Binary(16)
+  userId         Int
+  provider       String    @db.VarChar(16)
+  mode           String    @db.VarChar(24)
+  // Coinbase's id once known: the transactionId (account path) or orderId (Apple Pay, Google Pay)
+  sessionRef     String?   @db.VarChar(128)
+  partnerUserRef String    @db.VarChar(64)
+  status         String    @db.VarChar(24)
+  // Cents the fan pays Coinbase, fee inclusive
+  fiatAmount     Int?
+  fiatCurrency   String    @default("USD") @db.VarChar(3)
+  // USDC base units: quoted, then actual from Coinbase
+  usdcAmount     BigInt?
+  // Coinbase's quote as returned, never a figure Amped.Bio computed
+  quote          Json?
+  destination    String    @db.VarChar(42)
+  chainId        Int
+  txHash         String?   @db.VarChar(66)
+  failureCode    String?   @db.VarChar(64)
+  // In app path when the fan came from an Add USDC link
+  returnTo       String?   @db.VarChar(255)
+  // Sandbox orders deliver nothing on chain; arrival follows the webhook (staging only)
+  sandbox        Boolean   @default(false)
+  // Last Transaction Status API read, so polls stay under Coinbase's rate limit
+  checkedAt      DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, sessionRef])
+  @@index([userId, createdAt])
+  @@index([status, updatedAt])
+  @@index([txHash])
+  @@map("onramp_sessions")
+}
+
+// Every Coinbase Onramp webhook delivery, verified, stored once per event id.
+// The handler maps it onto an OnrampSession; the admin reads the log.
+model OnrampEvent {
+  id          Bytes     @id @db.Binary(16)
+  provider    String    @db.VarChar(16)
+  eventId     String    @db.VarChar(128)
+  eventType   String    @db.VarChar(64)
+  sessionId   Bytes?    @db.Binary(16)
+  payload     Json
+  processedAt DateTime?
+  error       String?   @db.VarChar(255)
+  receivedAt  DateTime  @default(now())
+
+  @@unique([provider, eventId])
+  // Reads filter by provider, then order or bound by receivedAt (admin log, last event, weekly failures)
+  @@index([provider, receivedAt])
+  // The fan's own purchases read the events of their sessions
+  @@index([sessionId])
+  @@map("onramp_events")
+}
+
+// Coinbase's userAuthToken for the Headless Onramp embedded mode (Build Board #5,
+// spec decision 5): a returning fan skips phone and email verification. One per
+// fan, encrypted at rest (AES-256-GCM), valid 60 days. The table ships with
+// USDC-4; Apple Pay and Google Pay (USDC-5) write and read it.
+model OnrampUserAuth {
+  id        Bytes    @id @db.Binary(16)
+  userId    Int      @unique
+  provider  String   @db.VarChar(16)
+  tokenEnc  String   @db.Text
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("onramp_user_auth")
 }
 
 // ================ Content system (Build Board #20), PR 2 foundation ================

@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { trpcClient, type RouterOutputs } from "@repo/ui";
+import { RNSID_ATTRIBUTE_SWITCH, type RnsIdBlockConfig } from "@repo/constants";
 
 export type MyPageIdentity = RouterOutputs["rns"]["getMyPageIdentity"];
 export type MyRnsNames = RouterOutputs["rns"]["listMyNames"];
@@ -22,6 +23,29 @@ export function useMyPageIdentity(enabled = true) {
     enabled: showRns && enabled,
     staleTime: 30_000,
   });
+}
+
+/**
+ * The page identity with the shared attributes picked by the live RNS ID block
+ * switches. The server picks them by the saved switches, so without this a
+ * toggle shows only after autosave and a refetch. `show` is null when the page
+ * has no visible RNS ID block, which shows no attributes (as on the server).
+ */
+export function withLiveAttributes(
+  data: MyPageIdentity | undefined,
+  show: RnsIdBlockConfig["show"] | null
+) {
+  if (!data?.identity) return null;
+  const shared = data.verification.state === "verified" ? data.verification.attributes : undefined;
+  const attributes = Object.fromEntries(
+    data.sharedAttributes.flatMap(key =>
+      show?.[RNSID_ATTRIBUTE_SWITCH[key]] && shared?.[key] ? [[key, shared[key]]] : []
+    )
+  );
+  // 112 D8 and D9: shared details alone carry the block; with every switch off
+  // there is nothing to show, as on the server
+  if (data.identity.chip === "none" && Object.keys(attributes).length === 0) return null;
+  return { ...data.identity, attributes };
 }
 
 /** 108 I03: the account wallet's names, checked on the server */

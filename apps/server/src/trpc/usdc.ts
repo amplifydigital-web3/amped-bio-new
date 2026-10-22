@@ -1,10 +1,12 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { prisma } from "@repo/database";
+import { USDC_CLIENT_FAILURES } from "@repo/constants";
 import { privateProcedure, router } from "./trpc";
 import { enforceRateLimits } from "../utils/rateLimit";
 import {
   SendInputError,
+  abandonUsdcSend,
   markUsdcWalletSeen,
   prepareUsdcSend,
   submitUsdcSend,
@@ -34,6 +36,11 @@ const usdcSendRouter = router({
       z.object({
         to: z.string().trim().min(1).max(64),
         amount: z.string().trim().min(1).max(32),
+        // The live wallet address in the browser; refused when it is not the account's wallet
+        signer: z
+          .string()
+          .regex(/^0x[0-9a-fA-F]{40}$/)
+          .optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -57,6 +64,18 @@ const usdcSendRouter = router({
         sendId: input.sendId,
         signature: input.signature as `0x${string}`,
       }).catch(asInputError);
+    }),
+
+  /** The browser ended a prepared send before submit; records why (wallet mismatch, cancel, sign error). */
+  abandon: privateProcedure
+    .input(z.object({ sendId, code: z.enum(USDC_CLIENT_FAILURES) }))
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.user!.sub;
+      await enforceRateLimits(
+        [{ key: `usdc:abandon:${userId}`, limit: 60, windowSeconds: 3600 }],
+        "Too many send attempts. Try again in a few minutes."
+      );
+      return abandonUsdcSend(userId, input).catch(asInputError);
     }),
 
   status: privateProcedure.input(z.object({ sendId })).query(async ({ ctx, input }) => {
@@ -93,6 +112,8 @@ export const usdcRouter = router({
         amount: row.amount.toString(),
         occurredAt: row.occurredAt.toISOString(),
         chainId: row.chainId,
+        // Buy USDC (#5): Activity names Coinbase on a delivery from a purchase
+        source: row.refType === "onramp" ? ("coinbase" as const) : null,
       }));
     }),
 });

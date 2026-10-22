@@ -11,7 +11,7 @@ import {
   Send,
   Wallet,
 } from "lucide-react";
-import { USDC_COPY, type UsdcSendRefusal } from "@repo/constants";
+import { USDC_COPY, type UsdcClientFailure, type UsdcSendRefusal } from "@repo/constants";
 import { USDC_DECIMALS, USDC_SYMBOL, formatUsdc, getCurrencySymbol, parseUsdc } from "@repo/web3";
 import {
   AmountPresets,
@@ -30,13 +30,20 @@ import { useWalletContext } from "@/contexts/WalletContext";
 import { appChainId } from "@/utils/appChain";
 import { paymentChain } from "@/utils/paymentChain";
 import { Slab, SlabRow } from "../../explore/pool-panel/sections";
-import { classifyTxError } from "../../explore/pool-panel/format";
 import { useUsdcBalance } from "../hooks/useUsdcBalance";
 import { AssetChips } from "./AssetChips";
 import { ReconnectCard } from "./ReconnectCard";
 import { RecipientAvatar, RecipientPicker } from "./RecipientPicker";
 import { recipientLine, recipientTitle, shortAddress, type Recipient } from "./model";
-import { useUsdcSigner, type UsdcTypedData } from "./useUsdcSigner";
+import { classifyUsdcSignError, useUsdcSigner, type UsdcTypedData } from "./useUsdcSigner";
+import { SignOutAndBackButton } from "./SignOutAndBackButton";
+
+// These causes cannot be fixed by signing again in this session
+const NO_RETRY_FAILURES: ReadonlySet<UsdcClientFailure> = new Set([
+  "wallet_mismatch",
+  "signer_changed",
+  "wallet_disconnected",
+]);
 
 type Step = "select" | "review" | "confirm" | "result" | "refused" | "failed";
 
@@ -89,9 +96,11 @@ export default function UsdcSendFlow() {
   const [canRetry, setCanRetry] = useState(true);
   const [txHash, setTxHash] = useState<string | null>(null);
   const [signed, setSigned] = useState(false);
+  const [clientFailure, setClientFailure] = useState<UsdcClientFailure | null>(null);
 
   const prepare = useMutation(trpc.usdc.send.prepare.mutationOptions());
   const submit = useMutation(trpc.usdc.send.submit.mutationOptions());
+  const abandon = useMutation(trpc.usdc.send.abandon.mutationOptions());
   const status = useQuery({
     ...trpc.usdc.send.status.queryOptions({ sendId: prepared?.sendId ?? "" }),
     enabled: step === "result" && !!prepared && !!txHash,
@@ -132,6 +141,7 @@ export default function UsdcSendFlow() {
     setCanRetry(true);
     setTxHash(null);
     setSigned(false);
+    setClientFailure(null);
     prepare.reset();
     submit.reset();
   };
@@ -168,7 +178,12 @@ export default function UsdcSendFlow() {
   const review = async () => {
     if (!recipient || units === null) return;
     try {
-      const result = await prepare.mutateAsync({ to: recipient.address, amount: amount.trim() });
+      const result = await prepare.mutateAsync({
+        to: recipient.address,
+        amount: amount.trim(),
+        // The server refuses when the live wallet is not this account's wallet
+        signer: wallet.liveAddress,
+      });
       if (result.refused) {
         setRefusal(result.reason);
         setStep("refused");
@@ -188,16 +203,22 @@ export default function UsdcSendFlow() {
     if (!prepared) return;
     setStep("confirm");
     setSigned(false);
+    setClientFailure(null);
     let signature: `0x${string}`;
     try {
       signature = await sign(prepared.typedData);
     } catch (error) {
-      setCause(
-        classifyTxError(error) === "rejected"
-          ? "You cancelled in your wallet. Nothing moved."
-          : "Your wallet did not sign the send. Nothing moved."
-      );
-      setCanRetry(true);
+      const code = classifyUsdcSignError(error);
+      console.warn(`[usdc-send] send stopped before submit: ${code}`, error);
+      // Must have 3: the row leaves `screened` and Admin, Money shows the cause.
+      // Reporting is best effort; the fan sees the result either way.
+      abandon.mutate({ sendId: prepared.sendId, code });
+      setClientFailure(code);
+      setCause(USDC_COPY.clientFailure[code]);
+      const retry = !NO_RETRY_FAILURES.has(code);
+      setCanRetry(retry);
+      // The old authorization is closed; Retry goes back to Amount for a new Review
+      if (retry) setPrepared(null);
       setStep("failed");
       return;
     }
@@ -521,6 +542,10 @@ export default function UsdcSendFlow() {
             I checked the address. Sends on {paymentChain.name} cannot be reversed. (Required)
           </Checkbox>
         ) : null}
+        {step === "failed" &&
+          (clientFailure === "wallet_mismatch" || clientFailure === "signer_changed") && (
+            <SignOutAndBackButton />
+          )}
         {step === "failed" && (
           <Button
             type="button"

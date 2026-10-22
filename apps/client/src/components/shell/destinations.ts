@@ -3,6 +3,7 @@ import {
   Coins,
   Home,
   LayoutPanelTop,
+  Library,
   Palette,
   Search,
   UsersRound,
@@ -11,11 +12,12 @@ import {
 } from "lucide-react";
 import type { EditorPanelType } from "@/types/editor";
 
-// The seven editor destinations in D01 order (Screen Review 001 I01, I11).
+// The editor destinations in D01 order (Screen Review 001 I01, I11).
 export type DestinationId =
   | "home"
   | "explore"
   | "page"
+  | "content"
   | "design"
   | "analytics"
   | "people"
@@ -37,6 +39,8 @@ export const DESTINATIONS: Destination[] = [
   { id: "home", label: "Home", icon: Home, group: "start" },
   { id: "explore", label: "Explore", icon: Search, group: "start" },
   { id: "page", label: "Page", icon: LayoutPanelTop, group: "page" },
+  // Content system (#20, decision 7): uploads, the library and later Store and Live
+  { id: "content", label: "Content", icon: Library, group: "page", flag: "VITE_CONTENT" },
   { id: "design", label: "Design", icon: Palette, group: "page" },
   { id: "analytics", label: "Analytics", icon: BarChart3, group: "page" },
   // Fan Graph (#22, decision 5): followers live in People
@@ -74,6 +78,7 @@ export function destinationForPanel(panel: EditorPanelType): DestinationId | nul
     case "home":
     case "explore":
     case "page":
+    case "content":
     case "design":
     case "analytics":
     case "people":
@@ -90,6 +95,7 @@ export const PANEL_TITLES: Record<EditorPanelType, string> = {
   home: "Home",
   explore: "Explore",
   page: "Page",
+  content: "Content",
   design: "Design",
   analytics: "Analytics",
   people: "People",

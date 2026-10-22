@@ -58,6 +58,20 @@ const envSchema = z.object({
   // a subnet ("10.0.0.0/8") or a comma-separated list. Empty disables trust.
   TRUST_PROXY: z.string().default(""),
 
+  // Analytics visitor location (MaxMind GeoLite2 City, IPv4 and IPv6).
+  // Either point GEOIP_DB_PATH at an .mmdb kept current by geoipupdate, or set
+  // a free GeoLite account ID and license key and the server downloads and
+  // refreshes the database itself. With neither, only IPv4 is located, from
+  // data bundled with the fast-geoip package.
+  GEOIP_DB_PATH: z.string().default(""),
+  MAXMIND_ACCOUNT_ID: z.string().default(""),
+  MAXMIND_LICENSE_KEY: z.string().default(""),
+  // Where the downloaded database is cached (defaults to the OS temp dir)
+  GEOIP_CACHE_DIR: z.string().default(""),
+  // MaxMind publishes GeoLite2 twice a week; daily checks stay well inside
+  // the 30 downloads a day GeoLite accounts allow
+  GEOIP_REFRESH_HOURS: z.coerce.number().int().min(1).default(24),
+
   // New SMTP variables with MailDev defaults
   // SMTP server host
   SMTP_HOST: z.string().default("localhost"), // Default for MailDev
@@ -71,6 +85,15 @@ const envSchema = z.object({
   SMTP_PASSWORD: z.string().default(""), // MailDev doesn't require authentication
   // Email address to use as sender
   SMTP_FROM_EMAIL: z.string().default("noreply@amped.bio"),
+  // ---------- Email delivery (SMTP2GO) ----------
+  // auto: the SMTP2GO API when SMTP2GO_API_KEY is set, SMTP otherwise
+  EMAIL_TRANSPORT: z.enum(["auto", "smtp", "smtp2go-api"]).default("auto"),
+  // SMTP2GO API key (Sending > API Keys), needs the Email send permission
+  SMTP2GO_API_KEY: z.string().default(""),
+  // SMTP2GO API base. Regional: https://us-api.smtp2go.com/v3, eu-api, au-api
+  SMTP2GO_API_URL: z.string().url().default("https://api.smtp2go.com/v3"),
+  // Display name on the From line
+  SMTP_FROM_NAME: z.string().default("Amped.Bio"),
 
   // Faucet configuration
   // Private key for the faucet wallet to send tokens from
@@ -233,6 +256,19 @@ const envSchema = z.object({
   USDC_SCREEN_DENYLIST: z.string().default(""),
   // When no screening vendor is configured: refuse every send (production) or allow and record unscreened (staging)
   USDC_SCREENING_REQUIRED: boolSchema(true),
+  // Buy USDC through Coinbase (Build Board #5), spec 3.5 and 3.12. Server switch for the
+  // onramp.* procedures and the webhook. The CDP API key above signs Onramp calls too.
+  ONRAMP_ENABLED: boolSchema(false),
+  // Secret from the CDP webhook subscription for onramp.transaction.* events
+  CDP_ONRAMP_WEBHOOK_SECRET: z.string().default(""),
+  // Coinbase sandbox: partnerUserRef gets the sandbox- prefix, orders never charge and deliver
+  // nothing on chain, so arrival follows the webhook. On by default outside production.
+  ONRAMP_SANDBOX: boolSchema(false),
+  // Apple Pay and Google Pay (Headless Onramp, USDC-5): the domain the Coinbase payment frame is
+  // embedded on. Must be on the CDP Onramp domain allowlist. Empty means the APP_URL host.
+  ONRAMP_DOMAIN: z.string().default(""),
+  // Key for the stored Coinbase userAuthToken (AES-256-GCM). Falls back to BETTER_AUTH_SECRET.
+  ONRAMP_DATA_KEY: z.string().default(""),
   // Content system (Build Board #20), PR 2. Spec 3.17. Secrets never live in committed .env files.
   // Master switch for uploads. Off everywhere until the Cloudflare setup checklist is done.
   // Turning it off during an incident stops new uploads; items already stored keep working.
@@ -257,8 +293,14 @@ const envSchema = z.object({
   MEDIA_GATEWAY_ORIGIN: z.string().default(""),
   // kid:base64urlSecret,kid:base64urlSecret. The first signs; all verify (rotation, spec 3.6)
   MEDIA_TOKEN_KEYS: z.string().default(""),
-  // Shared with the processor Worker (PR 4): signs POST /internal/content/processed
+  // Shared with the processor Worker (PR 4): signs POST /internal/content/processed and /job
   CONTENT_PROCESSOR_SECRET: z.string().default(""),
+  // Queues HTTP publish (PR 4): API token with Queues Edit, and the content-ingest queue id
+  CF_QUEUES_API_TOKEN: z.string().default(""),
+  CF_CONTENT_QUEUE_ID: z.string().default(""),
+  // Stream customer code for thumbnail URLs (customer-{code}.cloudflarestream.com). Optional:
+  // read from the video when empty
+  CF_STREAM_CUSTOMER_CODE: z.string().default(""),
   // Per kind upload limits in MB (spec 3.2)
   UPLOAD_LIMIT_CONTENT_VIDEO_MB: numSchema(2048),
   UPLOAD_LIMIT_CONTENT_AUDIO_MB: numSchema(500),
@@ -296,4 +338,9 @@ if (process.env.BROADCAST_INVITE_ONLY === undefined && env.APP_ENV !== "producti
 // Chainalysis oracle, so staging records sends as unscreened unless the variable is set.
 if (process.env.USDC_SCREENING_REQUIRED === undefined && env.APP_ENV !== "production") {
   env.USDC_SCREENING_REQUIRED = false;
+}
+
+// Buy USDC uses Coinbase's sandbox everywhere but production unless the variable is set.
+if (process.env.ONRAMP_SANDBOX === undefined && env.APP_ENV !== "production") {
+  env.ONRAMP_SANDBOX = true;
 }

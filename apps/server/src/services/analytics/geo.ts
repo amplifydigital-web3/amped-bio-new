@@ -1,6 +1,7 @@
 import { isIP } from "node:net";
 import type { Request } from "express";
 import { isCloudflareIp, isPublicIp } from "./visitorIp";
+import { getGeoIpReader } from "./geoipDatabase";
 
 export type GeoLocation = {
   country: string | null;
@@ -8,6 +9,9 @@ export type GeoLocation = {
 };
 
 export type GeoSource = "cloudflare" | "geoip" | "none";
+
+// Which database answered a geoip lookup
+export type GeoIpEngine = "maxmind" | "bundled";
 
 export type ResolvedGeo = GeoLocation & { source: GeoSource };
 
@@ -36,7 +40,12 @@ function normalizeCity(value?: string | null): string | null {
   return city.trim().slice(0, 100) || null;
 }
 
-type GeoIpRecord = { range?: [number, number]; country?: string; city?: string };
+type GeoIpRecord = {
+  range?: [number, number];
+  country?: string;
+  region?: string;
+  city?: string;
+};
 type FastGeoIp = { lookup: (ip: string) => Promise<GeoIpRecord | null> };
 
 let geoIpModule: Promise<FastGeoIp | null> | null = null;
@@ -47,7 +56,7 @@ function loadGeoIp(): Promise<FastGeoIp | null> {
       .then(mod => (mod as { default?: FastGeoIp }).default ?? (mod as unknown as FastGeoIp))
       .catch(error => {
         console.warn(
-          "[ANALYTICS] fast-geoip unavailable, location will rely on Cloudflare headers",
+          "[ANALYTICS] fast-geoip unavailable, location will rely on GeoLite2 City or Cloudflare headers",
           error
         );
         return null;
@@ -61,13 +70,26 @@ function ipv4ToNumber(ip: string): number {
 }
 
 /**
- * Looks an address up in the bundled GeoLite2 data. fast-geoip only handles
- * IPv4 and answers every query with the nearest range, so private and
- * unallocated addresses come back as a real country. Those are filtered here:
- * only public IPv4 addresses that fall inside the returned range are used.
+ * Looks an address up in MaxMind GeoLite2 City (IPv4 and IPv6, kept current by
+ * geoipDatabase.ts). Proxy, private and Cloudflare addresses are never looked up.
  */
-async function lookupGeoIp(ip: string): Promise<GeoLocation | null> {
-  if (isIP(ip) !== 4 || !isPublicIp(ip) || isCloudflareIp(ip)) return null;
+async function lookupMaxMind(ip: string): Promise<GeoLocation | null> {
+  const reader = await getGeoIpReader();
+  if (!reader) return null;
+  const record = reader.get(ip);
+  if (!record) return null;
+  const country = normalizeCountry(record.country?.iso_code ?? record.registered_country?.iso_code);
+  if (!country) return null;
+  return { country, city: normalizeCity(record.city?.names?.en) };
+}
+
+/**
+ * Fallback when no GeoLite2 City database is configured: the GeoLite2 data
+ * bundled with fast-geoip. It only handles IPv4 and answers every query with
+ * the nearest range, so only addresses inside the returned range are used.
+ */
+async function lookupBundled(ip: string): Promise<GeoLocation | null> {
+  if (isIP(ip) !== 4) return null;
   const geoip = await loadGeoIp();
   if (!geoip) return null;
   const record = await geoip.lookup(ip);
@@ -81,6 +103,18 @@ async function lookupGeoIp(ip: string): Promise<GeoLocation | null> {
   return { country, city: normalizeCity(record.city) };
 }
 
+export async function lookupGeoIp(
+  ip: string
+): Promise<(GeoLocation & { engine: GeoIpEngine }) | null> {
+  if (!isIP(ip) || !isPublicIp(ip) || isCloudflareIp(ip)) return null;
+  if (await getGeoIpReader()) {
+    const location = await lookupMaxMind(ip);
+    return location ? { ...location, engine: "maxmind" } : null;
+  }
+  const location = await lookupBundled(ip);
+  return location ? { ...location, engine: "bundled" } : null;
+}
+
 let warnedNoPublicIp = false;
 
 /**
@@ -91,10 +125,11 @@ let warnedNoPublicIp = false;
  *    request actually passed through a Cloudflare edge (otherwise a client
  *    could set them). CF-IPCity needs the "Add visitor location headers"
  *    managed transform; without it the city comes from GeoLite2 below.
- * 2. The bundled GeoLite2 data (fast-geoip) for the visitor's public IPv4.
+ * 2. MaxMind GeoLite2 City for the visitor's public IPv4 or IPv6 address,
+ *    or the bundled IPv4 data when no GeoLite2 City database is configured.
  *
- * Private, proxy and IPv6 addresses never produce a location: the visit is
- * stored with no location (shown as Unknown) instead of a wrong one.
+ * Private and proxy addresses never produce a location: the visit is stored
+ * with no location (shown as Unknown) instead of a wrong one.
  */
 export async function resolveLocation(
   req: Request,
@@ -111,7 +146,8 @@ export async function resolveLocation(
 
   let geoip: GeoLocation | null = null;
   try {
-    geoip = ip ? await lookupGeoIp(ip) : null;
+    const found = ip ? await lookupGeoIp(ip) : null;
+    geoip = found ? { country: found.country, city: found.city } : null;
   } catch {
     geoip = null;
   }
@@ -127,4 +163,29 @@ export async function resolveLocation(
 
   if (geoip) return { ...geoip, source: "geoip" };
   return { country: null, city: null, source: "none" };
+}
+
+/**
+ * Country and first level subdivision (a US state code) for one public IPv4
+ * address, from the bundled GeoLite2 data. Buy USDC (Build Board #5) uses it
+ * to ask Coinbase which payment methods serve the fan's region. Nothing is
+ * stored. Null for private, proxy, IPv6 and unknown addresses.
+ */
+export async function lookupRegion(
+  ip: string
+): Promise<{ country: string; subdivision: string | null } | null> {
+  if (isIP(ip) !== 4 || !isPublicIp(ip) || isCloudflareIp(ip)) return null;
+  const geoip = await loadGeoIp();
+  if (!geoip) return null;
+  const record = await geoip.lookup(ip).catch(() => null);
+  if (!record) return null;
+  if (record.range) {
+    const value = ipv4ToNumber(ip);
+    if (value < record.range[0] || value >= record.range[1]) return null;
+  }
+  const country = normalizeCountry(record.country);
+  if (!country) return null;
+  const subdivision =
+    record.region && /^[A-Z0-9]{1,3}$/i.test(record.region) ? record.region.toUpperCase() : null;
+  return { country, subdivision };
 }
