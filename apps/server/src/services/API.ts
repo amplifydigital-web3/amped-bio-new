@@ -12,6 +12,7 @@ import analyticsRouter from "../routes/analytics";
 import telegramRouter from "../routes/telegram";
 import telegramOidcRouter from "../routes/telegramOidc";
 import { contentCallbackRouter, contentJobRouter, streamWebhookRouter } from "../routes/content";
+import onrampWebhookRouter from "../routes/onramp";
 
 import mcpRouter from "../routes/mcp";
 
@@ -99,6 +100,9 @@ app.use("/webhooks/telegram", telegramRouter);
 app.use("/webhooks/cloudflare-stream", streamWebhookRouter);
 app.use("/internal/content/processed", contentCallbackRouter);
 app.use("/internal/content/job", contentJobRouter);
+
+// Buy USDC through Coinbase (Build Board #5): CDP Onramp webhook, signed over the raw body
+app.use("/webhooks/coinbase-onramp", onrampWebhookRouter);
 
 // Protected resource metadata (RFC 9728) for MCP clients.
 // Tells clients that the authorization server is at auth.amped.bio.

@@ -256,6 +256,19 @@ const envSchema = z.object({
   USDC_SCREEN_DENYLIST: z.string().default(""),
   // When no screening vendor is configured: refuse every send (production) or allow and record unscreened (staging)
   USDC_SCREENING_REQUIRED: boolSchema(true),
+  // Buy USDC through Coinbase (Build Board #5), spec 3.5 and 3.12. Server switch for the
+  // onramp.* procedures and the webhook. The CDP API key above signs Onramp calls too.
+  ONRAMP_ENABLED: boolSchema(false),
+  // Secret from the CDP webhook subscription for onramp.transaction.* events
+  CDP_ONRAMP_WEBHOOK_SECRET: z.string().default(""),
+  // Coinbase sandbox: partnerUserRef gets the sandbox- prefix, orders never charge and deliver
+  // nothing on chain, so arrival follows the webhook. On by default outside production.
+  ONRAMP_SANDBOX: boolSchema(false),
+  // Apple Pay and Google Pay (Headless Onramp, USDC-5): the domain the Coinbase payment frame is
+  // embedded on. Must be on the CDP Onramp domain allowlist. Empty means the APP_URL host.
+  ONRAMP_DOMAIN: z.string().default(""),
+  // Key for the stored Coinbase userAuthToken (AES-256-GCM). Falls back to BETTER_AUTH_SECRET.
+  ONRAMP_DATA_KEY: z.string().default(""),
   // Content system (Build Board #20), PR 2. Spec 3.17. Secrets never live in committed .env files.
   // Master switch for uploads. Off everywhere until the Cloudflare setup checklist is done.
   // Turning it off during an incident stops new uploads; items already stored keep working.
@@ -327,3 +340,7 @@ if (process.env.USDC_SCREENING_REQUIRED === undefined && env.APP_ENV !== "produc
   env.USDC_SCREENING_REQUIRED = false;
 }
 
+// Buy USDC uses Coinbase's sandbox everywhere but production unless the variable is set.
+if (process.env.ONRAMP_SANDBOX === undefined && env.APP_ENV !== "production") {
+  env.ONRAMP_SANDBOX = true;
+}

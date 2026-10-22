@@ -40,7 +40,12 @@ function normalizeCity(value?: string | null): string | null {
   return city.trim().slice(0, 100) || null;
 }
 
-type GeoIpRecord = { range?: [number, number]; country?: string; city?: string };
+type GeoIpRecord = {
+  range?: [number, number];
+  country?: string;
+  region?: string;
+  city?: string;
+};
 type FastGeoIp = { lookup: (ip: string) => Promise<GeoIpRecord | null> };
 
 let geoIpModule: Promise<FastGeoIp | null> | null = null;
@@ -158,4 +163,29 @@ export async function resolveLocation(
 
   if (geoip) return { ...geoip, source: "geoip" };
   return { country: null, city: null, source: "none" };
+}
+
+/**
+ * Country and first level subdivision (a US state code) for one public IPv4
+ * address, from the bundled GeoLite2 data. Buy USDC (Build Board #5) uses it
+ * to ask Coinbase which payment methods serve the fan's region. Nothing is
+ * stored. Null for private, proxy, IPv6 and unknown addresses.
+ */
+export async function lookupRegion(
+  ip: string
+): Promise<{ country: string; subdivision: string | null } | null> {
+  if (isIP(ip) !== 4 || !isPublicIp(ip) || isCloudflareIp(ip)) return null;
+  const geoip = await loadGeoIp();
+  if (!geoip) return null;
+  const record = await geoip.lookup(ip).catch(() => null);
+  if (!record) return null;
+  if (record.range) {
+    const value = ipv4ToNumber(ip);
+    if (value < record.range[0] || value >= record.range[1]) return null;
+  }
+  const country = normalizeCountry(record.country);
+  if (!country) return null;
+  const subdivision =
+    record.region && /^[A-Z0-9]{1,3}$/i.test(record.region) ? record.region.toUpperCase() : null;
+  return { country, subdivision };
 }

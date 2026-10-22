@@ -25,6 +25,7 @@ const db = vi.hoisted(() => {
       aggregate: fn(),
     },
     paymentEvent: { create: fn(), findMany: fn() },
+    onrampSession: { findMany: fn() },
     screeningEvent: { create: fn() },
   };
 });
@@ -638,6 +639,7 @@ describe("indexer", () => {
   it("writes one row per log, skips logs touching no member and is idempotent", async () => {
     db.userWallet.findMany.mockResolvedValue([{ address: fan.address.toLowerCase(), userId: 7 }]);
     db.usdcSend.findMany.mockResolvedValue([]);
+    db.onrampSession.findMany.mockResolvedValue([]);
     db.paymentEvent.create.mockResolvedValueOnce({}).mockRejectedValueOnce({ code: "P2002" });
     const transfer = {
       txHash: "0xaa" as Hex,

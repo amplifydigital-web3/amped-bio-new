@@ -35,12 +35,15 @@ import { formatCount, formatDayTime, shortHex } from "../kit/format";
 // Build Board #29 USDC-3, spec docs/features/usdc-wallet-onramp.md 3.8.
 // Amped.Bio pays Base gas for every gasless USDC send. This page shows the
 // relayer and its runway, the gas ledger, top ups, today's sends against the
-// limits, screening denies, and the Pause USDC sends switch. Handles only,
+// limits, screening denies, the Pause USDC sends switch, and Buy USDC through
+// Coinbase with its Pause Buy USDC switch (USDC-6). Handles only,
 // never fan email or names. Pausing is a platform wide money setting, so it
 // changes through an explicit button with a confirm (087 D1).
 
 type Overview = RouterOutputs["admin"]["money"]["overview"];
+type OnrampOverview = RouterOutputs["admin"]["money"]["onrampOverview"];
 type SendFilter = "all" | "confirmed" | "failed" | "refused" | "screened" | "expired";
+type OnrampFilter = "all" | "success" | "processing" | "failed" | "expired";
 
 function eth(wei: string | bigint | null | undefined, digits = 6): string {
   if (wei === null || wei === undefined) return "None";
@@ -69,6 +72,34 @@ const STATUS_TONE: Record<string, BadgeTone> = {
   failed: "danger",
   refused: "warning",
   expired: "neutral",
+};
+
+const ONRAMP_TONE: Record<string, BadgeTone> = {
+  success: "success",
+  processing: "nav",
+  pending_payment: "nav",
+  pending_verification: "nav",
+  created: "neutral",
+  failed: "danger",
+  canceled: "neutral",
+  expired: "neutral",
+};
+
+const ONRAMP_STATUS_LABEL: Record<string, string> = {
+  created: "Created",
+  pending_verification: "Verifying",
+  pending_payment: "Paying",
+  processing: "Sending",
+  success: "Done",
+  failed: "Failed",
+  canceled: "Canceled",
+  expired: "Expired",
+};
+
+const ONRAMP_MODE_LABEL: Record<string, string> = {
+  coinbase_account: "Coinbase account",
+  apple_pay: "Apple Pay",
+  google_pay: "Google Pay",
 };
 
 function Tile({
@@ -675,6 +706,358 @@ function Denies() {
   );
 }
 
+// Buy USDC through Coinbase (Build Board #5 USDC-6, spec 3.8): sessions by
+// status for the last 7 days with failure codes, the webhook log, and the
+// Pause Buy USDC switch. Coinbase sells; nothing here moves money.
+
+function OnrampStatusCard({ data }: { data: OnrampOverview }) {
+  const queryClient = useQueryClient();
+  const [confirm, setConfirm] = useState<null | boolean>(null);
+  const setPaused = useMutation({
+    ...trpc.admin.money.setOnrampPaused.mutationOptions(),
+    onSuccess: (_result, input) => {
+      setConfirm(null);
+      toast.success(input.paused ? "Buy USDC paused" : "Buy USDC resumed");
+      void queryClient.invalidateQueries({
+        queryKey: trpc.admin.money.onrampOverview.queryKey(),
+      });
+    },
+    onError: (_error, input) => {
+      setConfirm(null);
+      retryToast(input.paused ? "Buy USDC did not pause" : "Buy USDC did not resume", () =>
+        setPaused.mutate(input)
+      );
+    },
+  });
+
+  const state = !data.configured ? "off" : data.paused ? "paused" : "on";
+  return (
+    <section
+      aria-labelledby="onramp-status-title"
+      className="prism-glass-clear flex flex-col gap-[13px] !rounded-prism-21 p-5"
+    >
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="space-y-1">
+          <h2 id="onramp-status-title" className="text-prism-panel-title text-prism-ink">
+            Buy USDC through Coinbase
+          </h2>
+          <p className="flex items-center gap-2 text-prism-label font-semibold text-prism-ink">
+            {state === "on" ? (
+              <CheckCircle2 aria-hidden className="h-5 w-5 text-prism-success" />
+            ) : state === "paused" ? (
+              <PauseCircle aria-hidden className="h-5 w-5 text-prism-warning-ink" />
+            ) : (
+              <CircleSlash aria-hidden className="h-5 w-5 text-prism-ink-2" />
+            )}
+            {state === "on"
+              ? "Buy USDC is on"
+              : state === "paused"
+                ? "Buy USDC is paused"
+                : "Off in this environment (ONRAMP_ENABLED or the CDP key is missing)"}
+            {data.sandbox && <WordBadge tone="warning">Coinbase sandbox</WordBadge>}
+          </p>
+        </div>
+        {data.configured &&
+          (data.paused ? (
+            <Button onClick={() => setConfirm(false)}>Resume Buy USDC</Button>
+          ) : (
+            <Button variant="destructive" onClick={() => setConfirm(true)}>
+              Pause Buy USDC
+            </Button>
+          ))}
+      </div>
+      <p className="text-prism-meta text-prism-ink-2">
+        Webhook:{" "}
+        {!data.webhookConfigured
+          ? "no secret set, so Coinbase deliveries are refused and purchases rely on status checks"
+          : data.webhook.lastEventAt
+            ? `last delivery ${formatDayTime(data.webhook.lastEventAt)}, ${formatCount(data.webhook.errorsThisWeek)} not matched or failed this week`
+            : "no deliveries yet"}
+        .
+        {data.sandbox &&
+          " Sandbox orders deliver nothing on chain, so Arrived on staging follows the webhook alone."}
+      </p>
+      <ConfirmDialog
+        open={confirm !== null}
+        onOpenChange={open => !open && setConfirm(null)}
+        title={confirm ? "Pause Buy USDC?" : "Resume Buy USDC?"}
+        body={
+          confirm
+            ? "No new Coinbase price, link or order is made from the next request. Fans see: Buy USDC is paused for a moment. Try again shortly. Purchases already open keep reporting, and USDC that Coinbase already sent still arrives."
+            : "Fans can buy USDC through Coinbase again on the next request."
+        }
+        confirmLabel={confirm ? "Pause Buy USDC" : "Resume Buy USDC"}
+        destructive={!!confirm}
+        busy={setPaused.isPending}
+        onConfirm={() => confirm !== null && setPaused.mutate({ paused: confirm })}
+      />
+    </section>
+  );
+}
+
+function OnrampTiles({ data }: { data: OnrampOverview }) {
+  const week = data.week;
+  const open =
+    week.byStatus.created +
+    week.byStatus.pending_verification +
+    week.byStatus.pending_payment +
+    week.byStatus.processing;
+  const paid = week.paid.length
+    ? week.paid.map(entry => `${entry.amount} ${entry.currency}`).join(" + ")
+    : "0.00";
+  return (
+    <div className="grid gap-[13px] sm:grid-cols-2 xl:grid-cols-4">
+      <Tile
+        label="Purchases, last 7 days"
+        value={formatCount(week.total)}
+        lines={[
+          `${formatCount(week.byStatus.success)} done, ${formatCount(open)} open`,
+          `${formatCount(week.byStatus.failed)} failed, ${formatCount(week.byStatus.expired + week.byStatus.canceled)} expired or canceled`,
+        ]}
+      />
+      <Tile
+        label="Bought, last 7 days"
+        value={usdc(week.usdcUnits)}
+        lines={[`Fans paid Coinbase ${paid}`, "Amped.Bio charged nothing"]}
+      />
+      <Tile
+        label="Ways to pay"
+        value={formatCount(week.byMode.apple_pay + week.byMode.google_pay)}
+        lines={[
+          `Apple Pay ${formatCount(week.byMode.apple_pay)}, Google Pay ${formatCount(week.byMode.google_pay)}`,
+          `Coinbase account ${formatCount(week.byMode.coinbase_account)}`,
+        ]}
+      />
+      <Tile
+        label="Failure codes"
+        value={week.failures.length === 0 ? "None" : formatCount(week.byStatus.failed)}
+        lines={
+          week.failures.length === 0
+            ? ["No failed purchases this week"]
+            : week.failures.slice(0, 3).map(row => `${row.code}: ${formatCount(row.count)}`)
+        }
+      />
+    </div>
+  );
+}
+
+function OnrampSessions({ explorerUrl }: { explorerUrl: string | null }) {
+  const [filter, setFilter] = useState<OnrampFilter>("all");
+  const sessions = useQuery(
+    trpc.admin.money.onrampSessions.queryOptions({
+      limit: 25,
+      status: filter === "all" ? undefined : filter,
+    })
+  );
+  return (
+    <section aria-labelledby="onramp-sessions-title" className="space-y-[13px]">
+      <Eyebrow id="onramp-sessions-title">Recent Buy USDC purchases</Eyebrow>
+      <FilterChips
+        label="Status"
+        value={filter}
+        onChange={setFilter}
+        options={[
+          { value: "all", label: "All" },
+          { value: "success", label: "Done" },
+          { value: "processing", label: "Sending" },
+          { value: "failed", label: "Failed" },
+          { value: "expired", label: "Expired" },
+        ]}
+      />
+      <SlabTable label="Recent Buy USDC purchases">
+        <thead>
+          <tr>
+            <th scope="col" className={thClass}>
+              Date
+            </th>
+            <th scope="col" className={thClass}>
+              Account
+            </th>
+            <th scope="col" className={thClass}>
+              Way to pay
+            </th>
+            <th scope="col" className={thClass}>
+              Paid Coinbase
+            </th>
+            <th scope="col" className={thClass}>
+              USDC
+            </th>
+            <th scope="col" className={thClass}>
+              Status
+            </th>
+            <th scope="col" className={thClass}>
+              Transaction
+            </th>
+          </tr>
+        </thead>
+        {sessions.isPending ? (
+          <SlabSkeletonRows columns={7} />
+        ) : sessions.isError ? (
+          <SlabMessageRow columns={7}>
+            <ErrorCard
+              title="Purchases did not load"
+              cause="Try again in a moment."
+              retryLabel="Retry"
+              onRetry={() => void sessions.refetch()}
+              className="!shadow-none"
+            />
+          </SlabMessageRow>
+        ) : sessions.data.length === 0 ? (
+          <SlabMessageRow columns={7}>
+            <p className="p-4 text-prism-label text-prism-ink-2">No Buy USDC purchases yet.</p>
+          </SlabMessageRow>
+        ) : (
+          <tbody>
+            {sessions.data.map(session => (
+              <tr key={session.id} className={rowClass}>
+                <td className={tdClass}>{formatDayTime(session.createdAt)}</td>
+                <td className={tdClass}>{session.handle ? `@${session.handle}` : "No handle"}</td>
+                <td className={tdClass}>{ONRAMP_MODE_LABEL[session.mode] ?? session.mode}</td>
+                <td className={`${tdClass} tabular-nums`}>
+                  {session.fiatAmount ? `${session.fiatAmount} ${session.fiatCurrency}` : ""}
+                </td>
+                <td className={`${tdClass} tabular-nums`}>
+                  {session.usdcUnits ? usdc(session.usdcUnits) : ""}
+                </td>
+                <td className={tdClass}>
+                  <span className="inline-flex flex-wrap items-center gap-1">
+                    <WordBadge tone={ONRAMP_TONE[session.status] ?? "neutral"}>
+                      {ONRAMP_STATUS_LABEL[session.status] ?? session.status}
+                    </WordBadge>
+                    {session.failureCode && (
+                      <span className="text-prism-meta text-prism-ink-2">
+                        {session.failureCode}
+                      </span>
+                    )}
+                    {session.sandbox && <WordBadge tone="warning">Sandbox</WordBadge>}
+                  </span>
+                </td>
+                <td className={tdClass}>
+                  {session.txHash && explorerUrl && !session.sandbox ? (
+                    <a
+                      className="font-prism-mono text-prism-nav underline-offset-2 hover:underline"
+                      href={`${explorerUrl}/tx/${session.txHash}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      {shortHex(session.txHash)}
+                    </a>
+                  ) : session.orderRef ? (
+                    <span className="font-prism-mono text-prism-meta text-prism-ink-2">
+                      {shortHex(session.orderRef)}
+                    </span>
+                  ) : (
+                    ""
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        )}
+      </SlabTable>
+    </section>
+  );
+}
+
+function OnrampEvents() {
+  const events = useQuery(trpc.admin.money.onrampEvents.queryOptions({ limit: 25 }));
+  return (
+    <section aria-labelledby="onramp-events-title" className="space-y-[13px]">
+      <Eyebrow id="onramp-events-title">Coinbase webhook log</Eyebrow>
+      <SlabTable label="Coinbase webhook log">
+        <thead>
+          <tr>
+            <th scope="col" className={thClass}>
+              Received
+            </th>
+            <th scope="col" className={thClass}>
+              Event
+            </th>
+            <th scope="col" className={thClass}>
+              Result
+            </th>
+            <th scope="col" className={thClass}>
+              Event ID
+            </th>
+          </tr>
+        </thead>
+        {events.isPending ? (
+          <SlabSkeletonRows columns={4} rows={3} />
+        ) : events.isError ? (
+          <SlabMessageRow columns={4}>
+            <ErrorCard
+              title="The webhook log did not load"
+              cause="Try again in a moment."
+              retryLabel="Retry"
+              onRetry={() => void events.refetch()}
+              className="!shadow-none"
+            />
+          </SlabMessageRow>
+        ) : events.data.length === 0 ? (
+          <SlabMessageRow columns={4}>
+            <p className="p-4 text-prism-label text-prism-ink-2">No Coinbase deliveries yet.</p>
+          </SlabMessageRow>
+        ) : (
+          <tbody>
+            {events.data.map(event => (
+              <tr key={event.id} className={rowClass}>
+                <td className={tdClass}>{formatDayTime(event.receivedAt)}</td>
+                <td className={`${tdClass} font-prism-mono text-prism-meta`}>{event.eventType}</td>
+                <td className={tdClass}>
+                  {event.error ? (
+                    <WordBadge tone={event.error === "no_session" ? "warning" : "danger"}>
+                      {event.error === "no_session"
+                        ? "No matching purchase"
+                        : event.error === "unrecognized"
+                          ? "Not recognized"
+                          : "Failed"}
+                    </WordBadge>
+                  ) : event.processed ? (
+                    <WordBadge tone="success">Applied</WordBadge>
+                  ) : (
+                    <WordBadge tone="neutral">Queued</WordBadge>
+                  )}
+                </td>
+                <td className={`${tdClass} break-all font-prism-mono text-prism-meta`}>
+                  {event.eventId}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        )}
+      </SlabTable>
+    </section>
+  );
+}
+
+function BuyUsdc({ explorerUrl }: { explorerUrl: string | null }) {
+  const overview = useQuery({
+    ...trpc.admin.money.onrampOverview.queryOptions(),
+    refetchInterval: 60_000,
+  });
+  if (overview.isPending) {
+    return <Skeleton delayMs={400} className="h-[120px] w-full !rounded-prism-21" />;
+  }
+  if (overview.isError) {
+    return (
+      <ErrorCard
+        title="Buy USDC did not load"
+        cause="Try again in a moment."
+        retryLabel="Retry"
+        onRetry={() => void overview.refetch()}
+      />
+    );
+  }
+  return (
+    <div className="space-y-[21px]">
+      <OnrampStatusCard data={overview.data} />
+      <OnrampTiles data={overview.data} />
+      <OnrampSessions explorerUrl={explorerUrl} />
+      <OnrampEvents />
+    </div>
+  );
+}
+
 export function AdminMoney() {
   const overview = useQuery({
     ...trpc.admin.money.overview.queryOptions(),
@@ -707,6 +1090,7 @@ export function AdminMoney() {
       <Funding data={overview.data} />
       <Sends explorerUrl={overview.data.explorerUrl} />
       <Denies />
+      <BuyUsdc explorerUrl={overview.data.explorerUrl} />
     </div>
   );
 }

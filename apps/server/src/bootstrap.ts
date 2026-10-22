@@ -5,6 +5,7 @@ import { startTelegramLoop } from "./services/telegram/loop";
 import { registerTelegramOutboxHandlers } from "./services/telegram/broadcast";
 import { startUsdcIndexer } from "./services/usdc";
 import { startContentSweeper } from "./services/content/state";
+import { startOnrampTokenPurge } from "./services/onramp/sessions";
 import { getGeoIpReader } from "./services/analytics/geoipDatabase";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -26,6 +27,8 @@ startTelegramLoop();
 startUsdcIndexer();
 // Content system (Build Board #20): fail uploads left unfinished for 24 hours and release their bytes.
 startContentSweeper();
+// Buy USDC: delete expired Coinbase userAuthTokens after their 60 day life
+startOnrampTokenPurge();
 
 // Analytics location: open (or download) GeoLite2 City at boot so the first
 // visits are located and a missing license key shows in the startup log.

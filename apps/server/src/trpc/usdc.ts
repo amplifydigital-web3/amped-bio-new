@@ -112,6 +112,8 @@ export const usdcRouter = router({
         amount: row.amount.toString(),
         occurredAt: row.occurredAt.toISOString(),
         chainId: row.chainId,
+        // Buy USDC (#5): Activity names Coinbase on a delivery from a purchase
+        source: row.refType === "onramp" ? ("coinbase" as const) : null,
       }));
     }),
 });
