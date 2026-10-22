@@ -7,6 +7,8 @@
  */
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { createHmac, generateKeyPairSync, randomBytes, createVerify } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { S3Client } from "@aws-sdk/client-s3";
 import {
   CONTENT_UPLOAD,
@@ -19,6 +21,7 @@ import {
   decodeMediaTokenPayload,
   encodeMediaTokenPayload,
   parseMediaTokenKeys,
+  type MediaTokenPayload,
   utf8Decode,
   utf8Encode,
 } from "@repo/constants";
@@ -142,6 +145,31 @@ describe("media gateway tokens", () => {
     expect(verifyMediaToken(token, parseMediaTokenKeys(key("k2")), now)).toBeNull();
     expect(verifyMediaToken(token, keys, new Date((exp + 1) * 1000))).toBeNull();
     expect(verifyMediaToken("garbage", keys, now)).toBeNull();
+  });
+
+  it("refuses to sign past the longest token lifetime the gateway honors", () => {
+    const keys = parseMediaTokenKeys(key("k1"));
+    const nowSec = Math.floor(now.getTime() / 1000);
+    expect(() => signMediaToken({ ...payload, exp: nowSec + 25 * 3600 + 1 }, keys, now)).toThrow(
+      /longest allowed lifetime/
+    );
+    expect(signMediaToken({ ...payload, exp: nowSec + 25 * 3600 }, keys, now)).toMatch(/^v1\.k1\./);
+  });
+
+  it("produces the shared vectors the gateway Worker verifies (apps/media-gateway)", () => {
+    const file = resolve(__dirname, "../../../media-gateway/test/fixtures/token-vectors.json");
+    const shared = JSON.parse(readFileSync(file, "utf8")) as {
+      keys: string;
+      vectors: Array<{ kid: string; payload: MediaTokenPayload; token: string }>;
+    };
+    const all = parseMediaTokenKeys(shared.keys);
+    expect(shared.vectors.length).toBeGreaterThan(0);
+    for (const vector of shared.vectors) {
+      const signer = all.filter(candidate => candidate.kid === vector.kid);
+      const at = new Date((vector.payload.exp - 600) * 1000);
+      expect(signMediaToken(vector.payload, signer, at)).toBe(vector.token);
+      expect(verifyMediaToken(vector.token, all, at)).toEqual(vector.payload);
+    }
   });
 
   it("builds gateway URLs with an encoded path and token", () => {

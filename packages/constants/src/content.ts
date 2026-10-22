@@ -8,6 +8,9 @@
  * the client can show the same numbers before getStorage answers.
  */
 import { z } from "zod";
+import { CONTENT_PUBLIC_ID_REGEX, CONTENT_R2_PREFIXES } from "./contentKeys";
+
+export * from "./contentKeys";
 
 // ----------------------------------------------------------------------------
 // Kinds and accepted types (spec 3.2)
@@ -109,23 +112,12 @@ export function contentUsesMultipart(kind: ContentUploadKind, size: number): boo
 // Public ids and object keys (spec 3.3 and 3.4)
 // ----------------------------------------------------------------------------
 
-/** 16 lowercase letters and digits: about 82 bits, URL and key safe. */
-export const CONTENT_PUBLIC_ID_LENGTH = 16;
-export const CONTENT_PUBLIC_ID_ALPHABET = "abcdefghijklmnopqrstuvwxyz0123456789";
-export const CONTENT_PUBLIC_ID_REGEX = /^[a-z0-9]{16}$/;
+// CONTENT_PUBLIC_ID_* and CONTENT_R2_PREFIXES live in contentKeys.ts (no zod) so the
+// media gateway Worker can import them without bundling zod. Re-exported at the top.
 
 export const contentPublicIdSchema = z
   .string()
   .regex(CONTENT_PUBLIC_ID_REGEX, { message: "Invalid content id" });
-
-/** R2 key prefixes (spec 3.4). Keys never contain the numeric user id or an email. */
-export const CONTENT_R2_PREFIXES = {
-  incoming: "incoming",
-  originals: "originals",
-  audio: "audio",
-  derived: "derived",
-  quarantine: "quarantine",
-} as const;
 
 export function contentIncomingKey(publicId: string, ext: string): string {
   return `${CONTENT_R2_PREFIXES.incoming}/${publicId}/original.${ext.toLowerCase()}`;

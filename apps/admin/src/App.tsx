@@ -9,7 +9,6 @@ import {
   AdminNewTheme,
   AdminFiles,
   AdminPools,
-  AdminNdauConversions,
   AdminOAuthClients,
   AdminBroadcasts,
   AdminTelegram,
@@ -38,11 +37,12 @@ function AppRouter() {
           <Route path="blocks" element={<Navigate to="/" replace />} />
           <Route path="files" element={<AdminFiles />} />
           <Route path="pools" element={<AdminPools />} />
-          <Route path="ndau-conversions" element={<AdminNdauConversions />} />
           <Route path="oauth-clients" element={<AdminOAuthClients />} />
           <Route path="broadcasts" element={<AdminBroadcasts />} />
           <Route path="telegram" element={<AdminTelegram />} />
           <Route path="money" element={<AdminMoney />} />
+          {/* ndau conversions moved to the support portal; old links land on the dashboard */}
+          <Route path="ndau-conversions" element={<Navigate to="/" replace />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

@@ -18,6 +18,9 @@ const REQUIRED_FOR_UPLOADS = [
   "R2_SECRET_ACCESS_KEY",
   "R2_BUCKET",
   "CF_STREAM_API_TOKEN",
+  // PR 4: without the queue an upload would wait in PROCESSING forever
+  "CF_QUEUES_API_TOKEN",
+  "CF_CONTENT_QUEUE_ID",
 ] as const;
 
 export function contentConfigStatus(): ContentConfigStatus {

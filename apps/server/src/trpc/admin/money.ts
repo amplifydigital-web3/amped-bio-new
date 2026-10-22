@@ -10,6 +10,12 @@ import {
   screeningDenies,
   setSendsPaused,
 } from "../../services/usdc/admin";
+import {
+  onrampEvents,
+  onrampOverview,
+  onrampSessions,
+  setOnrampPaused,
+} from "../../services/onramp/admin";
 
 /**
  * Admin, Money (Build Board #29 USDC-3, spec 3.8): the USDC relayer, its gas
@@ -75,4 +81,43 @@ export const moneyAdminRouter = router({
   setPaused: adminProcedure
     .input(z.object({ paused: z.boolean() }))
     .mutation(({ input }) => setSendsPaused(input.paused)),
+
+  /* Buy USDC through Coinbase (Build Board #5 USDC-6, spec 3.8) */
+
+  onrampOverview: adminProcedure.query(() => onrampOverview()),
+
+  onrampSessions: adminProcedure
+    .input(
+      z.object({
+        status: z
+          .enum([
+            "created",
+            "pending_verification",
+            "pending_payment",
+            "processing",
+            "success",
+            "failed",
+            "canceled",
+            "expired",
+          ])
+          .optional(),
+        limit: z.number().int().min(1).max(100).default(25),
+        before: z.string().datetime().optional(),
+      })
+    )
+    .query(({ input }) =>
+      onrampSessions({
+        status: input.status,
+        limit: input.limit,
+        before: input.before ? new Date(input.before) : undefined,
+      })
+    ),
+
+  onrampEvents: adminProcedure
+    .input(z.object({ limit: z.number().int().min(1).max(100).default(25) }))
+    .query(({ input }) => onrampEvents(input.limit)),
+
+  setOnrampPaused: adminProcedure
+    .input(z.object({ paused: z.boolean() }))
+    .mutation(({ input }) => setOnrampPaused(input.paused)),
 });

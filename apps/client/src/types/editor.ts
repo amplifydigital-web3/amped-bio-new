@@ -44,6 +44,7 @@ export const EDITOR_PANELS = [
   "home",
   "analytics",
   "people",
+  "content",
   "explore",
   "page",
   "design",

@@ -12,7 +12,14 @@ export type WalletContextType = {
   publicKey: string | null;
   address?: `0x${string}` | undefined;
   getIdentityToken?: () => Promise<string> | undefined;
+  /** True only when a live wallet is connected and it is this account's wallet. */
   isWeb3Wallet: boolean;
+  /** The wallet the browser can sign with right now, which may differ from `address`. */
+  liveAddress?: `0x${string}` | undefined;
+  /** The live wallet belongs to another account (an account switch in one browser). */
+  walletMismatch: boolean;
+  /** Signs out of the wallet SDK, clears its browser state and caches, then signs out of Amped.Bio. */
+  signOutEverywhere: () => Promise<void>;
 };
 
 export const WalletContext = createContext<WalletContextType>({
@@ -26,6 +33,9 @@ export const WalletContext = createContext<WalletContextType>({
   address: undefined,
   getIdentityToken: undefined,
   isWeb3Wallet: false,
+  liveAddress: undefined,
+  walletMismatch: false,
+  signOutEverywhere: async () => {},
 });
 
 export const useWalletContext = () => {

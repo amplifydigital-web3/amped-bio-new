@@ -14,6 +14,8 @@ import PayRedirect from "./panels/wallet/send/PayRedirect";
 import ExplorePage from "./panels/explore/ExplorePanel.tsx";
 import { AnalyticsPanel } from "./panels/analytics/AnalyticsPanel";
 import { PeoplePanel } from "./panels/people/PeoplePanel";
+import { ContentPanel } from "./panels/content/ContentPanel";
+import { CONTENT_FLAGS } from "@/config/content/flags";
 import { PagePanel } from "./panels/page/PagePanel";
 import { DesignPanel } from "./panels/design/DesignPanel";
 import { AccountPanel } from "./panels/account/AccountPanel";
@@ -44,6 +46,7 @@ const RESTYLED_PANELS: EditorPanelType[] = [
   "design",
   "page",
   "people",
+  "content",
   "inbox",
   "account",
   "home",
@@ -58,6 +61,8 @@ function ActivePanel({ panel }: { panel: EditorPanelType }) {
       return <AnalyticsPanel />;
     case "people":
       return import.meta.env.VITE_FAN_GRAPH === "true" ? <PeoplePanel /> : null;
+    case "content":
+      return CONTENT_FLAGS.library ? <ContentPanel /> : null;
     case "explore":
       return <ExplorePage />;
     case "page":

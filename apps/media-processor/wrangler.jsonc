@@ -1,0 +1,136 @@
+/**
+ * Media processor Worker (Build Board #20, content system PR 4, spec 3.5).
+ *
+ * Consumes the `content-ingest` Queue. For each item it asks the API for the job,
+ * runs the steps (hash, malware, normalize, CSAM match, blur, classifier) and
+ * reports each one to the API. The heavy tools run in a Container (./container).
+ * Handoff and setup: docs/fixes/content-media-processor.md.
+ *
+ * The top level is the local configuration used by the tests and the build check.
+ * Deploys always name an environment, from a machine with Docker running (wrangler
+ * builds and pushes the container image):
+ *   pnpm --filter @repo/media-processor run deploy:staging
+ *   pnpm --filter @repo/media-processor run deploy:production
+ * Staging and production run on separate Cloudflare accounts (spec 3.17), so set
+ * CLOUDFLARE_ACCOUNT_ID for the account you deploy to.
+ *
+ * Bindings, vars, queues and containers are not inherited by environments. Each
+ * environment repeats them on purpose.
+ */
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "amped-media-processor",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-01",
+  "workers_dev": false,
+  "preview_urls": false,
+  "observability": { "enabled": true },
+  "vars": {
+    "API_ORIGIN": "http://localhost:43000",
+    // none | mock. mock flags titles containing "qa-explicit" (staging only)
+    "CLASSIFIER": "mock",
+    // "true" holds every image and video for review when no classifier runs
+    "CLASSIFIER_REQUIRED": "false",
+    // none (beta: logs only, decision 11) | photodna (before general availability)
+    "CSAM_MATCHER": "none",
+    "CONTAINER_POOL_SIZE": "1",
+  },
+  "secrets": {
+    "required": ["CONTENT_PROCESSOR_SECRET"],
+  },
+  "r2_buckets": [{ "binding": "CONTENT", "bucket_name": "amped-content-local" }],
+  "queues": {
+    "consumers": [
+      {
+        "queue": "content-ingest-local",
+        "max_batch_size": 1,
+        "max_retries": 3,
+        "retry_delay": 60,
+        "max_concurrency": 1,
+        "dead_letter_queue": "content-ingest-local-dlq",
+      },
+      { "queue": "content-ingest-local-dlq", "max_batch_size": 10, "max_retries": 3 },
+    ],
+  },
+  "durable_objects": {
+    "bindings": [{ "name": "PROCESSOR", "class_name": "ProcessorContainer" }],
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["ProcessorContainer"] }],
+  "env": {
+    "staging": {
+      "vars": {
+        "API_ORIGIN": "https://api.staging.amped.bio",
+        "CLASSIFIER": "mock",
+        "CLASSIFIER_REQUIRED": "false",
+        "CSAM_MATCHER": "none",
+        "CONTAINER_POOL_SIZE": "2",
+      },
+      "secrets": {
+        "required": ["CONTENT_PROCESSOR_SECRET"],
+      },
+      "r2_buckets": [{ "binding": "CONTENT", "bucket_name": "amped-content-staging" }],
+      "queues": {
+        "consumers": [
+          {
+            "queue": "content-ingest-staging",
+            "max_batch_size": 1,
+            "max_retries": 3,
+            "retry_delay": 60,
+            "max_concurrency": 2,
+            "dead_letter_queue": "content-ingest-staging-dlq",
+          },
+          { "queue": "content-ingest-staging-dlq", "max_batch_size": 10, "max_retries": 3 },
+        ],
+      },
+      "containers": [
+        {
+          "class_name": "ProcessorContainer",
+          "image": "./container/Dockerfile",
+          "instance_type": "standard-2",
+          "max_instances": 2,
+        },
+      ],
+      "durable_objects": {
+        "bindings": [{ "name": "PROCESSOR", "class_name": "ProcessorContainer" }],
+      },
+    },
+    "production": {
+      "vars": {
+        "API_ORIGIN": "https://api.amped.bio",
+        // Fail closed: with no classifier, every image and video waits for review
+        "CLASSIFIER": "none",
+        "CLASSIFIER_REQUIRED": "true",
+        "CSAM_MATCHER": "none",
+        "CONTAINER_POOL_SIZE": "3",
+      },
+      "secrets": {
+        "required": ["CONTENT_PROCESSOR_SECRET"],
+      },
+      "r2_buckets": [{ "binding": "CONTENT", "bucket_name": "amped-content" }],
+      "queues": {
+        "consumers": [
+          {
+            "queue": "content-ingest",
+            "max_batch_size": 1,
+            "max_retries": 3,
+            "retry_delay": 60,
+            "max_concurrency": 3,
+            "dead_letter_queue": "content-ingest-dlq",
+          },
+          { "queue": "content-ingest-dlq", "max_batch_size": 10, "max_retries": 3 },
+        ],
+      },
+      "containers": [
+        {
+          "class_name": "ProcessorContainer",
+          "image": "./container/Dockerfile",
+          "instance_type": "standard-2",
+          "max_instances": 4,
+        },
+      ],
+      "durable_objects": {
+        "bindings": [{ "name": "PROCESSOR", "class_name": "ProcessorContainer" }],
+      },
+    },
+  },
+}

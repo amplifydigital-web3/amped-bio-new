@@ -17,6 +17,7 @@
     "lint:fix": "eslint . --fix --exit-on-fatal-error",
     "typecheck": "tsc --noEmit",
     "email:check": "tsx -r dotenv/config scripts/email-check.ts",
+    "usdc:records": "tsx -r dotenv/config scripts/usdc-records.ts",
     "email:dev": "email dev --dir src/utils/email",
     "test": "vitest run",
     "test:unit": "vitest run --exclude src/__tests__/oauth-endpoints.test.ts --exclude src/__tests__/oauth-e2e.test.ts",

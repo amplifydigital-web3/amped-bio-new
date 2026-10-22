@@ -4,7 +4,7 @@ import { Button, ChipGroup, TESTNET_NOTICE } from "@repo/ui";
 import { formatRnsName } from "@repo/web3";
 import { RNS_COPY } from "@/config/rns/copy";
 import { NameTile, VerifiedChip } from "../shared";
-import { AUTHBASE_URL } from "./catalog";
+import { AUTHBASE_VERIFY_URL } from "./catalog";
 import { IdEyebrow, SoonPill } from "./parts";
 import { NOT_VERIFIED_SHARING_LINE } from "./SharedAttributes";
 
@@ -54,10 +54,10 @@ const PLANS = [
 type Currency = "usd" | "trevo";
 
 function AuthbaseLink({ children, size }: { children: React.ReactNode; size?: "lg" }) {
-  if (!AUTHBASE_URL) return null;
+  if (!AUTHBASE_VERIFY_URL) return null;
   return (
     <Button asChild size={size} className="max-sm:w-full">
-      <a href={AUTHBASE_URL} target="_blank" rel="noopener noreferrer">
+      <a href={AUTHBASE_VERIFY_URL} target="_blank" rel="noopener noreferrer">
         <ShieldCheck aria-hidden />
         {children}
         <ExternalLink aria-hidden />
