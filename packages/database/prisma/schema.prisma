@@ -1254,7 +1254,10 @@ model OnrampEvent {
   receivedAt  DateTime  @default(now())
 
   @@unique([provider, eventId])
-  @@index([receivedAt])
+  // Reads filter by provider, then order or bound by receivedAt (admin log, last event, weekly failures)
+  @@index([provider, receivedAt])
+  // The fan's own purchases read the events of their sessions
+  @@index([sessionId])
   @@map("onramp_events")
 }
 
