@@ -17,21 +17,25 @@
 import "dotenv/config";
 import { env } from "../src/env";
 import { sendEmailVerification, verifySmtpTransport } from "../src/utils/email/email";
+import { activeTransport, senderAddress } from "../src/utils/email/transport";
 
 async function main() {
-  console.log("SMTP settings in use:", {
-    host: env.SMTP_HOST,
-    port: env.SMTP_PORT,
-    secure: env.SMTP_SECURE,
-    user: env.SMTP_USER || "(none)",
-    from: env.SMTP_FROM_EMAIL,
+  console.log("Email settings in use:", {
+    transport: activeTransport(),
+    apiUrl: activeTransport() === "smtp2go-api" ? env.SMTP2GO_API_URL : undefined,
+    apiKey: activeTransport() === "smtp2go-api" ? (env.SMTP2GO_API_KEY ? "set" : "missing") : undefined,
+    host: activeTransport() === "smtp" ? env.SMTP_HOST : undefined,
+    port: activeTransport() === "smtp" ? env.SMTP_PORT : undefined,
+    secure: activeTransport() === "smtp" ? env.SMTP_SECURE : undefined,
+    user: activeTransport() === "smtp" ? env.SMTP_USER || "(none)" : undefined,
+    from: senderAddress(),
     linksGoTo: env.LANDINGPAGE_URL,
   });
 
   const ready = await verifySmtpTransport();
   if (!ready) {
     console.error(
-      "Fix SMTP_HOST, SMTP_PORT, SMTP_SECURE, SMTP_USER or SMTP_PASSWORD, then run again."
+      "Fix SMTP2GO_API_KEY (API) or SMTP_HOST, SMTP_PORT, SMTP_SECURE, SMTP_USER and SMTP_PASSWORD (SMTP), then run again."
     );
     process.exit(1);
   }
@@ -48,7 +52,7 @@ async function main() {
   }
 
   const info = await sendEmailVerification(to, "email-check-dummy-token");
-  console.log("Accepted by the relay:", info.response);
+  console.log("Accepted by SMTP2GO:", { transport: info.transport, id: info.id, detail: info.detail });
   console.log(
     `Check the inbox for ${to}. The link should open ${env.LANDINGPAGE_URL}/auth/verify-email/...`
   );

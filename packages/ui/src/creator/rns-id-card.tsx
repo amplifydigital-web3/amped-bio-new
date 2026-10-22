@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Fingerprint, ShieldCheck } from "lucide-react";
+import { BadgeCheck, Fingerprint, ShieldCheck } from "lucide-react";
 import {
   AUTHBASE_ATTRIBUTE_KEYS,
   AUTHBASE_ATTRIBUTE_LABELS,
@@ -43,6 +43,15 @@ export const RNS_ID_COPY = {
   tapForDetails: "Tap for details",
   ringVerified: "REVOLUTION NAME SERVICE · VERIFIED · ",
   ringLinked: "REVOLUTION NAME SERVICE · LINKED NAME · ",
+  // Build Board #33 badge and status, 112 D8 and D9. Pending counsel review.
+  ringIdVerified: "ID VERIFIED · AUTHBASE · ID VERIFIED · ",
+  ringShared: "SHARED BY THE OWNER · AUTHBASE · ",
+  sharedTitle: RNS_IDENTITY_COPY.sharedTitle,
+  shared: "Details shared by the owner",
+  levelCheck: (level: string) => `${level} ID check`,
+  badge: "Badge",
+  badgeOnChain: "Badge on chain",
+  badgeMinted: (date: string) => `Badge minted ${date}`,
 } as const;
 
 const VERIFIED_BG = "#E6F2EA";
@@ -61,6 +70,16 @@ export function formatSinceMonth(value: string | null | undefined): string | nul
   const date = new Date(`${value}-01T00:00:00Z`);
   if (Number.isNaN(date.getTime())) return null;
   return date.toLocaleDateString("en-GB", { month: "short", year: "numeric", timeZone: "UTC" });
+}
+
+/** Up to two initials, "Rob Frasca" to "RF". */
+function initialsOf(value: string): string {
+  return value
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map(part => part.charAt(0).toUpperCase())
+    .join("");
 }
 
 /** The label and the suffix of an RNS name, for the two tone treatment. */
@@ -85,15 +104,28 @@ function RnsName({ name, color, className }: { name: string; color: string; clas
   );
 }
 
-/** The Verified chip (fixed utility colors) or the Linked name chip (theme). */
-function StateChip({ verified, color }: { verified: boolean; color: string }) {
-  if (verified) {
+/**
+ * The Verified chip (fixed utility colors, a badge glyph when the badge is
+ * minted), the Linked name chip (theme), or nothing for shared details only.
+ */
+function StateChip({
+  state,
+  badge = false,
+  color,
+}: {
+  state: "verified" | "linked" | "shared";
+  badge?: boolean;
+  color: string;
+}) {
+  if (state === "shared") return null;
+  if (state === "verified") {
+    const Icon = badge ? BadgeCheck : ShieldCheck;
     return (
       <span
         className="inline-flex h-[24px] shrink-0 items-center gap-[5px] rounded-full pl-[7px] pr-[10px] text-[12px] font-bold leading-none"
         style={{ backgroundColor: VERIFIED_BG, color: VERIFIED_INK }}
       >
-        <ShieldCheck aria-hidden className="h-[14px] w-[14px]" />
+        <Icon aria-hidden className="h-[14px] w-[14px]" />
         {RNS_ID_COPY.verified}
       </span>
     );
@@ -168,17 +200,21 @@ function Proof({
 /** The seal: two rings, the name in the middle, the ring text around (Seal). */
 function Seal({
   name,
+  ring,
   verified,
+  badge,
   color,
   id,
 }: {
   name: string;
+  ring: string;
   verified: boolean;
+  /** The minted badge draws the inner ring solid */
+  badge: boolean;
   color: string;
   id: string;
 }) {
   const { label, suffix } = splitName(name);
-  const ring = verified ? RNS_ID_COPY.ringVerified : RNS_ID_COPY.ringLinked;
   const pathId = `rns-seal-${id}`;
   return (
     <svg viewBox="0 0 80 80" aria-hidden className="h-[72px] w-[72px] shrink-0" style={{ color }}>
@@ -200,8 +236,8 @@ function Seal({
         r="22"
         fill="none"
         stroke="currentColor"
-        strokeOpacity="0.35"
-        strokeWidth="1"
+        strokeOpacity={badge ? 1 : 0.35}
+        strokeWidth={badge ? 1.5 : 1}
       />
       <text fontSize="6.4" fontWeight="700" fill="currentColor" style={{ letterSpacing: "0.16em" }}>
         <textPath href={`#${pathId}`}>{ring}</textPath>
@@ -277,11 +313,19 @@ export function RnsIdCard({
   const surface = `${theme?.buttonColor ?? THEME_DEFAULTS.buttonColor}${alphaSuffix(theme?.transparency)}`;
 
   const verified = identity.chip === "verified";
+  // 112 D9: no linked name, so no name and no "points here" line
+  const linked = identity.linked;
+  const shared = identity.chip === "none";
+  const state = verified ? "verified" : shared ? "shared" : "linked";
+  const badge = verified ? (identity.badge ?? null) : null;
   const name = identity.name ?? null;
   const nameOrDisplay = name ?? displayName;
   const check = identity.check;
   const verifiedOn = check ? formatRnsDate(check.verifiedAt) : null;
   const validUntil = check ? formatRnsDate(check.validUntil) : null;
+  const level = check ? RNS_IDENTITY_COPY.levelLabel[check.tier] : null;
+  const mintedOn = badge ? formatRnsDate(badge.mintedAt) : null;
+  const checkLine = ["Authbase", level, verifiedOn].filter(Boolean).join(" · ");
   const sinceMonth = config.show.since ? formatSinceMonth(since) : null;
   // Shared attributes the block switches on, in catalog order (server applied too).
   // Independent of the Verified chip: the owner's switches decide, not the badge.
@@ -300,11 +344,31 @@ export function RnsIdCard({
   const nameOnId = shown.find(fact => fact.key === "name")?.line ?? null;
   const interactive = !!onTap && config.tap !== "none";
   const initial = displayName.trim().charAt(0).toUpperCase() || "?";
+  // 112 D9: without an RNS name the seal center carries initials, which fit the inner ring
+  const sealName = name ?? (initialsOf(displayName) || initial);
 
   // The second line every style shares: the strongest true statement
   const sentence = verified
-    ? `${verifiedOn ? RNS_ID_COPY.checkedOn(verifiedOn) : RNS_ID_COPY.checked}${nameOnId ? ` ${RNS_ID_COPY.nameOnId}: ${nameOnId}.` : ""}`
-    : `${RNS_ID_COPY.pointsHere}.`;
+    ? `${verifiedOn ? RNS_ID_COPY.checkedOn(verifiedOn) : RNS_ID_COPY.checked}${nameOnId ? ` ${RNS_ID_COPY.nameOnId}: ${nameOnId}.` : ""}${mintedOn ? ` ${RNS_ID_COPY.badgeMinted(mintedOn)}.` : ""}`
+    : linked
+      ? `${RNS_ID_COPY.pointsHere}.`
+      : `${RNS_ID_COPY.shared}.`;
+  const title = verified
+    ? RNS_ID_COPY.verifiedTitle
+    : linked
+      ? RNS_ID_COPY.linkedTitle
+      : RNS_ID_COPY.sharedTitle;
+  // Nameplate and ID Card second line when no Name on ID is shown
+  const statusLine = verified
+    ? [
+        level ? RNS_ID_COPY.levelCheck(level) : RNS_IDENTITY_COPY.factTitle,
+        badge && RNS_ID_COPY.badgeOnChain,
+      ]
+        .filter(Boolean)
+        .join(" · ")
+    : linked
+      ? RNS_ID_COPY.pointsHere
+      : RNS_ID_COPY.shared;
 
   let body: React.ReactNode;
   if (config.style === "nameplate") {
@@ -314,12 +378,16 @@ export function RnsIdCard({
           className="flex h-[28px] w-[28px] shrink-0 items-center justify-center rounded-prism-8"
           style={{ backgroundColor: `${fontColor}14` }}
         >
-          <ShieldCheck aria-hidden className="h-[18px] w-[18px]" />
+          {badge ? (
+            <BadgeCheck aria-hidden className="h-[18px] w-[18px]" />
+          ) : (
+            <ShieldCheck aria-hidden className="h-[18px] w-[18px]" />
+          )}
         </span>
         <span className="flex min-w-0 flex-1 flex-col gap-[2px]">
           <span className="flex min-w-0 items-center gap-2 text-[16px] leading-[20px]">
             <RnsName name={nameOrDisplay} color={fontColor} />
-            <StateChip verified={verified} color={fontColor} />
+            <StateChip state={state} badge={!!badge} color={fontColor} />
           </span>
           <span className="truncate text-[13px] leading-[16px]" style={{ color: `${fontColor}B3` }}>
             {nameOnId ? (
@@ -330,7 +398,7 @@ export function RnsIdCard({
                 </b>
               </>
             ) : (
-              RNS_ID_COPY.pointsHere
+              statusLine
             )}
           </span>
         </span>
@@ -341,7 +409,20 @@ export function RnsIdCard({
       ? `${RNS_ID_COPY.nameOnId}: ${nameOnId}`
       : verified
         ? RNS_IDENTITY_COPY.factTitle
-        : RNS_ID_COPY.linked;
+        : linked
+          ? RNS_ID_COPY.linked
+          : RNS_ID_COPY.shared;
+    // 112 D8: a hidden badge on a current check never reads Not verified
+    const footer =
+      verified && validUntil
+        ? RNS_ID_COPY.validUntil(validUntil)
+        : verified
+          ? RNS_ID_COPY.verified
+          : identity.checkHidden || shared
+            ? shown.length
+              ? RNS_ID_COPY.shared
+              : RNS_ID_COPY.linked
+            : "Not verified";
     body = (
       <div className="flex flex-col gap-[13px] p-4">
         <div className="flex items-start gap-[13px]">
@@ -377,18 +458,26 @@ export function RnsIdCard({
             )}
           </span>
         </div>
-        <div
-          className="flex items-center justify-between gap-2 pt-[13px]"
-          style={{ borderTop: `1px solid ${fontColor}1A` }}
-        >
-          <RnsName name={nameOrDisplay} color={fontColor} className="text-[16px] leading-[20px]" />
-          <StateChip verified={verified} color={fontColor} />
-        </div>
+        {/* The name row; without an RNS name only the Verified chip (112 D9) */}
+        {(name || verified) && (
+          <div
+            className="flex items-center justify-between gap-2 pt-[13px]"
+            style={{ borderTop: `1px solid ${fontColor}1A` }}
+          >
+            {name ? (
+              <RnsName name={name} color={fontColor} className="text-[16px] leading-[20px]" />
+            ) : (
+              <span />
+            )}
+            <StateChip state={state} badge={!!badge} color={fontColor} />
+          </div>
+        )}
         <div className="flex flex-wrap gap-[5px]">
-          {verified && (
+          {verified && <Stamp title={RNS_ID_COPY.idChecked} line={checkLine} color={fontColor} />}
+          {badge && (
             <Stamp
-              title={RNS_ID_COPY.idChecked}
-              line={`Authbase${verifiedOn ? ` · ${verifiedOn}` : ""}`}
+              title={RNS_ID_COPY.badge}
+              line={["On chain", mintedOn].filter(Boolean).join(" · ")}
               color={fontColor}
             />
           )}
@@ -397,19 +486,15 @@ export function RnsIdCard({
             .map(fact => (
               <Stamp key={fact.key} title={fact.title} line={fact.line} color={fontColor} />
             ))}
-          <Stamp title={RNS_ID_COPY.pointsHere} line="RNS · on chain" color={fontColor} />
+          {linked && (
+            <Stamp title={RNS_ID_COPY.pointsHere} line="RNS · on chain" color={fontColor} />
+          )}
         </div>
         <div
           className="flex justify-between gap-2 text-[11px] leading-[14px]"
           style={{ color: `${fontColor}B3` }}
         >
-          <span>
-            {verified && validUntil
-              ? RNS_ID_COPY.validUntil(validUntil)
-              : verified
-                ? RNS_ID_COPY.verified
-                : "Not verified"}
-          </span>
+          <span>{footer}</span>
           {interactive && !expanded && <span>{RNS_ID_COPY.tapForDetails}</span>}
         </div>
       </div>
@@ -425,10 +510,13 @@ export function RnsIdCard({
         </span>
         <div className="flex gap-2 overflow-x-auto pr-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {verified && (
+            <Proof kind="verified" title="Verified ID" line={checkLine} color={fontColor} />
+          )}
+          {badge && (
             <Proof
               kind="verified"
-              title="Verified ID"
-              line={`Authbase${verifiedOn ? ` · ${verifiedOn}` : ""}`}
+              title={RNS_ID_COPY.badgeOnChain}
+              line={mintedOn ?? "Authbase"}
               color={fontColor}
             />
           )}
@@ -441,12 +529,14 @@ export function RnsIdCard({
               color={fontColor}
             />
           ))}
-          <Proof
-            kind="link"
-            title="Name points here"
-            line={name ?? displayName}
-            color={fontColor}
-          />
+          {linked && (
+            <Proof
+              kind="link"
+              title="Name points here"
+              line={name ?? displayName}
+              color={fontColor}
+            />
+          )}
         </div>
       </div>
     );
@@ -454,15 +544,23 @@ export function RnsIdCard({
     body = (
       <div className="flex items-center gap-4 px-4 py-[13px]">
         <Seal
-          name={nameOrDisplay}
+          name={sealName}
+          ring={
+            verified
+              ? linked
+                ? RNS_ID_COPY.ringVerified
+                : RNS_ID_COPY.ringIdVerified
+              : linked
+                ? RNS_ID_COPY.ringLinked
+                : RNS_ID_COPY.ringShared
+          }
           verified={verified}
+          badge={!!badge}
           color={fontColor}
           id={reactId.replace(/[^a-zA-Z0-9]/g, "")}
         />
         <span className="flex min-w-0 flex-1 flex-col gap-[3px]">
-          <span className="text-[16px] font-bold leading-[20px]">
-            {verified ? RNS_ID_COPY.verifiedTitle : RNS_ID_COPY.linkedTitle}
-          </span>
+          <span className="text-[16px] font-bold leading-[20px]">{title}</span>
           <span className="text-[13px] leading-[16px]" style={{ color: `${fontColor}B3` }}>
             {sentence}
           </span>
@@ -484,12 +582,14 @@ export function RnsIdCard({
           </span>
         </span>
       )}
-      <span className="flex justify-between gap-[13px]">
-        <span>Points to</span>
-        <span className="text-right" style={{ color: fontColor }}>
-          this page&apos;s wallet
+      {linked && (
+        <span className="flex justify-between gap-[13px]">
+          <span>Points to</span>
+          <span className="text-right" style={{ color: fontColor }}>
+            this page&apos;s wallet
+          </span>
         </span>
-      </span>
+      )}
       {verified && (
         <span className="flex justify-between gap-[13px]">
           <span>ID checked by</span>
@@ -506,6 +606,22 @@ export function RnsIdCard({
           </span>
         </span>
       )}
+      {verified && level && (
+        <span className="flex justify-between gap-[13px]">
+          <span>Check level</span>
+          <span className="text-right" style={{ color: fontColor }}>
+            {level}
+          </span>
+        </span>
+      )}
+      {badge && (
+        <span className="flex justify-between gap-[13px]">
+          <span>{RNS_IDENTITY_COPY.badgeTitle}</span>
+          <span className="text-right" style={{ color: fontColor }}>
+            {mintedOn ? `On chain, ${mintedOn}` : "On chain"}
+          </span>
+        </span>
+      )}
       {shown.map(fact => (
         <span key={fact.key} className="flex justify-between gap-[13px]">
           <span>{fact.title}</span>
@@ -515,7 +631,13 @@ export function RnsIdCard({
         </span>
       ))}
       <span className="font-semibold" style={{ color: fontColor }}>
-        {verified ? RNS_ID_COPY.footnote : RNS_IDENTITY_COPY.caution}
+        {verified
+          ? RNS_ID_COPY.footnote
+          : shared
+            ? RNS_IDENTITY_COPY.sharedBody
+            : identity.checkHidden
+              ? RNS_IDENTITY_COPY.hiddenCaution
+              : RNS_IDENTITY_COPY.caution}
       </span>
       {onOpenSheet && (
         <button
@@ -533,7 +655,7 @@ export function RnsIdCard({
     </div>
   );
 
-  const label = `${verified ? RNS_ID_COPY.verifiedTitle : RNS_ID_COPY.linkedTitle}, ${nameOrDisplay}`;
+  const label = `${title}, ${nameOrDisplay}`;
   const shell = cn("w-full rounded-prism-13 text-left", className);
 
   if (!interactive) {

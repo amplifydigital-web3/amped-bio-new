@@ -1,5 +1,4 @@
 import {
-  ArrowLeftRight,
   CircleDollarSign,
   Coins,
   FileText,
@@ -12,10 +11,11 @@ import {
 } from "lucide-react";
 
 // Screen Review 087 I01, I04, I20. The admin rail: unlabeled Dashboard, Users;
-// Content: Themes, Files; Money: Pools, Conversions; Access: OAuth clients.
+// Content: Themes, Files; Money: Pools, USDC; Access: OAuth clients.
 // Blocks is not rendered (088 I09). Broadcasts shipped after the review and
 // sits in Content so its page stays reachable. USDC (Build Board #29, spec
-// 3.8) joins Money after Conversions.
+// 3.8) joins Money after Pools. ndau conversions were removed from the admin:
+// they are processed manually through the support portal.
 export type AdminGroup = "start" | "content" | "money" | "access";
 
 export interface AdminDestination {
@@ -102,16 +102,6 @@ export const ADMIN_DESTINATIONS: AdminDestination[] = [
     dock: true,
   },
   {
-    id: "ndau-conversions",
-    path: "/ndau-conversions",
-    label: "Conversions",
-    title: "ndau conversions",
-    icon: ArrowLeftRight,
-    group: "money",
-    shortcut: "KeyN",
-    dock: true,
-  },
-  {
     id: "money",
     path: "/money",
     label: "USDC",
@@ -119,7 +109,7 @@ export const ADMIN_DESTINATIONS: AdminDestination[] = [
     icon: CircleDollarSign,
     group: "money",
     shortcut: "KeyM",
-    dock: false,
+    dock: true,
   },
   {
     id: "oauth-clients",

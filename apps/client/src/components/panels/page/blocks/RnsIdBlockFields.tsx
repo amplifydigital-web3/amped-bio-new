@@ -13,7 +13,15 @@ import {
   type RnsIdBlockStyle,
   type RnsIdBlockTap,
 } from "@repo/constants";
-import { Button, Checkbox, ChipGroup, Notice, Skeleton } from "@repo/ui";
+import {
+  Button,
+  Checkbox,
+  ChipGroup,
+  Notice,
+  RNS_IDENTITY_COPY,
+  Skeleton,
+  formatRnsDate,
+} from "@repo/ui";
 import { FieldError } from "./LinkFields";
 import { wellClass } from "./linkValue";
 import type { ConfigChange } from "./BlockFields";
@@ -83,10 +91,15 @@ export function RnsIdBlockFields({ block, onValid }: { block: RnsIdBlock; onVali
 
   const data = identity.data;
   const linked = data?.nameState === "linked";
-  const verified = data?.verification?.state === "verified";
-  const showsBadge = verified && data?.display.showBadge !== false;
-  const onPage = linked && data?.display.showName !== false;
+  const verification = data?.verification;
+  const verified = verification?.state === "verified";
+  const expired = verification?.state === "expired";
+  const badgeOn = data?.display.showBadge !== false;
+  const showsBadge = verified && badgeOn;
+  const onPage = data?.display.showName !== false;
   const sharedAttributes = data?.sharedAttributes ?? [];
+  // 112 D8 and D9: what the block can carry without the Verified chip
+  const showsShared = sharedAttributes.some(key => config.show[RNSID_ATTRIBUTE_SWITCH[key]]);
 
   const push = (patch: Partial<RnsIdBlockConfig>) => {
     const next = { ...config, ...patch, hidden: block.config.hidden };
@@ -105,20 +118,72 @@ export function RnsIdBlockFields({ block, onValid }: { block: RnsIdBlock; onVali
     label: TAP_LABELS[value],
   }));
 
+  const identityHref = `/wallet?tab=rns${data?.label ? `&name=${encodeURIComponent(data.label)}` : ""}&view=identity`;
+  const settingsButton = (
+    <Button variant="ghost" className="mt-2" onClick={() => navigate("/page")}>
+      Open RNS settings
+    </Button>
+  );
+
   // 112 D4: what the page shows now, from the same read the preview uses
   let state: React.ReactNode = null;
   if (identity.isPending) {
     state = <Skeleton className="h-4 w-2/3 rounded-prism-8" />;
+  } else if (!onPage) {
+    state = (
+      <Notice variant="info" className="rounded-prism-13">
+        <p>
+          Show on my page is off in Page, Revolution Name Service, so this block is off your page.
+        </p>
+        {settingsButton}
+      </Notice>
+    );
+  } else if (expired) {
+    const until = formatRnsDate(verification.validUntil);
+    state = (
+      <Notice variant="warning" className="rounded-prism-13">
+        <p>
+          Your Authbase check expired{until ? ` on ${until}` : ""}.{" "}
+          {linked
+            ? `Fans see ${data.name} as a linked name until you renew it.`
+            : "This block is off your page until you renew it."}
+        </p>
+        <Button variant="ghost" className="mt-2" onClick={() => navigate(identityHref)}>
+          Renew verification
+        </Button>
+      </Notice>
+    );
+  } else if (!linked && verified) {
+    // 112 D9: the check shows without a name
+    state = (
+      <Notice variant="info" className="rounded-prism-13">
+        <p>
+          {!data.label
+            ? "No RNS name points to this page yet."
+            : data.nameState === "expired"
+              ? `${data.name} expired.`
+              : `${data.name} does not point to this page.`}{" "}
+          {badgeOn || showsShared
+            ? "The block shows your Authbase check without a name, and fans cannot pay you by name."
+            : "With Show Verified badge off and no shared details on, the block is off your page."}
+        </p>
+        <Button
+          variant="ghost"
+          className="mt-2"
+          onClick={() => navigate(data.label ? "/wallet?tab=rns" : "/page")}
+        >
+          {data.label ? "Manage in Wallet" : "Open RNS settings"}
+        </Button>
+      </Notice>
+    );
   } else if (!data?.label) {
     state = (
       <Notice variant="info" className="rounded-prism-13">
         <p>
-          Choose an RNS name in Page, Revolution Name Service. The block shows once a name points to
-          this page.
+          Choose an RNS name in Page, Revolution Name Service, or verify with Authbase. The block
+          shows once a name points to this page or your check is current.
         </p>
-        <Button variant="ghost" className="mt-2" onClick={() => navigate("/page")}>
-          Open RNS settings
-        </Button>
+        {settingsButton}
       </Notice>
     );
   } else if (!linked) {
@@ -126,22 +191,11 @@ export function RnsIdBlockFields({ block, onValid }: { block: RnsIdBlock; onVali
       <Notice variant="warning" className="rounded-prism-13">
         <p>
           {data.nameState === "expired"
-            ? `${data.name} expired, so this block is off your page until you renew it.`
-            : `${data.name} does not point to this page, so this block is off your page.`}
+            ? `${data.name} expired, so this block is off your page until you renew it or verify with Authbase.`
+            : `${data.name} does not point to this page, so this block is off your page until it does or you verify with Authbase.`}
         </p>
         <Button variant="ghost" className="mt-2" onClick={() => navigate("/wallet?tab=rns")}>
           Manage in Wallet
-        </Button>
-      </Notice>
-    );
-  } else if (!onPage) {
-    state = (
-      <Notice variant="info" className="rounded-prism-13">
-        <p>
-          Show on my page is off in Page, Revolution Name Service, so this block is off your page.
-        </p>
-        <Button variant="ghost" className="mt-2" onClick={() => navigate("/page")}>
-          Open RNS settings
         </Button>
       </Notice>
     );
@@ -150,29 +204,37 @@ export function RnsIdBlockFields({ block, onValid }: { block: RnsIdBlock; onVali
       <Notice variant="info" className="rounded-prism-13">
         <p>
           Fans see {data.name} as a linked name. Verify with Authbase to show the Verified chip and
-          your name on ID.
+          the details you share.
         </p>
-        <Button
-          variant="ghost"
-          className="mt-2"
-          onClick={() =>
-            navigate(`/wallet?tab=rns&name=${encodeURIComponent(data.label ?? "")}&view=identity`)
-          }
-        >
+        <Button variant="ghost" className="mt-2" onClick={() => navigate(identityHref)}>
           Get verified
         </Button>
       </Notice>
     );
   } else if (!showsBadge) {
+    // 112 D8
     state = (
       <Notice variant="info" className="rounded-prism-13">
         <p>
-          Show Verified badge is off in Page, Revolution Name Service, so the block reads Linked
-          name.
+          Show Verified badge is off in Page, Revolution Name Service. The block reads Linked name
+          and never says Not verified.
+          {showsShared ? " The details you turn on below still show." : ""}
         </p>
-        <Button variant="ghost" className="mt-2" onClick={() => navigate("/page")}>
-          Open RNS settings
-        </Button>
+        {settingsButton}
+      </Notice>
+    );
+  } else {
+    const level = RNS_IDENTITY_COPY.levelLabel[verification.tier];
+    const until = formatRnsDate(verification.validUntil);
+    const minted = verification.badge ? formatRnsDate(verification.badge.mintedAt) : null;
+    state = (
+      <Notice variant="success" className="rounded-prism-13">
+        <p>
+          {verification.badge
+            ? `Verified, ${level} check, with a badge on chain${minted ? ` since ${minted}` : ""}.`
+            : `Verified, ${level} check. The badge shows here once Authbase mints it.`}
+          {until ? ` Valid until ${until}.` : ""}
+        </p>
       </Notice>
     );
   }

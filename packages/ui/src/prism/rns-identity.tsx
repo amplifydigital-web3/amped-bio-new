@@ -38,8 +38,21 @@ export type RnsIdentityCheck = {
   tier: "standard" | "enhanced";
 };
 
+export type RnsIdentityBadge = { tier: "standard" | "enhanced"; mintedAt: string };
+
 export type RnsIdentity = {
-  chip: "verified" | "name";
+  /**
+   * verified: the owner shows the Verified badge on a current Authbase check.
+   * name: a linked name, no Verified claim. none: no linked name and no
+   * Verified claim, only shared attributes (RNS ID block, 112 D8 and D9).
+   */
+  chip: "verified" | "name" | "none";
+  /** The RNS name points to this page's wallet. False only on the RNS ID block without a linked name (112 D9). */
+  linked: boolean;
+  /** 112 D8: a current check with the Verified badge switched off. No Verified claim, no Not verified caution. */
+  checkHidden?: true;
+  /** The on chain verification badge (Authbase VERIFIED_WITH_BADGE), only with chip "verified" */
+  badge?: RnsIdentityBadge;
   name?: string;
   label?: string;
   wallet?: string;
@@ -71,7 +84,23 @@ export const RNS_IDENTITY_COPY = {
   detailsLabel: "Show details",
   detailsHelp: "The owner of this page chose to show them.",
   rnsLink: "View on Revolution Name Service",
+  // Build Board #33 badge and status, 112 D8 and D9. Pending counsel review.
+  badgeTitle: "Verification badge",
+  badgeLine: (date: string | null) => (date ? `Minted on chain on ${date}.` : "Minted on chain."),
+  levelLabel: { standard: "Standard", enhanced: "Enhanced" },
+  sharedTitle: "Shared details",
+  sharedBody: "The owner of this page shared these through Authbase.",
+  hiddenCaution: "Check the address with the owner before you send. Names can look alike.",
 } as const;
+
+/**
+ * The header chip and the Verified mark after the display name stay with a
+ * linked name (109 I06). The RNS ID block's identity without one (112 D9)
+ * shows only in the block.
+ */
+export function headerRnsIdentity(identity: RnsIdentity): RnsIdentity {
+  return identity?.linked && identity.chip !== "none" ? identity : null;
+}
 
 /** 12 Aug 2026, in UTC so the server and the browser agree */
 export function formatRnsDate(value: string): string | null {
@@ -227,10 +256,13 @@ export function RnsIdentityDialog({
   }, [open]);
 
   const verified = identity.chip === "verified";
+  const shared = identity.chip === "none";
   const check = identity.check;
+  const badge = verified ? identity.badge : undefined;
   const verifiedOn = check ? formatRnsDate(check.verifiedAt) : null;
   const validUntil = check ? formatRnsDate(check.validUntil) : null;
-  const hasDetails = !!(identity.name || identity.wallet || check);
+  const mintedOn = badge ? formatRnsDate(badge.mintedAt) : null;
+  const hasDetails = !!(identity.name || identity.wallet || check || badge);
   const profileUrl = rnsUrl && identity.label ? `${rnsUrl}/#/profile/${identity.label}` : null;
 
   return (
@@ -252,17 +284,37 @@ export function RnsIdentityDialog({
         <div className="space-y-2">
           {verified && (
             <Badge variant="success">
-              <Check aria-hidden className="h-4 w-4" />
+              {badge ? (
+                <BadgeCheck aria-hidden className="h-4 w-4" />
+              ) : (
+                <Check aria-hidden className="h-4 w-4" />
+              )}
               {RNS_IDENTITY_COPY.chip}
             </Badge>
           )}
-          <DialogTitle>{verified ? RNS_IDENTITY_COPY.title : identity.name}</DialogTitle>
+          <DialogTitle>
+            {verified
+              ? RNS_IDENTITY_COPY.title
+              : shared
+                ? RNS_IDENTITY_COPY.sharedTitle
+                : identity.name}
+          </DialogTitle>
           <DialogDescription>
-            {verified ? RNS_IDENTITY_COPY.body(verifiedOn) : RNS_IDENTITY_COPY.linked}
+            {verified
+              ? RNS_IDENTITY_COPY.body(verifiedOn)
+              : shared
+                ? RNS_IDENTITY_COPY.sharedBody
+                : RNS_IDENTITY_COPY.linked}
           </DialogDescription>
-          {!verified && (
-            <p className="text-prism-meta font-semibold text-prism-warning-ink">
-              {RNS_IDENTITY_COPY.caution}
+          {/* 112 D8: a hidden badge on a current check never reads Not verified */}
+          {identity.chip === "name" && (
+            <p
+              className={cn(
+                "text-prism-meta font-semibold",
+                identity.checkHidden ? "text-prism-ink-2" : "text-prism-warning-ink"
+              )}
+            >
+              {identity.checkHidden ? RNS_IDENTITY_COPY.hiddenCaution : RNS_IDENTITY_COPY.caution}
             </p>
           )}
         </div>
@@ -273,6 +325,13 @@ export function RnsIdentityDialog({
               icon={ShieldCheck}
               title={RNS_IDENTITY_COPY.factTitle}
               line={validUntil ? RNS_IDENTITY_COPY.factLine(validUntil) : undefined}
+            />
+          )}
+          {badge && (
+            <Fact
+              icon={BadgeCheck}
+              title={RNS_IDENTITY_COPY.badgeTitle}
+              line={RNS_IDENTITY_COPY.badgeLine(mintedOn)}
             />
           )}
           {AUTHBASE_ATTRIBUTE_KEYS.map(key => {
@@ -323,12 +382,13 @@ export function RnsIdentityDialog({
                 {check && verifiedOn && <DetailRow label="Checked on" value={verifiedOn} />}
                 {check && validUntil && <DetailRow label="Valid until" value={validUntil} />}
                 {check && (
-                  <DetailRow
-                    label="Check level"
-                    value={check.tier === "enhanced" ? "Enhanced" : "Standard"}
-                  />
+                  <DetailRow label="Check level" value={RNS_IDENTITY_COPY.levelLabel[check.tier]} />
                 )}
                 {check && <DetailRow label="Checked by" value="Authbase" />}
+                {badge && mintedOn && <DetailRow label="Badge minted" value={mintedOn} />}
+                {badge && (
+                  <DetailRow label="Badge level" value={RNS_IDENTITY_COPY.levelLabel[badge.tier]} />
+                )}
                 {profileUrl && (
                   <div className="px-[5px] py-1">
                     <a
@@ -348,7 +408,8 @@ export function RnsIdentityDialog({
           </div>
         )}
 
-        {(sendHref || readOnly) && (
+        {/* Pay by name needs a linked name (112 D9) */}
+        {identity.linked && (sendHref || readOnly) && (
           <div className="space-y-2">
             {sendHref && !readOnly ? (
               <Button variant="secondary" size="lg" className="w-full" asChild>
@@ -393,7 +454,7 @@ export function RnsIdentityChip({
 }: RnsIdentityChipProps) {
   const [open, setOpen] = useState(false);
 
-  if (!identity) return null;
+  if (!headerRnsIdentity(identity) || !identity) return null;
   const verified = identity.chip === "verified";
   const chipStyle: CSSProperties = {
     fontFamily,

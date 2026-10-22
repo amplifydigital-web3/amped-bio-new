@@ -1,7 +1,8 @@
 import express, { Router } from "express";
 import { analyticsCollectSchema } from "@repo/constants";
 import { collectAnalyticsEvent } from "../services/analytics/collector";
-import { resolveLocation } from "../services/analytics/geo";
+import { lookupGeoIp, resolveLocation } from "../services/analytics/geo";
+import { getGeoIpDatabaseStatus } from "../services/analytics/geoipDatabase";
 import { getVisitorIp } from "../services/analytics/visitorIp";
 
 const analyticsRouter: Router = Router();
@@ -39,12 +40,19 @@ analyticsRouter.post("/collect", express.text({ type: "*/*", limit: "4kb" }), as
  */
 analyticsRouter.get("/geo-check", async (req, res) => {
   const { ip, viaCloudflare } = getVisitorIp(req);
-  const location = await resolveLocation(req, ip, viaCloudflare);
+  const [location, lookup, database] = await Promise.all([
+    resolveLocation(req, ip, viaCloudflare),
+    ip ? lookupGeoIp(ip).catch(() => null) : Promise.resolve(null),
+    getGeoIpDatabaseStatus(),
+  ]);
   res.set("Cache-Control", "no-store");
   res.json({
     country: location.country,
     city: location.city,
     source: location.source,
+    // "maxmind" when GeoLite2 City answered, "bundled" for the IPv4 fallback
+    engine: lookup?.engine ?? null,
+    database,
     viaCloudflare,
     visitorIpFound: ip !== "",
     ipVersion: ip ? (ip.includes(":") ? 6 : 4) : null,
