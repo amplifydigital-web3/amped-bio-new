@@ -14,6 +14,8 @@ import { NetworkSection, TestnetCard } from "./TestnetCard";
 import { UpdatesFrame } from "./UpdatesFrame";
 import { VerifyEmailNotice } from "./VerifyEmailNotice";
 import { VideoGuides } from "./VideoGuides";
+import { MESSAGES_ON } from "../messages/shared";
+import { TelegramHomeCard } from "../messages/TelegramHomeCard";
 
 // Page details that have not loaded by then show the error card (016 I13)
 const PROFILE_TIMEOUT_MS = 10_000;
@@ -118,6 +120,10 @@ export function HomePanel() {
           {showChecklist && <SetupChecklist status={data} welcome={welcome} />}
           {unpublished && data && !data.publishCardDismissed && (
             <MakeYourPageCard onPublish={() => setPublishOpen(true)} />
+          )}
+          {/* Messaging on Telegram (#2), item 6: after the first five steps, until wizard A step 3 */}
+          {MESSAGES_ON && data && !unpublished && data.completed && !data.telegramSetup && (
+            <TelegramHomeCard />
           )}
 
           {profileLoaded ? (

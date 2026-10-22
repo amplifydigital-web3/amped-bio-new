@@ -2,7 +2,11 @@ import { useEffect, useState } from "react";
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router";
 import { BellOff, ChevronLeft, Flag, Inbox } from "lucide-react";
-import { BROADCAST_REPORT_REASONS, type BroadcastReportReasonValue } from "@repo/constants";
+import {
+  BROADCAST_REPORT_REASONS,
+  TELEGRAM_APP_STRINGS,
+  type BroadcastReportReasonValue,
+} from "@repo/constants";
 import {
   Button,
   Chip,
@@ -14,6 +18,10 @@ import {
   DialogTitle,
   EmptyState,
   ErrorCard,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
   cn,
   trpc,
   trpcClient,
@@ -22,7 +30,10 @@ import { toast } from "@/components/ui/toast";
 import { useDelayed } from "@/hooks/useDelayed";
 import { useEditor } from "@/contexts/EditorContext";
 import { Avatar, BroadcastBody, BroadcastFooter } from "./shared";
-import { longTime, shortTime } from "./utils";
+import { BROADCAST_ON, longTime, shortTime } from "./utils";
+import { MESSAGES_ON } from "../messages/shared";
+import { MessagesTab } from "../messages/MessagesTab";
+import { FanMessagesSettings } from "../messages/FanMessagesSettings";
 
 function invalidateInbox(queryClient: ReturnType<typeof useQueryClient>) {
   void queryClient.invalidateQueries({ queryKey: trpc.broadcast.inbox.pathKey() });
@@ -227,10 +238,10 @@ function MessageView({ broadcastId, onBack }: { broadcastId: number; onBack: () 
 }
 
 /**
- * Inbox (boards br3 and br4). Every member gets each broadcast here. Phase 1
- * has no email. Deep link: /inbox?b={broadcastId}.
+ * Inbox, Updates (boards br3 and br4). Every member gets each broadcast here.
+ * Phase 1 has no email. Deep link: /inbox?b={broadcastId}.
  */
-export function InboxPanel() {
+function UpdatesTab() {
   const { setActivePanelAndNavigate } = useEditor();
   const [params, setParams] = useSearchParams();
   const openId = Number(params.get("b")) || null;
@@ -392,24 +403,82 @@ export function InboxPanel() {
   }
 
   return (
-    <div className="px-4 py-5 md:px-6">
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,420px)_minmax(0,1fr)]">
-        <div className={cn("min-w-0 space-y-4", openId && "hidden lg:block")}>
-          {chips}
-          {listBody}
-        </div>
-        <div className={cn("min-w-0", !openId && "hidden lg:block")}>
-          {openId ? (
-            <MessageView broadcastId={openId} onBack={() => setOpen(null)} />
-          ) : (
-            items.length > 0 && (
-              <div className="prism-slab flex h-full min-h-60 items-center justify-center rounded-prism-21 p-5 text-prism-label text-prism-ink-2">
-                Choose a message to read it.
-              </div>
-            )
-          )}
-        </div>
+    <div className="grid gap-5 lg:grid-cols-[minmax(0,420px)_minmax(0,1fr)]">
+      <div className={cn("min-w-0 space-y-4", openId && "hidden lg:block")}>
+        {chips}
+        {listBody}
+      </div>
+      <div className={cn("min-w-0", !openId && "hidden lg:block")}>
+        {openId ? (
+          <MessageView broadcastId={openId} onBack={() => setOpen(null)} />
+        ) : (
+          items.length > 0 && (
+            <div className="prism-slab flex h-full min-h-60 items-center justify-center rounded-prism-21 p-5 text-prism-label text-prism-ink-2">
+              Choose a message to read it.
+            </div>
+          )
+        )}
       </div>
     </div>
+  );
+}
+
+type InboxTab = "updates" | "messages" | "settings";
+
+/**
+ * Inbox (spec 3.2). Updates are broadcasts (Build Board #1). With Messaging on
+ * Telegram (#2, rows 113 and 114) the inbox gains Messages, the conversations
+ * with fans and creators, and Settings, Fan messages. The tab lives in ?tab=;
+ * a thread link (?t=) opens Messages and a broadcast link (?b=) opens Updates.
+ */
+export function InboxPanel() {
+  const [params, setParams] = useSearchParams();
+  const S = TELEGRAM_APP_STRINGS;
+  if (!MESSAGES_ON)
+    return <div className="px-4 py-5 md:px-6">{BROADCAST_ON && <UpdatesTab />}</div>;
+
+  const requested = params.get("tab");
+  const fallback: InboxTab = BROADCAST_ON ? "updates" : "messages";
+  const tab: InboxTab =
+    requested === "messages" ||
+    requested === "settings" ||
+    (requested === "updates" && BROADCAST_ON)
+      ? requested
+      : params.has("t")
+        ? "messages"
+        : params.has("b") && BROADCAST_ON
+          ? "updates"
+          : fallback;
+  const setTab = (next: string) =>
+    setParams(current => {
+      const updated = new URLSearchParams(current);
+      updated.set("tab", next);
+      if (next !== "messages") {
+        updated.delete("t");
+        updated.delete("side");
+      }
+      if (next !== "updates") updated.delete("b");
+      return updated;
+    });
+
+  return (
+    <Tabs value={tab} onValueChange={setTab} className="flex flex-col gap-5 px-4 py-5 md:px-6">
+      <TabsList aria-label="Inbox sections" className="self-start">
+        {BROADCAST_ON && <TabsTrigger value="updates">{S.inboxTabs.updates}</TabsTrigger>}
+        <TabsTrigger value="messages">{S.inboxTabs.messages}</TabsTrigger>
+        <TabsTrigger value="settings">{S.inboxTabs.settings}</TabsTrigger>
+      </TabsList>
+      {BROADCAST_ON && (
+        <TabsContent value="updates">
+          <UpdatesTab />
+        </TabsContent>
+      )}
+      <TabsContent value="messages">
+        <MessagesTab />
+      </TabsContent>
+      <TabsContent value="settings" className="max-w-[720px]">
+        <FanMessagesSettings />
+      </TabsContent>
+    </Tabs>
   );
 }

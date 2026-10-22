@@ -159,6 +159,7 @@ Creator pages and the public site set nothing in your browser until you choose, 
 | `amped_consent_v2` | Local storage | Amped.Bio | Remembers your privacy choices | You make a choice | 24 months |
 | `amped_vid` | Local storage | Amped.Bio | Random ID for return visits | You allow Return visits | 24 months or until withdrawn |
 | `amped_sid` | Session storage | Amped.Bio | Groups events in one visit | You allow Return visits | Until the tab closes |
+| `amped_message_intent`, `amped_tg_link_prefs` | Session storage | Amped.Bio | Returns you to the creator you chose to message, with the Telegram choices you ticked | You tap Message me on Telegram | Until you return, or the tab closes |
 | `_ga`, `_ga_SK6H61G3S1` | Cookies | Google, for Amped.Bio | Recognise return visits in Google Analytics | You choose Accept all or allow Return visits | 24 months or until withdrawn |
 | Referral cookie | Cookie | Amped.Bio | Credits the creator if you sign up from their page | You tap Claim your own Amped.Bio | 30 days |
 | Sign in session cookies | Cookies | Amped.Bio | Keep you signed in | You sign in | Until you sign out, or 7 days after you last use Amped.Bio |

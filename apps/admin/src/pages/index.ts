@@ -7,4 +7,5 @@ export { AdminLayout } from "./AdminLayout";
 export { AdminPools } from "./AdminPools";
 export { AdminOAuthClients } from "./AdminOAuthClients";
 export { AdminBroadcasts } from "./AdminBroadcasts";
+export { AdminTelegram } from "./AdminTelegram";
 export { AdminMoney } from "./AdminMoney";

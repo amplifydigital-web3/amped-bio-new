@@ -4,7 +4,9 @@ import { useSearchParams } from "react-router";
 import { useEditor } from "../contexts/EditorContext";
 import { MyPoolDestination } from "./panels/broadcast/MyPoolDestination";
 import { InboxPanel } from "./panels/broadcast/InboxPanel";
-import { BROADCAST_ON } from "./panels/broadcast/utils";
+import { INBOX_ON } from "./panels/broadcast/utils";
+import { TelegramWizard } from "./panels/messages/TelegramWizard";
+import { MESSAGES_ON } from "./panels/messages/shared";
 import { RNSPanel } from "./panels/rns/RNSPanel";
 import { HomePanel } from "./panels/home/HomePanel";
 import { MyWalletPanel } from "./panels/wallet/MyWalletPanel";
@@ -75,7 +77,7 @@ function ActivePanel({ panel }: { panel: EditorPanelType }) {
     case "my-pool":
       return <MyPoolDestination />;
     case "inbox":
-      return BROADCAST_ON ? <InboxPanel /> : null;
+      return INBOX_ON ? <InboxPanel /> : null;
     case "account":
       return <AccountPanel />;
     case "rns":
@@ -164,6 +166,8 @@ export function Layout({ bannerData, bannerLoading }: LayoutProps) {
         </div>
 
         <MobileDock />
+        {/* Messaging on Telegram (#2), wizard A: ?wizard=telegram on any route (spec 3.11a) */}
+        {MESSAGES_ON && <TelegramWizard />}
       </div>
     </ShellNavigationProvider>
   );

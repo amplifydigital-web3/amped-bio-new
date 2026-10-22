@@ -14,6 +14,7 @@ import { ReferralBlock } from "./blocks/ReferralBlock";
 import { FollowBlock } from "./blocks/FollowBlock";
 import { FollowersBlock } from "./blocks/FollowersBlock";
 import { RnsIdBlock } from "./blocks/RnsIdBlock";
+import { TelegramMessagePreview } from "./blocks/TelegramMessageBlock";
 import { isHTML } from "@/utils/htmlutils";
 import { type BlockType, DEFAULT_RNSID_CONFIG, sanitizeRichHtml } from "@repo/constants";
 import { Theme, UserProfile } from "@/types/editor";
@@ -51,6 +52,7 @@ const VIDEO_BACKDROP = "#14141C";
 
 const fanGraphOn = import.meta.env.VITE_FAN_GRAPH === "true";
 const rnsOn = import.meta.env.VITE_SHOW_RNS === "true";
+const telegramOn = import.meta.env.VITE_SHOW_TELEGRAM === "true";
 
 interface PreviewProps {
   isEditing: boolean;
@@ -225,6 +227,16 @@ export function Preview({
         </ErrorBoundary>
       );
     }
+    // Messaging on Telegram (#2, row 115). The group block waits on PR 5.
+    if (block.type === "telegram_message") {
+      if (!telegramOn) return null;
+      return (
+        <ErrorBoundary key={block.id} fallback={fallback}>
+          <TelegramMessagePreview block={block} theme={themeConfig} />
+        </ErrorBoundary>
+      );
+    }
+    if (block.type === "telegram_group") return null;
     return (
       <ErrorBoundary key={block.id} fallback={fallback}>
         <TextBlock block={block} theme={themeConfig} />

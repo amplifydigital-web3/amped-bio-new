@@ -119,7 +119,10 @@ export async function linkTelegram(userId: number, identity: VerifiedTelegramIde
  * one closing notice.
  */
 export async function unlinkTelegram(userId: number) {
-  const account = await findByUserId(userId);
+  const [account, updatesOn] = await Promise.all([
+    findByUserId(userId),
+    getGlobalTelegramDelivery(userId),
+  ]);
   if (!account) return null;
   await prisma.$transaction([
     prisma.telegramAccount.delete({ where: { userId } }),
@@ -132,7 +135,11 @@ export async function unlinkTelegram(userId: number) {
       data: { telegramEnabled: null },
     }),
   ]);
+  // Unlink ends the delivery consent too, so the trail shows the withdrawal,
+  // not only the original grant
   await recordLinkEvent(userId, account.telegramUserId, "unlinked", "settings");
+  // Only delivery that was actually on leaves a withdrawal in the trail
+  if (updatesOn) await recordLinkEvent(userId, account.telegramUserId, "updates_off", "settings");
   return { telegramUserId: account.telegramUserId, reachable: isReachable(account) };
 }
 

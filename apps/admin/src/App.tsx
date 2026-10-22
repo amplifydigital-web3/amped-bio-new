@@ -11,6 +11,7 @@ import {
   AdminPools,
   AdminOAuthClients,
   AdminBroadcasts,
+  AdminTelegram,
   AdminMoney,
 } from "./pages";
 
@@ -38,6 +39,7 @@ function AppRouter() {
           <Route path="pools" element={<AdminPools />} />
           <Route path="oauth-clients" element={<AdminOAuthClients />} />
           <Route path="broadcasts" element={<AdminBroadcasts />} />
+          <Route path="telegram" element={<AdminTelegram />} />
           <Route path="money" element={<AdminMoney />} />
           {/* ndau conversions moved to the support portal; old links land on the dashboard */}
           <Route path="ndau-conversions" element={<Navigate to="/" replace />} />
