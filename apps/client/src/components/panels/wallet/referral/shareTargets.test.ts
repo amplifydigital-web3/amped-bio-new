@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { shareTargets } from "./InviteCard";
+import { shareTargets } from "./shareTargets";
 
 describe("shareTargets", () => {
   const link = "https://amped.bio/register?r=0x2f";

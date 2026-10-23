@@ -1,4 +1,4 @@
-import { useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertCircle,
@@ -23,6 +23,7 @@ import { toast } from "@/components/ui/toast";
 import { useDelayed } from "@/hooks/useDelayed";
 import { TestnetLine } from "../../explore/pool-panel/sections";
 import { ClaimReviewPanel, type ClaimTarget } from "./ClaimReviewPanel";
+import { SHARE_TEXT, shareTargets } from "./shareTargets";
 import {
   Avatar,
   REFERRALS_ARTICLE,
@@ -37,27 +38,6 @@ import {
 type Referral = RouterOutputs["referral"]["myReferrals"]["referrals"][number];
 
 const PAGE_SIZE = 10;
-const SHARE_TEXT = "Join me on Amped.Bio. Build your page and earn tREVO on testnet.";
-
-/** Share targets that open in a new tab. Native share comes first when the browser has it. */
-export function shareTargets(link: string) {
-  const url = encodeURIComponent(link);
-  const text = encodeURIComponent(SHARE_TEXT);
-  return [
-    { id: "x", label: "Share on X", href: `https://x.com/intent/post?text=${text}&url=${url}` },
-    {
-      id: "telegram",
-      label: "Share on Telegram",
-      href: `https://t.me/share/url?url=${url}&text=${text}`,
-    },
-    { id: "whatsapp", label: "Share on WhatsApp", href: `https://wa.me/?text=${text}%20${url}` },
-    {
-      id: "email",
-      label: "Share by email",
-      href: `mailto:?subject=${encodeURIComponent("Join me on Amped.Bio")}&body=${text}%20${url}`,
-    },
-  ] as const;
-}
 
 const SHARE_ICONS = { telegram: Send, whatsapp: MessageCircle, email: Mail } as const;
 
@@ -153,9 +133,18 @@ export default function InviteCard() {
   const listId = useId();
   const [copied, setCopied] = useState(false);
   const [copyFailed, setCopyFailed] = useState(false);
+  const [shareFailed, setShareFailed] = useState(false);
   const [open, setOpen] = useState(false);
   const [pageCount, setPageCount] = useState(1);
   const [target, setTarget] = useState<(ClaimTarget & { referralId: number }) | null>(null);
+  // The Copied label clears on a timer; the timer must not outlive the card
+  const copiedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (copiedTimer.current) clearTimeout(copiedTimer.current);
+    };
+  }, []);
 
   const pages = useQueries({
     queries: Array.from({ length: pageCount }, (_, index) => ({
@@ -203,9 +192,12 @@ export default function InviteCard() {
     try {
       await navigator.clipboard.writeText(link);
       setCopyFailed(false);
+      setShareFailed(false);
       setCopied(true);
       toast.add({ type: "success", title: "Link copied" });
-      setTimeout(() => setCopied(false), 2000);
+      // A second copy restarts the window, so drop the pending timer first
+      if (copiedTimer.current) clearTimeout(copiedTimer.current);
+      copiedTimer.current = setTimeout(() => setCopied(false), 2000);
     } catch {
       setCopyFailed(true);
       inputRef.current?.select();
@@ -228,8 +220,11 @@ export default function InviteCard() {
   const nativeShare = async () => {
     try {
       await navigator.share({ title: "Amped.Bio", text: SHARE_TEXT, url: link });
-    } catch {
-      // The viewer closed the share sheet; nothing to report
+      setShareFailed(false);
+    } catch (error) {
+      // The viewer closed the share sheet; that is not a failure to report
+      if ((error as DOMException)?.name === "AbortError") return;
+      setShareFailed(true);
     }
   };
 
@@ -388,6 +383,12 @@ export default function InviteCard() {
         </div>
         {copyButton(true)}
       </div>
+      {shareFailed && (
+        <p role="alert" className="mt-2 flex items-start gap-1.5 text-prism-meta text-prism-danger">
+          <AlertCircle aria-hidden className="mt-px h-4 w-4 shrink-0" />
+          Sharing failed. Copy the link and share it manually.
+        </p>
+      )}
       <div role="group" aria-label="Share your invite link" className="mt-3 flex flex-wrap gap-2">
         {canNativeShare && (
           <Button

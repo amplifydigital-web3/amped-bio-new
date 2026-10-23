@@ -8,7 +8,14 @@ const RefereeCard = lazy(() => import("../wallet/referral/RefereeCard"));
 const FaucetCard = lazy(() => import("../wallet/faucet/FaucetCard"));
 const InviteCard = lazy(() => import("../wallet/referral/InviteCard"));
 
-/** ?open=faucet scrolls to the faucet card once it renders, then drops the param. */
+/** The faucet card renders after its query resolves, so keep looking for it. */
+const FAUCET_FOCUS_TRIES = 300;
+
+/**
+ * ?open=faucet scrolls to the faucet card once it renders, then drops the
+ * param. The param stays while the card is missing, so a slow connection
+ * still ends on the focused card instead of on a silent Home.
+ */
 function useOpenFaucet() {
   const [params, setParams] = useSearchParams();
   const wanted = params.get("open") === "faucet";
@@ -17,7 +24,7 @@ function useOpenFaucet() {
     let tries = 0;
     const timer = setInterval(() => {
       tries += 1;
-      if (focusFaucetHeading() || tries > 50) {
+      if (focusFaucetHeading()) {
         clearInterval(timer);
         setParams(
           current => {
@@ -27,7 +34,10 @@ function useOpenFaucet() {
           },
           { replace: true }
         );
+        return;
       }
+      // Give up after 30 s, but keep the param so the intent survives
+      if (tries >= FAUCET_FOCUS_TRIES) clearInterval(timer);
     }, 100);
     return () => clearInterval(timer);
   }, [wanted, setParams]);
