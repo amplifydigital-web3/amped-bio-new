@@ -1,5 +1,6 @@
 import { useParams, useLocation } from "react-router";
 import { Layout } from "../components/Layout";
+import { EditorPlayerProvider } from "../components/player/EditorPlayer";
 import { useAuth } from "@repo/ui";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useEditor } from "../contexts/EditorContext";
@@ -186,5 +187,10 @@ export function Editor() {
 
   // The Prism shell scrolls the page itself (fixed rail and dock, sticky
   // preview), so no viewport-height or overflow wrapper goes around it
-  return <Layout bannerData={bannerData} bannerLoading={bannerLoading} />;
+  // Fan Library #26 phase A: one player for the shell, so play survives navigation
+  return (
+    <EditorPlayerProvider>
+      <Layout bannerData={bannerData} bannerLoading={bannerLoading} />
+    </EditorPlayerProvider>
+  );
 }
