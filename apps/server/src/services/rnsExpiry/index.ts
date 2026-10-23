@@ -18,8 +18,20 @@ const DAY = 86_400;
 const SWEEP_MS = 60 * 60 * 1000;
 const PAGE_SIZE = 1000;
 const MAX_PAGES = 20;
+/** A notice is abandoned after this many failed sends. */
+const MAX_ATTEMPTS = 3;
+/** Hours to wait before the next try: 1 after the first failure, 2 after the second. */
+const BACKOFF_HOURS = [1, 2, 4];
 
 export type ExpiringName = { label: string; owner: string; expiry: number };
+
+/** The subgraph answer. A GraphQL error comes with HTTP 200 and no data. */
+type SubgraphAnswer = {
+  data?: {
+    revoNames?: { labelName: string | null; owner: string; expiryDateWithGrace: string }[];
+  };
+  errors?: { message?: string }[];
+};
 
 const DATE_FORMAT = new Intl.DateTimeFormat("en-GB", {
   day: "numeric",
@@ -38,7 +50,10 @@ export async function fetchExpiringNames(
   now: number,
   fetcher: typeof fetch = fetch
 ): Promise<ExpiringName[] | null> {
-  if (!env.SUBGRAPH_URL) return null;
+  if (!env.SUBGRAPH_URL) {
+    console.warn("[rns-expiry] the subgraph URL is not set, no names to sweep");
+    return null;
+  }
   const from = now;
   const to = now + 30 * DAY + RNS_GRACE_PERIOD_SECONDS;
   const names: ExpiringName[] = [];
@@ -52,14 +67,28 @@ export async function fetchExpiringNames(
         variables: { from: String(from), to: String(to), skip: page * PAGE_SIZE },
       }),
     });
-    if (!res.ok) return null;
-    const json = (await res.json()) as {
-      data?: {
-        revoNames?: { labelName: string | null; owner: string; expiryDateWithGrace: string }[];
-      };
-    };
+    const body = await res.text();
+    if (!res.ok) {
+      console.error(`[rns-expiry] the subgraph answered with ${res.status}`, body.slice(0, 500));
+      return null;
+    }
+    let json: SubgraphAnswer;
+    try {
+      json = JSON.parse(body) as SubgraphAnswer;
+    } catch {
+      console.error("[rns-expiry] the subgraph answer was not JSON", body.slice(0, 500));
+      return null;
+    }
+    // A GraphQL error comes back with HTTP 200 and no data
+    if (json.errors?.length) {
+      console.error("[rns-expiry] the subgraph returned errors", json.errors);
+      return null;
+    }
     const rows = json.data?.revoNames;
-    if (!Array.isArray(rows)) return null;
+    if (!Array.isArray(rows)) {
+      console.error("[rns-expiry] the subgraph answer had no revoNames list", body.slice(0, 500));
+      return null;
+    }
     for (const row of rows) {
       if (!row.labelName || !row.owner) continue;
       names.push({
@@ -109,27 +138,67 @@ async function recipientsFor(owners: string[]): Promise<Map<string, Recipient>> 
   return map;
 }
 
-/** Records the notice first so two servers never both send it. False when it already went. */
+/**
+ * Records the notice first so two servers never both send it. True when this
+ * server owns the notice and may send it.
+ *
+ * A notice that already went is skipped for good. A notice whose send failed
+ * is taken over again, after a backoff, until MAX_ATTEMPTS tries.
+ */
 async function claimNotice(
   userId: number,
   label: string,
   expiry: number,
-  stage: RnsExpiryStage
+  stage: RnsExpiryStage,
+  now: number
 ): Promise<boolean> {
   try {
-    await prisma.rnsExpiryNotice.create({ data: { id: uuidv7(), userId, label, expiry, stage } });
+    await prisma.rnsExpiryNotice.create({
+      data: { id: uuidv7(), userId, label, expiry, stage, attempts: 1 },
+    });
     return true;
   } catch (error) {
-    if ((error as { code?: string }).code === "P2002") return false;
-    throw error;
+    if ((error as { code?: string }).code !== "P2002") throw error;
   }
+  // The notice exists: it went out, it is abandoned, or it waits for its turn.
+  const row = await prisma.rnsExpiryNotice.findUnique({
+    where: { userId_label_expiry_stage: { userId, label, expiry, stage } },
+    select: { attempts: true, failedAt: true },
+  });
+  // Only a notice whose last attempt failed can be taken over. A notice in
+  // flight belongs to the server that wrote it.
+  if (!row?.failedAt) return false;
+  if (row.attempts >= MAX_ATTEMPTS) return false;
+  const wait = BACKOFF_HOURS[Math.min(row.attempts, BACKOFF_HOURS.length) - 1] * 3600;
+  if (row.failedAt.getTime() + wait * 1000 > now * 1000) return false;
+  // Take the notice over. The compare and swap on attempts lets only one
+  // server win, so a reminder never goes out twice.
+  const taken = await prisma.rnsExpiryNotice.updateMany({
+    where: { userId, label, expiry, stage, attempts: row.attempts, failedAt: { not: null } },
+    data: { attempts: { increment: 1 }, failedAt: null },
+  });
+  return taken.count === 1;
 }
 
-/** A failed send frees the notice, so the next sweep tries again. */
-async function releaseNotice(userId: number, label: string, expiry: number, stage: RnsExpiryStage) {
-  await prisma.rnsExpiryNotice
-    .delete({ where: { userId_label_expiry_stage: { userId, label, expiry, stage } } })
-    .catch(() => undefined);
+/**
+ * The send failed: the notice waits for its backoff, or is abandoned when it
+ * used up its attempts. Returns the attempts made, or null when the row is gone.
+ */
+async function markFailed(
+  userId: number,
+  label: string,
+  expiry: number,
+  stage: RnsExpiryStage,
+  now: number
+): Promise<number | null> {
+  const row = await prisma.rnsExpiryNotice
+    .update({
+      where: { userId_label_expiry_stage: { userId, label, expiry, stage } },
+      data: { failedAt: new Date(now * 1000) },
+      select: { attempts: true },
+    })
+    .catch(() => null);
+  return row?.attempts ?? null;
 }
 
 export function extendUrl(label: string) {
@@ -170,24 +239,43 @@ export async function sendRnsExpiryEmail(
 /** One sweep: find names in a reminder stage, send each reminder once. Returns emails sent. */
 export async function sweepRnsExpiry(now = Math.floor(Date.now() / 1000)): Promise<number> {
   const names = await fetchExpiringNames(now);
-  if (!names?.length) return 0;
+  if (!names) {
+    console.warn("[rns-expiry] the subgraph read failed, no reminders sent");
+    return 0;
+  }
+  if (!names.length) {
+    console.warn("[rns-expiry] the subgraph returned no name in the expiry window");
+    return 0;
+  }
   const due = names
     .map(name => ({ name, stage: rnsExpiryStage(name.expiry, now) }))
     .filter((item): item is { name: ExpiringName; stage: RnsExpiryStage } => !!item.stage);
-  if (!due.length) return 0;
+  if (!due.length) {
+    console.warn(`[rns-expiry] ${names.length} name(s) in the window, none in a reminder stage`);
+    return 0;
+  }
 
   const recipients = await recipientsFor([...new Set(due.map(item => item.name.owner))]);
   let sent = 0;
   for (const { name, stage } of due) {
     const to = recipients.get(name.owner);
     if (!to) continue;
-    if (!(await claimNotice(to.userId, name.label, name.expiry, stage))) continue;
+    let claimed = false;
     try {
+      claimed = await claimNotice(to.userId, name.label, name.expiry, stage, now);
+      if (!claimed) continue;
       await sendRnsExpiryEmail(to, name, stage, now);
       sent += 1;
     } catch (error) {
-      console.error(`[rns-expiry] email failed for user ${to.userId}, ${name.label}`, error);
-      await releaseNotice(to.userId, name.label, name.expiry, stage);
+      // One bad name or one bad row must not take down the whole sweep
+      console.error(`[rns-expiry] the reminder failed for user ${to.userId}, ${name.label}`, error);
+      if (!claimed) continue;
+      const attempts = await markFailed(to.userId, name.label, name.expiry, stage, now);
+      if (attempts !== null && attempts >= MAX_ATTEMPTS) {
+        console.error(
+          `[rns-expiry] gave up on ${name.label} for user ${to.userId} after ${attempts} attempts`
+        );
+      }
     }
   }
   if (sent) console.log(`[rns-expiry] sent ${sent} reminder email(s)`);
@@ -197,7 +285,10 @@ export async function sweepRnsExpiry(now = Math.floor(Date.now() / 1000)): Promi
 let sweeper: NodeJS.Timeout | null = null;
 /** Hourly. The notice table keeps each reminder to one email. */
 export function startRnsExpirySweeper() {
-  if (sweeper || process.env.NODE_ENV === "test" || !env.RNS_EXPIRY_EMAILS) return;
+  // No subgraph means no names to sweep: the timer never starts
+  if (sweeper || process.env.NODE_ENV === "test" || !env.RNS_EXPIRY_EMAILS || !env.SUBGRAPH_URL) {
+    return;
+  }
   const run = () =>
     void sweepRnsExpiry().catch(error => console.error("[rns-expiry] sweep failed", error));
   setTimeout(run, 60_000);

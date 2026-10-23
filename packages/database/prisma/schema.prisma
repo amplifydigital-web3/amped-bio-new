@@ -1650,6 +1650,11 @@ model RnsExpiryNotice {
   // d30 | d7 | d1 | grace
   stage  String   @db.VarChar(8)
   sentAt DateTime @default(now())
+  // Send attempts made for this notice. A notice is abandoned after 3 failed
+  // sends.
+  attempts Int @default(0)
+  // When the last attempt failed, for the retry backoff
+  failedAt DateTime?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 

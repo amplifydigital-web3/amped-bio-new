@@ -40,10 +40,11 @@ An hourly server sweep emails the Amped.Bio owner of an RNS name at four points:
 | Sweeper start | `apps/server/src/bootstrap.ts` |
 | Env flag `RNS_EXPIRY_EMAILS` (default true) | `apps/server/src/env.ts` |
 
-- **Subgraph.** One windowed query per sweep across all owners: `revoNames` where `expiryDateWithGrace` is after now and at most 30 days plus grace ahead. It pages by 1000, up to 20 pages. The registration expiry is `expiryDateWithGrace` minus the grace period, the same rule the Wallet uses.
-- **Dedupe.** The notice row is written before the send. Its unique key (`userId`, `label`, `expiry`, `stage`) stops a second server from sending the same reminder. A failed send deletes the row so the next sweep retries.
+- **Subgraph.** One windowed query per sweep across all owners: `revoNames` where `expiryDateWithGrace` is after now and at most 30 days plus grace ahead. It pages by 1000, up to 20 pages. The registration expiry is `expiryDateWithGrace` minus the grace period, the same rule the Wallet uses. A failed read (an HTTP error, a GraphQL `errors` answer or an answer with no `revoNames`) is logged with the status and the errors, and the sweep sends nothing.
+- **Dedupe.** The notice row is written before the send. Its unique key (`userId`, `label`, `expiry`, `stage`) stops a second server from sending the same reminder. One bad name or one bad row is logged and skipped: the other names of the same sweep still go out.
+- **Retries.** A failed send marks the notice failed instead of freeing it. The next sweep takes the notice over again after a backoff (1 hour, then 2) and gives up after 3 attempts, so a broken mail transport cannot send the same reminder every hour for the whole stage.
 - **Sending.** It uses the existing SMTP2GO `deliverEmail`. `email.ts` is unchanged.
-- **Off switch.** `RNS_EXPIRY_EMAILS=false`, or an empty `SUBGRAPH_URL`, turns the sweep off.
+- **Off switch.** `RNS_EXPIRY_EMAILS=false`, or an empty `SUBGRAPH_URL`, turns the sweep off. With no subgraph URL the sweeper does not even register its timer.
 
 ## 4. Database
 
@@ -52,14 +53,19 @@ Migration `20261023160000_rns_expiry_notices` (apply by hand after merge, after 
 - `notification_preferences.rnsRemindersEnabled BOOLEAN NULL` on the global row (`creatorUserId` 0). `null` means on.
 - New table `rns_expiry_notices`. It has a UUID v7 `BINARY(16)` primary key, a foreign key to `users` with cascade delete, a unique key (`userId`, `label`, `expiry`, `stage`) and an index on `sentAt`.
 
+Migration `20261023170000_rns_expiry_notice_attempts` (apply by hand after the one above):
+
+- `rns_expiry_notices.attempts INT NOT NULL DEFAULT 0` and `rns_expiry_notices.failedAt DATETIME(3) NULL`. The notice counts its failed sends and keeps the time of the last one. The unique key does not change, so a reminder still goes out once per name, expiry and stage.
+
 ## 5. Checks
 
 - Server `tsc --noEmit`: clean.
 - Client `tsc -b`: clean apart from the pre-existing `ProtectedRoute.test.tsx` `afterEach` error, which is unrelated.
 - Client `vite build`: passes.
-- New `rns-expiry.test.ts` has 13 tests: the stage edges, subjects, the extend link and the subgraph window. It also covers verified only, opt out, never touched means on, unowned names, dedupe and retry after a failed send.
-- Server unit suite: 58 files, 771 tests, all passing.
+- New `rns-expiry.test.ts` has 18 tests: the stage edges, subjects, the extend link and the subgraph window. It also covers verified only, opt out, never touched means on, unowned names, dedupe, a failed notice row, the retry backoff and the attempt cap.
+- Server unit suite: 60 files, 814 tests. The 13 live OAuth tests fail without a reachable staging API, the same as before this fix.
 - `eslint`: 0 errors.
+- `prisma validate`: clean, and the migration history matches the Prisma datamodel column for column.
 
 ## 6. Staging QA
 
@@ -73,3 +79,4 @@ Migration `20261023160000_rns_expiry_notices` (apply by hand after merge, after 
 
 - No `List-Unsubscribe` header yet. The footer link opens the Account setting. A one-click header needs a signed token route.
 - Names are matched to the one wallet each user links. Names held in another wallet of the same person are not covered.
+- Privacy: the published notice covers the reminder email. Section 7 lists it as an account email, section 8 names SMTP2GO as the recipient together with the RNS name and its expiry date, section 10 gives the retention of the `rns_expiry_notices` rows and section 11 lists the opt out in Account settings. `CONSENT_POLICY_VERSION` moved to `2026-10f`.

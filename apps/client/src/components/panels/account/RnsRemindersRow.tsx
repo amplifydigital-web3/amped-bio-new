@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Switch, trpc } from "@repo/ui";
+import { ErrorCard, Switch, trpc } from "@repo/ui";
 import { toast } from "@/components/ui/toast";
 import { DisclosureRow } from "../design/kit/DisclosureRow";
 
@@ -17,19 +17,37 @@ export function RnsRemindersRow() {
       onError: () => toast.add({ type: "error", title: "The setting did not save. Try again." }),
     })
   );
-  // Still loading or did not load: no row, so nothing shows a guessed state
-  if (!setting.data) return null;
-  const enabled = save.isPending ? !!save.variables?.enabled : setting.data.enabled;
+  // Still loading: no row, so nothing shows a guessed state
+  if (setting.isPending) return null;
+  // The read failed: the row stays, off and disabled, with the error on it, so
+  // the setting is always reachable.
+  const failed = setting.isError && !setting.data;
+  const enabled = save.isPending ? !!save.variables?.enabled : (setting.data?.enabled ?? false);
 
   return (
-    <DisclosureRow id={RNS_REMINDERS_ROW} label="Name reminders" value={enabled ? "On" : "Off"}>
+    <DisclosureRow
+      id={RNS_REMINDERS_ROW}
+      label="Name reminders"
+      warning={failed}
+      value={failed ? "Unknown" : enabled ? "On" : "Off"}
+    >
       <Switch
         checked={enabled}
-        disabled={save.isPending}
+        disabled={failed || save.isPending}
         onChange={checked => save.mutate({ enabled: checked })}
         label="Email me before an RNS name expires"
         description="30, 7 and 1 day before a name expires, and when it enters the 1 day grace period. Sent to your verified email."
       />
+      {failed && (
+        <div className="mt-[13px]">
+          <ErrorCard
+            title="Name reminders did not load"
+            cause="They may still be on. Try again to change them."
+            onRetry={() => void setting.refetch()}
+            retryLabel="Try again"
+          />
+        </div>
+      )}
     </DisclosureRow>
   );
 }

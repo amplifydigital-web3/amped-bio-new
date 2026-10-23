@@ -7,7 +7,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const db = vi.hoisted(() => ({
   userWallet: { findMany: vi.fn() },
-  rnsExpiryNotice: { create: vi.fn(), delete: vi.fn() },
+  rnsExpiryNotice: {
+    create: vi.fn(),
+    findUnique: vi.fn(),
+    update: vi.fn(),
+    updateMany: vi.fn(),
+    delete: vi.fn(),
+  },
 }));
 const transport = vi.hoisted(() => ({ deliverEmail: vi.fn() }));
 
@@ -38,15 +44,17 @@ const OWNER = "0xabc0000000000000000000000000000000000001";
 function subgraphReply(rows: { labelName: string; owner: string; expiry: number }[]) {
   return {
     ok: true,
-    json: async () => ({
-      data: {
-        revoNames: rows.map(row => ({
-          labelName: row.labelName,
-          owner: row.owner,
-          expiryDateWithGrace: String(row.expiry + GRACE),
-        })),
-      },
-    }),
+    status: 200,
+    text: async () =>
+      JSON.stringify({
+        data: {
+          revoNames: rows.map(row => ({
+            labelName: row.labelName,
+            owner: row.owner,
+            expiryDateWithGrace: String(row.expiry + GRACE),
+          })),
+        },
+      }),
   } as unknown as Response;
 }
 
@@ -124,8 +132,24 @@ describe("fetchExpiringNames", () => {
   });
 
   it("returns null when the subgraph fails", async () => {
-    const fetcher = vi.fn().mockResolvedValue({ ok: false } as Response);
+    const fetcher = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 500,
+      text: async () => "upstream is down",
+    } as unknown as Response);
     expect(await fetchExpiringNames(NOW, fetcher)).toBeNull();
+  });
+
+  it("logs the errors of a GraphQL answer that carries no data", async () => {
+    const fetcher = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: async () => JSON.stringify({ errors: [{ message: "Cannot query field revoNames" }] }),
+    } as unknown as Response);
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    expect(await fetchExpiringNames(NOW, fetcher)).toBeNull();
+    expect(error).toHaveBeenCalled();
+    error.mockRestore();
   });
 });
 
@@ -133,6 +157,9 @@ describe("sweepRnsExpiry", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     db.rnsExpiryNotice.create.mockResolvedValue({});
+    db.rnsExpiryNotice.findUnique.mockResolvedValue(null);
+    db.rnsExpiryNotice.update.mockResolvedValue({ attempts: 1 });
+    db.rnsExpiryNotice.updateMany.mockResolvedValue({ count: 1 });
     db.rnsExpiryNotice.delete.mockResolvedValue({});
     transport.deliverEmail.mockResolvedValue({ transport: "smtp", id: "1", detail: null });
   });
@@ -192,13 +219,13 @@ describe("sweepRnsExpiry", () => {
     expect(await sweepRnsExpiry(NOW)).toBe(0);
   });
 
-  it("frees the notice when the send fails, so the next sweep retries", async () => {
+  it("marks the notice failed when the send fails, so the next sweep retries it", async () => {
     stubSubgraph([{ labelName: "robfrasca", owner: OWNER, expiry: NOW - 60 }]);
     db.userWallet.findMany.mockResolvedValue([wallet()]);
     transport.deliverEmail.mockRejectedValue(new Error("smtp down"));
 
     expect(await sweepRnsExpiry(NOW)).toBe(0);
-    expect(db.rnsExpiryNotice.delete).toHaveBeenCalledWith({
+    expect(db.rnsExpiryNotice.update).toHaveBeenCalledWith({
       where: {
         userId_label_expiry_stage: {
           userId: 7,
@@ -207,6 +234,78 @@ describe("sweepRnsExpiry", () => {
           stage: "grace",
         },
       },
+      data: { failedAt: new Date(NOW * 1000) },
+      select: { attempts: true },
     });
+  });
+
+  it("keeps sweeping when one notice row cannot be written", async () => {
+    stubSubgraph([
+      { labelName: "toolong", owner: OWNER, expiry: NOW + 5 * DAY },
+      { labelName: "robfrasca", owner: OWNER, expiry: NOW + 5 * DAY },
+    ]);
+    db.userWallet.findMany.mockResolvedValue([wallet()]);
+    db.rnsExpiryNotice.create.mockImplementation((args: { data: { label: string } }) =>
+      args.data.label === "toolong"
+        ? Promise.reject(new Error("Data too long for column 'label'"))
+        : Promise.resolve({})
+    );
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    expect(await sweepRnsExpiry(NOW)).toBe(1);
+    expect(transport.deliverEmail).toHaveBeenCalledTimes(1);
+    expect(error).toHaveBeenCalled();
+    error.mockRestore();
+  });
+
+  it("retries a failed notice once the backoff passed", async () => {
+    stubSubgraph([{ labelName: "robfrasca", owner: OWNER, expiry: NOW - 60 }]);
+    db.userWallet.findMany.mockResolvedValue([wallet()]);
+    db.rnsExpiryNotice.create.mockRejectedValue({ code: "P2002" });
+    db.rnsExpiryNotice.findUnique.mockResolvedValue({
+      attempts: 1,
+      failedAt: new Date((NOW - 2 * 3600) * 1000),
+    });
+
+    expect(await sweepRnsExpiry(NOW)).toBe(1);
+    expect(db.rnsExpiryNotice.updateMany).toHaveBeenCalledWith({
+      where: {
+        userId: 7,
+        label: "robfrasca",
+        expiry: NOW - 60,
+        stage: "grace",
+        attempts: 1,
+        failedAt: { not: null },
+      },
+      data: { attempts: { increment: 1 }, failedAt: null },
+    });
+  });
+
+  it("waits for the backoff before trying a failed notice again", async () => {
+    stubSubgraph([{ labelName: "robfrasca", owner: OWNER, expiry: NOW - 60 }]);
+    db.userWallet.findMany.mockResolvedValue([wallet()]);
+    db.rnsExpiryNotice.create.mockRejectedValue({ code: "P2002" });
+    db.rnsExpiryNotice.findUnique.mockResolvedValue({
+      attempts: 1,
+      failedAt: new Date((NOW - 60) * 1000),
+    });
+
+    expect(await sweepRnsExpiry(NOW)).toBe(0);
+    expect(db.rnsExpiryNotice.updateMany).not.toHaveBeenCalled();
+    expect(transport.deliverEmail).not.toHaveBeenCalled();
+  });
+
+  it("abandons a notice that used up its attempts", async () => {
+    stubSubgraph([{ labelName: "robfrasca", owner: OWNER, expiry: NOW - 60 }]);
+    db.userWallet.findMany.mockResolvedValue([wallet()]);
+    db.rnsExpiryNotice.create.mockRejectedValue({ code: "P2002" });
+    db.rnsExpiryNotice.findUnique.mockResolvedValue({
+      attempts: 3,
+      failedAt: new Date((NOW - 10 * 3600) * 1000),
+    });
+
+    expect(await sweepRnsExpiry(NOW)).toBe(0);
+    expect(db.rnsExpiryNotice.updateMany).not.toHaveBeenCalled();
+    expect(transport.deliverEmail).not.toHaveBeenCalled();
   });
 });
