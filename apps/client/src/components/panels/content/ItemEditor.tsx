@@ -26,6 +26,9 @@ import { refreshContent } from "./lib/uploads";
 import { useAutosave, type AutosaveStatus } from "./lib/useAutosave";
 import { takeDeferred } from "./lib/deferredSaves";
 import { CaptionsSection, ItemPreview } from "./ItemMedia";
+import { PublishCard } from "./PublishCard";
+import { RetryProcessing } from "./RetryProcessing";
+import type { ContentUploadKind } from "@repo/constants";
 
 type Patch = {
   title?: string;
@@ -297,6 +300,13 @@ export function ItemEditor({ publicId, onBack }: { publicId: string; onBack: () 
         {status.key === "failed" && (
           <Notice variant="error" title={e.failedTitle}>
             {failureLine(data.failureReason)} {e.failedKeep}
+            <div className="mt-[13px]">
+              <RetryProcessing
+                publicId={publicId}
+                kind={data.kind as ContentUploadKind}
+                onChange={() => void item.refetch()}
+              />
+            </div>
           </Notice>
         )}
         {status.key === "blocked" && (
@@ -463,10 +473,14 @@ export function ItemEditor({ publicId, onBack }: { publicId: string; onBack: () 
       </section>
 
       <div className="min-w-0 space-y-[21px]">
+        <PublishCard
+          item={data}
+          // The item is gone: leave without flushing edits to it
+          onDeleted={onBack}
+        />
         <AccessCard />
         <div className="prism-glass-clear space-y-[13px] !rounded-prism-21 p-[21px]">
           <SaveStatus status={autosave.status} onRetry={() => void autosave.flush()} />
-          <p className="text-prism-meta text-prism-ink-2">{e.publishLater}</p>
         </div>
       </div>
     </div>
