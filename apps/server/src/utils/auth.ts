@@ -8,7 +8,7 @@ import { getOAuthState } from "better-auth/api";
 import { HANDLE_MIN_LENGTH, HANDLE_REGEX } from "@repo/constants";
 import type { BetterAuthPlugin } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
-import { captcha, jwt, customSession, twoFactor } from "better-auth/plugins";
+import { admin, captcha, jwt, customSession, twoFactor } from "better-auth/plugins";
 import { cimd } from "@better-auth/cimd";
 import { fetchClientMetadataResource } from "@better-auth/cimd/node";
 import { mcp } from "@better-auth/mcp";
@@ -171,6 +171,12 @@ export const auth = betterAuth({
         session,
       };
     }),
+    // Better Auth admin plugin: roles, ban and user management endpoints under
+    // /auth/admin, all gated to the "admin" role by the plugin itself. The role
+    // column on users and the tRPC adminProcedure (trpc/trpc.ts) keep working
+    // unchanged, so the admin panel does not depend on the new endpoints.
+    admin(),
+
     captcha({
       // Cap exposes a reCAPTCHA-shaped `/siteverify` endpoint, so the hCaptcha
       // handler (which only checks `success`) verifies Cap tokens as-is.
