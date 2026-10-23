@@ -71,6 +71,7 @@ model User {
   broadcastDeliveries     BroadcastDelivery[]
   broadcastReports        BroadcastReport[]
   notificationPreferences NotificationPreference[]
+  rnsExpiryNotices        RnsExpiryNotice[]
   telegramAccount         TelegramAccount?
   telegramLinkEvents      TelegramLinkEvent[]
   messagingSettings       CreatorMessagingSettings?
@@ -961,6 +962,9 @@ model NotificationPreference {
   // Messaging on Telegram (Build Board #2). Global row (creatorUserId 0): the user's opt in,
   // null means off. Creator row: null follows the global row, false turns this creator off.
   telegramEnabled Boolean?
+  // RNS name expiry emails (global row only). null means on: they are account
+  // notices, not marketing. false turns them off.
+  rnsRemindersEnabled Boolean?
   mutedUntil    DateTime?
   updatedAt     DateTime  @updatedAt
 
@@ -1631,4 +1635,25 @@ model MessageReport {
   @@index([threadId])
   @@index([createdAt])
   @@map("message_reports")
+}
+
+// RNS name expiry emails. One row per user, name, registration expiry and
+// stage, so each reminder goes once. Extending a name changes the expiry, so
+// the schedule starts again for the new date.
+model RnsExpiryNotice {
+  id     Bytes    @id @db.Binary(16)
+  userId Int
+  // The RNS label without the suffix
+  label  String   @db.VarChar(64)
+  // Registration expiry (not the grace end), unix seconds
+  expiry Int
+  // d30 | d7 | d1 | grace
+  stage  String   @db.VarChar(8)
+  sentAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, label, expiry, stage])
+  @@index([sentAt])
+  @@map("rns_expiry_notices")
 }
