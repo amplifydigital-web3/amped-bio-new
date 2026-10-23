@@ -14,6 +14,7 @@ import {
   CompleteMultipartUploadCommand,
   CreateMultipartUploadCommand,
   DeleteObjectCommand,
+  HeadObjectCommand,
   PutObjectCommand,
   S3Client,
   UploadPartCommand,
@@ -142,6 +143,18 @@ export async function abortR2Multipart(key: string, uploadId: string): Promise<v
 
 export async function deleteR2Object(key: string): Promise<void> {
   await getR2Client().send(new DeleteObjectCommand({ Bucket: env.R2_BUCKET, Key: key }));
+}
+
+/** True when the object exists. A missing key reads as false; other errors throw. */
+export async function r2ObjectExists(key: string): Promise<boolean> {
+  try {
+    await getR2Client().send(new HeadObjectCommand({ Bucket: env.R2_BUCKET, Key: key }));
+    return true;
+  } catch (error) {
+    const status = (error as { $metadata?: { httpStatusCode?: number } }).$metadata?.httpStatusCode;
+    if (status === 404 || (error as { name?: string }).name === "NotFound") return false;
+    throw error;
+  }
 }
 
 /**

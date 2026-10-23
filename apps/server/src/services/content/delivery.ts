@@ -20,6 +20,7 @@ import {
   MEDIA_TOKEN_MAX_LIFETIME_SECONDS,
   captionLabel,
   type ContentCaptionTrack,
+  type ContentCard,
   type ContentDownload,
   type ContentImageSet,
   type ContentPlayback,
@@ -319,6 +320,41 @@ export async function buildPlayback(
   playback.expiresAt = signer.expiresAtMs();
   return playback;
 }
+
+// ----------------------------------------------------------------------------
+// Cards (spec 3.7): covers only, for bio blocks, the feed and the item page
+// ----------------------------------------------------------------------------
+
+type CardItem = Item & Pick<ContentItem, "publishedAt">;
+
+/**
+ * A card for a public surface. Covers are signed with the public image lifetime,
+ * rounded to the hour, so server HTML stays cacheable. Never a playback URL.
+ */
+export function buildCard(item: CardItem, assets: Asset[], now: Date = new Date()): ContentCard {
+  const kind = fromDbKind(item.kind) as ContentCard["kind"];
+  const signer = new Signer(item, "public", now);
+  const cover =
+    kind === "image" ? imageSet(signer, assets, "RENDITION") : imageSet(signer, assets, "COVER");
+  const blur = signer.r2(
+    assets.find(asset => asset.role === "BLUR"),
+    "image"
+  );
+  return {
+    publicId: item.publicId,
+    kind,
+    title: item.title,
+    durationMs: item.durationMs,
+    pageCount: item.pageCount,
+    publishedAt: item.publishedAt ? item.publishedAt.toISOString() : null,
+    cover,
+    blur,
+    allowDownload: item.allowDownload,
+  };
+}
+
+/** Asset roles a card reads. Lists fetch only these. */
+export const CARD_ASSET_ROLES = ["COVER", "RENDITION", "BLUR"] as const;
 
 // ----------------------------------------------------------------------------
 // Downloads (decision 24)

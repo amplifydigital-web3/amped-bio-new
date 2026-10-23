@@ -17,6 +17,7 @@ import { uuidv7 } from "../../utils/uuid-v7";
 import { publishContentJob } from "../cloudflare/queue";
 import { createStreamClip, enableStreamDownloads } from "../cloudflare/stream";
 import { env } from "../../env";
+import { purgeDeletedItems } from "./purge";
 
 /** Items left in UPLOADING longer than this are failed and their bytes released. */
 export const UPLOADING_TIMEOUT_MS = 24 * 60 * 60 * 1000;
@@ -377,14 +378,17 @@ export async function sweepStaleUploads(now: Date = new Date()): Promise<number>
 const SWEEP_MS = 15 * 60 * 1000;
 let sweeper: NodeJS.Timeout | null = null;
 
-/** Runs both sweeps every 15 minutes. Skipped in tests. */
+/** Runs both sweeps and the purge (PR 6, spec 3.12) every 15 minutes. Skipped in tests. */
 export function startContentSweeper(): void {
   if (sweeper || process.env.NODE_ENV === "test") return;
   const run = () =>
-    void Promise.all([sweepStaleUploads(), sweepStuckProcessing()])
-      .then(([uploads, processing]) => {
-        if (uploads > 0 || processing > 0) {
-          console.info("[content] sweep failed items", JSON.stringify({ uploads, processing }));
+    void Promise.all([sweepStaleUploads(), sweepStuckProcessing(), purgeDeletedItems()])
+      .then(([uploads, processing, purged]) => {
+        if (uploads > 0 || processing > 0 || purged > 0) {
+          console.info(
+            "[content] sweep",
+            JSON.stringify({ failedUploads: uploads, failedProcessing: processing, purged })
+          );
         }
       })
       .catch(error => console.error("[content] sweep failed", error));
