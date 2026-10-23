@@ -324,10 +324,7 @@ function VideoPlayer(props: MediaPlayerProps) {
 
         {!live && (
           <div className="absolute inset-0">
-            {poster && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={poster} alt="" className="h-full w-full object-cover" />
-            )}
+            {poster && <img src={poster} alt="" className="h-full w-full object-cover" />}
             <div className="absolute inset-0 flex items-center justify-center bg-black/25">
               <button
                 type="button"
@@ -524,10 +521,7 @@ function AudioPlayer(props: MediaPlayerProps) {
       >
         <div className="flex items-center gap-[13px]">
           <div className="relative h-[89px] w-[89px] shrink-0 overflow-hidden rounded-[13px] bg-white/10">
-            {artwork && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={artwork} alt="" className="h-full w-full object-cover" />
-            )}
+            {artwork && <img src={artwork} alt="" className="h-full w-full object-cover" />}
           </div>
           <div className="min-w-0 flex-1">
             <p className="line-clamp-2 text-[17px] font-semibold leading-[22px]">{item.title}</p>

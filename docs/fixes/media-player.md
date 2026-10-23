@@ -104,16 +104,13 @@ Editor wiring: `pages/Editor.tsx` wraps the shell in `EditorPlayerProvider` (pro
 
 ### 5.1 Review and merge
 
-0. **Lockfile.** `pnpm-lock.yaml` is too large to push through the GitHub connector. The exact change is in `docs/fixes/media-player.lockfile.patch` (adds `hls.js` 1.6.15 to `@repo/ui`, nothing else). On the branch:
+0. **Lockfile.** Already done on the branch: the commit `chore(ui): lockfile for hls.js 1.6.15` carries `pnpm-lock.yaml` with `hls.js` 1.6.15 added to `@repo/ui` (that one package, nothing else). There is no patch file to apply and no `git rm` to run. On a fresh checkout:
 
    ```bash
-   git apply docs/fixes/media-player.lockfile.patch
    pnpm install --frozen-lockfile
-   git rm docs/fixes/media-player.lockfile.patch
-   git add pnpm-lock.yaml && git commit -m "chore(ui): lockfile for hls.js"
    ```
 
-   A plain `pnpm install` also works but re-resolves unrelated packages. The patch keeps the lockfile diff to the new package.
+   A plain `pnpm install` also works but re-resolves unrelated packages.
 
 1. Read section 2, then `services/content/access.ts`, `services/content/delivery.ts`, `trpc/content.ts` (the three new procedures), `trpc/progress.ts`, then `packages/ui/src/player/PlayerProvider.tsx` and `MediaPlayer.tsx`.
 2. Run locally:

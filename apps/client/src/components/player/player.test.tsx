@@ -21,6 +21,7 @@ import {
   clampSeek,
   formatClock,
   handlePlayerKey,
+  matchCaption,
   nextCaptionIndex,
   nextSpeed,
   normalizeChapters,
@@ -28,6 +29,7 @@ import {
   playbackToSource,
   progressWriteDue,
   refreshDelayMs,
+  sendTrpcBeacon,
   speedLabel,
   spokenClock,
   usePlayer,
@@ -35,6 +37,47 @@ import {
   type PlayerItem,
   type ProgressAdapter,
 } from "@repo/ui";
+
+/**
+ * hls.js stands in for the real one: the player loads it on demand for video
+ * that the browser cannot play natively.
+ */
+const hlsMock = vi.hoisted(() => {
+  type Handler = (...args: unknown[]) => void;
+  class FakeHls {
+    static Events = { ERROR: "hlsError", SUBTITLE_TRACKS_UPDATED: "hlsSubtitleTracksUpdated" };
+    static isSupported = () => true;
+    static instances: FakeHls[] = [];
+    subtitleTracks: Array<{ lang?: string; name: string }> = [];
+    subtitleTrack = -1;
+    subtitleDisplay = true;
+    destroyed = false;
+    handlers: Record<string, Handler[]> = {};
+    constructor(readonly config: Record<string, unknown>) {
+      FakeHls.instances.push(this);
+    }
+    on(event: string, handler: Handler) {
+      (this.handlers[event] ??= []).push(handler);
+    }
+    loadSource(_url: string) {}
+    attachMedia(_media: HTMLMediaElement) {}
+    destroy() {
+      this.destroyed = true;
+    }
+    /** The manifest's subtitle tracks arrive. */
+    offer(tracks: Array<{ lang?: string; name: string }>) {
+      this.subtitleTracks = tracks;
+      for (const handler of this.handlers.hlsSubtitleTracksUpdated ?? []) {
+        handler("hlsSubtitleTracksUpdated", { subtitleTracks: tracks });
+      }
+    }
+  }
+  return { FakeHls, instances: FakeHls.instances };
+});
+
+vi.mock("../../../../../packages/ui/node_modules/hls.js/dist/hls.mjs", () => ({
+  default: hlsMock.FakeHls,
+}));
 
 const DASHES = new RegExp(`[${String.fromCharCode(0x2013, 0x2014)}]`);
 
@@ -85,6 +128,23 @@ describe("player helpers", () => {
     expect(nextSpeed(1.25, [0.75, 1, 1.25])).toBe(0.75);
     expect(speedLabel(1.25)).toBe("1.25x");
     expect(speedLabel(1)).toBe("1x");
+  });
+
+  it("matches a wanted caption to the track that carries it", () => {
+    const tracks = [
+      { lang: "en", label: "English" },
+      { lang: "es", label: "Spanish" },
+    ];
+    expect(matchCaption(tracks, { lang: "en", label: "English", src: null })).toBe(0);
+    expect(matchCaption(tracks, { lang: "es", label: "Spanish", src: null })).toBe(1);
+    expect(matchCaption(tracks, { lang: "fr", label: "French", src: null })).toBe(-1);
+    expect(
+      matchCaption([{ lang: "en-GB", label: "English" }], {
+        lang: "en",
+        label: "English",
+        src: null,
+      })
+    ).toBe(0);
   });
 
   it("reads the processor's waveform file into buckets", () => {
@@ -156,6 +216,46 @@ describe("player copy", () => {
       expect(DASHES.test(text), text).toBe(false);
       expect(findBannedTerms(text), text).toEqual([]);
     }
+  });
+});
+
+describe("progress beacons", () => {
+  function withSendBeacon(value: unknown, run: () => void) {
+    const original = Object.getOwnPropertyDescriptor(navigator, "sendBeacon");
+    Object.defineProperty(navigator, "sendBeacon", { configurable: true, value });
+    try {
+      run();
+    } finally {
+      if (original) Object.defineProperty(navigator, "sendBeacon", original);
+      else delete (navigator as unknown as { sendBeacon?: unknown }).sendBeacon;
+    }
+  }
+
+  it("sends the batched body the server reads", async () => {
+    const beacon = vi.fn((_url: string | URL, _data?: BodyInit | null) => true);
+    withSendBeacon(beacon, () => {
+      expect(
+        sendTrpcBeacon("progress.set", { publicId: "abcdefghijklmnop", positionMs: 1000 })
+      ).toBe(true);
+    });
+    const [url, body] = beacon.mock.calls[0]!;
+    expect(String(url)).toContain("/trpc/progress.set?batch=1");
+    expect((body as Blob).type).toBe("application/json");
+    expect(JSON.parse(await (body as Blob).text())).toEqual({
+      0: { publicId: "abcdefghijklmnop", positionMs: 1000 },
+    });
+  });
+
+  it("falls back to the ordinary path when the browser will not take it", () => {
+    withSendBeacon(
+      () => false,
+      () => {
+        expect(sendTrpcBeacon("progress.set", { publicId: "abcdefghijklmnop" })).toBe(false);
+      }
+    );
+    withSendBeacon(undefined, () => {
+      expect(sendTrpcBeacon("progress.set", { publicId: "abcdefghijklmnop" })).toBe(false);
+    });
   });
 });
 
@@ -316,6 +416,31 @@ describe("PlayerProvider", () => {
     expect(api.state.error).toBe("expired");
   });
 
+  it("drops the pending URL refresh when the provider goes away", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
+    const resolve = vi.fn(async () => ({
+      kind: "audio" as const,
+      src: "https://m/1",
+      expiresAt: Date.now() + 120_000,
+    }));
+    let api!: PlayerApi;
+    const view = render(
+      <PlayerProvider>
+        <Probe onApi={value => (api = value)} />
+      </PlayerProvider>
+    );
+    await act(async () => {
+      await api.load(audioItem, resolve, { autoplay: true });
+    });
+    expect(resolve).toHaveBeenCalledTimes(1);
+    view.unmount();
+    await act(async () => {
+      vi.advanceTimersByTime(60_000);
+    });
+    // No signed URL is asked for, and nothing is swapped on a detached element
+    expect(resolve).toHaveBeenCalledTimes(1);
+  });
+
   it("shows the mini player once play started and closes it", async () => {
     const resolve = vi.fn(async () => ({
       kind: "audio" as const,
@@ -371,5 +496,42 @@ describe("PlayerProvider", () => {
     await tick(1_000);
     expect(save).toHaveBeenCalledTimes(1);
     expect(save.mock.calls[0]![2]).toEqual({ keepalive: false });
+  });
+
+  it("turns on the video captions when the manifest offers them", async () => {
+    const videoItem: PlayerItem = {
+      id: "abcdefghijklmnop",
+      kind: "video",
+      title: "Tide tables",
+      durationMs: 231_000,
+    };
+    const resolve = vi.fn(async () => ({
+      kind: "video" as const,
+      hls: "https://stream.example/abcdefghijklmnop/manifest/video.m3u8",
+      captions: [{ lang: "en", label: "English", src: null }],
+      expiresAt: Date.now() + 3_600_000,
+    }));
+    let api!: PlayerApi;
+    render(
+      <PlayerProvider>
+        <Probe onApi={value => (api = value)} />
+      </PlayerProvider>
+    );
+    await act(async () => {
+      await api.load(videoItem, resolve, { autoplay: true });
+    });
+    const hls = hlsMock.instances.at(-1)!;
+    // The viewer asks for captions before the manifest has been parsed
+    await act(async () => {
+      api.cycleCaptions();
+    });
+    expect(api.state.captionIndex).toBe(0);
+    expect(hls.subtitleTrack).toBe(-1);
+    // The manifest's subtitle tracks arrive after the metadata does
+    await act(async () => {
+      hls.offer([{ lang: "en", name: "English" }]);
+    });
+    expect(hls.subtitleTrack).toBe(0);
+    expect(hls.subtitleDisplay).toBe(true);
   });
 });

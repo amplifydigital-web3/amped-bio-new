@@ -16,6 +16,12 @@ export interface PlayerCaption {
   src: string | null;
 }
 
+/** A caption track the source offers: hls.js reads them from the manifest. */
+export interface CaptionTrack {
+  lang: string;
+  label: string;
+}
+
 /** What is playing. Stable across source refreshes. */
 export interface PlayerItem {
   /** The content publicId */

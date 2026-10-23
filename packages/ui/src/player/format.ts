@@ -2,7 +2,7 @@
  * Pure helpers for the shared player. No DOM, so they run in tests and on the
  * server.
  */
-import type { PlayerChapter } from "./types";
+import type { CaptionTrack, PlayerCaption, PlayerChapter } from "./types";
 
 /** 0:42, 8:12, 1:02:03. Negative and missing values read as 0:00. */
 export function formatClock(ms: number | null | undefined): string {
@@ -80,6 +80,24 @@ export function progressWriteDue(
 export function nextCaptionIndex(current: number, trackCount: number): number {
   if (trackCount === 0) return -1;
   return current + 1 >= trackCount ? -1 : current + 1;
+}
+
+/**
+ * The track that carries the wanted caption: the same language first, then the
+ * same language without its region, then the same label. hls.js names its
+ * manifest tracks after the language, the API after the label.
+ */
+export function matchCaption(tracks: CaptionTrack[], wanted: PlayerCaption): number {
+  const lang = wanted.lang.toLowerCase();
+  const label = wanted.label.toLowerCase();
+  const exact = tracks.findIndex(track => track.lang.toLowerCase() === lang);
+  if (exact >= 0) return exact;
+  const base = lang.split("-")[0];
+  const sameBase = tracks.findIndex(
+    track => track.lang.toLowerCase().split("-")[0] === base && base !== ""
+  );
+  if (sameBase >= 0) return sameBase;
+  return tracks.findIndex(track => track.label.toLowerCase() === label);
 }
 
 /** The next speed in the list, wrapping to the first. */

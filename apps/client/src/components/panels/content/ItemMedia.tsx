@@ -47,6 +47,13 @@ async function freshPlayback(publicId: string): Promise<ContentPlayback | null> 
 }
 
 /**
+ * How long the preview keeps its read URLs. An owner preview gets image and
+ * cover URLs that live five minutes, so the cache must not hold them longer
+ * than that, not even while a fresh one is on its way.
+ */
+const PREVIEW_STALE_MS = 60 * 1000;
+
+/**
  * Preview (fan library row 128 in the editor): the creator plays, views or
  * pages through their own item before anyone else can. Video and audio use the
  * shared player, so what plays here plays the same on the public page.
@@ -59,7 +66,8 @@ export function ItemPreview({ item }: { item: MediaItem }) {
   const display = useQuery({
     ...trpc.content.getReadUrl.queryOptions({ publicId: item.publicId }),
     enabled: ready,
-    staleTime: 4 * 60 * 1000,
+    staleTime: PREVIEW_STALE_MS,
+    gcTime: PREVIEW_STALE_MS,
     retry: 1,
   });
   const resolve = useCallback(
@@ -100,7 +108,6 @@ export function ItemPreview({ item }: { item: MediaItem }) {
       ) : display.isError ? (
         <p className="text-prism-meta text-prism-ink-2">{e.previewError}</p>
       ) : item.kind === "image" && playback?.image ? (
-        // eslint-disable-next-line jsx-a11y/alt-text
         <img
           src={playback.image.src}
           srcSet={playback.image.srcSet || undefined}

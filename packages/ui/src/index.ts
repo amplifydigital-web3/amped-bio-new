@@ -140,7 +140,7 @@ export type { AuthUser } from "./auth-types";
 export type { EnrichedSessionUser } from "./session-types";
 
 // TRPC client
-export { queryClient, trpcClient, trpc } from "./trpc";
+export { queryClient, trpcClient, trpc, sendTrpcBeacon } from "./trpc";
 export type { RouterOutputs } from "./trpc";
 export * from "./trpc-types";
 
