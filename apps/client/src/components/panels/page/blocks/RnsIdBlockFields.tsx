@@ -153,7 +153,7 @@ export function RnsIdBlockFields({ block, onValid }: { block: RnsIdBlock; onVali
         </Button>
       </Notice>
     );
-  } else if (!linked && verified) {
+  } else if (!linked && verified && data) {
     // 112 D9: the check shows without a name
     state = (
       <Notice variant="info" className="rounded-prism-13">

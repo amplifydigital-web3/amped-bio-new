@@ -7,8 +7,7 @@
 import { describe, expect, it } from "vitest";
 import { render } from "@testing-library/react";
 import { DEFAULT_RNSID_CONFIG, type RnsIdBlockConfig } from "@repo/constants";
-import { RnsIdCard } from "@repo/ui/creator/rns-id-card";
-import { RnsIdentityDialog, type RnsIdentity } from "@repo/ui/prism/rns-identity";
+import { RnsIdCard, RnsIdentityDialog, type RnsIdentity } from "@repo/ui";
 
 const STYLES: RnsIdBlockConfig["style"][] = ["nameplate", "idcard", "proofstrip", "seal"];
 
