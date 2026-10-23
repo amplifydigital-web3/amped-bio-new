@@ -5,6 +5,8 @@
  *   createUpload    reserve   (bytes_reserved += size, refused past the limit)
  *   READY           commit    (bytes_reserved -= size, bytes_used += size)
  *   failed/aborted  release   (bytes_reserved -= size)
+ *   deleted (READY) free      (bytes_used -= size, minutes back), PR 6
+ *   restored        reclaim   (bytes_used += size, refused past the limit), PR 6
  *
  * The reservation is one conditional UPDATE, so two uploads racing for the last
  * gigabyte cannot both pass. Every change runs on the client passed in, so callers
@@ -74,6 +76,45 @@ export async function commitBytes(
            video_minutes_used = video_minutes_used + ${videoMinutes},
            updated_at = NOW(3)
      WHERE user_id = ${userId}`;
+}
+
+/**
+ * Gives a deleted item's space back at once (spec 3.12): the creator can upload
+ * again without waiting for the purge. Floors at zero.
+ */
+export async function freeUsedBytes(
+  userId: number,
+  bytes: bigint,
+  videoMinutes: number,
+  db: Db = prisma
+): Promise<void> {
+  await db.$executeRaw`
+    UPDATE user_storage_quotas
+       SET bytes_used = GREATEST(bytes_used - ${bytes}, 0),
+           video_minutes_used = GREATEST(video_minutes_used - ${videoMinutes}, 0),
+           updated_at = NOW(3)
+     WHERE user_id = ${userId}`;
+}
+
+/**
+ * Takes the space back for a restored item. False when it no longer fits: the
+ * bytes or the video minutes went to other uploads while it was deleted.
+ */
+export async function reclaimUsedBytes(
+  userId: number,
+  bytes: bigint,
+  videoMinutes: number,
+  db: Db = prisma
+): Promise<boolean> {
+  const changed = await db.$executeRaw`
+    UPDATE user_storage_quotas
+       SET bytes_used = bytes_used + ${bytes},
+           video_minutes_used = video_minutes_used + ${videoMinutes},
+           updated_at = NOW(3)
+     WHERE user_id = ${userId}
+       AND bytes_used + bytes_reserved + ${bytes} <= bytes_limit
+       AND video_minutes_used + ${videoMinutes} <= video_minutes_limit`;
+  return changed === 1;
 }
 
 export function videoMinutesLeft(quota: { videoMinutesLimit: number; videoMinutesUsed: number }) {
