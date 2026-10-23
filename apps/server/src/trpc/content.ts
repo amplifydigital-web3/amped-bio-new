@@ -9,6 +9,7 @@
  * be probed. Outputs never include the numeric user id, R2 keys or Stream uids.
  */
 import { TRPCError } from "@trpc/server";
+import { z } from "zod";
 import { Prisma, prisma, type ContentItem } from "@repo/database";
 import {
   CONTENT_ALLOWED_TYPES,
@@ -31,6 +32,12 @@ import {
   contentCaptionsSetSchema,
   contentReadUrlSchema,
   normalizeWebVtt,
+  CONTENT_RESTORE_DAYS,
+  contentFeedSchema,
+  contentListForBioSchema,
+  contentPublicItemSchema,
+  contentReportSchema,
+  contentRetrySchema,
   type ContentUploadKind,
 } from "@repo/constants";
 import { privateProcedure, publicProcedure, router } from "./trpc";
@@ -50,12 +57,22 @@ import {
 import {
   createStreamDirectUpload,
   deleteStreamCaptions,
+  enableStreamDownloads,
   deleteStreamVideo,
   getStreamVideo,
   putStreamCaptions,
   updateStreamVideo,
 } from "../services/cloudflare/stream";
-import { putR2Object } from "../services/cloudflare/r2";
+import { putR2Object, r2ObjectExists } from "../services/cloudflare/r2";
+import {
+  contentSitemapCount,
+  contentSitemapEntries,
+  findPublicCreator,
+  publicCardsFor,
+  publicFeed,
+  publicItem,
+} from "../services/content/publicView";
+import { isPublicItem } from "../services/content/access";
 import { buildDownload, buildPlayback, DeliveryError } from "../services/content/delivery";
 import {
   VIEWER_MESSAGES,
@@ -66,11 +83,14 @@ import {
 } from "../services/content/viewer";
 import {
   ensureQuota,
+  freeUsedBytes,
+  minutesForDuration,
+  reclaimUsedBytes,
   releaseBytes,
   reserveBytes,
   videoMinutesLeft,
 } from "../services/content/quota";
-import { assetRowId, failItem } from "../services/content/state";
+import { assetRowId, enqueueVideoProcessing, failItem } from "../services/content/state";
 import { publishContentJob } from "../services/cloudflare/queue";
 import { fromDbKind, newContentPublicId, toDbKind } from "../services/content/ids";
 import { UPLOAD_VERIFICATION_MESSAGES } from "../services/uploadVerification";
@@ -99,7 +119,19 @@ const MESSAGES = {
   captionsFile: "This is not a WebVTT caption file. Export captions as .vtt and try again.",
   captionsMax: `Up to ${CONTENT_CAPTIONS.maxTracks} caption languages per item.`,
   captionsFailed: "Could not save the captions. Try again.",
+  publishNotReady: "Publish once processing finishes.",
+  publishHeld: "This item is in review. You can publish it once a reviewer clears it.",
+  publishBlocked: "This item can not be published.",
+  deleteBusy: "Wait until processing finishes, or cancel the upload.",
+  restoreGone: "This item can no longer be restored.",
+  restoreNoSpace: "Not enough storage to restore it. Delete another item first.",
+  retryState: "Only items that failed can be retried.",
+  retryRate: "You can retry processing once an hour. Try again later, or upload the file again.",
+  reportRate: "Too many reports at once. Try again later.",
 } as const;
+
+/** Reports per viewer per hour (spec 3.10 rate limits) */
+const REPORTS_PER_HOUR = 10;
 
 /** Downloads per viewer per item per day (decision 24). */
 const DOWNLOADS_PER_DAY = 10;
@@ -146,9 +178,19 @@ function ownerView(item: ContentItem) {
     height: item.height,
     totalBytes: Number(item.totalBytes),
     publishedAt: item.publishedAt,
+    // Recently removed items can come back until their purge date (spec 3.12)
+    restorableUntil:
+      item.status === "DELETED" && item.purgeAfter && item.purgeAfter > new Date()
+        ? item.purgeAfter
+        : null,
     createdAt: item.createdAt,
     updatedAt: item.updatedAt,
   };
+}
+
+/** Video minutes an item holds against the quota once READY. */
+function itemMinutes(item: Pick<ContentItem, "kind" | "durationMs">): number {
+  return item.kind === "VIDEO" ? minutesForDuration(item.durationMs) : 0;
 }
 
 async function findOwnedItem(publicId: string, userId: number): Promise<ContentItem> {
@@ -183,6 +225,95 @@ function previewFits(kind: ContentItem["kind"], preview: object): boolean {
   if ("pages" in preview) return kind === "DOCUMENT";
   if ("blur" in preview) return kind === "IMAGE";
   return false;
+}
+
+/**
+ * Records the ORIGINAL (or STREAM) asset for an item in UPLOADING and returns where
+ * the browser sends the bytes: a presigned R2 PUT, an R2 multipart upload, or a
+ * Stream TUS URL (spec 3.5 step 1). Used by createUpload and by retryProcessing
+ * when a failed item's upload is no longer kept.
+ */
+async function startUploadTarget(params: {
+  itemId: Uint8Array;
+  publicId: string;
+  kind: ContentUploadKind;
+  mimeType: string;
+  ext: string;
+  size: number;
+  minutesLeft: number;
+}) {
+  const { itemId, publicId, kind, mimeType, ext } = params;
+  const size = BigInt(params.size);
+  if (kind === "video") {
+    const upload = await createStreamDirectUpload({
+      size: params.size,
+      maxDurationSeconds: Math.min(
+        params.minutesLeft * 60,
+        CONTENT_UPLOAD.streamMaxDurationSeconds
+      ),
+      expiresAt: new Date(Date.now() + CONTENT_UPLOAD.streamUploadExpiryHours * 3600 * 1000),
+    });
+    await prisma.contentAsset.create({
+      data: {
+        id: uuidv7(),
+        contentItemId: Buffer.from(itemId),
+        role: "STREAM",
+        storage: "STREAM",
+        streamUid: upload.uid,
+        mimeType,
+        size,
+      },
+    });
+    await updateStreamVideo(upload.uid, { publicId, env: env.APP_ENV }).catch(error =>
+      console.warn(
+        "[content] Stream meta update failed",
+        error instanceof Error ? error.message : error
+      )
+    );
+    return {
+      publicId,
+      target: {
+        type: "stream" as const,
+        uploadUrl: upload.uploadUrl,
+        chunkBytes: CONTENT_UPLOAD.streamChunkBytes,
+      },
+    };
+  }
+
+  const key = contentIncomingKey(publicId, ext);
+  await prisma.contentAsset.create({
+    data: {
+      id: uuidv7(),
+      contentItemId: Buffer.from(itemId),
+      role: "ORIGINAL",
+      storage: "R2",
+      r2Key: key,
+      mimeType,
+      size,
+    },
+  });
+
+  if (contentUsesMultipart(kind, params.size)) {
+    const uploadId = await createR2Multipart(key, mimeType);
+    return {
+      publicId,
+      target: {
+        type: "multipart" as const,
+        uploadId,
+        partCount: contentPartCount(params.size),
+        partBytes: CONTENT_UPLOAD.partBytes,
+      },
+    };
+  }
+
+  return {
+    publicId,
+    target: {
+      type: "put" as const,
+      url: await presignR2Put(key, mimeType, params.size),
+      headers: { "Content-Type": mimeType },
+    },
+  };
 }
 
 export const contentRouter = router({
@@ -234,7 +365,7 @@ export const contentRouter = router({
 
       const itemId = uuidv7();
       try {
-        const item = await prisma.contentItem.create({
+        await prisma.contentItem.create({
           data: {
             id: itemId,
             publicId,
@@ -244,74 +375,15 @@ export const contentRouter = router({
             totalBytes: size,
           },
         });
-
-        if (kind === "video") {
-          const upload = await createStreamDirectUpload({
-            size: input.size,
-            maxDurationSeconds: Math.min(minutesLeft * 60, CONTENT_UPLOAD.streamMaxDurationSeconds),
-            expiresAt: new Date(Date.now() + CONTENT_UPLOAD.streamUploadExpiryHours * 3600 * 1000),
-          });
-          await prisma.contentAsset.create({
-            data: {
-              id: uuidv7(),
-              contentItemId: item.id,
-              role: "STREAM",
-              storage: "STREAM",
-              streamUid: upload.uid,
-              mimeType,
-              size,
-            },
-          });
-          await updateStreamVideo(upload.uid, { publicId, env: env.APP_ENV }).catch(error =>
-            console.warn(
-              "[content] Stream meta update failed",
-              error instanceof Error ? error.message : error
-            )
-          );
-          return {
-            publicId,
-            target: {
-              type: "stream" as const,
-              uploadUrl: upload.uploadUrl,
-              chunkBytes: CONTENT_UPLOAD.streamChunkBytes,
-            },
-          };
-        }
-
-        const key = contentIncomingKey(publicId, ext);
-        await prisma.contentAsset.create({
-          data: {
-            id: uuidv7(),
-            contentItemId: item.id,
-            role: "ORIGINAL",
-            storage: "R2",
-            r2Key: key,
-            mimeType,
-            size,
-          },
-        });
-
-        if (contentUsesMultipart(kind, input.size)) {
-          const uploadId = await createR2Multipart(key, mimeType);
-          return {
-            publicId,
-            target: {
-              type: "multipart" as const,
-              uploadId,
-              partCount: contentPartCount(input.size),
-              partBytes: CONTENT_UPLOAD.partBytes,
-            },
-          };
-        }
-
-        return {
+        return await startUploadTarget({
+          itemId,
           publicId,
-          target: {
-            type: "put" as const,
-            url: await presignR2Put(key, mimeType, input.size),
-            headers: { "Content-Type": mimeType },
-          },
-        };
+          kind,
+          mimeType,
+          ext,
+          size: input.size,
+          minutesLeft,
+        });
       } catch (error) {
         // Nothing reached storage: give the bytes back and drop the item
         console.error(
@@ -506,9 +578,13 @@ export const contentRouter = router({
     const items = await prisma.contentItem.findMany({
       where: {
         userId,
-        status: input.status
-          ? (input.status.toUpperCase() as ContentItem["status"])
-          : { not: "DELETED" },
+        ...(input.removed
+          ? { status: "DELETED" as const, purgeAfter: { gt: new Date() } }
+          : {
+              status: input.status
+                ? (input.status.toUpperCase() as ContentItem["status"])
+                : { not: "DELETED" as const },
+            }),
         ...(input.kind ? { kind: toDbKind(input.kind) } : {}),
         ...(input.publishState
           ? { publishState: input.publishState.toUpperCase() as ContentItem["publishState"] }
@@ -571,8 +647,343 @@ export const contentRouter = router({
           : {}),
       },
     });
+    // Turning downloads on after READY: Stream makes the MP4 only when asked (spec 3.6)
+    if (
+      input.allowDownload === true &&
+      !item.allowDownload &&
+      item.kind === "VIDEO" &&
+      item.status === "READY"
+    ) {
+      const stream = await originalAsset(item);
+      if (stream?.streamUid) {
+        await enableStreamDownloads(stream.streamUid).catch(error =>
+          console.warn(
+            "[content] Stream downloads not enabled",
+            error instanceof Error ? error.message : error
+          )
+        );
+      }
+    }
     return ownerView(updated);
   }),
+
+  // --------------------------------------------------------------------------
+  // Publishing, delete and restore (spec 3.10, 3.12), PR 6
+  // --------------------------------------------------------------------------
+
+  /** Puts a finished, cleared item on the creator's public pages. */
+  publish: privateProcedure.input(contentPublicIdInputSchema).mutation(async ({ ctx, input }) => {
+    const item = await findOwnedItem(input.publicId, ctx.user!.sub);
+    if (item.status === "BLOCKED" || item.moderationState === "BLOCKED") {
+      throw new TRPCError({ code: "BAD_REQUEST", message: MESSAGES.publishBlocked });
+    }
+    if (item.status !== "READY") {
+      throw new TRPCError({ code: "BAD_REQUEST", message: MESSAGES.publishNotReady });
+    }
+    if (item.moderationState === "HELD") {
+      throw new TRPCError({ code: "BAD_REQUEST", message: MESSAGES.publishHeld });
+    }
+    const updated = await prisma.contentItem.update({
+      where: { id: item.id },
+      data: { publishState: "PUBLISHED", publishedAt: item.publishedAt ?? new Date() },
+    });
+    return ownerView(updated);
+  }),
+
+  /** Takes an item off public pages. It stays in the library as a draft. */
+  unpublish: privateProcedure.input(contentPublicIdInputSchema).mutation(async ({ ctx, input }) => {
+    const item = await findOwnedItem(input.publicId, ctx.user!.sub);
+    const updated = await prisma.contentItem.update({
+      where: { id: item.id },
+      data: { publishState: "DRAFT" },
+    });
+    return ownerView(updated);
+  }),
+
+  /**
+   * Soft delete (spec 3.12). A finished item leaves every page at once, its space
+   * comes back at once, and it can be restored for 30 days before the purge.
+   * Failed and blocked items gave their space back already and are purged next run.
+   */
+  delete: privateProcedure.input(contentPublicIdInputSchema).mutation(async ({ ctx, input }) => {
+    const item = await findOwnedItem(input.publicId, ctx.user!.sub);
+    if (item.status === "UPLOADING" || item.status === "PROCESSING") {
+      throw new TRPCError({ code: "BAD_REQUEST", message: MESSAGES.deleteBusy });
+    }
+    const now = new Date();
+    if (item.status === "READY") {
+      const purgeAfter = new Date(now.getTime() + CONTENT_RESTORE_DAYS * 24 * 3600 * 1000);
+      await prisma.$transaction(async tx => {
+        const moved = await tx.contentItem.updateMany({
+          where: { id: item.id, status: "READY" },
+          data: { status: "DELETED", publishState: "DRAFT", deletedAt: now, purgeAfter },
+        });
+        if (moved.count === 1) {
+          await freeUsedBytes(item.userId, item.totalBytes, itemMinutes(item), tx);
+        }
+      });
+      return { publicId: item.publicId, status: "deleted" as const, restorableUntil: purgeAfter };
+    }
+    await prisma.contentItem.updateMany({
+      where: { id: item.id, status: { in: ["FAILED", "BLOCKED"] } },
+      data: { status: "DELETED", publishState: "DRAFT", deletedAt: now, purgeAfter: now },
+    });
+    return { publicId: item.publicId, status: "deleted" as const, restorableUntil: null };
+  }),
+
+  /** Brings a recently removed item back as a draft, if its space still fits. */
+  restore: privateProcedure.input(contentPublicIdInputSchema).mutation(async ({ ctx, input }) => {
+    const item = await prisma.contentItem.findUnique({ where: { publicId: input.publicId } });
+    if (!item || item.userId !== ctx.user!.sub) {
+      throw new TRPCError({ code: "NOT_FOUND", message: MESSAGES.notFound });
+    }
+    const now = new Date();
+    if (item.status !== "DELETED" || !item.purgeAfter || item.purgeAfter <= now) {
+      throw new TRPCError({ code: "BAD_REQUEST", message: MESSAGES.restoreGone });
+    }
+    const restored = await prisma.$transaction(async tx => {
+      if (!(await reclaimUsedBytes(item.userId, item.totalBytes, itemMinutes(item), tx))) {
+        return "no_space" as const;
+      }
+      const moved = await tx.contentItem.updateMany({
+        where: { id: item.id, status: "DELETED", purgeAfter: { gt: now } },
+        data: { status: "READY", deletedAt: null, purgeAfter: null },
+      });
+      // The purge won the race: hand the space back and say so
+      if (moved.count !== 1) {
+        await freeUsedBytes(item.userId, item.totalBytes, itemMinutes(item), tx);
+        return "gone" as const;
+      }
+      return "ok" as const;
+    });
+    if (restored === "no_space") {
+      throw new TRPCError({ code: "BAD_REQUEST", message: MESSAGES.restoreNoSpace });
+    }
+    if (restored === "gone") {
+      throw new TRPCError({ code: "BAD_REQUEST", message: MESSAGES.restoreGone });
+    }
+    return ownerView({ ...item, status: "READY", deletedAt: null, purgeAfter: null });
+  }),
+
+  /**
+   * Retries a FAILED item (spec 3.10). Processing runs again when the source is
+   * still kept: Stream keeps a video, and an R2 upload is kept when processing
+   * never started. Otherwise the answer is needs_file, and the creator uploads
+   * the file again into the same item, keeping its title, description and
+   * chapters. Re-running processing is limited to once an hour per item.
+   */
+  retryProcessing: privateProcedure.input(contentRetrySchema).mutation(async ({ ctx, input }) => {
+    assertUploadsOpen();
+    const userId = ctx.user!.sub;
+    const item = await findOwnedItem(input.publicId, userId);
+    if (item.status !== "FAILED") {
+      throw new TRPCError({ code: "BAD_REQUEST", message: MESSAGES.retryState });
+    }
+    const source = await originalAsset(item);
+
+    if (!input.file) {
+      let kept = false;
+      if (item.kind === "VIDEO" && source?.streamUid) {
+        const video = await getStreamVideo(source.streamUid).catch(() => null);
+        kept = !!video?.readyToStream && video.status.state === "ready";
+      } else if (source?.r2Key?.startsWith("incoming/")) {
+        kept = await r2ObjectExists(source.r2Key).catch(() => false);
+      }
+      if (!kept) return { status: "needs_file" as const, publicId: item.publicId };
+
+      if ((await hitRateLimit(`content-retry:${item.publicId}`, 3600)) > 1) {
+        throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: MESSAGES.retryRate });
+      }
+      if (!(await reserveBytes(userId, item.totalBytes))) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: MESSAGES.noStorage });
+      }
+      const moved = await prisma.contentItem.updateMany({
+        where: { id: item.id, status: "FAILED" },
+        data: {
+          status: "PROCESSING",
+          processingStep: item.kind === "VIDEO" ? "stream_ready" : "queued",
+          failureReason: null,
+        },
+      });
+      if (moved.count !== 1) {
+        await releaseBytes(userId, item.totalBytes);
+        throw new TRPCError({ code: "BAD_REQUEST", message: MESSAGES.retryState });
+      }
+      try {
+        if (item.kind === "VIDEO") await enqueueVideoProcessing(item.publicId);
+        else await publishContentJob({ type: "r2", publicId: item.publicId });
+      } catch (error) {
+        console.error(
+          "[content] retry queue publish failed",
+          JSON.stringify({
+            publicId: item.publicId,
+            error: error instanceof Error ? error.message : String(error),
+          })
+        );
+        await failItem(item, "queue_unavailable", { from: ["PROCESSING"] });
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: MESSAGES.queue });
+      }
+      return { status: "processing" as const, publicId: item.publicId };
+    }
+
+    // Upload the file again into the same item
+    const file = input.file;
+    const kind = fromDbKind(item.kind) as ContentUploadKind;
+    if (!contentTypeAllowed(kind, file.mimeType, file.fileName)) {
+      throw new TRPCError({ code: "BAD_REQUEST", message: MESSAGES.type });
+    }
+    const limit = contentUploadLimitBytes(kind);
+    if (file.size > limit) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: MESSAGES.tooLarge(Math.round(limit / (1024 * 1024))),
+      });
+    }
+    if ((await hitRateLimit(`content-upload:${userId}`, 60)) > CREATE_UPLOADS_PER_MINUTE) {
+      throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: MESSAGES.rate });
+    }
+    const quota = await ensureQuota(userId);
+    const minutesLeft = videoMinutesLeft(quota);
+    if (kind === "video") {
+      if (minutesLeft <= 0) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: MESSAGES.noMinutes });
+      }
+      if (file.durationSec && file.durationSec > minutesLeft * 60) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: MESSAGES.tooLong });
+      }
+    }
+    const size = BigInt(file.size);
+    if (!(await reserveBytes(userId, size))) {
+      throw new TRPCError({ code: "BAD_REQUEST", message: MESSAGES.noStorage });
+    }
+    const mimeType = file.mimeType.split(";")[0]!.trim().toLowerCase();
+    const oldStreamUid = source?.streamUid ?? null;
+    const reset = await prisma.$transaction(async tx => {
+      const moved = await tx.contentItem.updateMany({
+        where: { id: item.id, status: "FAILED" },
+        data: {
+          status: "UPLOADING",
+          totalBytes: size,
+          processingStep: null,
+          failureReason: null,
+          moderationState: "PENDING",
+          moderationReason: null,
+          durationMs: null,
+          pageCount: null,
+          width: null,
+          height: null,
+          sha256: null,
+        },
+      });
+      if (moved.count !== 1) return false;
+      // The failed run's rows point at objects the processor already removed
+      await tx.contentAsset.deleteMany({ where: { contentItemId: item.id } });
+      return true;
+    });
+    if (!reset) {
+      await releaseBytes(userId, size);
+      throw new TRPCError({ code: "BAD_REQUEST", message: MESSAGES.retryState });
+    }
+    if (oldStreamUid) await deleteStreamVideo(oldStreamUid).catch(() => {});
+    try {
+      const started = await startUploadTarget({
+        itemId: item.id,
+        publicId: item.publicId,
+        kind,
+        mimeType,
+        ext: contentExtensionOf(file.fileName),
+        size: file.size,
+        minutesLeft,
+      });
+      return { status: "uploading" as const, ...started };
+    } catch (error) {
+      console.error(
+        "[content] retry upload start failed",
+        error instanceof Error ? error.message : error
+      );
+      await failItem({ ...item, totalBytes: size }, "upload_start_failed", {
+        from: ["UPLOADING"],
+      });
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Could not start the upload. Try again.",
+      });
+    }
+  }),
+
+  // --------------------------------------------------------------------------
+  // Public reads (spec 3.7, 3.10), PR 6. No email, wallet or numeric id.
+  // --------------------------------------------------------------------------
+
+  /** Cards for a content block, keyed by publicId. Unknown or closed ids are left out. */
+  listForBio: publicProcedure.input(contentListForBioSchema).query(async ({ ctx, input }) => {
+    await limitViewerReads(ctx, "content-public");
+    const creator = await findPublicCreator(input.handle);
+    if (!creator) return { cards: {} };
+    return { cards: await publicCardsFor(creator.id, input.publicIds) };
+  }),
+
+  /** The creator feed page (#26), newest first. */
+  feed: publicProcedure.input(contentFeedSchema).query(async ({ ctx, input }) => {
+    await limitViewerReads(ctx, "content-public");
+    const creator = await findPublicCreator(input.handle);
+    if (!creator) throw new TRPCError({ code: "NOT_FOUND", message: VIEWER_MESSAGES.notFound });
+    return publicFeed(creator, { kind: input.kind, cursor: input.cursor, limit: input.limit });
+  }),
+
+  /** The item page's metadata. Playback URLs come from getReadUrl in the browser. */
+  getPublic: publicProcedure.input(contentPublicItemSchema).query(async ({ ctx, input }) => {
+    await limitViewerReads(ctx, "content-public");
+    const creator = await findPublicCreator(input.handle);
+    const item = creator ? await publicItem(creator, input.publicId) : null;
+    if (!item) throw new TRPCError({ code: "NOT_FOUND", message: VIEWER_MESSAGES.notFound });
+    return item;
+  }),
+
+  /**
+   * Report content (spec 3.11). Recorded for the admin queue (PR 7). A CSAM
+   * report also raises an alert line for on call; nothing is taken down by a
+   * report alone, so a report can not be used to remove someone's work.
+   */
+  report: publicProcedure.input(contentReportSchema).mutation(async ({ ctx, input }) => {
+    const key = `content-report:${viewerKey(ctx)}`;
+    if ((await hitRateLimit(key, 3600)) > REPORTS_PER_HOUR) {
+      throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: MESSAGES.reportRate });
+    }
+    const item = await prisma.contentItem.findUnique({
+      where: { publicId: input.publicId },
+      include: { user: { select: { page_status: true, block: true } } },
+    });
+    const viewerId = viewerUserId(ctx);
+    if (!item || (!isPublicItem(item, item.user) && item.userId !== viewerId)) {
+      throw new TRPCError({ code: "NOT_FOUND", message: VIEWER_MESSAGES.notFound });
+    }
+    await prisma.contentReport.create({
+      data: {
+        id: uuidv7(),
+        contentItemId: item.id,
+        reporterUserId: viewerId,
+        reason: input.reason,
+        details: input.details || null,
+      },
+    });
+    const line = JSON.stringify({ publicId: item.publicId, reason: input.reason });
+    if (input.reason === "csam") console.error("[content] ALERT csam report", line);
+    else console.info("[content] report", line);
+    return { received: true };
+  }),
+
+  /** Public items for the sitemap (decision 23). */
+  getSitemapCount: publicProcedure.query(async () => ({ total: await contentSitemapCount() })),
+
+  getSitemapEntries: publicProcedure
+    .input(
+      z.object({
+        page: z.number().int().min(0),
+        pageSize: z.number().int().min(1).max(10_000),
+      })
+    )
+    .query(async ({ input }) => contentSitemapEntries(input.page, input.pageSize)),
 
   /**
    * Signed URLs to open an item (spec 3.6), or a single use download link
