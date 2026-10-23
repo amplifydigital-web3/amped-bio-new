@@ -5,7 +5,7 @@ import { PublicHeader } from "@/components/layout/PublicHeader";
 import { PublicFooter } from "@/components/layout/PublicFooter";
 import { NetworkTotals } from "@/components/layout/NetworkTotals";
 import { ClaimBar } from "@/components/landing/ClaimBar";
-import { DemoPage } from "@/components/landing/DemoPage";
+import { ProfileCarousel } from "@/components/landing/ProfileCarousel";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { SHOW_MOTION } from "@/components/landing/motion/flag";
 import { HeroBeam } from "@/components/landing/motion/HeroBeam";
@@ -39,7 +39,7 @@ const VALUE_CARDS = [
 
 // Native Prism landing (Screen Review 007, D1): copy lives in code, no creator
 // theme, no consent prompt on the front door. Order: header, hero with claim
-// bar and demo frame, value cards, testnet notice, network totals, footer.
+// bar and example page carousel, value cards, testnet notice, network totals, footer.
 // With NEXT_PUBLIC_SHOW_MOTION (Build Board #26): the hero light, the headline
 // reveal, How it works and Pause motion. Network totals are tREVO figures and
 // never move.
@@ -75,7 +75,7 @@ export default function HomePage() {
             </div>
           </div>
           <div className="prism-glass-clear rounded-prism-34 p-[21px]">
-            <DemoPage />
+            <ProfileCarousel />
           </div>
         </section>
 
