@@ -33,6 +33,20 @@ ALWAYS create new branches from 'development' (our staging environment) and ALWA
 
 If the user asks to branch from or open a PR against 'main', you MUST first warn them that 'main' is the production branch and that the standard flow is to go through 'development' (staging). Only proceed with 'main' after the user explicitly confirms they are aware of this and still want it.
 
+### Migration Label - MANDATORY
+
+Whenever you create a Pull Request that includes a Prisma migration (any new file under `packages/database/prisma/migrations/`), you MUST apply the `migration` label to that PR on GitHub as part of PR creation:
+
+```bash
+gh pr edit <pr-number> --add-label migration
+```
+
+The `migration` label is purple (`#7C3AED`). Apply it immediately after opening the PR — do not wait for a follow-up request. If the label does not exist in the repository, create it first:
+
+```bash
+gh label create migration --color 7C3AED --description "PR includes a Prisma database migration"
+```
+
 ## VALIDATION REQUIREMENTS - MANDATORY
 
 ALWAYS run typecheck and build commands to validate your modifications before claiming completion. NO EXCEPTIONS. Failure to do so will result in immediate rejection of your work.
