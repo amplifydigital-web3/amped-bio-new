@@ -39,6 +39,8 @@ export function blockTitle(block: BlockType) {
       return TELEGRAM_APP_STRINGS.messageBlockTitle;
     case "telegram_group":
       return TELEGRAM_APP_STRINGS.groupBlockTitle;
+    case "content":
+      return block.config.label || "Content";
     default:
       return "Text";
   }
@@ -101,6 +103,12 @@ export function blockMeta(block: BlockType) {
     case "telegram_message":
     case "telegram_group":
       return block.config.label ?? "";
+    case "content": {
+      const n = block.config.publicIds?.length ?? 0;
+      const layout =
+        { featured: "Featured", grid: "Grid", list: "List" }[block.config.layout] ?? "Featured";
+      return `${layout}, ${n === 1 ? "1 item" : `${n} items`}`;
+    }
     case "text":
       return stripTags(block.config.content ?? "");
     default:
@@ -112,6 +120,7 @@ export const NEED_LABEL: Record<Exclude<BlockNeed, null>, string> = {
   link: "Needs a link",
   pool: "Needs a pool",
   text: "Needs text",
+  content: "Needs items",
 };
 
 // ---------------------------------------------------------------------------
