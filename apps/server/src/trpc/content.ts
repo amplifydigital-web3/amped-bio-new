@@ -83,9 +83,7 @@ import {
 } from "../services/content/viewer";
 import {
   ensureQuota,
-  freeUsedBytes,
-  minutesForDuration,
-  reclaimUsedBytes,
+  itemMinutes,
   releaseBytes,
   reserveBytes,
   videoMinutesLeft,
@@ -102,8 +100,9 @@ const MESSAGES = {
   closed: "Uploads are not open yet.",
   type: "This file type is not supported for this kind of item.",
   tooLarge: (mb: number) => `This file is larger than the ${mb} MB limit.`,
-  noStorage: "Not enough storage left for this file. Delete an item or ask for more space.",
-  noMinutes: "No video minutes left. Delete a video or ask for more minutes.",
+  noStorage:
+    "Not enough storage left for this file. Deleted items keep their space until they are removed.",
+  noMinutes: "No video minutes left. Deleted videos keep their minutes until they are removed.",
   tooLong: "This video is longer than your video minutes left.",
   rate: "Too many uploads at once. Try again in a minute.",
   state: "This upload is no longer in progress.",
@@ -121,10 +120,11 @@ const MESSAGES = {
   captionsFailed: "Could not save the captions. Try again.",
   publishNotReady: "Publish once processing finishes.",
   publishHeld: "This item is in review. You can publish it once a reviewer clears it.",
+  publishNotClear: "This item is not cleared yet. A reviewer clears it before it can be published.",
+  publishAdult: "18+ items can not be published yet.",
   publishBlocked: "This item can not be published.",
   deleteBusy: "Wait until processing finishes, or cancel the upload.",
   restoreGone: "This item can no longer be restored.",
-  restoreNoSpace: "Not enough storage to restore it. Delete another item first.",
   retryState: "Only items that failed can be retried.",
   retryRate: "You can retry processing once an hour. Try again later, or upload the file again.",
   reportRate: "Too many reports at once. Try again later.",
@@ -186,11 +186,6 @@ function ownerView(item: ContentItem) {
     createdAt: item.createdAt,
     updatedAt: item.updatedAt,
   };
-}
-
-/** Video minutes an item holds against the quota once READY. */
-function itemMinutes(item: Pick<ContentItem, "kind" | "durationMs">): number {
-  return item.kind === "VIDEO" ? minutesForDuration(item.durationMs) : 0;
 }
 
 async function findOwnedItem(publicId: string, userId: number): Promise<ContentItem> {
@@ -683,6 +678,14 @@ export const contentRouter = router({
     if (item.moderationState === "HELD") {
       throw new TRPCError({ code: "BAD_REQUEST", message: MESSAGES.publishHeld });
     }
+    // Only a READY, CLEAR, non 18+ item publishes (spec 3.10). 18+ stays off every
+    // public surface until the age gate lands (#28), so it never reaches the pages.
+    if (item.adult) {
+      throw new TRPCError({ code: "BAD_REQUEST", message: MESSAGES.publishAdult });
+    }
+    if (item.moderationState !== "CLEAR") {
+      throw new TRPCError({ code: "BAD_REQUEST", message: MESSAGES.publishNotClear });
+    }
     const updated = await prisma.contentItem.update({
       where: { id: item.id },
       data: { publishState: "PUBLISHED", publishedAt: item.publishedAt ?? new Date() },
@@ -701,8 +704,10 @@ export const contentRouter = router({
   }),
 
   /**
-   * Soft delete (spec 3.12). A finished item leaves every page at once, its space
-   * comes back at once, and it can be restored for 30 days before the purge.
+   * Soft delete (spec 3.12). A finished item leaves every page at once and can
+   * be restored for 30 days before the purge. Its files stay in the bucket
+   * until then, so its space stays charged: the creator can not store more than
+   * the limit while the files are still there. The purge gives the space back.
    * Failed and blocked items gave their space back already and are purged next run.
    */
   delete: privateProcedure.input(contentPublicIdInputSchema).mutation(async ({ ctx, input }) => {
@@ -713,14 +718,9 @@ export const contentRouter = router({
     const now = new Date();
     if (item.status === "READY") {
       const purgeAfter = new Date(now.getTime() + CONTENT_RESTORE_DAYS * 24 * 3600 * 1000);
-      await prisma.$transaction(async tx => {
-        const moved = await tx.contentItem.updateMany({
-          where: { id: item.id, status: "READY" },
-          data: { status: "DELETED", publishState: "DRAFT", deletedAt: now, purgeAfter },
-        });
-        if (moved.count === 1) {
-          await freeUsedBytes(item.userId, item.totalBytes, itemMinutes(item), tx);
-        }
+      await prisma.contentItem.updateMany({
+        where: { id: item.id, status: "READY" },
+        data: { status: "DELETED", publishState: "DRAFT", deletedAt: now, purgeAfter },
       });
       return { publicId: item.publicId, status: "deleted" as const, restorableUntil: purgeAfter };
     }
@@ -731,7 +731,10 @@ export const contentRouter = router({
     return { publicId: item.publicId, status: "deleted" as const, restorableUntil: null };
   }),
 
-  /** Brings a recently removed item back as a draft, if its space still fits. */
+  /**
+   * Brings a recently removed item back as a draft. Its space was never given
+   * away (the files stay until the purge), so there is nothing to reclaim here.
+   */
   restore: privateProcedure.input(contentPublicIdInputSchema).mutation(async ({ ctx, input }) => {
     const item = await prisma.contentItem.findUnique({ where: { publicId: input.publicId } });
     if (!item || item.userId !== ctx.user!.sub) {
@@ -741,25 +744,12 @@ export const contentRouter = router({
     if (item.status !== "DELETED" || !item.purgeAfter || item.purgeAfter <= now) {
       throw new TRPCError({ code: "BAD_REQUEST", message: MESSAGES.restoreGone });
     }
-    const restored = await prisma.$transaction(async tx => {
-      if (!(await reclaimUsedBytes(item.userId, item.totalBytes, itemMinutes(item), tx))) {
-        return "no_space" as const;
-      }
-      const moved = await tx.contentItem.updateMany({
-        where: { id: item.id, status: "DELETED", purgeAfter: { gt: now } },
-        data: { status: "READY", deletedAt: null, purgeAfter: null },
-      });
-      // The purge won the race: hand the space back and say so
-      if (moved.count !== 1) {
-        await freeUsedBytes(item.userId, item.totalBytes, itemMinutes(item), tx);
-        return "gone" as const;
-      }
-      return "ok" as const;
+    const restored = await prisma.contentItem.updateMany({
+      where: { id: item.id, status: "DELETED", purgeAfter: { gt: now } },
+      data: { status: "READY", deletedAt: null, purgeAfter: null },
     });
-    if (restored === "no_space") {
-      throw new TRPCError({ code: "BAD_REQUEST", message: MESSAGES.restoreNoSpace });
-    }
-    if (restored === "gone") {
+    // The purge won the race: the files are gone and the space is already free
+    if (restored.count !== 1) {
       throw new TRPCError({ code: "BAD_REQUEST", message: MESSAGES.restoreGone });
     }
     return ownerView({ ...item, status: "READY", deletedAt: null, purgeAfter: null });
@@ -793,6 +783,16 @@ export const contentRouter = router({
 
       if ((await hitRateLimit(`content-retry:${item.publicId}`, 3600)) > 1) {
         throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: MESSAGES.retryRate });
+      }
+      // The item goes back to READY with its video minutes charged again, and a
+      // failed item was never charged, so the creator has to have them left.
+      const minutes = itemMinutes(item);
+      const minutesLeft = videoMinutesLeft(await ensureQuota(userId));
+      if (minutes > minutesLeft) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: minutesLeft <= 0 ? MESSAGES.noMinutes : MESSAGES.tooLong,
+        });
       }
       if (!(await reserveBytes(userId, item.totalBytes))) {
         throw new TRPCError({ code: "BAD_REQUEST", message: MESSAGES.noStorage });
@@ -979,7 +979,9 @@ export const contentRouter = router({
   getSitemapEntries: publicProcedure
     .input(
       z.object({
-        page: z.number().int().min(0),
+        // The offset grows with the page, so the page is capped: this procedure is
+        // public and unauthenticated, and a huge offset would cost the database.
+        page: z.number().int().min(0).max(1000),
         pageSize: z.number().int().min(1).max(10_000),
       })
     )
@@ -1132,7 +1134,15 @@ export const contentRouter = router({
     const quota = await ensureQuota(userId);
     const byKind = await prisma.contentItem.groupBy({
       by: ["kind"],
-      where: { userId, status: { in: ["READY", "PROCESSING"] } },
+      where: {
+        userId,
+        // Deleted items keep their space until the purge, so the meter counts
+        // the ones still in their restore window (spec 3.12).
+        OR: [
+          { status: { in: ["READY", "PROCESSING"] } },
+          { status: "DELETED", purgeAfter: { gt: new Date() } },
+        ],
+      },
       _sum: { totalBytes: true },
     });
     // The meter also counts the creator's profile and theme uploads (spec 3.3)

@@ -42,7 +42,18 @@ export function PublishCard({ item, onDeleted }: { item: PublishItem; onDeleted:
   const ready = item.status === "ready";
   const held = item.moderationState === "held";
   const blocked = item.status === "blocked" || item.moderationState === "blocked";
-  const canPublish = ready && !held && !blocked;
+  const cleared = item.moderationState === "clear";
+  // Only a ready, cleared, non 18+ item publishes: the server refuses the rest
+  const canPublish = ready && cleared && !held && !blocked && !item.adult;
+  const publishReason = blocked
+    ? e.publishBlocked
+    : held
+      ? e.publishReview
+      : !ready
+        ? e.publishProcessing
+        : item.adult
+          ? e.publishAdult
+          : e.publishNotClear;
   const key: readonly unknown[] = trpc.content.get.queryKey({ publicId: item.publicId });
 
   const run = async (action: "publish" | "unpublish") => {
@@ -139,11 +150,7 @@ export function PublishCard({ item, onDeleted }: { item: PublishItem; onDeleted:
             )}
             {busy === "publish" ? e.publishing : e.publish}
           </Button>
-          {!canPublish && (
-            <p className="text-prism-meta text-prism-ink-2">
-              {blocked ? e.publishBlocked : held ? e.publishReview : e.publishProcessing}
-            </p>
-          )}
+          {!canPublish && <p className="text-prism-meta text-prism-ink-2">{publishReason}</p>}
         </div>
       )}
 

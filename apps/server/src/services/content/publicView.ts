@@ -56,15 +56,27 @@ type AssetRow = Pick<
   | "scanStatus"
 >;
 
+/** Ids per query, so a page with many blocks does not send one huge query. */
+const CARD_LOOKUP_CHUNK = 60;
+
+/** Ids one page can hold: the same ceiling the content sitemap uses for a page. */
+const CARD_LOOKUP_MAX = 1000;
+
 async function assetsByItem(itemIds: Uint8Array[], roles?: readonly string[]) {
   const map = new Map<string, AssetRow[]>();
   if (!itemIds.length) return map;
-  const rows = await prisma.contentAsset.findMany({
-    where: {
-      contentItemId: { in: itemIds.map(id => Buffer.from(id)) },
-      ...(roles ? { role: { in: roles as never } } : {}),
-    },
-  });
+  const rows: AssetRow[] = [];
+  for (let start = 0; start < itemIds.length; start += CARD_LOOKUP_CHUNK) {
+    const chunk = itemIds.slice(start, start + CARD_LOOKUP_CHUNK);
+    rows.push(
+      ...(await prisma.contentAsset.findMany({
+        where: {
+          contentItemId: { in: chunk.map(id => Buffer.from(id)) },
+          ...(roles ? { role: { in: roles as never } } : {}),
+        },
+      }))
+    );
+  }
   for (const row of rows) {
     const key = Buffer.from(row.contentItemId).toString("hex");
     map.set(key, [...(map.get(key) ?? []), row]);
@@ -77,17 +89,26 @@ const hex = (id: Uint8Array) => Buffer.from(id).toString("hex");
 /**
  * Cards for a page's content blocks, keyed by publicId. Ids that are not the
  * creator's public items are left out, so a block skips them (spec 3.7).
+ *
+ * The ids of every content block on the page are read, so they are looked up in
+ * chunks: a page with more ids than one query takes still shows all its cards.
  */
 export async function publicCardsFor(
   userId: number,
   publicIds: string[],
   now: Date = new Date()
 ): Promise<Record<string, ContentCard>> {
-  const unique = [...new Set(publicIds)].slice(0, 60);
+  const unique = [...new Set(publicIds)].slice(0, CARD_LOOKUP_MAX);
   if (!unique.length) return {};
-  const items = await prisma.contentItem.findMany({
-    where: { userId, publicId: { in: unique }, ...PUBLIC_ITEM_WHERE },
-  });
+  const items: ContentItem[] = [];
+  for (let start = 0; start < unique.length; start += CARD_LOOKUP_CHUNK) {
+    const chunk = unique.slice(start, start + CARD_LOOKUP_CHUNK);
+    items.push(
+      ...(await prisma.contentItem.findMany({
+        where: { userId, publicId: { in: chunk }, ...PUBLIC_ITEM_WHERE },
+      }))
+    );
+  }
   // Every asset, so a dirty one keeps the item off the page
   const assets = await assetsByItem(items.map(item => item.id));
   const cards: Record<string, ContentCard> = {};

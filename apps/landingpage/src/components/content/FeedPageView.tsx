@@ -63,7 +63,6 @@ export function FeedPageView({
     <div>
       <header className="flex flex-wrap items-center gap-[13px]">
         {creator.image ? (
-          // eslint-disable-next-line @next/next/no-img-element
           <img
             src={creator.image}
             alt=""

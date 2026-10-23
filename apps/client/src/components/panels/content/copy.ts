@@ -27,7 +27,7 @@ export const CONTENT_COPY = {
     minutes: "Video minutes",
     minutesUsed: (used: number, limit: number) => `${used} of ${limit} minutes`,
     pageFiles: "Page images",
-    full: "Your storage is full. Delete an item to upload more.",
+    full: "Your storage is full. Deleted items keep their space until they are removed.",
     loadError: "Storage did not load",
   },
   library: {
@@ -153,8 +153,9 @@ export const CONTENT_COPY = {
   errors: {
     unsupported: "This file type is not supported. Use video, audio, images, PDF, EPUB or ZIP.",
     tooLarge: (limit: string) => `This file is larger than the ${limit} limit.`,
-    noStorage: "Not enough storage left for this file. Delete an item or ask for more space.",
-    noMinutes: "No video minutes left. Delete a video or ask for more minutes.",
+    noStorage:
+      "Not enough storage left for this file. Deleted items keep their space until they are removed.",
+    noMinutes: "No video minutes left. Deleted videos keep their minutes until they are removed.",
     tooLong: "This video is longer than your video minutes left.",
     empty: "This file is empty.",
     stopped: "The upload stopped. Try again.",
@@ -233,13 +234,16 @@ export const CONTENT_COPY = {
     viewPublicLabel: "View public page (opens in a new tab)",
     publishProcessing: "Publish once processing finishes.",
     publishReview: "You can publish it once a reviewer clears it.",
+    publishNotClear:
+      "This item is not cleared yet. A reviewer clears it before it can be published.",
     publishBlocked: "This item can not be published.",
     publishAdult:
       "18+ items show only to fans who confirmed their age. That check comes later, so this item stays off your public pages for now.",
     publishFailed: "Could not change publishing",
     deleteItem: "Delete",
     deleting: "Deleting",
-    deleteHelp: "You can restore it from Recently removed for 30 days.",
+    deleteHelp:
+      "You can restore it from Recently removed for 30 days. Its space comes back when the files are removed.",
     deleteFailed: "Could not delete it",
     deleted: (title: string) => `${title} was deleted`,
     deletedHelp: "Restore it from Recently removed within 30 days.",

@@ -123,12 +123,18 @@ const cf = vi.hoisted(() => ({
   createR2Multipart: vi.fn(async () => "up-1"),
 }));
 
+const quotaState = vi.hoisted(() => ({ taken: 0n, limit: 4096n }));
+
 const quota = vi.hoisted(() => ({
   ensureQuota: vi.fn(async () => ({ videoMinutesLimit: 300, videoMinutesUsed: 0 })),
-  reserveBytes: vi.fn(async () => true),
+  // A real quota: the bytes handed out count against the limit
+  reserveBytes: vi.fn(async (_userId: number, bytes: bigint) => {
+    if (quotaState.taken + bytes > quotaState.limit) return false;
+    quotaState.taken += bytes;
+    return true;
+  }),
   releaseBytes: vi.fn(async () => {}),
   freeUsedBytes: vi.fn(async () => {}),
-  reclaimUsedBytes: vi.fn(async () => true),
 }));
 
 const jobs = vi.hoisted(() => ({
@@ -168,6 +174,7 @@ vi.mock("../services/analytics/visitorIp", () => ({ getVisitorIp: () => ({ ip: "
 import { env } from "../env";
 import { contentRouter } from "../trpc/content";
 import { purgeDeletedItems } from "../services/content/purge";
+import { publicCardsFor } from "../services/content/publicView";
 import { keepOwnedContentIds } from "../services/content/blockConfig";
 import { sanitizeBlockConfig } from "../utils/sanitizeBlockConfig";
 
@@ -222,8 +229,7 @@ beforeEach(() => {
   [...Object.values(cf), ...Object.values(quota), ...Object.values(jobs)].forEach(fn =>
     fn.mockClear()
   );
-  quota.reserveBytes.mockResolvedValue(true);
-  quota.reclaimUsedBytes.mockResolvedValue(true);
+  quotaState.taken = 0n;
   cf.r2ObjectExists.mockResolvedValue(false);
   Object.assign(env, {
     CONTENT_UPLOADS_ENABLED: true,
@@ -268,27 +274,60 @@ describe("publish and unpublish", () => {
       code: "NOT_FOUND",
     });
   });
+
+  it("publishes only a READY, CLEAR, non 18+ item", async () => {
+    const adult = addItem({ adult: true });
+    const pending = addItem({ moderationState: "PENDING" });
+    await expect(caller(OWNER).publish({ publicId: adult.publicId })).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+      message: "18+ items can not be published yet.",
+    });
+    await expect(caller(OWNER).publish({ publicId: pending.publicId })).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+      message: "This item is not cleared yet. A reviewer clears it before it can be published.",
+    });
+    // Neither one reached the creator's pages
+    expect(db.items.find(row => row.publicId === adult.publicId)!.publishState).toBe("DRAFT");
+    expect(db.items.find(row => row.publicId === pending.publicId)!.publishState).toBe("DRAFT");
+  });
 });
 
 describe("delete and restore (spec 3.12)", () => {
-  it("soft deletes a ready item: off every page, space back now, restorable for 30 days", async () => {
+  it("soft deletes a ready item: off every page, space still taken, restorable for 30 days", async () => {
     const item = addItem({ kind: "VIDEO", publishState: "PUBLISHED", durationMs: 760_000 });
     const result = await caller(OWNER).delete({ publicId: item.publicId });
     expect(result.restorableUntil!.getTime() - Date.now()).toBeGreaterThan(29 * 24 * 3600 * 1000);
     expect(db.items[0]).toMatchObject({ status: "DELETED", publishState: "DRAFT" });
-    expect(quota.freeUsedBytes).toHaveBeenCalledWith(OWNER, 2048n, 13, expect.anything());
+    // The files stay in the bucket until the purge, so the space stays charged
+    expect(quota.freeUsedBytes).not.toHaveBeenCalled();
     const removed = await caller(OWNER).list({ removed: true, limit: 30 });
     expect(removed.items.map(row => row.publicId)).toEqual([item.publicId]);
     expect((await caller(OWNER).list({ limit: 30 })).items).toHaveLength(0);
   });
 
-  it("restores as a draft when the space still fits, and refuses when it does not", async () => {
+  it("keeps the storage limit in place after a delete", async () => {
+    quotaState.taken = quotaState.limit;
+    const item = addItem({ kind: "VIDEO", durationMs: 760_000 });
+    await caller(OWNER).delete({ publicId: item.publicId });
+    // Nothing was freed, so the limit still covers the files that are in the
+    // bucket until the purge
+    expect(quota.freeUsedBytes).not.toHaveBeenCalled();
+    await expect(
+      caller(OWNER).createUpload({
+        kind: "audio",
+        fileName: "a.mp3",
+        mimeType: "audio/mpeg",
+        size: 1024,
+      })
+    ).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+      message: expect.stringContaining("Not enough storage left"),
+    });
+  });
+
+  it("restores as a draft, and the space was never given back", async () => {
     const item = addItem();
     await caller(OWNER).delete({ publicId: item.publicId });
-    quota.reclaimUsedBytes.mockResolvedValueOnce(false);
-    await expect(caller(OWNER).restore({ publicId: item.publicId })).rejects.toMatchObject({
-      message: "Not enough storage to restore it. Delete another item first.",
-    });
     const restored = await caller(OWNER).restore({ publicId: item.publicId });
     expect(restored).toMatchObject({
       status: "ready",
@@ -296,6 +335,9 @@ describe("delete and restore (spec 3.12)", () => {
       restorableUntil: null,
     });
     expect(db.items[0]).toMatchObject({ status: "READY", deletedAt: null, purgeAfter: null });
+    // The delete freed nothing, so the restore reclaims nothing: no double count
+    expect(quota.freeUsedBytes).not.toHaveBeenCalled();
+    expect(quota.reserveBytes).not.toHaveBeenCalled();
   });
 
   it("purges failed and blocked items at once and never restores them", async () => {
@@ -388,6 +430,18 @@ describe("retryProcessing", () => {
     expect(quota.reserveBytes).toHaveBeenCalledWith(OWNER, 4096n);
   });
 
+  it("refuses a retry without a file when the video minutes are gone", async () => {
+    const item = addItem({ kind: "VIDEO", status: "FAILED", durationMs: 125_000 });
+    db.assets.push({ contentItemId: item.id, role: "STREAM", streamUid: "uid-1" });
+    // The item is 3 minutes long and the creator has 2 left
+    quota.ensureQuota.mockResolvedValueOnce({ videoMinutesLimit: 300, videoMinutesUsed: 298 });
+    await expect(caller(OWNER).retryProcessing({ publicId: item.publicId })).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+      message: "This video is longer than your video minutes left.",
+    });
+    expect(quota.reserveBytes).not.toHaveBeenCalled();
+  });
+
   it("refuses a file of another kind and items that did not fail", async () => {
     const item = addItem({ status: "FAILED" });
     await expect(
@@ -419,6 +473,17 @@ describe("public reads", () => {
     expect(await caller(null).listForBio({ handle: "nobody", publicIds: [pub.publicId] })).toEqual({
       cards: {},
     });
+  });
+
+  it("shows the cards of every content block on the page, past the first lookup", async () => {
+    const items = Array.from({ length: 70 }, () =>
+      addItem({ publishState: "PUBLISHED", publishedAt: new Date() })
+    );
+    const cards = await publicCardsFor(
+      OWNER,
+      items.map(item => item.publicId)
+    );
+    expect(Object.keys(cards)).toHaveLength(70);
   });
 
   it("skips items with an asset that has not passed its scan", async () => {
@@ -535,6 +600,29 @@ describe("purge", () => {
     expect(db.items[0]!.purgeAfter).not.toBeNull();
     expect(db.assets).toHaveLength(1);
     error.mockRestore();
+  });
+
+  it("gives the space back only for the items that held it", async () => {
+    const now = Date.now();
+    // Deleted while live: the files stayed in the bucket, so the space was held
+    const live = addItem({
+      status: "DELETED",
+      kind: "VIDEO",
+      durationMs: 125_000,
+      deletedAt: new Date(now - 40 * 24 * 3600 * 1000),
+      purgeAfter: new Date(now - 1000),
+    });
+    // Failed items gave their space back when they failed and hold nothing
+    const failed = addItem({
+      status: "DELETED",
+      deletedAt: new Date(now - 1000),
+      purgeAfter: new Date(now - 1000),
+    });
+    expect(await purgeDeletedItems()).toBe(2);
+    expect(quota.freeUsedBytes).toHaveBeenCalledTimes(1);
+    expect(quota.freeUsedBytes).toHaveBeenCalledWith(OWNER, 2048n, 3, expect.anything());
+    expect(db.items.find(row => row.publicId === live.publicId)!.purgeAfter).toBeNull();
+    expect(db.items.find(row => row.publicId === failed.publicId)!.purgeAfter).toBeNull();
   });
 });
 

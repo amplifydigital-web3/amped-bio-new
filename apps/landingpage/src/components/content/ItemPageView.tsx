@@ -77,7 +77,6 @@ export function ItemPageView({ item }: { item: ContentPublicItem }) {
         <MediaPlayer item={playerItem} resolve={resolve} poster={item.cover?.src ?? null} />
       ) : item.kind === "image" ? (
         item.cover ? (
-          // eslint-disable-next-line @next/next/no-img-element
           <img
             src={item.cover.src}
             srcSet={item.cover.srcSet || undefined}
@@ -94,7 +93,6 @@ export function ItemPageView({ item }: { item: ContentPublicItem }) {
 
       <div className="mt-[21px] flex items-center gap-[13px]">
         {creator.image ? (
-          // eslint-disable-next-line @next/next/no-img-element
           <img src={creator.image} alt="" className="h-[44px] w-[44px] rounded-full object-cover" />
         ) : null}
         <Link href={`/${creator.handle}`} className={cn("text-[17px]", CREATOR_FOCUS_RING)}>

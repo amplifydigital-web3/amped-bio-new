@@ -64,6 +64,17 @@ describe("PublishCard", () => {
     expect(screen.getByText(e.publishReview)).toBeInTheDocument();
   });
 
+  it("does not publish an 18+ item or an item that is not cleared", () => {
+    renderWithProviders(<PublishCard item={{ ...base, adult: true }} onDeleted={vi.fn()} />);
+    expect(screen.getByRole("button", { name: e.publish })).toBeDisabled();
+    expect(screen.getByText(e.publishAdult)).toBeInTheDocument();
+    renderWithProviders(
+      <PublishCard item={{ ...base, moderationState: "pending" }} onDeleted={vi.fn()} />
+    );
+    expect(screen.getAllByRole("button", { name: e.publish }).at(-1)).toBeDisabled();
+    expect(screen.getByText(e.publishNotClear)).toBeInTheDocument();
+  });
+
   it("shows the public link and Unpublish once published, and the 18+ note", async () => {
     mocks.unpublish.mockResolvedValue({ ...base });
     renderWithProviders(

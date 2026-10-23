@@ -123,8 +123,13 @@ export function PdfViewer({
         const src = playback?.document?.src;
         if (!src) throw new Error("no document");
         const pdfjs = await loadPdfJs();
-        loaded = (await pdfjs.getDocument({ url: src, withCredentials: false })
-          .promise) as unknown as PdfDoc;
+        // isEvalSupported false keeps pdf.js off the eval path for PostScript
+        // functions: the reader does not need them.
+        loaded = (await pdfjs.getDocument({
+          url: src,
+          withCredentials: false,
+          isEvalSupported: false,
+        }).promise) as unknown as PdfDoc;
         if (live) setDoc(loaded);
       } catch {
         if (live) setFailed(true);
@@ -153,7 +158,6 @@ export function PdfViewer({
             {copy.documentError}
           </p>
           {pages.map((page, index) => (
-            // eslint-disable-next-line @next/next/no-img-element
             <img
               key={page}
               src={page}

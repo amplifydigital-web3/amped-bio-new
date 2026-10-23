@@ -19,7 +19,7 @@ After PR 6a a creator can upload, process and preview an item, but nobody else c
 
 | Decision | Chosen | Why | Alternatives |
 | --- | --- | --- | --- |
-| Storage on delete | Freed at delete, reclaimed at restore | The creator sees space come back at once. Restore refuses when space is short. | Free at purge (confusing: delete shows no effect for 30 days). |
+| Storage on delete | Freed at the purge, when the files are gone | The files stay in the bucket for 30 days, so the space stays charged: the creator can not store more than the limit while the files are there (spec 3.12). | Freed at delete (the creator could fill the bucket far past the limit). |
 | FAILED and BLOCKED delete | Purged now, not restorable | Nothing playable to restore. BLOCKED files must not linger. | Same 30 days as READY. |
 | Retry without a file | Re-queue when the source is still held (Stream keeps a video; an R2 upload is kept when processing never started), once an hour | Most failures are transient. The creator should not upload again. | Always ask for the file. |
 | Retry with a file | Uploads into the same item, keeping title, description and settings | Keeps the public ID and any block placement. | Delete and upload a new item. |
@@ -33,7 +33,7 @@ After PR 6a a creator can upload, process and preview an item, but nobody else c
 - `content.publish`, `unpublish`, `delete`, `restore`, `retryProcessing` (private).
 - `content.listForBio`, `feed`, `getPublic`, `report`, `getSitemapCount`, `getSitemapEntries` (public). Reads share the 30 a minute viewer limit from PR 6a; reports 10 an hour per viewer.
 - `services/content/publicView.ts`: one query shape for every public read, built on `PUBLIC_ITEM_WHERE` and `PUBLIC_CREATOR_WHERE` from `access.ts`.
-- `services/content/purge.ts`: deletes Stream videos, R2 objects, asset rows and viewer progress for items past `purgeAfter`. Runs inside the existing content sweeper.
+- `services/content/purge.ts`: deletes Stream videos, R2 objects, asset rows and viewer progress for items past `purgeAfter`, and releases the quota the item held. Runs inside the existing content sweeper.
 - `services/content/blockConfig.ts`: block saves keep only content IDs the editor owns.
 - `handle.getHandle` returns `contentCards` for the Content blocks on the page.
 - `content.update` turns on Stream downloads when the creator allows downloads on a READY video.
@@ -77,8 +77,8 @@ After PR 6a a creator can upload, process and preview an item, but nobody else c
 
 ## 8. Testing
 
-- Server: `__tests__/content-public.test.ts` (19). Full suite passes.
-- Client: PublishCard (5), RetryProcessing (4), ContentBlockFields (3), status (removed case).
+- Server: `__tests__/content-public.test.ts` (24). Full suite passes.
+- Client: PublishCard (6), RetryProcessing (4), ContentBlockFields (3), status (removed case).
 - Landing app: `components/content/content.test.tsx` (10).
 - Typecheck: server, ui, landing app. Builds: client (vite), landing app (next).
 - Known failures not from this PR: the landing app RegisterForm "network error notice" test fails on `development` too; the client `tsconfig.app.json` has 9 type errors already on `development`.
@@ -90,5 +90,5 @@ After PR 6a a creator can upload, process and preview an item, but nobody else c
 3. Signed out, open the bio page, each item page and `/{handle}/content`. Play, scrub, leave and come back.
 4. Report an item. Confirm a `content_report` row and no change to the item.
 5. Unpublish one item. Confirm it leaves the block and the feed, and its page returns 404.
-6. Delete an item. Confirm storage drops. Restore it. Confirm it returns as a draft.
+6. Delete an item. Confirm the storage meter still counts it (its files stay until the purge). Restore it. Confirm it returns as a draft and the storage does not change.
 7. Force a processing failure. Retry without a file, then with a file.

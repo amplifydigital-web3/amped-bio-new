@@ -56,7 +56,6 @@ export function CardCover({
       }
     >
       {card.cover ? (
-        // eslint-disable-next-line @next/next/no-img-element
         <img
           src={card.cover.src}
           srcSet={card.cover.srcSet || undefined}
