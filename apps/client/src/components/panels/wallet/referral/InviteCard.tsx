@@ -1,5 +1,5 @@
 import { useId, useRef, useState } from "react";
-import { useMutation, useQueries, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertCircle,
   Check,
@@ -9,6 +9,11 @@ import {
   Copy,
   ExternalLink,
   Loader2,
+  Mail,
+  MessageCircle,
+  Send,
+  Share2,
+  UserPlus,
   Users,
 } from "lucide-react";
 import { PROCESSING_TXID } from "@repo/constants";
@@ -32,6 +37,29 @@ import {
 type Referral = RouterOutputs["referral"]["myReferrals"]["referrals"][number];
 
 const PAGE_SIZE = 10;
+const SHARE_TEXT = "Join me on Amped.Bio. Build your page and earn tREVO on testnet.";
+
+/** Share targets that open in a new tab. Native share comes first when the browser has it. */
+export function shareTargets(link: string) {
+  const url = encodeURIComponent(link);
+  const text = encodeURIComponent(SHARE_TEXT);
+  return [
+    { id: "x", label: "Share on X", href: `https://x.com/intent/post?text=${text}&url=${url}` },
+    {
+      id: "telegram",
+      label: "Share on Telegram",
+      href: `https://t.me/share/url?url=${url}&text=${text}`,
+    },
+    { id: "whatsapp", label: "Share on WhatsApp", href: `https://wa.me/?text=${text}%20${url}` },
+    {
+      id: "email",
+      label: "Share by email",
+      href: `mailto:?subject=${encodeURIComponent("Join me on Amped.Bio")}&body=${text}%20${url}`,
+    },
+  ] as const;
+}
+
+const SHARE_ICONS = { telegram: Send, whatsapp: MessageCircle, email: Mail } as const;
 
 function RowSkeleton() {
   return (
@@ -140,6 +168,8 @@ export default function InviteCard() {
   const showSkeleton = useDelayed(!!first?.isPending, 400);
   const referrals = pages.flatMap(page => page.data?.referrals ?? []);
   const total = first?.data?.total ?? 0;
+  const stats = useQuery({ ...trpc.referralInvite.stats.queryOptions(), enabled: !!authUser });
+  const unclaimed = stats.data?.unclaimed ?? 0;
   const totalPages = first?.data?.totalPages ?? 1;
   const available = first?.data?.affiliateWalletBalance?.hasBalance !== false;
   const loadingMore = pages.length > 1 && pages[pages.length - 1]?.isPending;
@@ -157,7 +187,10 @@ export default function InviteCard() {
           ? { children: "View", onClick: () => window.open(href, "_blank", "noopener") }
           : undefined,
       });
-      await queryClient.invalidateQueries({ queryKey: trpc.referral.myReferrals.pathKey() });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: trpc.referral.myReferrals.pathKey() }),
+        queryClient.invalidateQueries({ queryKey: trpc.referralInvite.stats.queryKey() }),
+      ]);
     },
   });
 
@@ -182,14 +215,23 @@ export default function InviteCard() {
   const copyButton = (wide: boolean) => (
     <Button
       type="button"
-      variant="secondary"
+      variant={wide ? "default" : "secondary"}
       onClick={() => void copy()}
-      className={cn(wide && "h-commit w-full")}
+      className={cn(wide && "shrink-0")}
     >
       {copied ? <Check aria-hidden /> : <Copy aria-hidden />}
-      {copied ? "Copied" : "Copy link"}
+      {wide ? (copied ? "Copied" : "Copy") : copied ? "Copied" : "Copy link"}
     </Button>
   );
+
+  const canNativeShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
+  const nativeShare = async () => {
+    try {
+      await navigator.share({ title: "Amped.Bio", text: SHARE_TEXT, url: link });
+    } catch {
+      // The viewer closed the share sheet; nothing to report
+    }
+  };
 
   const openClaim = (referral: Referral) => {
     claim.reset();
@@ -302,14 +344,22 @@ export default function InviteCard() {
   return (
     <section
       aria-labelledby="invite-title"
-      className="prism-glass-clear flex flex-col !rounded-prism-21 p-[21px] font-prism sm:p-[34px]"
+      className="prism-glass-clear flex flex-col !rounded-prism-21 p-[21px] font-prism"
     >
-      <h3 id="invite-title" className="text-prism-panel-title text-prism-ink">
-        Invite creators
-      </h3>
+      <div className="flex items-center gap-[13px]">
+        <span
+          aria-hidden
+          className="flex h-touch w-touch shrink-0 items-center justify-center rounded-prism-13 bg-prism-nav-tint text-prism-nav"
+        >
+          <UserPlus className="h-[21px] w-[21px]" />
+        </span>
+        <h3 id="invite-title" className="text-prism-panel-title text-prism-ink">
+          Invite creators
+        </h3>
+      </div>
       {/* D1: Reward and Claim wording kept, as Rob decided */}
-      <p className="mt-2 text-prism-body text-prism-ink-2">
-        Share your link. When a creator signs up with it, you can each claim a referral reward.
+      <p className="mt-[13px] text-prism-body text-prism-ink-2">
+        When a creator signs up with your link, you can each claim a referral reward.
       </p>
       <Button asChild variant="ghost" className="-ml-3 mt-1 self-start">
         <a href={REFERRALS_ARTICLE} target="_blank" rel="noopener noreferrer">
@@ -325,18 +375,52 @@ export default function InviteCard() {
       >
         Your invite link
       </label>
-      <div className="prism-well mt-2 flex h-touch items-center px-3">
-        <input
-          id={`${listId}-link`}
-          ref={inputRef}
-          readOnly
-          value={link}
-          onFocus={event => event.currentTarget.select()}
-          className="min-w-0 flex-1 truncate bg-transparent text-prism-label text-prism-ink focus:outline-none"
-        />
-      </div>
-      <div className="mt-3" aria-live="polite">
+      <div className="mt-2 flex gap-2" aria-live="polite">
+        <div className="prism-well flex h-touch min-w-0 flex-1 items-center px-3">
+          <input
+            id={`${listId}-link`}
+            ref={inputRef}
+            readOnly
+            value={link}
+            onFocus={event => event.currentTarget.select()}
+            className="min-w-0 flex-1 truncate bg-transparent text-prism-label text-prism-ink focus:outline-none"
+          />
+        </div>
         {copyButton(true)}
+      </div>
+      <div role="group" aria-label="Share your invite link" className="mt-3 flex flex-wrap gap-2">
+        {canNativeShare && (
+          <Button
+            type="button"
+            variant="secondary"
+            size="icon"
+            aria-label="Share"
+            onClick={() => void nativeShare()}
+          >
+            <Share2 aria-hidden />
+          </Button>
+        )}
+        {shareTargets(link).map(target => {
+          const Icon = target.id === "x" ? null : SHARE_ICONS[target.id];
+          return (
+            <Button key={target.id} asChild variant="secondary" size="icon">
+              <a
+                href={target.href}
+                target={target.id === "email" ? undefined : "_blank"}
+                rel="noopener noreferrer"
+                aria-label={target.label}
+              >
+                {Icon ? (
+                  <Icon aria-hidden />
+                ) : (
+                  <span aria-hidden className="text-prism-label font-bold">
+                    X
+                  </span>
+                )}
+              </a>
+            </Button>
+          );
+        })}
       </div>
       {copyFailed && (
         <p role="alert" className="mt-2 flex items-start gap-1.5 text-prism-meta text-prism-danger">
@@ -345,18 +429,42 @@ export default function InviteCard() {
         </p>
       )}
 
-      <div className="mt-3 text-prism-meta tabular-nums text-prism-ink-2">
-        {/* A failed query never reads as zero referrals */}
-        {!isError && first?.data && (
-          <p>
-            <span className="font-bold text-prism-ink">{total}</span>{" "}
-            {total === 1 ? "creator joined" : "creators joined"}
-          </p>
-        )}
-        <p>Referral ID {userIdHex}</p>
-      </div>
+      {/* A failed query never reads as zero referrals */}
+      {stats.data && (
+        <dl className="mt-[21px] grid grid-cols-3 border-y border-prism-line">
+          <div className="py-[13px]">
+            <dt className="text-prism-meta text-prism-ink-2">Joined</dt>
+            <dd className="mt-1 font-prism-display text-[34px] leading-[34px] tabular-nums text-prism-ink">
+              {stats.data.joined}
+            </dd>
+          </div>
+          <div className="border-l border-prism-line py-[13px] pl-[13px]">
+            <dt className="text-prism-meta text-prism-ink-2">Unclaimed</dt>
+            <dd className="mt-1 font-prism-display text-[34px] leading-[34px] tabular-nums text-prism-value-ink">
+              {stats.data.unclaimed}
+            </dd>
+          </div>
+          <div className="border-l border-prism-line py-[13px] pl-[13px]">
+            <dt className="text-prism-meta text-prism-ink-2">Claimed</dt>
+            <dd className="mt-1 font-prism-display text-[34px] leading-[34px] tabular-nums text-prism-ink">
+              {stats.data.claimed}
+            </dd>
+          </div>
+        </dl>
+      )}
+      {unclaimed > 0 && !open && (
+        <Button
+          type="button"
+          variant="secondary"
+          className="mt-3 w-full"
+          onClick={() => setOpen(true)}
+        >
+          Review and claim rewards
+        </Button>
+      )}
+      <p className="mt-3 text-prism-meta tabular-nums text-prism-ink-2">Referral ID {userIdHex}</p>
 
-      <div className="mt-4 border-t border-prism-line">
+      <div className="mt-3 border-t border-prism-line">
         <button
           type="button"
           aria-expanded={open}
