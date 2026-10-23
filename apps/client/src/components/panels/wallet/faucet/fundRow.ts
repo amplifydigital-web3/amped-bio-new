@@ -1,9 +1,9 @@
 import type { FaucetState } from "./useFaucet";
 
 /**
- * Screen Review 051 I03, I09. The right meta of the Fund panel's Get testnet
- * tREVO row, read from the shared faucet status (useFaucet). null while the
- * status loads: the row shows a 13 x 55 skeleton bar instead.
+ * Screen Review 051 I03, I09. A short status for the faucet, read from the
+ * shared faucet status (useFaucet). null while the status loads. The Wallet
+ * Get tREVO row uses it now that the faucet card lives on Home.
  */
 export function faucetRowMeta(
   state: FaucetState,
@@ -36,15 +36,19 @@ export function faucetRowMeta(
   }
 }
 
+/** The Home path that opens the faucet card (Home reads ?open=faucet). */
+export const HOME_FAUCET_PATH = "/home?open=faucet";
+
 /**
- * 051 I03: selecting Get testnet tREVO closes the Fund panel, scrolls the
- * Wallet to the faucet card and moves focus to its heading.
+ * Scrolls to the faucet card and moves focus to its heading. Returns false
+ * when the card is not on the page (it lives on Home since the Get tREVO move).
  */
-export function focusFaucetHeading() {
+export function focusFaucetHeading(): boolean {
   const card = document.getElementById("faucet");
-  if (!card) return;
+  if (!card) return false;
   card.scrollIntoView({ behavior: "smooth", block: "start" });
   const heading = card.querySelector<HTMLElement>("h3") ?? card;
   heading.tabIndex = -1;
   heading.focus({ preventScroll: true });
+  return true;
 }

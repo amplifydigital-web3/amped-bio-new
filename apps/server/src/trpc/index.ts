@@ -12,6 +12,7 @@ import { blocksRouter } from "./blocks";
 import { poolsRouter } from "./pools/index";
 import { publicSettingsRouter } from "./publicSettings";
 import { referralRouter } from "./referral";
+import { referralInviteRouter } from "./referralInvite";
 import { ndauConversionRouter } from "./ndauConversion";
 import { authbaseRouter } from "./authbase";
 import { analyticsRouter } from "./analytics";
@@ -34,6 +35,8 @@ const mergedRouter = router({
   user: userRouter,
   auth: authRouter,
   referral: referralRouter,
+  // Home Get tREVO: invite stats across every referral
+  referralInvite: referralInviteRouter,
   admin: adminRouter,
   upload: uploadRouter,
   theme: themeRouter,

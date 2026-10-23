@@ -3,9 +3,9 @@ import { ChevronRight, CircleDollarSign, Coins } from "lucide-react";
 import { USDC_SYMBOL, formatUsdc, getCurrencySymbol } from "@repo/web3";
 import { Button, EmptyState, ErrorCard, Skeleton } from "@repo/ui";
 import { useWalletContext } from "@/contexts/WalletContext";
+import { useEditor } from "@/contexts/EditorContext";
 import { useDelayed } from "@/hooks/useDelayed";
 import { appChainId } from "@/utils/appChain";
-import { focusFaucetHeading } from "../../faucet/fundRow";
 import { USDC_FLAGS } from "@/config/usdc/flags";
 import { paymentChain } from "@/utils/paymentChain";
 import { useUsdcBalance } from "../../hooks/useUsdcBalance";
@@ -94,6 +94,7 @@ function TokenRowSkeleton() {
  * zero and error follow the shared conventions.
  */
 export default function TokensTab() {
+  const { setActivePanelAndNavigate } = useEditor();
   const { balance, address } = useWalletContext();
   const [, setParams] = useSearchParams();
   const symbol = getCurrencySymbol(Number(appChainId()));
@@ -165,9 +166,13 @@ export default function TokensTab() {
           icon={Coins}
           title={`No ${symbol} yet`}
           description={`Request testnet ${symbol} from the faucet or receive it from another creator.`}
-          // 055 I06: Get tREVO scrolls to the Testnet faucet card (053) and focuses it
+          // 055 I06: Get tREVO opens the Daily faucet card, now on Home
           action={
-            <Button type="button" variant="secondary" onClick={focusFaucetHeading}>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setActivePanelAndNavigate("home", undefined, { open: "faucet" })}
+            >
               Get {symbol}
             </Button>
           }
