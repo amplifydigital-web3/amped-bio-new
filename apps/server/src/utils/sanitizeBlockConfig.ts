@@ -1,4 +1,6 @@
 import {
+  DEFAULT_CONTENT_BLOCK_CONFIG,
+  contentBlockConfigSchema,
   DEFAULT_TELEGRAM_GROUP_CONFIG,
   DEFAULT_TELEGRAM_MESSAGE_CONFIG,
   followConfigSchema,
@@ -47,6 +49,14 @@ export function sanitizeBlockConfig<T>(type: string, config: T): T {
       type === "telegram_message" ? DEFAULT_TELEGRAM_MESSAGE_CONFIG : DEFAULT_TELEGRAM_GROUP_CONFIG;
     const hidden = (config as { hidden?: unknown }).hidden === true;
     return { ...fallback, ...(hidden ? { hidden } : {}) } as T;
+  }
+  if (type === "content") {
+    // Ids only (spec 3.7): label, layout and up to 12 unique ids. Anything else a
+    // client sent is dropped; whether each id may show is decided at render.
+    const parsed = contentBlockConfigSchema.safeParse(config);
+    if (parsed.success) return parsed.data as T;
+    const hidden = (config as { hidden?: unknown }).hidden === true;
+    return { ...DEFAULT_CONTENT_BLOCK_CONFIG, ...(hidden ? { hidden } : {}) } as T;
   }
   if (type !== "text") return config;
   const content = (config as { content?: unknown }).content;

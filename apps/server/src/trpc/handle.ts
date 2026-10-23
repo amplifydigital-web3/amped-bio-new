@@ -18,6 +18,8 @@ import {
   type PublicRnsIdentity,
 } from "../services/rnsIdentity";
 import { assertHandleAvailable, newHandleSchema } from "../services/pageHandle";
+import { publicCardsFor } from "../services/content/publicView";
+import type { ContentBlockConfig, ContentCard } from "@repo/constants";
 
 export const SITEMAP_MAX_PAGE_SIZE = 10000;
 
@@ -196,6 +198,11 @@ const appRouter = router({
 
       const blockOptions = rnsIdBlockOptions(blockRows);
       const hasTelegramMessageBlock = blockRows.some(block => block.type === "telegram_message");
+      // Content blocks (#20, spec 3.7): cards for the ids they hold, read once per page
+      const contentIds = blockRows
+        .filter(block => block.type === "content")
+        .flatMap(block => (block.config as Partial<ContentBlockConfig> | null)?.publicIds ?? [])
+        .filter((id): id is string => typeof id === "string");
       const [
         themeResult,
         imageResult,
@@ -203,6 +210,7 @@ const appRouter = router({
         trackingPixelsResult,
         telegramResult,
         doorResult,
+        contentResult,
       ] = await Promise.allSettled([
         getPublicTheme(Number(theme_id)),
         getFileUrl({
@@ -222,6 +230,11 @@ const appRouter = router({
         showsTelegramMark(user_id),
         // Row 115: the Message me block's door, read only when the page carries the block
         hasTelegramMessageBlock ? telegramDoor(user_id) : Promise.resolve(null),
+        // Public items only; drafts, 18+ and deleted ids are left out, and a
+        // suspended page shows none, as getReadUrl would refuse them. Fails closed.
+        contentIds.length && user.page_status === "PUBLISHED" && user.block === "no"
+          ? publicCardsFor(user_id, contentIds)
+          : Promise.resolve({} as Record<string, ContentCard>),
       ]);
 
       // The theme is the profile itself, so its failure is fatal
@@ -270,6 +283,11 @@ const appRouter = router({
         hasCreatorPool,
         creatorPoolAddress,
         trackingPixels: settledOrFallback(trackingPixelsResult, null, "tracking pixels"),
+        contentCards: settledOrFallback(
+          contentResult,
+          {} as Record<string, ContentCard>,
+          "content cards"
+        ),
         indexable: isUserIndexable(user, publicBlocks.length),
       };
 

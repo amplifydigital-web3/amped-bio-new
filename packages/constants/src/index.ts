@@ -26,6 +26,7 @@ export * from "./email-verification";
 export * from "./oauth-trust";
 export * from "./usdc";
 export * from "./content";
+export * from "./contentPlayer";
+export * from "./contentPublic";
 export * from "./mediaToken";
 export * from "./contentJob";
-

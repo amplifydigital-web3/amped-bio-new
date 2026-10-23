@@ -5,6 +5,12 @@
  *   createUpload    reserve   (bytes_reserved += size, refused past the limit)
  *   READY           commit    (bytes_reserved -= size, bytes_used += size)
  *   failed/aborted  release   (bytes_reserved -= size)
+ *   deleted (READY) hold      (nothing changes: the files stay in the bucket)
+ *   purged          free      (bytes_used -= size, minutes back), PR 6
+ *
+ * A deleted item keeps its space charged until the purge removes its files: the
+ * creator can not store more than the limit while the files are still there.
+ * The restore gives nothing back either, because nothing was given back.
  *
  * The reservation is one conditional UPDATE, so two uploads racing for the last
  * gigabyte cannot both pass. Every change runs on the client passed in, so callers
@@ -76,6 +82,25 @@ export async function commitBytes(
      WHERE user_id = ${userId}`;
 }
 
+/**
+ * Gives a deleted item's space back, once the purge removed its files
+ * (spec 3.12): the bytes and the video minutes leave the quota then. Floors at
+ * zero.
+ */
+export async function freeUsedBytes(
+  userId: number,
+  bytes: bigint,
+  videoMinutes: number,
+  db: Db = prisma
+): Promise<void> {
+  await db.$executeRaw`
+    UPDATE user_storage_quotas
+       SET bytes_used = GREATEST(bytes_used - ${bytes}, 0),
+           video_minutes_used = GREATEST(video_minutes_used - ${videoMinutes}, 0),
+           updated_at = NOW(3)
+     WHERE user_id = ${userId}`;
+}
+
 export function videoMinutesLeft(quota: { videoMinutesLimit: number; videoMinutesUsed: number }) {
   return Math.max(0, quota.videoMinutesLimit - quota.videoMinutesUsed);
 }
@@ -84,4 +109,9 @@ export function videoMinutesLeft(quota: { videoMinutesLimit: number; videoMinute
 export function minutesForDuration(durationMs: number | null | undefined): number {
   if (!durationMs || durationMs <= 0) return 0;
   return Math.ceil(durationMs / 60_000);
+}
+
+/** Video minutes an item holds against the quota. */
+export function itemMinutes(item: { kind: string; durationMs: number | null }): number {
+  return item.kind === "VIDEO" ? minutesForDuration(item.durationMs) : 0;
 }

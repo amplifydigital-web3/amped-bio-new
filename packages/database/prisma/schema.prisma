@@ -90,8 +90,9 @@ model User {
   onrampAuth          OnrampUserAuth?
 
   // Content system (Build Board #20), PR 2
-  contentItems ContentItem[]
-  storageQuota UserStorageQuota?
+  contentItems   ContentItem[]
+  storageQuota   UserStorageQuota?
+  viewerProgress ViewerProgress[]
 
   @@unique([email])
   @@map("users")
@@ -1383,9 +1384,10 @@ model ContentItem {
   createdAt        DateTime            @default(now()) @map("created_at")
   updatedAt        DateTime            @updatedAt @map("updated_at")
 
-  user    User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  assets  ContentAsset[]
-  reports ContentReport[]
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assets         ContentAsset[]
+  reports        ContentReport[]
+  viewerProgress ViewerProgress[]
 
   @@index([userId, status])
   @@index([userId, publishState, publishedAt])
@@ -1482,6 +1484,28 @@ model BlockedContentHash {
   createdAt DateTime @default(now()) @map("created_at")
 
   @@map("blocked_content_hashes")
+}
+
+// Fan Library (#26) phase A: playback position per account and item, so a fan
+// resumes on any device. Written by progress.set every 10 seconds of play and on
+// pause. Personal data: deleted with the account or the item.
+model ViewerProgress {
+  id            Bytes    @id @db.Binary(16)
+  userId        Int      @map("user_id")
+  contentItemId Bytes    @map("content_item_id") @db.Binary(16)
+  positionMs    Int      @default(0) @map("position_ms")
+  durationMs    Int?     @map("duration_ms")
+  completed     Boolean  @default(false)
+  lastPlayedAt  DateTime @map("last_played_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contentItem ContentItem @relation(fields: [contentItemId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, contentItemId])
+  @@index([userId, lastPlayedAt])
+  @@index([contentItemId])
+  @@map("viewer_progress")
 }
 
 // ===== Messaging on Telegram, phase 1: fan to creator messages (PR 3) =====
