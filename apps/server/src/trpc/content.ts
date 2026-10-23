@@ -1,9 +1,9 @@
 /**
  * Content system router (Build Board #20), PR 2. Spec 3.5 and 3.10.
  *
- * Owner procedures only: upload, list, read and edit your own items, and see your
- * storage. Public reads, publishing and delivery URLs arrive in PR 6, so nothing here
- * hands out a way to view a file.
+ * Owner procedures: upload, list, read and edit your own items, and see your
+ * storage. PR 6a adds getReadUrl (signed delivery for anyone allowed to open the
+ * item: today its owner) and captions. Publishing and public reads arrive in PR 6.
  *
  * Every owner lookup answers NOT_FOUND for an item that is not yours, so ids cannot
  * be probed. Outputs never include the numeric user id, R2 keys or Stream uids.
@@ -25,9 +25,15 @@ import {
   contentTypeAllowed,
   contentUpdateSchema,
   contentUsesMultipart,
+  CONTENT_CAPTIONS,
+  captionLabel,
+  contentCaptionsRemoveSchema,
+  contentCaptionsSetSchema,
+  contentReadUrlSchema,
+  normalizeWebVtt,
   type ContentUploadKind,
 } from "@repo/constants";
-import { privateProcedure, router } from "./trpc";
+import { privateProcedure, publicProcedure, router } from "./trpc";
 import { env } from "../env";
 import { hitRateLimit } from "../utils/rateLimit";
 import { uuidv7 } from "../utils/uuid-v7";
@@ -43,17 +49,28 @@ import {
 } from "../services/cloudflare/r2";
 import {
   createStreamDirectUpload,
+  deleteStreamCaptions,
   deleteStreamVideo,
   getStreamVideo,
+  putStreamCaptions,
   updateStreamVideo,
 } from "../services/cloudflare/stream";
+import { putR2Object } from "../services/cloudflare/r2";
+import { buildDownload, buildPlayback, DeliveryError } from "../services/content/delivery";
+import {
+  VIEWER_MESSAGES,
+  limitViewerReads,
+  loadItemForViewer,
+  viewerKey,
+  viewerUserId,
+} from "../services/content/viewer";
 import {
   ensureQuota,
   releaseBytes,
   reserveBytes,
   videoMinutesLeft,
 } from "../services/content/quota";
-import { failItem } from "../services/content/state";
+import { assetRowId, failItem } from "../services/content/state";
 import { publishContentJob } from "../services/cloudflare/queue";
 import { fromDbKind, newContentPublicId, toDbKind } from "../services/content/ids";
 import { UPLOAD_VERIFICATION_MESSAGES } from "../services/uploadVerification";
@@ -74,7 +91,33 @@ const MESSAGES = {
   notFound: "Item not found.",
   preview: "That preview setting does not apply to this kind of item.",
   queue: "Could not start processing this file. Upload it again.",
+  downloadsOff: "Downloads are off for this item.",
+  downloadCap: "You reached today's downloads for this item. Try again tomorrow.",
+  delivery: "This item can not be opened right now. Try again soon.",
+  captionsKind: "Captions are for video and audio.",
+  captionsNotReady: "Add captions once processing finishes.",
+  captionsFile: "This is not a WebVTT caption file. Export captions as .vtt and try again.",
+  captionsMax: `Up to ${CONTENT_CAPTIONS.maxTracks} caption languages per item.`,
+  captionsFailed: "Could not save the captions. Try again.",
 } as const;
+
+/** Downloads per viewer per item per day (decision 24). */
+const DOWNLOADS_PER_DAY = 10;
+
+/** R2 key for an audio caption track. Under derived/ so the gateway serves it. */
+function captionKey(publicId: string, lang: string): string {
+  return `derived/${publicId}/captions/${lang}.vtt`;
+}
+
+async function captionList(itemId: Uint8Array) {
+  const rows = await prisma.contentAsset.findMany({
+    where: { contentItemId: Buffer.from(itemId), role: "CAPTION" },
+  });
+  return rows
+    .filter(row => row.lang)
+    .map(row => ({ lang: row.lang!, label: captionLabel(row.lang!) }))
+    .sort((a, b) => a.lang.localeCompare(b.lang));
+}
 
 function lowerStatus(status: ContentItem["status"]) {
   return status.toLowerCase() as Lowercase<ContentItem["status"]>;
@@ -530,6 +573,147 @@ export const contentRouter = router({
     });
     return ownerView(updated);
   }),
+
+  /**
+   * Signed URLs to open an item (spec 3.6), or a single use download link
+   * (decision 24). Anyone the access rules allow: today the owner previewing
+   * their own item; public items once PR 6 adds publishing.
+   */
+  getReadUrl: publicProcedure.input(contentReadUrlSchema).query(async ({ ctx, input }) => {
+    await limitViewerReads(ctx);
+    const { item, assets, access } = await loadItemForViewer(input.publicId, viewerUserId(ctx));
+    try {
+      if (input.download) {
+        if (!item.allowDownload) {
+          throw new TRPCError({ code: "FORBIDDEN", message: MESSAGES.downloadsOff });
+        }
+        const key = `content-dl:${viewerKey(ctx)}:${item.publicId}`;
+        if ((await hitRateLimit(key, 24 * 60 * 60)) > DOWNLOADS_PER_DAY) {
+          throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: MESSAGES.downloadCap });
+        }
+        return { playback: null, download: await buildDownload(item, assets) };
+      }
+      return { playback: await buildPlayback(item, assets, access), download: null };
+    } catch (error) {
+      if (error instanceof TRPCError) throw error;
+      if (error instanceof DeliveryError && error.reason === "not_ready") {
+        throw new TRPCError({ code: "NOT_FOUND", message: VIEWER_MESSAGES.notFound });
+      }
+      console.error(
+        "[content] read url failed",
+        JSON.stringify({
+          publicId: item.publicId,
+          error: error instanceof Error ? error.message : String(error),
+        })
+      );
+      throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: MESSAGES.delivery });
+    }
+  }),
+
+  /**
+   * Adds or replaces the caption track for one language (fan library spec 3.5).
+   * Video captions go to Stream and ride in the manifest; audio captions are an
+   * R2 file served through the gateway.
+   */
+  setCaptions: privateProcedure.input(contentCaptionsSetSchema).mutation(async ({ ctx, input }) => {
+    const item = await findOwnedItem(input.publicId, ctx.user!.sub);
+    if (item.kind !== "VIDEO" && item.kind !== "AUDIO") {
+      throw new TRPCError({ code: "BAD_REQUEST", message: MESSAGES.captionsKind });
+    }
+    if (item.status !== "READY") {
+      throw new TRPCError({ code: "BAD_REQUEST", message: MESSAGES.captionsNotReady });
+    }
+    const vtt = normalizeWebVtt(input.vtt);
+    if (!vtt) throw new TRPCError({ code: "BAD_REQUEST", message: MESSAGES.captionsFile });
+
+    const current = await captionList(item.id);
+    if (
+      !current.some(track => track.lang === input.lang) &&
+      current.length >= CONTENT_CAPTIONS.maxTracks
+    ) {
+      throw new TRPCError({ code: "BAD_REQUEST", message: MESSAGES.captionsMax });
+    }
+
+    const id = assetRowId(item.id, "CAPTION", null, input.lang);
+    const size = BigInt(new TextEncoder().encode(vtt).length);
+    try {
+      if (item.kind === "VIDEO") {
+        const stream = await originalAsset(item);
+        if (!stream?.streamUid) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: MESSAGES.captionsNotReady });
+        }
+        await putStreamCaptions(stream.streamUid, input.lang, vtt);
+        const data = {
+          storage: "STREAM" as const,
+          streamUid: stream.streamUid,
+          r2Key: null,
+          mimeType: "text/vtt",
+          size,
+          scanStatus: "SKIPPED" as const,
+        };
+        await prisma.contentAsset.upsert({
+          where: { id },
+          create: { id, contentItemId: item.id, role: "CAPTION", lang: input.lang, ...data },
+          update: data,
+        });
+      } else {
+        const key = captionKey(item.publicId, input.lang);
+        await putR2Object(key, vtt, "text/vtt; charset=utf-8");
+        const data = {
+          storage: "R2" as const,
+          r2Key: key,
+          streamUid: null,
+          mimeType: "text/vtt",
+          size,
+          // Validated text the API wrote itself; nothing executable to scan
+          scanStatus: "SKIPPED" as const,
+        };
+        await prisma.contentAsset.upsert({
+          where: { id },
+          create: { id, contentItemId: item.id, role: "CAPTION", lang: input.lang, ...data },
+          update: data,
+        });
+      }
+    } catch (error) {
+      if (error instanceof TRPCError) throw error;
+      console.error(
+        "[content] captions save failed",
+        JSON.stringify({
+          publicId: item.publicId,
+          lang: input.lang,
+          error: error instanceof Error ? error.message : String(error),
+        })
+      );
+      throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: MESSAGES.captionsFailed });
+    }
+    return { captions: await captionList(item.id) };
+  }),
+
+  removeCaptions: privateProcedure
+    .input(contentCaptionsRemoveSchema)
+    .mutation(async ({ ctx, input }) => {
+      const item = await findOwnedItem(input.publicId, ctx.user!.sub);
+      const id = assetRowId(item.id, "CAPTION", null, input.lang);
+      const row = await prisma.contentAsset.findUnique({ where: { id } });
+      if (row) {
+        try {
+          if (row.streamUid) await deleteStreamCaptions(row.streamUid, input.lang);
+          if (row.r2Key) await deleteR2Object(row.r2Key);
+        } catch (error) {
+          console.error(
+            "[content] captions remove failed",
+            JSON.stringify({
+              publicId: item.publicId,
+              lang: input.lang,
+              error: error instanceof Error ? error.message : String(error),
+            })
+          );
+          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: MESSAGES.captionsFailed });
+        }
+        await prisma.contentAsset.delete({ where: { id } });
+      }
+      return { captions: await captionList(item.id) };
+    }),
 
   /** Quota and use by kind for the storage meter (spec 3.10, board cs1). */
   getStorage: privateProcedure.query(async ({ ctx }) => {

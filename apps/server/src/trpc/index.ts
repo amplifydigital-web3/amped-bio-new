@@ -25,6 +25,7 @@ import { messagingRouter } from "./messaging";
 import { usdcRouter } from "./usdc";
 import { onrampRouter } from "./onramp";
 import { contentRouter } from "./content";
+import { progressRouter } from "./progress";
 import { inferRouterOutputs } from "@trpc/server";
 
 // Merge all routers
@@ -57,6 +58,8 @@ const mergedRouter = router({
   // Buy USDC through Coinbase (Build Board #5)
   onramp: onrampRouter,
   content: contentRouter,
+  // Fan Library (#26) phase A: playback position per account
+  progress: progressRouter,
 });
 
 export type AppRouter = typeof mergedRouter;

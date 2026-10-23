@@ -140,7 +140,7 @@ export type { AuthUser } from "./auth-types";
 export type { EnrichedSessionUser } from "./session-types";
 
 // TRPC client
-export { queryClient, trpcClient, trpc } from "./trpc";
+export { queryClient, trpcClient, trpc, sendTrpcBeacon } from "./trpc";
 export type { RouterOutputs } from "./trpc";
 export * from "./trpc-types";
 
@@ -191,3 +191,6 @@ export * from "./video-thumbnail";
 
 // Auth storage keys
 export * from "./auth-storage";
+
+// Shared media player (Fan Library #26 phase A)
+export * from "./player";
