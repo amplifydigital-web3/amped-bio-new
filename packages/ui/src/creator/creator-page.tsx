@@ -12,6 +12,7 @@ import {
   lookFor,
   overlayParticlesId,
 } from "./look";
+import { ParticlesLayer } from "./particles-layer";
 
 /**
  * Theme Engine v2, phase 1b (docs/features/theme-engine-v2.md, 3.4): the one
@@ -92,8 +93,9 @@ export interface CreatorPageProps {
   /** Fixed chrome above the page (public frame capsule, consent card). */
   frame?: ReactNode;
   /**
-   * Draws the particle overlay. Particles stay in each app until phase 1c
-   * moves them to tsParticles v4 here; the page passes the v1 preset number.
+   * Replaces the particle overlay. Phase 1c draws it here (ParticlesLayer on
+   * tsParticles v4); this stays for tests and one off previews. It gets the v1
+   * preset number of the overlay and the pause state.
    */
   renderOverlay?: (particlesEffect: number, paused: boolean) => ReactNode;
   videoRef?: Ref<HTMLVideoElement>;
@@ -157,7 +159,16 @@ export function CreatorPage({
           style={{ backgroundImage: `url(${background.value})` }}
         />
       ) : null}
-      {renderOverlay?.(particlesEffect, paused)}
+      {renderOverlay ? (
+        renderOverlay(particlesEffect, paused)
+      ) : (
+        <ParticlesLayer
+          entry={particlesEffect === 0 ? null : look.overlay}
+          params={look.overlayParams}
+          colors={look.colors}
+          paused={paused}
+        />
+      )}
     </div>
   );
 

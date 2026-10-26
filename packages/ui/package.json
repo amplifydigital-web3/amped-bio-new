@@ -43,7 +43,9 @@
     "@better-auth/oauth-provider": "catalog:",
     "better-auth": "catalog:",
     "react-hook-form": "^7.56.1",
-    "zod": "^3.25.64"
+    "zod": "^3.25.64",
+    "@tsparticles/engine": "^4.5.0",
+    "@tsparticles/slim": "^4.5.0"
   },
   "devDependencies": {
     "@types/react": "^18.3.5",
