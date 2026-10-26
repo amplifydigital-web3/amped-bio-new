@@ -7,6 +7,7 @@ import type { EffectLayer } from "./effects/types";
 export const CONTAINER_SHAPES = ["rounded", "pill", "squircle", "cut", "arch", "blob"] as const;
 export const BUTTON_SHAPES = ["rounded", "pill", "squircle", "cut", "ticket"] as const;
 export const BORDER_STYLES = ["none", "hairline", "thick", "dashed", "gradient", "glow"] as const;
+export const BUTTON_LAYOUTS = ["label", "icon", "split"] as const;
 
 // Background schema matching the Background interface from collections
 const BACKGROUND_TEXTURES = ["none", "grain", "dots", "scanlines"] as const;
@@ -55,6 +56,13 @@ export const themeConfigSchema = z.object({
   // v1 renderers ignore them; upgradeTheme carries them into the v2 container.
   containerShape: z.enum(CONTAINER_SHAPES).optional(),
   containerBorder: z.enum(BORDER_STYLES).optional(),
+  // Theme Engine v2 Buttons row (spec 3.5, board 07), additive and optional.
+  // buttonStyleId names a v2 style that has no v1 integer (Hard shadow); the
+  // editor keeps buttonStyle on the nearest v1 look for renderers without it.
+  buttonStyleId: z.enum(EFFECT_IDS.button as unknown as [string, ...string[]]).optional(),
+  buttonShape: z.enum(BUTTON_SHAPES).optional(),
+  buttonBorder: z.enum(BORDER_STYLES).optional(),
+  buttonLayout: z.enum(BUTTON_LAYOUTS).optional(),
 });
 
 // Schema for the theme object in editTheme endpoint
@@ -85,7 +93,6 @@ export type AmpedThemeImport = z.infer<typeof ampedThemeImportSchema>;
 
 const hexColor = z.string().regex(/^#[0-9a-f]{6}$/i, "Use a #RRGGBB color");
 
-export const BUTTON_LAYOUTS = ["label", "icon", "split"] as const;
 export const SCENE_TEXTURES = BACKGROUND_TEXTURES;
 /** v1 offers five sizes (14, 16, 18, 20, 24 px), so v2 keeps five. */
 export const FONT_SIZES = ["s", "m", "l", "xl", "xxl"] as const;

@@ -1,4 +1,4 @@
-import type { BORDER_STYLES, BUTTON_SHAPES, CONTAINER_SHAPES } from "../theme";
+import type { BORDER_STYLES, BUTTON_LAYOUTS, BUTTON_SHAPES, CONTAINER_SHAPES } from "../theme";
 
 /**
  * Labels for the surface sub controls (spec 3.5, decision 5): shape and
@@ -10,6 +10,7 @@ import type { BORDER_STYLES, BUTTON_SHAPES, CONTAINER_SHAPES } from "../theme";
 export type ContainerShape = (typeof CONTAINER_SHAPES)[number];
 export type ButtonShape = (typeof BUTTON_SHAPES)[number];
 export type BorderStyle = (typeof BORDER_STYLES)[number];
+export type ButtonLayout = (typeof BUTTON_LAYOUTS)[number];
 
 export const CONTAINER_SHAPE_LABELS: Readonly<Record<ContainerShape, string>> = {
   rounded: "Rounded",
@@ -27,4 +28,18 @@ export const BORDER_STYLE_LABELS: Readonly<Record<BorderStyle, string>> = {
   dashed: "Dashed",
   gradient: "Gradient",
   glow: "Glow",
+};
+
+export const BUTTON_SHAPE_LABELS: Readonly<Record<ButtonShape, string>> = {
+  rounded: "Rounded",
+  pill: "Pill",
+  squircle: "Squircle",
+  cut: "Cut corners",
+  ticket: "Ticket",
+};
+
+export const BUTTON_LAYOUT_LABELS: Readonly<Record<ButtonLayout, string>> = {
+  label: "Label",
+  icon: "Icon slot",
+  split: "Split",
 };

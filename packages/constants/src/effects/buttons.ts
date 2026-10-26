@@ -11,8 +11,9 @@ const button = (
   id: string,
   label: string,
   description: string,
-  legacyId: number,
-  className: string
+  legacyId: number | undefined,
+  className: string,
+  extra: Partial<EffectEntry> = {}
 ): EffectEntry => ({
   id: `button.${id}`,
   layer: "button",
@@ -26,8 +27,9 @@ const button = (
   params: {},
   render: { kind: "class", className },
   preview: { sample: "button" },
-  legacyId,
+  ...(legacyId === undefined ? {} : { legacyId }),
   addedIn: 1,
+  ...extra,
 });
 
 export const BUTTON_EFFECTS: readonly EffectEntry[] = [
@@ -88,5 +90,15 @@ export const BUTTON_EFFECTS: readonly EffectEntry[] = [
     "An underline, no fill",
     9,
     "border-b-2 border-gray-300 hover:border-gray-400 transition-colors rounded-none bg-transparent"
+  ),
+  // Phase 2 (board 07): new in v2, no v1 integer. The editor stores it as
+  // buttonStyleId and keeps buttonStyle on Shadow (3) for v1 renderers.
+  button(
+    "hard-shadow",
+    "Hard shadow",
+    "A solid offset shadow in a darker shade of your button color",
+    undefined,
+    "rounded-lg border-2 border-[color:var(--amped-btn-dark)] shadow-[4px_4px_0_var(--amped-btn-dark)]",
+    { addedIn: 2 }
   ),
 ];

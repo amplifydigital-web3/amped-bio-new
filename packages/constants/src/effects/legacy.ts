@@ -3,12 +3,15 @@ import {
   themeConfigV2Schema,
   SCENE_TEXTURES,
   CONTAINER_SHAPES,
+  BUTTON_SHAPES,
+  BUTTON_LAYOUTS,
   BORDER_STYLES,
   type FONT_SIZES,
   type SceneBase,
   type ThemeConfig,
   type ThemeConfigV2,
 } from "../theme";
+import { findEffect } from "./registry";
 
 /**
  * v1 to v2 (spec 3.3). upgradeTheme is pure and idempotent. It runs on read
@@ -317,7 +320,12 @@ export function upgradeTheme(
       ? Math.min(100, Math.max(0, v1.transparency))
       : V1_DEFAULTS.transparency;
   const overlay = legacyEffectId("particlesEffect", v1.particlesEffect);
-  const buttonId = legacyEffectId("buttonStyle", v1.buttonStyle);
+  // A v2 style the Buttons row stored by id wins over the v1 integer (phase 2)
+  const storedButton = v1.buttonStyleId ? findEffect(v1.buttonStyleId) : undefined;
+  const buttonId =
+    storedButton?.layer === "button"
+      ? storedButton.id
+      : legacyEffectId("buttonStyle", v1.buttonStyle);
   const containerId = legacyEffectId("containerStyle", v1.containerStyle);
 
   return themeConfigV2Schema.parse({
@@ -352,9 +360,10 @@ export function upgradeTheme(
     button: {
       id: buttonId,
       params: {},
-      shape: buttonId === "button.pill" ? "pill" : "rounded",
-      border: "none",
-      layout: "label",
+      // The Buttons row stores shape, border and layout on v1 configs (phase 2)
+      shape: oneOf(BUTTON_SHAPES, v1.buttonShape, buttonId === "button.pill" ? "pill" : "rounded"),
+      border: oneOf(BORDER_STYLES, v1.buttonBorder, "none"),
+      layout: oneOf(BUTTON_LAYOUTS, v1.buttonLayout, "label"),
     },
     buttonHover: { id: legacyEffectId("buttonEffect", v1.buttonEffect), params: {} },
     buttonPress: { id: "buttonPress.none", params: {} },
