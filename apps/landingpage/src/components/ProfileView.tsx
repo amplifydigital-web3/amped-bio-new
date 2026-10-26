@@ -8,6 +8,7 @@ import { trpcClient } from "@/lib/trpc";
 import { normalizeHandle } from "@/lib/handle";
 import {
   Button,
+  CreatorPage,
   RnsIdentityChip,
   RnsVerifiedMark,
   headerRnsIdentity,
@@ -207,6 +208,8 @@ export function ProfileView({
   const followState = useFollow(normalizedHandle, !!authUser, authPending || !followEnabled);
   const showRns = process.env.NEXT_PUBLIC_SHOW_RNS === "true";
   const telegramMarkOn = process.env.NEXT_PUBLIC_SHOW_TELEGRAM === "true";
+  // Theme Engine v2 (#28): the shared CreatorPage shell, staging first
+  const themeV2 = process.env.NEXT_PUBLIC_SHOW_THEME_V2 === "true";
 
   // Pause motion (041 I02): read the remembered choice once on the client
   useEffect(() => {
@@ -374,9 +377,255 @@ export function ProfileView({
 
   const photo = profile.photoCmp || profile.photoUrl;
 
+  // Pieces both shells share: the old one below and CreatorPage (SHOW_THEME_V2)
+  const nameExtras = (
+    <>
+      {headerIdentity?.chip === "verified" && <RnsVerifiedMark className="ml-2 align-[-3px]" />}
+      {/* Messaging on Telegram (#2): a mark only, never the creator's username (spec 3.8) */}
+      {telegramMarkOn && profile.telegramMark && (
+        <span
+          title={TELEGRAM_APP_STRINGS.publicMarkTooltip}
+          className="ml-2 inline-flex align-[-2px]"
+        >
+          <Send aria-hidden className="h-[18px] w-[18px]" strokeWidth={2} />
+          <span className="sr-only">{TELEGRAM_APP_STRINGS.publicMarkTooltip}</span>
+        </span>
+      )}
+    </>
+  );
+  const identityChip = headerIdentity ? (
+    <RnsIdentityChip
+      identity={headerIdentity}
+      displayName={profile.name}
+      avatarUrl={photo || null}
+      fontFamily={textStyle?.fontFamily}
+      fontColor={fontColor}
+      sendHref={sendHref}
+      rnsUrl={process.env.NEXT_PUBLIC_RNS_URL}
+      className={CREATOR_FOCUS}
+    />
+  ) : null;
+  const blockList = renderable.map(block => (
+    <ErrorBoundary key={block.id} fallback={null} context={{ blockId: block.id, type: block.type }}>
+      {block.type === "link" ? (
+        <CreatorButton
+          theme={themeConfig}
+          icon={<LinkIcon platform={block.config.platform} url={block.config.url} />}
+          label={block.config.label}
+          href={block.config.url}
+          onClick={() => handleLinkClick(block)}
+        />
+      ) : block.type === "media" ? (
+        <MediaBlock block={block as any} theme={themeConfig as any} />
+      ) : block.type === "pool" ? (
+        <CreatorPoolBlock block={block as any} theme={themeConfig as any} />
+      ) : block.type === "referral" ? (
+        <ReferralBlock block={block as any} theme={themeConfig as any} pageOwnerId={profile.id} />
+      ) : block.type === "follow" ? (
+        followEnabled && <FollowBlock block={block} theme={themeConfig} />
+      ) : block.type === "followers" ? (
+        followEnabled && (
+          <FollowersBlock block={block} theme={themeConfig} handle={normalizedHandle} />
+        )
+      ) : block.type === "rnsid" ? (
+        // 112: the same identity the header chip shows; nothing without it
+        showRns && (
+          <RnsIdBlock
+            block={block}
+            theme={themeConfig}
+            identity={identity}
+            displayName={profile.name}
+            avatarUrl={photo || null}
+            since={profile.since ?? null}
+            sendHref={sendHref}
+            rnsUrl={process.env.NEXT_PUBLIC_RNS_URL}
+          />
+        )
+      ) : block.type === "telegram_message" ? (
+        // Row 115: live only while the creator takes Fan messages
+        telegramMarkOn && (
+          <TelegramMessageBlock
+            block={block}
+            theme={themeConfig}
+            door={profile.telegramDoor}
+            handle={normalizedHandle}
+            creatorUserId={profile.id}
+            creatorName={profile.name}
+            creatorAvatar={photo || null}
+            signedIn={!!authUser}
+            authPending={authPending}
+            isOwner={isOwner}
+          />
+        )
+      ) : block.type === "telegram_group" ? null : (
+        <TextBlock block={block as any} theme={themeConfig as any} />
+      )}
+    </ErrorBoundary>
+  ));
+  const footerEl = (
+    <footer className="mt-[34px] flex flex-col items-center" style={textStyle}>
+      <div className="flex items-center gap-[13px]">
+        <button
+          type="button"
+          onClick={() => {
+            if (profile.id) handleReferrerClick(profile.id);
+          }}
+          className={cn(
+            "min-h-[44px] px-1 text-[13px] leading-[16px] underline-offset-2 hover:underline",
+            CREATOR_FOCUS
+          )}
+        >
+          Made with Amped.Bio
+        </button>
+        {hasLoopingMotion && (
+          <button
+            type="button"
+            onClick={togglePaused}
+            aria-pressed={paused}
+            aria-label={paused ? "Play motion" : "Pause motion"}
+            className={cn(
+              "flex h-[44px] w-[44px] items-center justify-center rounded-full",
+              CREATOR_FOCUS
+            )}
+          >
+            {paused ? (
+              <Play aria-hidden className="h-[21px] w-[21px]" />
+            ) : (
+              <Pause aria-hidden className="h-[21px] w-[21px]" />
+            )}
+          </button>
+        )}
+      </div>
+      <div className="mt-2 flex items-center gap-[13px]">
+        {showPrivacyChoices && (
+          <button
+            type="button"
+            onClick={() => setBannerMode("settings")}
+            className={cn(
+              "min-h-[44px] px-1 text-[13px] leading-[16px] underline-offset-2 hover:underline",
+              CREATOR_FOCUS
+            )}
+          >
+            Privacy choices
+          </button>
+        )}
+        <a
+          href="/privacy"
+          className={cn(
+            "inline-flex min-h-[44px] items-center px-1 text-[13px] leading-[16px] underline-offset-2 hover:underline",
+            CREATOR_FOCUS
+          )}
+        >
+          Privacy Policy
+        </a>
+      </div>
+    </footer>
+  );
+  // Frame layer: Amped chrome only (section 17). The capsule sits 13 above
+  // the consent card while it shows, else 21 from the bottom (039 I16).
+  const frameLayer = (
+    <div
+      className="pointer-events-none fixed inset-x-0 bottom-0 z-50 flex flex-col items-center gap-[13px] px-[13px]"
+      style={{ paddingBottom: "calc(21px + env(safe-area-inset-bottom, 0px))" }}
+    >
+      <FollowToastView toast={followState.toast} onDismiss={followState.dismissToast} />
+      {showCapsule && (
+        <nav
+          aria-label="Page actions"
+          className={cn(
+            "prism-glass-clear prism-font pointer-events-auto flex items-center gap-[5px] !rounded-full p-[5px]",
+            // 390 (fg2, fg9): the count sits above the buttons
+            showFollow &&
+              "w-full max-w-[508px] flex-col !rounded-prism-34 p-2 sm:w-auto sm:flex-row sm:!rounded-full sm:p-[5px] sm:pl-[13px]",
+            "transition-[transform,opacity] duration-[233ms] ease-[cubic-bezier(0.2,0,0,1)] motion-reduce:transition-none",
+            scrollingDown && !cardShowing && "pointer-events-none translate-y-[89px] opacity-0"
+          )}
+        >
+          {showFollow && <FollowerCount status={followState.status} />}
+          <div
+            className={cn("flex items-center gap-[5px]", showFollow && "w-full gap-2 sm:w-auto")}
+          >
+            {showFollow && !followState.status && (
+              <FollowRetry busy={followState.busy} onRetry={() => void followState.retry()} />
+            )}
+            {showFollow && followState.status && (
+              <FollowButton
+                status={followState.status}
+                busy={followState.busy}
+                onFollow={() => followState.startFollow("page")}
+                onUnfollow={() => void followState.unfollow()}
+                onUpdate={patch => void followState.update(patch)}
+              />
+            )}
+            {showViewPool && (
+              <Button
+                asChild
+                variant="secondary"
+                className={showFollow ? "flex-1 sm:flex-none" : undefined}
+              >
+                <a href={`/i/pools/${creatorPoolAddress}`}>View pool</a>
+              </Button>
+            )}
+            {isOwner && (
+              <Button asChild variant="secondary">
+                <a href={`${process.env.NEXT_PUBLIC_PANEL_URL || ""}/page`}>
+                  <Pencil aria-hidden />
+                  Edit page
+                </a>
+              </Button>
+            )}
+          </div>
+        </nav>
+      )}
+      {followActive && (
+        <FirstFollowSheet
+          open={followState.sheetOpen}
+          onOpenChange={followState.setSheetOpen}
+          creatorName={followState.status?.creatorName ?? profile.name}
+          showCount={followState.status?.showCount ?? true}
+          busy={followState.busy}
+          onConfirm={choice => void followState.follow({ ...choice, fromDisclosure: true })}
+        />
+      )}
+      {cardShowing && (
+        <div ref={measureCard} className="pointer-events-auto w-full">
+          <TrackingConsentBanner
+            key={bannerMode}
+            ownerName={profile.name || "This creator"}
+            adServices={pixelsEnabled && trackingPixels ? pixelServiceNames(trackingPixels) : []}
+            adsBlockedByBrowser={hasGlobalPrivacyControl()}
+            initial={{
+              analytics: consent?.analytics === true,
+              advertising: consent?.ads === true,
+            }}
+            startExpanded={bannerMode === "settings"}
+            onSave={handleConsent}
+          />
+        </div>
+      )}
+    </div>
+  );
+
   // The page tree. The FollowContext around it hands the one useFollow to the
   // Follow and Followers blocks (spec 3.4).
-  const page = (
+  // Theme Engine v2 phase 1b: the shared shell draws the theme layers from the
+  // effect registry. Same output as the tree below (registry tests, #360).
+  const page = themeV2 ? (
+    <CreatorPage
+      theme={themeConfig}
+      mode="public"
+      paused={paused}
+      profile={{ name: profile.name, photo, bio: profile.bio }}
+      nameExtras={nameExtras}
+      identity={identityChip}
+      blocks={renderable.length > 0 ? blockList : null}
+      footer={footerEl}
+      frame={frameLayer}
+      renderOverlay={(effect, still) => <ParticlesBackground effect={effect} paused={still} />}
+      videoRef={videoRef}
+      bottomPadding={`calc(89px + env(safe-area-inset-bottom, 0px) + ${cardShowing ? cardHeight + 13 : 0}px)`}
+    />
+  ) : (
     <div
       className="relative min-h-dvh"
       style={{ ...themeCssVars(themeConfig), "--amped-font": fontColor } as React.CSSProperties}
@@ -465,35 +714,10 @@ export function ProfileView({
               style={textStyle}
             >
               {profile.name}
-              {headerIdentity?.chip === "verified" && (
-                <RnsVerifiedMark className="ml-2 align-[-3px]" />
-              )}
-              {/* Messaging on Telegram (#2): a mark only, never the creator's username (spec 3.8) */}
-              {telegramMarkOn && profile.telegramMark && (
-                <span
-                  title={TELEGRAM_APP_STRINGS.publicMarkTooltip}
-                  className="ml-2 inline-flex align-[-2px]"
-                >
-                  <Send aria-hidden className="h-[18px] w-[18px]" strokeWidth={2} />
-                  <span className="sr-only">{TELEGRAM_APP_STRINGS.publicMarkTooltip}</span>
-                </span>
-              )}
+              {nameExtras}
             </h1>
             {/* 109 I06, I07: the RNS chip in the creator font and color, never animated */}
-            {headerIdentity && (
-              <div className="mt-2 flex justify-center">
-                <RnsIdentityChip
-                  identity={headerIdentity}
-                  displayName={profile.name}
-                  avatarUrl={photo || null}
-                  fontFamily={textStyle?.fontFamily}
-                  fontColor={fontColor}
-                  sendHref={sendHref}
-                  rnsUrl={process.env.NEXT_PUBLIC_RNS_URL}
-                  className={CREATOR_FOCUS}
-                />
-              </div>
-            )}
+            {identityChip && <div className="mt-2 flex justify-center">{identityChip}</div>}
             {/* 039 I07: bio 16/26 at the creator's full text color */}
             {profile.bio &&
               (isHTML(profile.bio) ? (
@@ -511,218 +735,16 @@ export function ProfileView({
 
           {/* 040 I12: blocks 13 apart; blocks add no margins of their own */}
           {renderable.length > 0 && (
-            <div className="mt-[34px] flex flex-col gap-[13px]">
-              {renderable.map(block => (
-                <ErrorBoundary
-                  key={block.id}
-                  fallback={null}
-                  context={{ blockId: block.id, type: block.type }}
-                >
-                  {block.type === "link" ? (
-                    <CreatorButton
-                      theme={themeConfig}
-                      icon={<LinkIcon platform={block.config.platform} url={block.config.url} />}
-                      label={block.config.label}
-                      href={block.config.url}
-                      onClick={() => handleLinkClick(block)}
-                    />
-                  ) : block.type === "media" ? (
-                    <MediaBlock block={block as any} theme={themeConfig as any} />
-                  ) : block.type === "pool" ? (
-                    <CreatorPoolBlock block={block as any} theme={themeConfig as any} />
-                  ) : block.type === "referral" ? (
-                    <ReferralBlock
-                      block={block as any}
-                      theme={themeConfig as any}
-                      pageOwnerId={profile.id}
-                    />
-                  ) : block.type === "follow" ? (
-                    followEnabled && <FollowBlock block={block} theme={themeConfig} />
-                  ) : block.type === "followers" ? (
-                    followEnabled && (
-                      <FollowersBlock block={block} theme={themeConfig} handle={normalizedHandle} />
-                    )
-                  ) : block.type === "rnsid" ? (
-                    // 112: the same identity the header chip shows; nothing without it
-                    showRns && (
-                      <RnsIdBlock
-                        block={block}
-                        theme={themeConfig}
-                        identity={identity}
-                        displayName={profile.name}
-                        avatarUrl={photo || null}
-                        since={profile.since ?? null}
-                        sendHref={sendHref}
-                        rnsUrl={process.env.NEXT_PUBLIC_RNS_URL}
-                      />
-                    )
-                  ) : block.type === "telegram_message" ? (
-                    // Row 115: live only while the creator takes Fan messages
-                    telegramMarkOn && (
-                      <TelegramMessageBlock
-                        block={block}
-                        theme={themeConfig}
-                        door={profile.telegramDoor}
-                        handle={normalizedHandle}
-                        creatorUserId={profile.id}
-                        creatorName={profile.name}
-                        creatorAvatar={photo || null}
-                        signedIn={!!authUser}
-                        authPending={authPending}
-                        isOwner={isOwner}
-                      />
-                    )
-                  ) : block.type === "telegram_group" ? null : (
-                    <TextBlock block={block as any} theme={themeConfig as any} />
-                  )}
-                </ErrorBoundary>
-              ))}
-            </div>
+            <div className="mt-[34px] flex flex-col gap-[13px]">{blockList}</div>
           )}
 
           {/* 039 I10, I15; 041 I02, I08: footer mark, Pause motion, privacy links */}
-          <footer className="mt-[34px] flex flex-col items-center" style={textStyle}>
-            <div className="flex items-center gap-[13px]">
-              <button
-                type="button"
-                onClick={() => {
-                  if (profile.id) handleReferrerClick(profile.id);
-                }}
-                className={cn(
-                  "min-h-[44px] px-1 text-[13px] leading-[16px] underline-offset-2 hover:underline",
-                  CREATOR_FOCUS
-                )}
-              >
-                Made with Amped.Bio
-              </button>
-              {hasLoopingMotion && (
-                <button
-                  type="button"
-                  onClick={togglePaused}
-                  aria-pressed={paused}
-                  aria-label={paused ? "Play motion" : "Pause motion"}
-                  className={cn(
-                    "flex h-[44px] w-[44px] items-center justify-center rounded-full",
-                    CREATOR_FOCUS
-                  )}
-                >
-                  {paused ? (
-                    <Play aria-hidden className="h-[21px] w-[21px]" />
-                  ) : (
-                    <Pause aria-hidden className="h-[21px] w-[21px]" />
-                  )}
-                </button>
-              )}
-            </div>
-            <div className="mt-2 flex items-center gap-[13px]">
-              {showPrivacyChoices && (
-                <button
-                  type="button"
-                  onClick={() => setBannerMode("settings")}
-                  className={cn(
-                    "min-h-[44px] px-1 text-[13px] leading-[16px] underline-offset-2 hover:underline",
-                    CREATOR_FOCUS
-                  )}
-                >
-                  Privacy choices
-                </button>
-              )}
-              <a
-                href="/privacy"
-                className={cn(
-                  "inline-flex min-h-[44px] items-center px-1 text-[13px] leading-[16px] underline-offset-2 hover:underline",
-                  CREATOR_FOCUS
-                )}
-              >
-                Privacy Policy
-              </a>
-            </div>
-          </footer>
+          {footerEl}
         </div>
       </div>
 
-      {/* Frame layer: Amped chrome only (section 17). The capsule sits 13 above
-          the consent card while it shows, else 21 from the bottom (039 I16). */}
-      <div
-        className="pointer-events-none fixed inset-x-0 bottom-0 z-50 flex flex-col items-center gap-[13px] px-[13px]"
-        style={{ paddingBottom: "calc(21px + env(safe-area-inset-bottom, 0px))" }}
-      >
-        <FollowToastView toast={followState.toast} onDismiss={followState.dismissToast} />
-        {showCapsule && (
-          <nav
-            aria-label="Page actions"
-            className={cn(
-              "prism-glass-clear prism-font pointer-events-auto flex items-center gap-[5px] !rounded-full p-[5px]",
-              // 390 (fg2, fg9): the count sits above the buttons
-              showFollow &&
-                "w-full max-w-[508px] flex-col !rounded-prism-34 p-2 sm:w-auto sm:flex-row sm:!rounded-full sm:p-[5px] sm:pl-[13px]",
-              "transition-[transform,opacity] duration-[233ms] ease-[cubic-bezier(0.2,0,0,1)] motion-reduce:transition-none",
-              scrollingDown && !cardShowing && "pointer-events-none translate-y-[89px] opacity-0"
-            )}
-          >
-            {showFollow && <FollowerCount status={followState.status} />}
-            <div
-              className={cn("flex items-center gap-[5px]", showFollow && "w-full gap-2 sm:w-auto")}
-            >
-              {showFollow && !followState.status && (
-                <FollowRetry busy={followState.busy} onRetry={() => void followState.retry()} />
-              )}
-              {showFollow && followState.status && (
-                <FollowButton
-                  status={followState.status}
-                  busy={followState.busy}
-                  onFollow={() => followState.startFollow("page")}
-                  onUnfollow={() => void followState.unfollow()}
-                  onUpdate={patch => void followState.update(patch)}
-                />
-              )}
-              {showViewPool && (
-                <Button
-                  asChild
-                  variant="secondary"
-                  className={showFollow ? "flex-1 sm:flex-none" : undefined}
-                >
-                  <a href={`/i/pools/${creatorPoolAddress}`}>View pool</a>
-                </Button>
-              )}
-              {isOwner && (
-                <Button asChild variant="secondary">
-                  <a href={`${process.env.NEXT_PUBLIC_PANEL_URL || ""}/page`}>
-                    <Pencil aria-hidden />
-                    Edit page
-                  </a>
-                </Button>
-              )}
-            </div>
-          </nav>
-        )}
-        {followActive && (
-          <FirstFollowSheet
-            open={followState.sheetOpen}
-            onOpenChange={followState.setSheetOpen}
-            creatorName={followState.status?.creatorName ?? profile.name}
-            showCount={followState.status?.showCount ?? true}
-            busy={followState.busy}
-            onConfirm={choice => void followState.follow({ ...choice, fromDisclosure: true })}
-          />
-        )}
-        {cardShowing && (
-          <div ref={measureCard} className="pointer-events-auto w-full">
-            <TrackingConsentBanner
-              key={bannerMode}
-              ownerName={profile.name || "This creator"}
-              adServices={pixelsEnabled && trackingPixels ? pixelServiceNames(trackingPixels) : []}
-              adsBlockedByBrowser={hasGlobalPrivacyControl()}
-              initial={{
-                analytics: consent?.analytics === true,
-                advertising: consent?.ads === true,
-              }}
-              startExpanded={bannerMode === "settings"}
-              onSave={handleConsent}
-            />
-          </div>
-        )}
-      </div>
+      {/* Frame layer: Amped chrome only (section 17) */}
+      {frameLayer}
     </div>
   );
 
