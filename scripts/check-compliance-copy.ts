@@ -1,7 +1,9 @@
 #!/usr/bin/env tsx
 
 /**
- * Compliance copy check for Messaging on Telegram (Build Board #2), spec acceptance 18.
+ * Compliance copy check for Messaging on Telegram (Build Board #2), spec acceptance 18,
+ * and for the Theme Engine v2 effect registry (Build Board #28, spec 3.2): every effect
+ * label and description passes BROADCAST_BANNED_TERMS and carries no dashes.
  *
  * Every string in packages/constants/src/telegram.ts (product copy, wizard copy, bot
  * messages, BotFather profile fields) must pass BROADCAST_BANNED_TERMS plus the Telegram
@@ -13,6 +15,7 @@
  */
 
 import {
+  ALL_EFFECTS,
   TELEGRAM_BANNED_PHRASES,
   TELEGRAM_COPY_EXEMPT,
   collectTelegramCopy,
@@ -41,20 +44,46 @@ export function checkTelegramCopy(strings: string[]): Hit[] {
   return hits;
 }
 
-function main() {
-  const strings = collectTelegramCopy();
-  const hits = checkTelegramCopy(strings);
-  if (hits.length === 0) {
-    console.log(`check-compliance-copy: ${strings.length} Telegram strings pass.`);
-    return;
+/** Effect names say what the eye sees (decision 10): no banned words, no dashes. */
+export function checkEffectCopy(strings: string[]): Hit[] {
+  const hits: Hit[] = [];
+  for (const text of strings) {
+    for (const hit of findBannedTerms(text)) {
+      hits.push({ text, phrase: hit.phrase, rule: `broadcast:${hit.category}` });
+    }
+    if (/[–—]/.test(text)) hits.push({ text, phrase: "dash", rule: "effects:dash" });
   }
-  console.error(
-    `check-compliance-copy: ${hits.length} hit(s) in packages/constants/src/telegram.ts`
-  );
+  return hits;
+}
+
+function report(label: string, file: string, strings: string[], hits: Hit[]): boolean {
+  if (hits.length === 0) {
+    console.log(`check-compliance-copy: ${strings.length} ${label} strings pass.`);
+    return true;
+  }
+  console.error(`check-compliance-copy: ${hits.length} hit(s) in ${file}`);
   for (const hit of hits) {
     console.error(`  [${hit.rule}] "${hit.phrase}" in: ${hit.text}`);
   }
-  process.exit(1);
+  return false;
+}
+
+function main() {
+  const telegram = collectTelegramCopy();
+  const effects = ALL_EFFECTS.flatMap(entry => [entry.label, entry.description]);
+  const telegramOk = report(
+    "Telegram",
+    "packages/constants/src/telegram.ts",
+    telegram,
+    checkTelegramCopy(telegram)
+  );
+  const effectsOk = report(
+    "effect",
+    "packages/constants/src/effects/",
+    effects,
+    checkEffectCopy(effects)
+  );
+  if (!telegramOk || !effectsOk) process.exit(1);
 }
 
 const invokedDirectly =
