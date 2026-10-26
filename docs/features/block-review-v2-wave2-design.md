@@ -314,13 +314,13 @@ Wave 2 holds the tier 2 parity gaps. Twelve blocks are designed here. Three wave
 
 ## Shop (`shop`), new
 
-**Job.** Put the creator's merch from Shopify, Fourthwall or Spring on the page with live prices and stock, and send buyers to that store's checkout.
+**Job.** Put the creator's merch from Shopify, Fourthwall, Spring, Etsy or Printful on the page with live prices and stock, and send buyers to that store's checkout.
 
 **Today (development a3ce3330).** Missing. No shop block type and no store connection. Creators paste single product links as link blocks.
 
 **Config.** `title` (1 to 40), `connectionId` (a connected store), `source` (`newest`, `picked`, `collection`), `productIds[]` (max 24, when picked), `collectionId` (when collection), `layout` (`grid`, `carousel`, `list`, `featured`), `soldOut` (`show`, `hide`), `tap` (`quicklook`, `store`), `partner` (bool: this is not my store; adds the Affiliate label). Common settings: `schedule`, `access`, `attention`, `motion`.
 
-**Server.** `stores.connect` runs OAuth with read only product scope (Shopify Admin API `read_products`, Fourthwall and Spring product APIs). `stores.sync` caches title, images, price, compare at price, currency, variants and stock hourly and on Refresh; webhooks update stock when the platform offers them. Disconnect deletes the cache. Amped never reads orders, buyers or payouts.
+**Server.** `stores.connect` runs OAuth with read only product scope (Shopify Admin API `read_products`, Fourthwall and Spring product APIs, Etsy Open API v3 `listings_r` for active listings, Printful API store products). Printful products show only when they sync to a store page with a public product URL; Buy opens that page. `stores.sync` caches title, images, price, compare at price, currency, variants and stock hourly and on Refresh; webhooks update stock when the platform offers them. Disconnect deletes the cache. Amped never reads orders, buyers or payouts.
 
 **Public states.** Grid (header with store name, 2 columns, New and Sale badges as the store sets them, Shop all N); carousel; list (rows with a 44 Buy icon button); featured (one product, image, description, price and compare at price); quick look (image, price, sizes from variants with sold out sizes disabled, Buy on {store}); sold out (grey image and label, no Buy); partner store (Affiliate on each product and the commission line); store disconnected or sync failed for 24 hours (renders nothing to visitors, Fix chip in the preview).
 
@@ -335,7 +335,7 @@ Wave 2 holds the tier 2 parity gaps. Twelve blocks are designed here. Three wave
 - SH2 Checkout. Recommended: Buy opens the merchant checkout; Amped takes no orders for third party stores. Why: fulfilment, tax and refunds stay with the store that ships. Alternative: an embedded cart on Amped.
 - SH3 Sold out. Recommended: show with a Sold out label by default; the creator can hide them. Why: fans see the range and come back. Alternative: hide sold out items always.
 - SH4 Partner stores. Recommended: Affiliate label on every product and the commission line when the store is not the creator's. Why: same FTC rule as Affiliate picks. Alternative: a single disclosure line on the block.
-- SH5 Stores at launch. Recommended: Shopify, Fourthwall and Spring. Why: they cover most creator merch and have public product APIs. Alternative: add Etsy and Printful at launch.
+- SH5 Stores at launch. Answered 26 Oct: Shopify, Fourthwall, Spring, Etsy and Printful at launch. Recommended was: Shopify, Fourthwall and Spring. Why the recommendation: they cover most creator merch and have public product APIs. Alternative: add Etsy and Printful at launch.
 
 **Analytics.** `shop_viewed`, `shop_quicklook_opened`, `shop_buy_tapped` (product id, store), `shop_all_tapped`, each with block id. Sales are not tracked by Amped.
 
