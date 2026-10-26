@@ -608,8 +608,8 @@ export function ProfileView({
 
   // The page tree. The FollowContext around it hands the one useFollow to the
   // Follow and Followers blocks (spec 3.4).
-  // Theme Engine v2 phase 1b: the shared shell draws the theme layers from the
-  // effect registry. Same output as the tree below (registry tests, #360).
+  // Theme Engine v2: the shared shell draws the theme layers from the effect
+  // registry, particles included (ParticlesLayer, tsParticles v4, phase 1c).
   const page = themeV2 ? (
     <CreatorPage
       theme={themeConfig}
@@ -621,7 +621,6 @@ export function ProfileView({
       blocks={renderable.length > 0 ? blockList : null}
       footer={footerEl}
       frame={frameLayer}
-      renderOverlay={(effect, still) => <ParticlesBackground effect={effect} paused={still} />}
       videoRef={videoRef}
       bottomPadding={`calc(89px + env(safe-area-inset-bottom, 0px) + ${cardShowing ? cardHeight + 13 : 0}px)`}
     />
