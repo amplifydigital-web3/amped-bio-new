@@ -20,6 +20,8 @@ import { ColorControl } from "../kit/ColorControl";
 import { CreatorBackdrop } from "../kit/CreatorArt";
 import { backgroundThumb, useDesign } from "../kit/useDesign";
 import { useThemeActions } from "../kit/useThemeActions";
+import { GradientPicker, TextureChips } from "./GradientPicker";
+import { lookOf, type Texture } from "../kit/gradientLook";
 
 // Screen Review 023. The Background row in Design Style.
 
@@ -33,7 +35,12 @@ const CATEGORIES: { value: Category; label: string }[] = [
   { value: "upload", label: "Upload" },
 ];
 
-const GRADIENTS: Background[] = [...gradients, ...backgroundColors];
+// Theme Engine v2 (#28, phase 2): the gradient grid, builder and textures (board 10)
+const themeV2On = import.meta.env.VITE_SHOW_THEME_V2 === "true";
+
+// v2 moves the four image gradients to Photos; the Gradients grid is CSS only
+const GRADIENTS: Background[] = themeV2On ? backgroundColors : [...gradients, ...backgroundColors];
+const PHOTOS: Background[] = themeV2On ? [...gradients, ...photos] : photos;
 const FIRST_VIDEOS = 12;
 const VIDEO_EXTENSIONS = ["mp4", "mov", "webm", "avi"];
 
@@ -46,7 +53,7 @@ function categoryOf(background?: Background): Category {
   if (!background) return "gradients";
   if (background.fileId) return "upload";
   if (GRADIENTS.some(g => g.value === background.value)) return "gradients";
-  if (photos.some(p => p.value === background.value)) return "photos";
+  if (PHOTOS.some(p => p.value === background.value)) return "photos";
   if (videos.some(v => v.value === background.value)) return "videos";
   if (background.type === "color")
     return background.value?.includes("gradient") ? "gradients" : "colors";
@@ -67,6 +74,27 @@ function backgroundName(background?: Background) {
   if (!background) return "None";
   if (background.fileId) return "Your upload";
   return background.label || backgroundTypeLine(background);
+}
+
+/** Textures apply to gradients and images (spec 3.5), not colors or videos. */
+function textureTarget(category: Category, current?: Background) {
+  if (!current) return false;
+  if (category === "gradients") return lookOf(current) !== null;
+  return (category === "photos" || category === "upload") && current.type === "image";
+}
+
+/** The background with a texture. A v1 gradient string gains its stops first. */
+function withTexture(current: Background, texture: Texture): Background {
+  const rest: Background = { ...current };
+  delete rest.texture;
+  const base: Background =
+    current.type === "color" && !current.stops
+      ? (() => {
+          const look = lookOf(current);
+          return look ? { ...rest, stops: look.stops, angle: look.angle } : rest;
+        })()
+      : rest;
+  return texture === "none" ? base : { ...base, texture };
 }
 
 export function BackgroundRowSwatch({ background }: { background?: Background }) {
@@ -102,7 +130,7 @@ export function BackgroundRow() {
 
   const tiles = useMemo(() => {
     if (category === "gradients") return GRADIENTS;
-    if (category === "photos") return photos;
+    if (category === "photos") return PHOTOS;
     if (category === "videos") return allVideos ? videos : videos.slice(0, FIRST_VIDEOS);
     return [];
   }, [allVideos, category]);
@@ -152,7 +180,20 @@ export function BackgroundRow() {
           />
         )}
 
-        {(category === "gradients" || category === "photos" || category === "videos") && (
+        {themeV2On && category === "gradients" && (
+          <GradientPicker
+            current={current}
+            disabled={locked}
+            yourColors={design.yourColors}
+            onApply={apply}
+            onPreview={background => preview({ background })}
+            onPreviewEnd={endPreview}
+          />
+        )}
+
+        {((category === "gradients" && !themeV2On) ||
+          category === "photos" ||
+          category === "videos") && (
           <>
             <OptionGrid label={`${CATEGORIES.find(c => c.value === category)?.label} backgrounds`}>
               {tiles.map((tile, index) => (
@@ -177,6 +218,15 @@ export function BackgroundRow() {
         )}
 
         {category === "upload" && <UploadBackground current={current} onLink={apply} />}
+
+        {/* Board 10: a texture over a gradient or an image */}
+        {themeV2On && textureTarget(category, current) && (
+          <TextureChips
+            value={current?.texture ?? "none"}
+            disabled={locked}
+            onChange={texture => apply(withTexture(current!, texture))}
+          />
+        )}
       </div>
     </DisclosureRow>
   );
