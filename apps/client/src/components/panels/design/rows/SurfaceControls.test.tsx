@@ -1,3 +1,4 @@
+import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { SurfaceControls } from "./SurfaceControls";
 import { containerRowValue, currentShape } from "../kit/surfaceLook";

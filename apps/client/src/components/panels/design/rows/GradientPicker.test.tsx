@@ -1,3 +1,4 @@
+import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { GRADIENT_PRESETS, gradientCss, gradientPresetCss } from "@repo/constants";
 import type { Background } from "@/types/editor";
