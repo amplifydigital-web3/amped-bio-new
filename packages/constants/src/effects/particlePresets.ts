@@ -1,12 +1,12 @@
 /**
  * Particle presets, moved here from the two app copies of particleConfigs.ts
- * (Theme Engine v2, phase 1a). Byte for byte the v1 presets: the registry
- * test asserts deep equality with both app files until phase 1c deletes them
- * and makes these color aware factories on tsParticles v4.
+ * (Theme Engine v2, phase 1a). Byte for byte the v1 presets in the tsParticles
+ * v3 shape. Phase 1c deleted the app copies: the v1 layers in both apps read
+ * this object, and the v2 overlay entries build their v4 options from it
+ * (scenes.particles.ts), so one copy serves both until the v1 layers go.
  *
  * Typed loosely so this package does not depend on tsParticles. Keys are the
- * v1 particlesEffect ids; 6 (Matrix) is retired and kept only so the copies
- * stay equal. The registry never exposes it.
+ * v1 particlesEffect ids; 6 (Matrix) is retired. The registry never offers it.
  */
 
 export type ParticlePreset = Readonly<Record<string, unknown>>;

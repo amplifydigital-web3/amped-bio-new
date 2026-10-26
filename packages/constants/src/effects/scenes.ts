@@ -1,14 +1,14 @@
-import { PARTICLE_PRESETS } from "./particlePresets";
+import { PARTICLE_PARAMS, particleOptions } from "./scenes.particles";
 import type { EffectEntry } from "./types";
 
 /**
  * Scene layer (decision 4: Scene replaces Background plus Particles). The base
  * slot (color, gradient, image, video) is plain data in the theme config; the
  * registry holds the effect ids: the particle overlays now, shader scenes in
- * phase 3. The v1 particlesEffect presets return their options unchanged.
- * Phase 1c makes them color aware factories on tsParticles v4 slim and sets
- * colorMode to theme. 6 (Matrix) is not offered in the editor today; it stays
- * retired so creators who picked it keep their page.
+ * phase 3. Since phase 1c the overlays are color aware factories on
+ * tsParticles v4 slim (scenes.particles.ts): density, speed and colors as
+ * params, the v1 preset at the defaults. 6 (Matrix) is not offered in the
+ * editor today; it stays retired with its preset and no params.
  */
 
 const overlay = (
@@ -26,10 +26,14 @@ const overlay = (
   engine: "particles",
   cost: "light",
   source: "tsparticles",
-  colorMode: "fixed",
-  params: {},
+  colorMode: "theme",
+  params: PARTICLE_PARAMS,
   loop: true,
-  render: { kind: "particles", options: () => PARTICLE_PRESETS[legacyId] ?? {}, plugins: [] },
+  render: {
+    kind: "particles",
+    options: (params, colors) => particleOptions(legacyId, params, colors),
+    plugins: [],
+  },
   preview: { sample: "scene" },
   legacyId,
   addedIn: 1,
@@ -58,7 +62,12 @@ export const SCENE_EFFECTS: readonly EffectEntry[] = [
   overlay("snow", "Snow", "Falling snow", 3),
   overlay("bubbles", "Bubbles", "Rising bubbles", 4),
   overlay("fireflies", "Fireflies", "Glowing fireflies", 5),
-  overlay("matrix", "Matrix", "Falling green digits", 6, { retired: true }),
+  overlay("matrix", "Matrix", "Falling green digits", 6, {
+    retired: true,
+    colorMode: "fixed",
+    params: {},
+    render: { kind: "particles", options: () => particleOptions(6), plugins: [] },
+  }),
   overlay("confetti", "Confetti", "Colorful confetti", 7),
   overlay("stars", "Stars", "Twinkling stars", 8),
   overlay("geometric", "Geometric", "Connected geometric shapes", 9),
