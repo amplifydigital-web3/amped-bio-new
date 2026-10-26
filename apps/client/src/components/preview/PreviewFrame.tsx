@@ -40,6 +40,7 @@ function Render({ width }: { width: number }) {
         theme={theme}
         userId={profile.id}
         onBlockSelect={onBlockSelect}
+        layout={width >= DEVICES.desktop.width ? "desktop" : "phone"}
       />
     </div>
   );
