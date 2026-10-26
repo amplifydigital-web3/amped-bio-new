@@ -60,6 +60,10 @@ jobs:
         # Runs inside workerd with local R2 and queues; the toolbox is faked here
         run: pnpm --filter @repo/media-processor run test
 
+      - name: Shared constants tests
+        # Theme Engine v2 registry rules, legacy map and the no pixel change check (#28)
+        run: pnpm --filter @repo/constants run test
+
       - name: Compliance copy check
         run: pnpm run check:copy
 
