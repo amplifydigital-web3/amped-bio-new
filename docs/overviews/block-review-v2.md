@@ -36,7 +36,7 @@ Every slot honors prefers-reduced-motion and the page's Pause motion control. He
 
 **Data blocks.** Three shared services back the new blocks: Audience (email and SMS subscribers, form responses, consent records, export, list sync), Feeds (server side fetch through official APIs and oEmbed, cached, refreshed on a schedule, used by Instagram, TikTok, YouTube, RSS and podcast blocks), and Schedule (go live and expire, countdown reveal). Paid and gated blocks use the content system, the store, memberships, USDC payments and the gating engine. None evaluates access on its own.
 
-**Embeds.** Third party players and widgets render as a facade with the provider name and a poster until the visitor consents, then load (decision 3, recommended).
+**Embeds.** Third party players and widgets render as a facade with the provider name and a poster until the visitor consents, then load (decision 3, answered 24 Oct).
 
 **Editor.** Add block becomes a searchable catalog by family with a live preview on each tile, the singleton rule, and On the board items marked Coming soon. Each block opens inline in the page list, as today (D18).
 
@@ -176,8 +176,8 @@ Wave 1 holds the tier 1 gaps and the redesign of every existing block. Wave 2 ho
 ## Decisions for Rob
 
 1. Answered 24 Oct: build after Theme Engine v2 phase 1; one block kit; motion stack; full parity.
-2. Existing blocks: redesign in place with a legacy map and a flag (recommended), or new v2 types beside the old ones.
-3. Embeds: click to load facade until consent (recommended), or load directly.
+2. Answered 24 Oct: existing blocks are redesigned in place with a legacy map and a flag.
+3. Answered 24 Oct: embeds show a click to load facade until consent.
 4. Custom HTML: no raw HTML or script; an allowlisted embed block instead (recommended), or a sandboxed HTML block.
 5. SMS signup: after email, with counsel on TCPA consent (recommended), or with email in wave 1.
 6. Subscribers: stored in Amped with optional sync to Mailchimp, Kit, beehiiv and Klaviyo (recommended), or sync only.
