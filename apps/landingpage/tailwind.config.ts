@@ -7,16 +7,8 @@ export default {
   content: ["./src/**/*.{js,ts,jsx,tsx,mdx}", "../../packages/ui/src/**/*.{js,ts,jsx,tsx,mdx}"],
   theme: {
     extend: {
+      // Theme effect animations come from the Prism preset (effect-keyframes.js)
       animation: {
-        gradient: "gradient 3s linear infinite",
-        glow: "glow 2s ease-in-out infinite alternate",
-        typewriter: "typewriter 3s steps(40) 1s forwards",
-        blink: "blink 0.5s step-end infinite",
-        fadeIn: "fadeIn 1s ease-out forwards",
-        slideUp: "slideUp 1s ease-out forwards",
-        wave: "wave 1s ease-in-out infinite",
-        rainbow: "rainbow 3s linear infinite",
-        glitch: "glitch 3s infinite",
         "collapsible-down": "collapsible-down 0.2s ease-out",
         "collapsible-up": "collapsible-up 0.2s ease-out",
         "caret-blink": "caret-blink 1.25s ease-out infinite",
