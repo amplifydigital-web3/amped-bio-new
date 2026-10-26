@@ -25,7 +25,7 @@ This part redesigns the blocks Amped already ships, plus the shared settings row
 
 ## Findings in today's code
 
-- The pool block shows the Network Reward Rate on the creator page. PL1 removes every figure from the page and keeps it in the wallet.
+- The pool block shows the Network Reward Rate on the creator page. PL1 recommended removing it. Rob answered 26 Oct: keep the figures and the rate with the helper, as today.
 - textConfigSchema rejects headings and lists that the sanitizer allows. TX1 aligns the schema with the sanitizer.
 
 ## Link block (`link`)
@@ -140,14 +140,14 @@ This part redesigns the blocks Amped already ships, plus the shared settings row
 
 **Config, referral.** `title` (1 to 40, default Start your own page), `description` (0 to 120), `layout` (`card`, `button`), `share` (bool: Copy link, Share and QR). Legacy map: today's `{}` reads as `{layout: "button", title: "Create your own Amped.Bio page", share: false}`, so existing pages look the same until the creator edits the block.
 
-**Public states, pool.** Card (eyebrow Creator pool, art, name, backer count, faces of opted in backers with "Lina, Joao and 212 others back Studio Circle.", Join pool, View pool, testnet line verbatim); compact (one row with Join pool, testnet line); signed in fan who backs the pool (You back this pool, since month, Manage in Wallet, View pool); under 10 backers (no faces, count reads New pool); pool missing or failed (nothing to visitors, Fix chip in the preview).
+**Public states, pool.** Card (eyebrow Creator pool, art, name, faces of opted in backers with "Lina, Joao and 212 others back Studio Circle.", Total staked, Fans, Creator share, the Network Reward Rate with its helper verbatim, Join pool, testnet line verbatim); compact (one row with Join pool, testnet line); signed in fan who backs the pool (You back this pool, since month, Manage in Wallet, View pool); under 10 backers (no faces, count reads New pool); pool missing or failed (nothing to visitors, Fix chip in the preview).
 
 **Public states, referral.** Card (title, description, Create your page, then Copy link, Share and Show QR); button layout; QR sheet (scan to start a page, the link as text, Copy invite, Close returns focus); copied (Copied with a check for 2 seconds, announced). Hidden when no referral program is active, as today.
 
-**Rules.** No rate, yield, return, price, APY, APR, total staked or creator share on the page block. The testnet line is verbatim: Testnet only. Pool rewards come from the network, vary, and are not guaranteed. Referral copy carries no token amounts. Join pool opens the pool panel (Screen Review 046), which keeps the review, the required checkbox and the calm commit state.
+**Rules.** The page block shows Total staked, Fans, Creator share and the Network Reward Rate with its helper, as today (PL1, answered 26 Oct). No other rate, yield, return, price, APY or APR on the page block. The testnet line is verbatim: Testnet only. Pool rewards come from the network, vary, and are not guaranteed. Referral copy carries no token amounts. Join pool opens the pool panel (Screen Review 046), which keeps the review, the required checkbox and the calm commit state.
 
 **Decisions.**
-- PL1 No figures or rate on the page block. Recommended. Why: a creator page is a promotional surface; figures and a rate there read as an offer while counsel reviews staking. Alternative: keep the figures and the rate with the helper, as today.
+- PL1 No figures or rate on the page block. Answered 26 Oct: alternative chosen; the figures and the Network Reward Rate with its helper stay on the page block, as today. Recommended was: remove them. Why the recommendation: a creator page is a promotional surface; figures and a rate there read as an offer while counsel reviews staking. Alternative: keep the figures and the rate with the helper, as today.
 - PL2 Fans who back the pool see status, not amounts. Recommended. Alternative: show the fan's stake.
 - PL3 Referral without amounts. Recommended until counsel clears faucets. Alternative: show the referee reward on the card.
 - PL4 Backer faces opt in only, hidden under 10 backers. Recommended, same rule as the Followers block. Alternative: always show counts and faces.
@@ -155,8 +155,8 @@ This part redesigns the blocks Amped already ships, plus the shared settings row
 
 **Analytics.** `pool_block_viewed`, `pool_join_tapped`, `referral_block_viewed`, `referral_create_tapped`, `referral_link_copied`, `referral_qr_opened`, each with block id.
 
-**Decisions on the card (drawn with the recommendation).**
-- PL1 No figures or rate on the page block. Recommended: Remove Total staked, Creator share and the Network Reward Rate from the page. Show backers only. The rate stays in the pool panel with its helper.
+**Decisions on the card.**
+- PL1 Figures and rate on the page block. Answered 26 Oct: keep the figures and the rate with the helper, as today. Recommended was to remove them from the page.
 - PL2 Fans who already back the pool. Recommended: Show You back this pool, the month, and Manage in Wallet. Never the amount staked.
 - PL3 Referral without amounts. Recommended: The card invites visitors to start a page. Reward amounts show only in Wallet and the sign up flow, until counsel clears faucets.
 - PL4 Backer faces. Recommended: Opt in only, from fans who chose Show me on public lists, hidden under 10 backers, the same rule as the Followers block.
