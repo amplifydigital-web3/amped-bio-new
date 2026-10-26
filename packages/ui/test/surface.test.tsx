@@ -1,10 +1,14 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { upgradeTheme, type ThemeConfig } from "@repo/constants";
 import { CreatorPage } from "../src/creator/creator-page";
+import { CreatorButton } from "../src/creator/creator-button";
 import { lookFor } from "../src/creator/look";
 import {
   BORDER_STYLE_CLASSES,
+  BUTTON_BORDER_CLASSES,
+  BUTTON_SHAPE_CLASSES,
   CONTAINER_SHAPE_CLASSES,
+  buttonSurfaceClass,
   containerShapeClass,
   containerSurfaceClass,
 } from "../src/creator/surface";
@@ -86,5 +90,54 @@ describe("CreatorPage container", () => {
       containerBorder: "gradient",
     };
     expect(page(upgradeTheme(v1) as never)).toBe(page(v1));
+  });
+});
+
+// Theme Engine v2 phase 2, Buttons row (board 07).
+
+const button = (theme: ThemeConfig) =>
+  renderToStaticMarkup(
+    <CreatorButton theme={theme} label="Print shop" href="https://example.com" />
+  );
+
+describe("CreatorButton surface and layout", () => {
+  it("keeps the v1 button for Rounded, None and Label", () => {
+    expect(buttonSurfaceClass(lookFor({ buttonStyle: 4 }))).toBe("");
+    expect(buttonSurfaceClass(lookFor({ buttonStyle: 1, buttonShape: "pill" }))).toBe("");
+    const html = button({ buttonStyle: 4 });
+    expect(html).toContain("text-center");
+    expect(html).not.toContain("<svg");
+  });
+
+  it("draws Hard shadow from its stored id", () => {
+    const html = button({ buttonStyle: 3, buttonStyleId: "button.hard-shadow" });
+    expect(html).toContain("shadow-[4px_4px_0_var(--amped-btn-dark)]");
+    expect(html).not.toContain("shadow-lg");
+  });
+
+  it("lets the shape replace the style radius and a thick border use the dark shade", () => {
+    const html = button({ buttonStyle: 0, buttonShape: "squircle", buttonBorder: "thick" });
+    expect(html).toContain(BUTTON_SHAPE_CLASSES.squircle);
+    expect(html).not.toContain("rounded-lg");
+    expect(html).toContain(BUTTON_BORDER_CLASSES.thick);
+  });
+
+  it("sets the label beside the icon, and adds a chevron for Split", () => {
+    expect(button({ buttonLayout: "icon" })).toContain("text-left");
+    const split = button({ buttonLayout: "split" });
+    expect(split).toContain("text-left");
+    expect(split).toContain("lucide-chevron-right");
+  });
+
+  it("renders a v2 config the same as the v1 config it came from", () => {
+    const v1: ThemeConfig = {
+      ...COLORS,
+      buttonStyle: 3,
+      buttonStyleId: "button.hard-shadow",
+      buttonShape: "ticket",
+      buttonBorder: "gradient",
+      buttonLayout: "split",
+    };
+    expect(button(upgradeTheme(v1) as never)).toBe(button(v1));
   });
 });
