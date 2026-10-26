@@ -41,11 +41,12 @@ const envSchema = z.object({
 
   // Port for the server to listen on
   PORT: portSchema(43000),
-  // URL for the client app (apps/client)
-  APP_URL: z.string().default("http://localhost:5173"),
+  // URL for the client app (apps/client). Required: without an explicit value a
+  // misconfigured deployment would silently redirect to the localhost default.
+  APP_URL: z.string(),
   // URL for the public landing page (apps/landingpage). Its origin is the `aud`
   // of the wallet token handed to Web3Auth.
-  LANDINGPAGE_URL: z.string().default("http://localhost:3000"),
+  LANDINGPAGE_URL: z.string(),
   // Cookie domain for cross-subdomain auth (e.g. .amped.bio). Leave empty for localhost.
   COOKIE_DOMAIN: z.string().default(""),
   // Comma-separated list of allowed CORS origins
@@ -72,11 +73,8 @@ const envSchema = z.object({
   // the 30 downloads a day GeoLite accounts allow
   GEOIP_REFRESH_HOURS: z.coerce.number().int().min(1).default(24),
 
-  // New SMTP variables with MailDev defaults
-  // SMTP server host
-  SMTP_HOST: z.string().default("localhost"), // Default for MailDev
-  // SMTP server port
-  SMTP_PORT: portSchema(1025), // Default for MailDev
+  SMTP_HOST: z.string(),
+  SMTP_PORT: z.preprocess(value => Number(value), z.number().int().min(1).max(65535)),
   // Whether to use secure connection (TLS)
   SMTP_SECURE: boolSchema(false),
   // SMTP authentication username
