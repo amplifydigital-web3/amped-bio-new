@@ -3,6 +3,8 @@ import { findEffect, EFFECT_IDS } from "./effects/registry";
 import type { EffectLayer } from "./effects/types";
 
 // Background schema matching the Background interface from collections
+const BACKGROUND_TEXTURES = ["none", "grain", "dots", "scanlines"] as const;
+
 const backgroundSchema = z.object({
   type: z.enum(["color", "image", "video"]),
   value: z.string().nullable(),
@@ -10,6 +12,23 @@ const backgroundSchema = z.object({
   label: z.string().optional(),
   thumbnail: z.string().optional(),
   fileId: z.number().optional(),
+  // Theme Engine v2 Background row (spec 3.5, board 10), additive and optional.
+  // A built gradient keeps `value` as its static CSS, so v1 renderers draw it;
+  // the fields below let the v2 renderer drift it and rebuild it exactly.
+  stops: z
+    .array(
+      z.object({
+        color: z.string().regex(/^#[0-9a-f]{6}$/i, "Use a #RRGGBB color"),
+        at: z.number().min(0).max(100),
+      })
+    )
+    .min(2)
+    .max(4)
+    .optional(),
+  angle: z.number().min(0).max(360).optional(),
+  mesh: z.boolean().optional(),
+  drift: z.boolean().optional(),
+  texture: z.enum(BACKGROUND_TEXTURES).optional(),
 });
 
 // Schema for theme configuration with proper validation
@@ -60,7 +79,7 @@ export const CONTAINER_SHAPES = ["rounded", "pill", "squircle", "cut", "arch", "
 export const BUTTON_SHAPES = ["rounded", "pill", "squircle", "cut", "ticket"] as const;
 export const BORDER_STYLES = ["none", "hairline", "thick", "dashed", "gradient", "glow"] as const;
 export const BUTTON_LAYOUTS = ["label", "icon", "split"] as const;
-export const SCENE_TEXTURES = ["none", "grain", "dots", "scanlines"] as const;
+export const SCENE_TEXTURES = BACKGROUND_TEXTURES;
 /** v1 offers five sizes (14, 16, 18, 20, 24 px), so v2 keeps five. */
 export const FONT_SIZES = ["s", "m", "l", "xl", "xxl"] as const;
 
