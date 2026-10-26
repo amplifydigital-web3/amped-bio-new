@@ -90,7 +90,16 @@ describe("creator look (spec 3.4)", () => {
           background: { type: "color", value: "linear-gradient(to right, #00c6ff, #0072ff)" },
         })
       ).background
-    ).toEqual({ type: "color", value: "linear-gradient(90deg, #00c6ff 0%, #0072ff 100%)" });
+    ).toEqual({
+      type: "color",
+      value: "linear-gradient(90deg, #00c6ff 0%, #0072ff 100%)",
+      // Phase 2: the stops travel with the CSS, so the v2 renderer can drift them
+      stops: [
+        { color: "#00c6ff", at: 0 },
+        { color: "#0072ff", at: 100 },
+      ],
+      angle: 90,
+    });
   });
 
   it("writes the container color and the CSS variables as the public page does", () => {
