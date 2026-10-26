@@ -31,6 +31,9 @@ const LAYER_OF_FIELD = {
   particlesEffect: "scene",
 } as const;
 
+/** En dash and em dash, built from char codes so this file carries neither. */
+const DASHES = new RegExp(`[${String.fromCharCode(0x2013, 0x2014)}]|\\s-\\s`);
+
 const classOf = (entry: EffectEntry): string =>
   entry.render.kind === "class" ? entry.render.className : "";
 
@@ -105,7 +108,7 @@ describe("effect registry rules (spec 3.2)", () => {
     for (const entry of ALL_EFFECTS) {
       for (const text of [entry.label, entry.description]) {
         expect(findBannedTerms(text), text).toEqual([]);
-        expect(text, text).not.toMatch(/[–—]|\s-\s/);
+        expect(text, text).not.toMatch(DASHES);
         expect(text.toLowerCase(), text).not.toMatch(/tsparticles|react-bits|ogl|webgl|gsap/);
       }
     }

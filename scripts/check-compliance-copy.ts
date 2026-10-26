@@ -44,6 +44,9 @@ export function checkTelegramCopy(strings: string[]): Hit[] {
   return hits;
 }
 
+/** En dash and em dash, built from char codes so this file carries neither. */
+const DASHES = new RegExp(`[${String.fromCharCode(0x2013, 0x2014)}]`);
+
 /** Effect names say what the eye sees (decision 10): no banned words, no dashes. */
 export function checkEffectCopy(strings: string[]): Hit[] {
   const hits: Hit[] = [];
@@ -51,7 +54,7 @@ export function checkEffectCopy(strings: string[]): Hit[] {
     for (const hit of findBannedTerms(text)) {
       hits.push({ text, phrase: hit.phrase, rule: `broadcast:${hit.category}` });
     }
-    if (/[–—]/.test(text)) hits.push({ text, phrase: "dash", rule: "effects:dash" });
+    if (DASHES.test(text)) hits.push({ text, phrase: "dash", rule: "effects:dash" });
   }
   return hits;
 }
