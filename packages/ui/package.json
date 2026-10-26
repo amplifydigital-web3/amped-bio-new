@@ -10,6 +10,7 @@
   "scripts": {
     "lint": "eslint .",
     "lint:fix": "eslint . --fix --exit-on-fatal-error",
+    "test": "pnpm --filter @repo/client exec vitest run --root ../../packages/ui",
     "clean": "rm -rf .turbo && rm -rf node_modules"
   },
   "peerDependencies": {
