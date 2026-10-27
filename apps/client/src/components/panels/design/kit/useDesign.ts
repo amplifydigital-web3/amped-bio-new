@@ -150,12 +150,12 @@ export function useDesign() {
     return { ratio, passes: ratio >= 4.5 };
   }, [fontRgb, cardColors, values.buttonStyle, values.buttonColor]);
 
-  // 030 I03: colors a name effect paints, against the card; 3:1 for large text
+  // 030 I03: colors a name effect paints, against the card; 3:1 for large text.
+  // Takes a v1 heroEffect, or the colors a v2 effect paints (Name row, board 08).
   const nameContrast = useCallback(
-    (effect: number): ContrastResult | null => {
-      const colors = (NAME_EFFECT_COLORS[effect] ?? [])
-        .map(c => parseHex(c))
-        .filter((c): c is Rgb => c !== null);
+    (effect: number | readonly string[]): ContrastResult | null => {
+      const painted = typeof effect === "number" ? (NAME_EFFECT_COLORS[effect] ?? []) : effect;
+      const colors = painted.map(c => parseHex(c)).filter((c): c is Rgb => c !== null);
       if (colors.length === 0 || !cardColors) return null;
       const ratio = Math.min(
         ...colors.map(color => worst(cardColors, bg => contrastRatio(color, bg)))

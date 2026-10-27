@@ -9,6 +9,10 @@ import { ContainerRow } from "./rows/ContainerRow";
 import { ButtonsRow } from "./rows/ButtonsRow";
 import { TextRow } from "./rows/TextRow";
 import { ButtonHoverRow, ButtonPressRow, NameEffectRow, ParticlesRow } from "./rows/MotionRows";
+import { NameRow } from "./rows/NameRow";
+
+// Theme Engine v2 (#28, phase 2): the Name row (board 08)
+const themeV2On = import.meta.env.VITE_SHOW_THEME_V2 === "true";
 
 // Screen Review 027. Style holds Background, Container, Buttons and Text;
 // Motion holds Button hover, Particles and Name effect. One row open at a time.
@@ -62,7 +66,7 @@ export function MotionTab() {
         <ButtonHoverRow />
         <ButtonPressRow />
         <ParticlesRow />
-        <NameEffectRow />
+        {themeV2On ? <NameRow /> : <NameEffectRow />}
       </DisclosureGroup>
     </>
   );
