@@ -264,4 +264,4 @@ export const anyThemeConfigSchema = z
     return result.data;
   });
 
-export type AnyThemeConfig = ThemeConfigV2 | ThemeConfig;
+export type AnyThemeConfig = ThemeConfig | ThemeConfigV2;
