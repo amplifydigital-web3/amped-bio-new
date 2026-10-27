@@ -7,23 +7,25 @@ import { OptionGrid, OptionTile } from "../kit/OptionTile";
 import { ButtonSpecimen, CreatorBackdrop } from "../kit/CreatorArt";
 import { ContrastNotice } from "../kit/Notices";
 import { cardFill, formatRatio, useDesign, useSpecimenLabel } from "../kit/useDesign";
+import { getEffect } from "@repo/constants";
+import {
+  PRESS_IDS,
+  currentPress,
+  hoverIndex,
+  hoverPatch,
+  hoverTiles,
+  pressPatch,
+  type HoverTile,
+  type PressId,
+} from "../kit/motionLook";
 
 // Screen Review 028, 029 and 030. The Motion rows.
 
 const REDUCED_MOTION_LINE = "Your visitors with reduced motion see a still version.";
 
-const BUTTON_EFFECTS = [
-  { id: 0, name: "None" },
-  { id: 1, name: "Scale" },
-  { id: 2, name: "Glow" },
-  { id: 3, name: "Slide" },
-  { id: 4, name: "Bounce" },
-  { id: 5, name: "Pulse" },
-  { id: 6, name: "Shake" },
-  { id: 7, name: "Rotate" },
-  { id: 8, name: "Pop" },
-  { id: 9, name: "Shine" },
-];
+// Theme Engine v2 (#28, phase 2): five core hovers and the Button press row (board 09)
+const themeV2On = import.meta.env.VITE_SHOW_THEME_V2 === "true";
+const BUTTON_EFFECTS = hoverTiles(themeV2On);
 
 // The hover effect as a playing state, for specimens (028 I02). Matches the
 // renderer's hover classes in utils/styles.ts.
@@ -37,6 +39,26 @@ const PLAYING: Record<number, string> = {
   7: "motion-safe:rotate-3 transition-transform",
   8: "motion-safe:scale-110 transition-transform",
   9: "brightness-110",
+};
+
+// The phase 2 hovers as a playing state, by id
+const PLAYING_V2: Record<string, string> = {
+  "buttonHover.fill-sweep":
+    "relative isolate overflow-hidden before:absolute before:inset-0 before:-z-10 before:bg-[color-mix(in_srgb,currentColor_14%,transparent)]",
+  "buttonHover.underline-grow":
+    "relative before:absolute before:inset-x-3 before:bottom-[5px] before:h-[2px] before:bg-current",
+  "buttonHover.border-draw":
+    "ring-2 ring-inset ring-[color:color-mix(in_srgb,currentColor_60%,transparent)]",
+  "buttonHover.icon-slide": "motion-safe:translate-x-1 transition-transform",
+  "buttonHover.arrow-nudge": "motion-safe:translate-x-1 transition-transform",
+};
+
+// Press tiles as a playing state
+const PRESS_PLAYING: Record<PressId, string> = {
+  "buttonPress.none": "",
+  "buttonPress.ripple":
+    "relative overflow-hidden after:absolute after:left-1/2 after:top-1/2 after:h-[55px] after:w-[55px] after:-translate-x-1/2 after:-translate-y-1/2 after:rounded-full after:bg-current after:opacity-25",
+  "buttonPress.dip": "motion-safe:scale-[0.97] transition-transform",
 };
 
 const PARTICLE_EFFECTS = [
@@ -81,7 +103,7 @@ function ButtonHoverTile({
   selected,
   focusable,
 }: {
-  effect: (typeof BUTTON_EFFECTS)[number];
+  effect: HoverTile;
   selected: boolean;
   focusable: boolean;
 }) {
@@ -96,11 +118,11 @@ function ButtonHoverTile({
       focusable={focusable}
       disabled={locked}
       onSelect={() => {
-        update({ buttonEffect: effect.id });
+        update(hoverPatch(effect));
         playFor(1200);
       }}
       onPreview={() => {
-        preview({ buttonEffect: effect.id });
+        preview(hoverPatch(effect));
         setPlaying(true);
       }}
       onPreviewEnd={() => {
@@ -114,7 +136,10 @@ function ButtonHoverTile({
             config={look}
             buttonStyle={values.buttonStyle}
             label={label}
-            className={cn("relative overflow-hidden", playing && PLAYING[effect.id])}
+            className={cn(
+              "relative overflow-hidden",
+              playing && (effect.effectId ? PLAYING_V2[effect.effectId] : PLAYING[effect.id])
+            )}
           />
         </CreatorBackdrop>
       }
@@ -123,19 +148,20 @@ function ButtonHoverTile({
 }
 
 export function ButtonHoverRow() {
-  const { values } = useDesign();
-  const selectedIndex = BUTTON_EFFECTS.findIndex(e => e.id === values.buttonEffect);
+  const { values, config } = useDesign();
+  const storedId = themeV2On ? config.buttonEffectId : undefined;
+  const selectedIndex = hoverIndex(BUTTON_EFFECTS, values.buttonEffect, storedId);
   return (
     <DisclosureRow
       id="button-hover"
       label="Button hover"
-      value={BUTTON_EFFECTS.find(e => e.id === values.buttonEffect)?.name ?? "None"}
+      value={BUTTON_EFFECTS[selectedIndex]?.name ?? "None"}
     >
       <div className="space-y-3">
         <OptionGrid label="Button hover">
           {BUTTON_EFFECTS.map((effect, index) => (
             <ButtonHoverTile
-              key={effect.id}
+              key={effect.effectId ?? effect.id}
               effect={effect}
               selected={index === selectedIndex}
               focusable={selectedIndex === -1 ? index === 0 : index === selectedIndex}
@@ -143,7 +169,88 @@ export function ButtonHoverRow() {
           ))}
         </OptionGrid>
         <p className="text-prism-meta text-prism-ink-2">
-          Plays when a visitor hovers a link on a computer.
+          {themeV2On
+            ? "Hover needs a pointer. Phones feel the press effect below instead."
+            : "Plays when a visitor hovers a link on a computer."}
+        </p>
+        <p className="text-prism-meta text-prism-ink-2">{REDUCED_MOTION_LINE}</p>
+      </div>
+    </DisclosureRow>
+  );
+}
+
+function ButtonPressTile({
+  id,
+  selected,
+  focusable,
+}: {
+  id: PressId;
+  selected: boolean;
+  focusable: boolean;
+}) {
+  const { config, values, locked, update, preview, endPreview } = useDesign();
+  const label = useSpecimenLabel();
+  const { playing, setPlaying, playFor } = usePlay();
+  const look = { ...config, ...values };
+  const entry = getEffect("buttonPress", id);
+  return (
+    <OptionTile
+      label={entry.label}
+      selected={selected}
+      focusable={focusable}
+      disabled={locked}
+      onSelect={() => {
+        update(pressPatch(id));
+        playFor(610);
+      }}
+      onPreview={() => {
+        preview(pressPatch(id));
+        setPlaying(true);
+      }}
+      onPreviewEnd={() => {
+        endPreview();
+        setPlaying(false);
+      }}
+      artClassName="h-[89px]"
+      art={
+        <CreatorBackdrop background={config.background}>
+          <ButtonSpecimen
+            config={look}
+            buttonStyle={values.buttonStyle}
+            label={label}
+            className={cn(playing && PRESS_PLAYING[id])}
+          />
+        </CreatorBackdrop>
+      }
+    />
+  );
+}
+
+/** Theme Engine v2 phase 2: the Button press row (decision 6, board 09). */
+export function ButtonPressRow() {
+  const { config } = useDesign();
+  if (!themeV2On) return null;
+  const current = currentPress(config.buttonPressId);
+  const selectedIndex = PRESS_IDS.indexOf(current);
+  return (
+    <DisclosureRow
+      id="button-press"
+      label="Button press"
+      value={getEffect("buttonPress", current).label}
+    >
+      <div className="space-y-3">
+        <OptionGrid label="Button press">
+          {PRESS_IDS.map((id, index) => (
+            <ButtonPressTile
+              key={id}
+              id={id}
+              selected={index === selectedIndex}
+              focusable={index === selectedIndex}
+            />
+          ))}
+        </OptionGrid>
+        <p className="text-prism-meta text-prism-ink-2">
+          Plays when a visitor taps or clicks a link, on phones too.
         </p>
         <p className="text-prism-meta text-prism-ink-2">{REDUCED_MOTION_LINE}</p>
       </div>
