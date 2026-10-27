@@ -14,6 +14,8 @@ import {
   headerRnsIdentity,
   Skeleton,
   cn,
+  hasLoopingMotion as lookHasLoopingMotion,
+  lookFor,
   THEME_DEFAULTS,
   themeCssVars,
 } from "@repo/ui";
@@ -355,8 +357,10 @@ export function ProfileView({
   const particlesEffect = themeConfig?.particlesEffect ?? THEME_DEFAULTS.particlesEffect;
   const heroEffect = themeConfig?.heroEffect ?? 0;
   // 041 I02: any looping motion gets the Pause motion control
-  const hasLoopingMotion =
-    (particlesEffect !== 0 && particlesEffect !== 6) || LOOPING_HERO_EFFECTS.includes(heroEffect);
+  // Theme Engine v2: a name loop settled to once stops by itself (board 08)
+  const hasLoopingMotion = themeV2
+    ? lookHasLoopingMotion(lookFor(themeConfig))
+    : (particlesEffect !== 0 && particlesEffect !== 6) || LOOPING_HERO_EFFECTS.includes(heroEffect);
   const containerOn = (themeConfig?.containerStyle ?? 0) !== 0;
   const background = themeConfig?.background;
   const renderable = blocks.filter(block => isRenderable(block));
@@ -623,6 +627,7 @@ export function ProfileView({
       frame={frameLayer}
       videoRef={videoRef}
       bottomPadding={`calc(89px + env(safe-area-inset-bottom, 0px) + ${cardShowing ? cardHeight + 13 : 0}px)`}
+      entranceKey={normalizedHandle}
     />
   ) : (
     <div
