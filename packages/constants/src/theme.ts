@@ -78,6 +78,14 @@ export const themeConfigSchema = z.object({
   heroEffectId: z.enum(EFFECT_IDS.name as unknown as [string, ...string[]]).optional(),
   heroEffectLoop: z.enum(NAME_SETTLES).optional(),
   heroAppliesTo: z.enum(NAME_TARGETS).optional(),
+  // Theme Engine v2 Scene row (spec 3.5, board 01), additive and optional. A
+  // scene with no v1 integer is stored by id; the editor keeps particlesEffect
+  // on the nearest v1 overlay. Params are clamped against the entry on read.
+  particlesEffectId: z.enum(EFFECT_IDS.scene as unknown as [string, ...string[]]).optional(),
+  particlesParams: z
+    .record(z.string().max(32), z.union([z.number(), z.string().max(64)]))
+    .refine(params => Object.keys(params).length <= 8, "Too many scene params")
+    .optional(),
 });
 
 // Schema for the theme object in editTheme endpoint
