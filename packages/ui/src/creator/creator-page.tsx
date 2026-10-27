@@ -13,6 +13,7 @@ import {
   nameLoopStyle,
   nameOnBio,
   overlayParticlesId,
+  playingOverlay,
 } from "./look";
 import { NameText } from "./name-effect";
 import { ParticlesLayer } from "./particles-layer";
@@ -184,7 +185,7 @@ export function CreatorPage({
         renderOverlay(particlesEffect, paused)
       ) : (
         <ParticlesLayer
-          entry={particlesEffect === 0 ? null : look.overlay}
+          entry={playingOverlay(look)}
           params={look.overlayParams}
           colors={look.colors}
           paused={paused}

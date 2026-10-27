@@ -173,6 +173,7 @@ export {
   nameLoops,
   nameOnBio,
   overlayParticlesId,
+  playingOverlay,
   v1Values,
   type CreatorLook,
 } from "./creator/look";
