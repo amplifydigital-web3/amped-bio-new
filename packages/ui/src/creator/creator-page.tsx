@@ -10,8 +10,11 @@ import {
   lookCssVars,
   lookFontColor,
   lookFor,
+  nameLoopStyle,
+  nameOnBio,
   overlayParticlesId,
 } from "./look";
+import { NameText } from "./name-effect";
 import { ParticlesLayer } from "./particles-layer";
 import { gradientScene, textureStyle } from "./scene";
 import { containerSurfaceClass } from "./surface";
@@ -103,6 +106,11 @@ export interface CreatorPageProps {
   videoRef?: Ref<HTMLVideoElement>;
   /** Padding under the column, for chrome that overlaps it (039 I16). */
   bottomPadding?: string;
+  /**
+   * The public page passes the handle, so a name entrance plays once per
+   * visit. The editor passes none, so a pick replays it.
+   */
+  entranceKey?: string;
 }
 
 export function CreatorPage({
@@ -119,6 +127,7 @@ export function CreatorPage({
   renderOverlay,
   videoRef,
   bottomPadding = DEFAULT_BOTTOM,
+  entranceKey,
 }: CreatorPageProps) {
   const look = lookFor(theme);
   const sizes = SIZE[size];
@@ -130,6 +139,10 @@ export function CreatorPage({
   // Phase 2 Background row: a built gradient may drift; a texture sits on top
   const gradient = gradientScene(background, paused);
   const texture = textureStyle(background);
+  // Phase 2 Name row: Settle, Applies to and the text entrances
+  const nameStyle = { ...textStyle, ...nameLoopStyle(look, paused) };
+  const bioEffect = nameOnBio(look) ? effectClassName(look.name, paused) : undefined;
+  const bioStyle = bioEffect ? nameStyle : textStyle;
 
   const backgroundLayer = (
     <div
@@ -215,9 +228,15 @@ export function CreatorPage({
               profile.photo && "mt-[21px]",
               effectClassName(look.name, paused)
             )}
-            style={textStyle}
+            style={nameStyle}
           >
-            {profile.name}
+            <NameText
+              entry={look.name}
+              text={profile.name}
+              colors={look.colors}
+              paused={paused}
+              entranceKey={entranceKey}
+            />
             {nameExtras}
           </h1>
           {/* 109 I06, I07: the RNS chip in the creator font and color, never animated */}
@@ -226,12 +245,18 @@ export function CreatorPage({
           {profile.bio &&
             (isHtml(profile.bio) ? (
               <div
-                className="mt-[13px] w-full text-[16px] leading-[26px] [&_a]:underline"
-                style={textStyle}
+                className={cn(
+                  "mt-[13px] w-full text-[16px] leading-[26px] [&_a]:underline",
+                  bioEffect
+                )}
+                style={bioStyle}
                 dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(profile.bio) }}
               />
             ) : (
-              <p className="mt-[13px] w-full text-[16px] leading-[26px]" style={textStyle}>
+              <p
+                className={cn("mt-[13px] w-full text-[16px] leading-[26px]", bioEffect)}
+                style={bioStyle}
+              >
                 {profile.bio}
               </p>
             ))}
