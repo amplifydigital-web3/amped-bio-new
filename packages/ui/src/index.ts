@@ -145,7 +145,10 @@ export { particleLayerOptions } from "./creator/particles-options";
 export { gradientScene, textureStyle, type SceneLook } from "./creator/scene";
 export {
   BORDER_STYLE_CLASSES,
+  BUTTON_BORDER_CLASSES,
+  BUTTON_SHAPE_CLASSES,
   CONTAINER_SHAPE_CLASSES,
+  buttonSurfaceClass,
   containerShapeClass,
   containerSurfaceClass,
 } from "./creator/surface";
