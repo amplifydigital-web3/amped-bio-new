@@ -111,6 +111,12 @@ export const effectKeyframes = {
     "0%, 100%": { backgroundPosition: "0% 0%" },
     "50%": { backgroundPosition: "100% 100%" },
   },
+  // Name row Shiny (Theme Engine v2 phase 2, board 08): the sheen enters on the
+  // left and ends off the right edge, where it rests
+  "@keyframes amped-shiny": {
+    from: { backgroundPosition: "100% 0" },
+    to: { backgroundPosition: "0% 0" },
+  },
   "@keyframes glitch": {
     "0%": { textShadow: GLITCH_A },
     "15%": { textShadow: GLITCH_A },
@@ -136,4 +142,6 @@ export const effectAnimations = {
   // Background row drift: a linear gradient turns once in 21 s, a mesh drifts in 13 s
   "amped-sweep": "amped-sweep 21s linear infinite",
   "amped-mesh-drift": "amped-mesh-drift 13s ease-in-out infinite",
+  // Name row Shiny: one sweep every 2.6 s
+  "amped-shiny": "amped-shiny 2.6s cubic-bezier(0.2, 0, 0, 1) infinite",
 };

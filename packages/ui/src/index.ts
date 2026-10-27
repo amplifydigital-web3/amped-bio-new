@@ -138,6 +138,15 @@ export {
   type CreatorPageSize,
 } from "./creator/creator-page";
 export { CreatorButton, CREATOR_FOCUS, clampedFontSize, playPress } from "./creator/creator-button";
+// Theme Engine v2 phase 2: the name entrances (Name row, board 08)
+export {
+  NameText,
+  entranceShouldPlay,
+  graphemes,
+  letterStagger,
+  scrambleFrame,
+  type NameTextProps,
+} from "./creator/name-effect";
 // Theme Engine v2 phase 1c: the one particle overlay (tsParticles v4 slim)
 export { ParticlesLayer, type ParticlesLayerProps } from "./creator/particles-layer";
 export { particleLayerOptions } from "./creator/particles-options";
@@ -160,6 +169,9 @@ export {
   lookCssVars,
   lookFontColor,
   lookFor,
+  nameLoopStyle,
+  nameLoops,
+  nameOnBio,
   overlayParticlesId,
   v1Values,
   type CreatorLook,
