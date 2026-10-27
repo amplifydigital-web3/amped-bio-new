@@ -1,0 +1,75 @@
+/**
+ * Media gateway Worker (Build Board #20, content system PR 3, spec 3.6).
+ *
+ * Serves every R2 byte a viewer receives, on its own registrable domain
+ * (ampedusercontent.com; ampedusercontent-staging.com on staging), so creator files
+ * never share an origin with the app.
+ * Handoff and setup: docs/fixes/content-media-gateway.md.
+ *
+ * The top level is the local configuration used by `wrangler dev`, the tests and
+ * the build check. Deploys always name an environment:
+ *   pnpm --filter @repo/media-gateway run deploy:staging
+ *   pnpm --filter @repo/media-gateway run deploy:production
+ * Staging and production run on separate Cloudflare accounts (spec 3.17), so set
+ * CLOUDFLARE_ACCOUNT_ID for the account you deploy to.
+ *
+ * Bindings, vars and secrets are not inherited by environments. Each environment
+ * repeats them on purpose.
+ */
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "amped-media-gateway",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-01",
+  "workers_dev": false,
+  "preview_urls": false,
+  "observability": {
+    "enabled": true,
+    // Tokens travel in the query string. Never let them reach logs or traces.
+    "redact_query_string": true,
+  },
+  "vars": {
+    "ALLOWED_ORIGINS": "http://localhost:5173,http://localhost:3000",
+  },
+  "secrets": {
+    "required": ["MEDIA_TOKEN_KEYS"],
+  },
+  "r2_buckets": [{ "binding": "CONTENT", "bucket_name": "amped-content-local" }],
+  "kv_namespaces": [{ "binding": "TAKEDOWN", "id": "takedown-local" }],
+  "durable_objects": {
+    "bindings": [{ "name": "DOWNLOADS", "class_name": "DownloadClaims" }],
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["DownloadClaims"] }],
+  "env": {
+    "staging": {
+      "routes": [{ "pattern": "media.ampedusercontent-staging.com", "custom_domain": true }],
+      "vars": {
+        "ALLOWED_ORIGINS": "https://app.staging.amped.bio,https://staging.amped.bio",
+      },
+      "secrets": {
+        "required": ["MEDIA_TOKEN_KEYS"],
+      },
+      "r2_buckets": [{ "binding": "CONTENT", "bucket_name": "amped-content-staging" }],
+      // Replace with the id printed by: wrangler kv namespace create takedown-staging --env staging
+      "kv_namespaces": [{ "binding": "TAKEDOWN", "id": "REPLACE_WITH_TAKEDOWN_STAGING_KV_ID" }],
+      "durable_objects": {
+        "bindings": [{ "name": "DOWNLOADS", "class_name": "DownloadClaims" }],
+      },
+    },
+    "production": {
+      "routes": [{ "pattern": "media.ampedusercontent.com", "custom_domain": true }],
+      "vars": {
+        "ALLOWED_ORIGINS": "https://app.amped.bio,https://amped.bio",
+      },
+      "secrets": {
+        "required": ["MEDIA_TOKEN_KEYS"],
+      },
+      "r2_buckets": [{ "binding": "CONTENT", "bucket_name": "amped-content" }],
+      // Replace with the id printed by: wrangler kv namespace create takedown --env production
+      "kv_namespaces": [{ "binding": "TAKEDOWN", "id": "REPLACE_WITH_TAKEDOWN_KV_ID" }],
+      "durable_objects": {
+        "bindings": [{ "name": "DOWNLOADS", "class_name": "DownloadClaims" }],
+      },
+    },
+  },
+}

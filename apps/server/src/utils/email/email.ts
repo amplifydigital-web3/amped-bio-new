@@ -1,12 +1,23 @@
-import nodemailer from "nodemailer";
 import { render } from "@react-email/render";
 import verifyEmailTemplate from "./VerifyEmailTemplate";
 import resetPasswordTemplate from "./ResetPasswordTemplate";
 import emailChangeTemplate from "./EmailChangeTemplate";
+import emailChangeNoticeTemplate from "./EmailChangeNoticeTemplate";
 import welcomeEmailTemplate from "./WelcomeEmailTemplate";
 import { env } from "../../env";
+import {
+  checkTransport,
+  deliverEmail,
+  describeTransport,
+  misconfiguredForDeployment,
+} from "./transport";
 
-const siteURL = env.SITE_URL;
+// The /auth/verify-email and /auth/reset-password pages live on the landing
+// page, not the client app (which has no /auth routes and redirects the token
+// away). Email verification QA, 2026-10-10.
+const baseURL = env.LANDINGPAGE_URL;
+// Privacy Notice on the landing page of the current environment
+const privacyUrl = new URL("/privacy", env.LANDINGPAGE_URL).toString();
 
 type EmailOptions = {
   to: string | string[];
@@ -14,104 +25,85 @@ type EmailOptions = {
   subject: string;
 };
 
-// Create a nodemailer transporter
-const _ts = new Date().toISOString();
-console.error(`[${_ts}] [EMAIL] Creating nodemailer transporter with:`);
-console.error(`[${_ts}] [EMAIL]   host=${env.SMTP_HOST} port=${env.SMTP_PORT} secure=${env.SMTP_SECURE}`);
-console.error(`[${_ts}] [EMAIL]   user=${env.SMTP_USER ? "SET" : "EMPTY"} pass=${env.SMTP_PASSWORD ? "SET" : "EMPTY"}`);
-console.error(`[${_ts}] [EMAIL]   from=${env.SMTP_FROM_EMAIL || "noreply@amped.bio"}`);
-console.error(`[${_ts}] [EMAIL]   siteURL=${siteURL}`);
-
-const transporter = nodemailer.createTransport({
-  host: env.SMTP_HOST,
-  port: env.SMTP_PORT,
-  secure: env.SMTP_SECURE,
-  auth: {
-    user: env.SMTP_USER,
-    pass: env.SMTP_PASSWORD,
-  },
-});
-
-// Verify SMTP connection on startup
-transporter.verify().then(() => {
-  console.error(`[${new Date().toISOString()}] [EMAIL] SMTP connection VERIFIED OK`);
-}).catch((err: any) => {
-  console.error(`[${new Date().toISOString()}] [EMAIL] SMTP connection VERIFY FAILED:`, err.message, err.stack);
-});
+/**
+ * Checks the email transport once, without sending. Called at boot so a bad
+ * SMTP2GO key, user, password, port or sender setting shows up in the logs
+ * before the first sign up, and by the email:check script.
+ */
+export const verifySmtpTransport = async (): Promise<boolean> => {
+  const target = describeTransport();
+  const misconfigured = misconfiguredForDeployment();
+  if (misconfigured) {
+    console.error(`❌ Email is not configured for ${env.APP_ENV}: ${misconfigured}`);
+    return false;
+  }
+  const { ok, reason } = await checkTransport();
+  if (ok) console.log(`✅ Email transport ready: ${target}`);
+  else console.error(`❌ Email transport check failed for ${target}: ${reason}`);
+  return ok;
+};
 
 const sendEmail = async (options: EmailOptions) => {
-  const ts = new Date().toISOString();
-  console.error(`[${ts}] [EMAIL.sendEmail] ENTERED to=${options.to} subject=${options.subject}`);
-  console.log(`[${ts}] 📧 Starting email sending process:`, { to: options.to, subject: options.subject });
+  console.log("📧 Starting email sending process:", { to: options.to, subject: options.subject });
 
   // Validate required options
+  console.log("🔍 Validating SMTP credentials...");
+
+  console.log("🔍 Validating email options...");
   if (!options.to) {
-    console.error(`[${ts}] ❌ Email recipient missing`);
+    console.error("❌ Email recipient missing");
     throw new Error("Email recipient is required");
   }
 
   if (!options.subject) {
-    console.error(`[${ts}] ❌ Email subject missing`);
+    console.error("❌ Email subject missing");
     throw new Error("Email subject is required");
   }
 
   if (!options.html_body) {
-    console.error(`[${ts}] ❌ Email body missing`);
+    console.error("❌ Email body missing");
     throw new Error("html_body is required");
   }
-  console.log(`[${ts}] ✅ Email options validated`);
+  console.log("✅ Email options validated");
 
   const recipients = Array.isArray(options.to) ? options.to : [options.to];
-  console.error(`[${ts}] [EMAIL.sendEmail] recipients=${recipients.join(",")}`);
-  console.log(`[${ts}] 👥 Preparing email for ${recipients.length} recipient(s):`, recipients);
+  console.log(`👥 Preparing email for ${recipients.length} recipient(s):`, recipients);
 
-  const mailOptions = {
-    from: env.SMTP_FROM_EMAIL || "noreply@amped.bio",
-    to: recipients.join(","),
-    subject: options.subject,
-    html: options.html_body,
-  };
-
-  console.error(`[${ts}] [EMAIL.sendEmail] Calling transporter.sendMail...`);
-  console.log(`[${ts}] 📤 Attempting to send email via SMTP...`);
+  console.log(`📤 Sending via ${describeTransport()}`);
   try {
-    const info = await transporter.sendMail(mailOptions);
-    console.error(`[${ts}] [EMAIL.sendEmail] SENT OK messageId=${info.messageId} response=${info.response}`);
-    console.log(`[${ts}] ✅ Email sent successfully:`, {
-      messageId: info.messageId,
-      response: info.response,
-      timestamp: ts,
+    const info = await deliverEmail({
+      to: recipients,
+      subject: options.subject,
+      html: options.html_body,
+    });
+    console.log("✅ Email accepted:", {
+      transport: info.transport,
+      id: info.id,
+      detail: info.detail,
+      timestamp: new Date().toISOString(),
     });
     return info;
   } catch (error: any) {
-    console.error(`[${ts}] ❌❌❌ Email sending FAILED:`, {
+    console.error("❌ Email sending failed:", {
       error: error.message,
-      code: error.code,
-      command: error.command,
       stack: error.stack,
-      timestamp: ts,
+      timestamp: new Date().toISOString(),
     });
     throw new Error(`Failed to send email: ${error.message}`);
   }
 };
 
 export const sendEmailVerification = async (email: string, token: string) => {
-  const ts = new Date().toISOString();
-  console.error(`[${ts}] [EMAIL.sendEmailVerification] ENTERED email=${email} token=${token}`);
-  console.log(`[${ts}] 🔗 Generating verification URL for email: ${email}`);
-  const url = `${siteURL}/auth/verify-email/${token}?email=${encodeURIComponent(email)}`;
-  console.error(`[${ts}] [EMAIL.sendEmailVerification] url=${url}`);
-  console.log(`[${ts}] 🔗 Verification URL generated:`, url);
+  console.log(`🔗 Generating verification URL for email: ${email}`);
+  const url = `${baseURL}/auth/verify-email/${token}?email=${encodeURIComponent(email)}`;
+  console.log("🔗 Verification URL generated for", baseURL);
 
-  console.error(`[${ts}] [EMAIL.sendEmailVerification] Rendering verifyEmailTemplate...`);
-  console.log(`[${ts}] 🎨 Rendering email verification template...`);
-  const emailComponent = verifyEmailTemplate({ url });
+  console.log("🎨 Rendering email verification template...");
+  const emailComponent = verifyEmailTemplate({ url, privacyUrl });
   const htmlContent = await render(emailComponent);
-  console.error(`[${ts}] [EMAIL.sendEmailVerification] Template rendered (${htmlContent.length} chars)`);
-  console.log(`[${ts}] ✅ Email template rendered successfully`);
+  console.log("✅ Email template rendered successfully");
 
-  console.error(`[${ts}] [EMAIL.sendEmailVerification] Calling sendEmail...`);
-  console.log(`[${ts}] 📨 Sending verification email...`);
+  console.log("📨 Sending verification email...");
   return sendEmail({
     to: email,
     subject: "Amped.Bio Email Verification",
@@ -120,22 +112,16 @@ export const sendEmailVerification = async (email: string, token: string) => {
 };
 
 export const sendPasswordResetEmail = async (email: string, token: string) => {
-  const ts = new Date().toISOString();
-  console.error(`[${ts}] [EMAIL.sendPasswordResetEmail] ENTERED email=${email} token=${token}`);
-  console.log(`[${ts}] 🔑 Generating password reset URL for email: ${email}`);
-  const url = `${siteURL}/auth/reset-password/${token}`;
-  console.error(`[${ts}] [EMAIL.sendPasswordResetEmail] url=${url}`);
-  console.log(`[${ts}] 🔗 Password reset URL generated:`, url);
+  console.log(`🔑 Generating password reset URL for email: ${email}`);
+  const url = `${baseURL}/auth/reset-password/${token}`;
+  console.log("🔗 Password reset URL generated for", baseURL);
 
-  console.error(`[${ts}] [EMAIL.sendPasswordResetEmail] Rendering resetPasswordTemplate...`);
-  console.log(`[${ts}] 🎨 Rendering password reset template...`);
-  const emailComponent = resetPasswordTemplate({ url });
+  console.log("🎨 Rendering password reset template...");
+  const emailComponent = resetPasswordTemplate({ url, privacyUrl });
   const htmlContent = await render(emailComponent);
-  console.error(`[${ts}] [EMAIL.sendPasswordResetEmail] Template rendered (${htmlContent.length} chars)`);
-  console.log(`[${ts}] ✅ Email template rendered successfully`);
+  console.log("✅ Email template rendered successfully");
 
-  console.error(`[${ts}] [EMAIL.sendPasswordResetEmail] Calling sendEmail...`);
-  console.log(`[${ts}] 📨 Sending password reset email...`);
+  console.log("📨 Sending password reset email...");
   return sendEmail({
     to: email,
     subject: "Amped.Bio Password Reset",
@@ -143,22 +129,20 @@ export const sendPasswordResetEmail = async (email: string, token: string) => {
   });
 };
 
-export const sendEmailChangeVerification = async (
-  email: string,
-  newEmail: string,
-  code: string
-) => {
-  console.log(`🔄 Generating email change verification code for ${email} -> ${newEmail}`);
+// Screen Review 019 I02: the code goes to the new address, which proves the
+// person controls it before it becomes their sign in email
+export const sendEmailChangeVerification = async (newEmail: string, code: string) => {
+  console.log("🔄 Sending email change verification code to the new address");
 
   console.log("🎨 Rendering email change template...");
-  const emailComponent = emailChangeTemplate({ code, newEmail });
+  const emailComponent = emailChangeTemplate({ code, newEmail, privacyUrl });
   const htmlContent = await render(emailComponent);
   console.log("✅ Email template rendered successfully");
 
   console.log("📨 Sending email change verification code...");
   return sendEmail({
-    to: email, // Send to the current/old email address for verification
-    subject: "Amped.Bio Email Change Verification",
+    to: newEmail,
+    subject: "Your Amped.Bio email change code",
     html_body: htmlContent,
   });
 };
@@ -167,7 +151,7 @@ export const sendWelcomeEmail = async (email: string, name?: string) => {
   console.log(`🎉 Sending welcome email to: ${email}`);
 
   console.log("🎨 Rendering welcome email template...");
-  const emailComponent = welcomeEmailTemplate({ name });
+  const emailComponent = welcomeEmailTemplate({ name, privacyUrl });
   const htmlContent = await render(emailComponent);
   console.log("✅ Email template rendered successfully");
 
@@ -175,6 +159,18 @@ export const sendWelcomeEmail = async (email: string, name?: string) => {
   return sendEmail({
     to: email,
     subject: "Welcome to Amped.Bio!",
+    html_body: htmlContent,
+  });
+};
+
+// The current address hears about an email change request (019 I02, I11)
+export const sendEmailChangeNotice = async (currentEmail: string, newEmail: string) => {
+  const privacyLink = new URL("/privacy", env.LANDINGPAGE_URL).toString();
+  const emailComponent = emailChangeNoticeTemplate({ newEmail, privacyUrl: privacyLink });
+  const htmlContent = await render(emailComponent);
+  return sendEmail({
+    to: currentEmail,
+    subject: "Your Amped.Bio email change request",
     html_body: htmlContent,
   });
 };

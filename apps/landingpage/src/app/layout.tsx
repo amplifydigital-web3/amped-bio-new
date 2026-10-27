@@ -1,14 +1,15 @@
 import type { Metadata } from "next";
-import Script from "next/script";
 import { ThemeProvider } from "next-themes";
 import { Toaster } from "@repo/ui";
 import { ParticlesProvider } from "@/components/ParticlesProvider";
 import { AppProviders } from "@/components/providers/AppProviders";
+import Script from "next/script";
+import { AmpedAnalytics } from "@/components/AmpedAnalytics";
+import { CONSENT_DEFAULT_SNIPPET } from "@/lib/ampedAnalytics";
+import { STORAGE_GUARD_SNIPPET } from "@/lib/storageGuard";
 import "@/styles/globals.css";
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://amped.bio";
-const CAPTCHA_SITE_KEY = process.env.NEXT_PUBLIC_CAPTCHA_SITE_KEY;
-const GA_ID = "G-SK6H61G3S1";
+const SITE_URL = process.env.NEXT_PUBLIC_LANDINGPAGE_URL ?? "https://amped.bio";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -36,11 +37,19 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        {/* QA-010: must run before any app chunk; see lib/storageGuard.ts */}
+        <script id="amped-storage-guard" dangerouslySetInnerHTML={{ __html: STORAGE_GUARD_SNIPPET }} />
+      </head>
       <body className="antialiased">
+        {/* Google Consent Mode default: denied until the visitor chooses */}
+        <Script id="amped-consent-default" strategy="beforeInteractive">
+          {CONSENT_DEFAULT_SNIPPET}
+        </Script>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
-          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@400;500;600;700&family=Open+Sans:wght@400;500;600;700&family=Poppins:wght@400;500;600;700&family=Roboto:wght@400;500;700&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@400;500;600;700&family=Open+Sans:wght@400;500;600;700&family=Poppins:wght@400;500;600;700&family=Roboto:wght@400;500;700&family=Figtree:wght@400;500;600;700&family=Bebas+Neue&family=Playfair+Display:wght@400;600;700&family=Lora:wght@400;600;700&family=Space+Grotesk:wght@400;600;700&display=swap"
           rel="stylesheet"
         />
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false} disableTransitionOnChange>
@@ -51,28 +60,7 @@ export default function RootLayout({
             <Toaster />
           </AppProviders>
         </ThemeProvider>
-        {GA_ID && (
-          <>
-            <Script
-              src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`}
-              strategy="afterInteractive"
-            />
-            <Script id="gtag-init" strategy="afterInteractive">
-              {`
-                window.dataLayer = window.dataLayer || [];
-                function gtag(){dataLayer.push(arguments);}
-                gtag('js', new Date());
-                gtag('config', '${GA_ID}');
-              `}
-            </Script>
-          </>
-        )}
-        {CAPTCHA_SITE_KEY && (
-          <Script
-            src={`https://www.google.com/recaptcha/enterprise.js?render=${CAPTCHA_SITE_KEY}`}
-            strategy="afterInteractive"
-          />
-        )}
+        <AmpedAnalytics />
       </body>
     </html>
   );

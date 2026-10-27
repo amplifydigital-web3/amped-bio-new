@@ -1,14 +1,5 @@
-export type TabType = "tokens" | "nfts" | "transactions" | "transfers";
-
-export interface NFT {
-  id: string;
-  name: string;
-  collection: string;
-  image: string;
-  floorPrice: number;
-  tokenId?: string;
-  description?: string;
-}
+// Explorer response shapes used by the Activity tab (Screen Review 057, 058).
+// Screen Review 056 (D07): NFTs is not a Wallet tab until NFT data is live.
 
 export interface Transaction {
   hash: string;
@@ -60,12 +51,6 @@ export interface TransactionsResponse {
   items: Transaction[];
   meta: TransactionsMeta;
   links: TransactionsLinks;
-}
-
-export interface ProfileTabsProps {
-  isEmpty?: boolean;
-  loading?: boolean;
-  onNavigateToExplore?: (tab?: "creators" | "pools" | "nfts") => void;
 }
 
 export interface TransferToken {

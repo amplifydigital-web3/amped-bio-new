@@ -1,11 +1,52 @@
 import { privateProcedure, publicProcedure, router } from "./trpc";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { sendEmailChangeVerification } from "../utils/email/email";
+import { sendEmailChangeNotice, sendEmailChangeVerification } from "../utils/email/email";
 import crypto from "crypto";
-import { prisma } from "../services/DB";
-import { editUserSchema } from "../schemas/user.schema";
+import { prisma, Prisma } from "@repo/database";
+import { editUserSchema, setRnsNameSchema } from "../schemas/user.schema";
 import Decimal from "decimal.js";
+import { htmlToPlainText, sanitizeRichText } from "@repo/constants";
+import { parseRnsInput, RNS_CHAIN } from "@repo/web3";
+import { assertRnsBinding } from "../services/rns";
+import { rnsDisplaySchema } from "../services/rnsIdentity";
+import { newHandleSchema } from "../services/pageHandle";
+import { publishPage, unpublishPage } from "../services/pagePublish";
+import { getFileUrl } from "../utils/fileUrlResolver";
+import { publicCount } from "../services/follow/rules";
+import { batchPoolFanCreatorIds } from "../services/follow/poolFans";
+import { computeRnsIdentity, parseRnsDisplay } from "../services/rnsIdentity";
+import type { Background, ThemeConfig } from "@repo/constants";
+
+/** The fields one Explore person card needs, shared by both sort paths. */
+const userCardSelect = {
+  id: true,
+  name: true,
+  handle: true,
+  image: true,
+  image_file_id: true,
+  description: true,
+  created_at: true,
+  theme: true,
+  revo_name: true,
+  rns_display: true,
+  show_follower_count: true,
+  wallet: {
+    select: {
+      address: true,
+      creatorPools: {
+        where: { poolAddress: { not: null }, OR: [{ hidden: false }, { hidden: null }] },
+        orderBy: { id: "desc" } as const,
+        take: 1,
+        select: { name: true, fans: true, image_file_id: true },
+      },
+    },
+  },
+  blocks: {
+    orderBy: { order: "asc" } as const,
+    select: { type: true, config: true },
+  },
+};
 
 // Schema for initiating email change
 const initiateEmailChangeSchema = z.object({
@@ -30,15 +71,106 @@ const generateSixDigitCode = (): string => {
   return crypto.randomInt(100000, 1000000).toString().padStart(6, "0");
 };
 
-type Creator = {
+/**
+ * Explore, Users: one person card (Screen Review 042, Explore person cards
+ * build). Everything here is public page data or a count the creator already
+ * shows on their page. Never an email, wallet, campaign or stake amount.
+ */
+type Person = {
   id: string;
   username: string;
   displayName: string;
   avatar: string | null;
-  banner: string | null;
   bio: string;
-  category: string;
+  /** The month the account was created, "YYYY-MM". The day never leaves the server. */
+  joinedAt: string;
+  /** The creator's page background, for the card cover. null falls back to the room. */
+  cover: { kind: "color"; css: string } | { kind: "image"; url: string } | null;
+  /** RNS chip as the public page shows it (109 I01). name is absent when the owner hides it. */
+  rns: { chip: "verified" | "name"; name?: string } | null;
+  /** Public follower count under the capsule rules: null under 10 or when hidden. */
+  followerCount: number | null;
+  showCount: boolean;
+  newOnAmped: boolean;
+  /** Visible link and media blocks */
+  linkCount: number;
+  mediaCount: number;
+  /** Platform ids from link and media blocks, deduplicated, page order. Known platforms only. */
+  platforms: string[];
+  /** The creator's visible pool, if one exists on chain */
+  pool: { name: string; fans: number; image: string | null } | null;
+  /** The signed in viewer's relationship. null when signed out. */
+  viewer: {
+    isOwner: boolean;
+    following: boolean;
+    poolFan: boolean;
+    /** False until the first-follow sheet has been accepted once (decision 3) */
+    disclosureSeen: boolean;
+  } | null;
 };
+
+/** Follows that count toward the public number: verified email, not suspended (follow.ts) */
+const COUNTED_FOLLOWER = { email_verified: true, block: "no" } as const;
+
+/** Platforms that never show as a mark on the card */
+const UNMARKED_PLATFORMS = new Set([
+  "custom",
+  "email",
+  "document",
+  "token-price",
+  "nft-collection",
+  "creator-pool",
+]);
+
+/** The RNS reads are cached per name, but a cold page must not wait on the chain. */
+const RNS_READ_TIMEOUT_MS = 1500;
+
+function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {
+  return new Promise(resolve => {
+    const timer = setTimeout(() => resolve(fallback), ms);
+    promise.then(
+      value => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      () => {
+        clearTimeout(timer);
+        resolve(fallback);
+      }
+    );
+  });
+}
+
+/** Block config as an object, whether the row stored an object or a JSON string. */
+function visibleBlockConfig(config: unknown): { hidden?: boolean } | null {
+  if (typeof config === "string") {
+    try {
+      return JSON.parse(config) as { hidden?: boolean };
+    } catch {
+      return null;
+    }
+  }
+  return (config as { hidden?: boolean } | null) ?? null;
+}
+
+/** The card cover from a theme background. Video backgrounds use their thumbnail. */
+async function coverFrom(background: Background | undefined): Promise<Person["cover"]> {
+  if (!background) return null;
+  if (background.type === "color") {
+    return background.value ? { kind: "color", css: background.value } : null;
+  }
+  if (background.thumbnail) return { kind: "image", url: background.thumbnail };
+  if (background.fileId) {
+    const url = await getFileUrl({ legacyImageField: null, imageFileId: background.fileId }).catch(
+      () => null
+    );
+    return url ? { kind: "image", url } : null;
+  }
+  if (background.type === "image" && background.value) {
+    return { kind: "image", url: background.value };
+  }
+  return null;
+}
 
 export const userRouter = router({
   // Edit user profile
@@ -48,9 +180,9 @@ export const userRouter = router({
     console.info("📝 Starting user edit process");
     console.info(`👤 User ID: ${userId}`);
 
-    const { name, description, theme, image, reward_business_id, revo_name } = input;
+    const { name, description, theme, image, reward_business_id } = input;
     console.info(
-      `📋 Edit data: ${JSON.stringify({ name, description, theme, image, reward_business_id, revo_name })}`
+      `📋 Edit data: ${JSON.stringify({ name, description, theme, image, reward_business_id })}`
     );
 
     try {
@@ -59,8 +191,8 @@ export const userRouter = router({
         where: { id: userId },
         data: {
           name,
-          description,
-          revo_name,
+          // Bio HTML is stored only after the shared allowlist sanitizer runs
+          description: sanitizeRichText(description),
           theme: `${theme}`,
           image,
           reward_business_id,
@@ -82,6 +214,43 @@ export const userRouter = router({
       });
     }
   }),
+
+  // Screen Review 108 I01: the RNS name has its own write. A name is stored
+  // only while it is bound to the account wallet (UserWallet): the
+  // registration has not expired (no grace), the BaseRegistrar owner and the
+  // resolver addr are the wallet. Any failed read refuses the write. Only the
+  // label is stored. null clears it.
+  setRnsName: privateProcedure.input(setRnsNameSchema).mutation(async ({ ctx, input }) => {
+    const userId = ctx.user!.sub;
+    if (input.label === null) {
+      await prisma.user.update({ where: { id: userId }, data: { revo_name: null } });
+      return { label: null };
+    }
+    const account = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { wallet: { select: { address: true } } },
+    });
+    await assertRnsBinding(input.label, account?.wallet?.address ?? null);
+    const label = parseRnsInput(input.label, RNS_CHAIN.id);
+    await prisma.user.update({ where: { id: userId }, data: { revo_name: label } });
+    return { label };
+  }),
+
+  // Screen Review 108 I04: what the public page shows. getHandle applies it on
+  // the server, so a hidden field never reaches a visitor.
+  setRnsDisplay: privateProcedure.input(rnsDisplaySchema).mutation(async ({ ctx, input }) => {
+    await prisma.user.update({ where: { id: ctx.user!.sub }, data: { rns_display: input } });
+    return input;
+  }),
+
+  // QA-008: the owner publishes their page, optionally with a new URL checked
+  // like Account, Public URL. Publishing a live page again is a no-op.
+  publishPage: privateProcedure
+    .input(z.object({ handle: newHandleSchema.optional() }).optional())
+    .mutation(({ ctx, input }) => publishPage(ctx.user!.sub, input?.handle)),
+
+  // QA-008: the page reads as not found again. Followers stay.
+  unpublishPage: privateProcedure.mutation(({ ctx }) => unpublishPage(ctx.user!.sub)),
 
   // Initiate email change by requesting a verification code
   initiateEmailChange: privateProcedure
@@ -167,22 +336,25 @@ export const userRouter = router({
           },
         });
 
-        // Create a new confirmation code
+        // Create a new confirmation code, bound to the address it is sent to
         await prisma.confirmationCode.create({
           data: {
             code,
             type: "EMAIL_CHANGE",
             userId,
+            target: input.newEmail,
             expiresAt,
           },
         });
 
-        // Send verification email with the code to the user's current email
-        await sendEmailChangeVerification(user.email, input.newEmail, code);
+        // Screen Review 019 I02: the code goes to the new address, which proves
+        // the person controls it. The current address gets a notice.
+        await sendEmailChangeVerification(input.newEmail, code);
+        await sendEmailChangeNotice(user.email, input.newEmail);
 
         return {
           success: true,
-          message: "Verification code sent to your email",
+          message: "Verification code sent to your new email",
           expiresAt,
         };
       } catch (error: any) {
@@ -237,6 +409,8 @@ export const userRouter = router({
             userId,
             code: input.code,
             type: "EMAIL_CHANGE",
+            // Only the address the code was sent to can be confirmed (019 I02)
+            target: input.newEmail,
             used: false,
             expiresAt: {
               gt: new Date(),
@@ -297,7 +471,7 @@ export const userRouter = router({
       }
     }),
 
-  // Resend email verification code without deleting existing ones
+  // Resend the email change code to the address of the pending request
   resendEmailVerification: privateProcedure
     .input(resendEmailVerificationSchema)
     .mutation(async ({ ctx, input }) => {
@@ -365,6 +539,25 @@ export const userRouter = router({
           });
         }
 
+        // Resend only to the address of a pending request. initiateEmailChange
+        // is the path that notifies the current address, so a resend must not
+        // start a change to a new address (019 I02)
+        const pendingCode = await prisma.confirmationCode.findFirst({
+          where: {
+            userId,
+            type: "EMAIL_CHANGE",
+            target: input.newEmail,
+            used: false,
+          },
+        });
+
+        if (!pendingCode) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "No pending email change for this address. Start the change again.",
+          });
+        }
+
         // Generate a 6-digit code
         const code = generateSixDigitCode();
 
@@ -372,22 +565,31 @@ export const userRouter = router({
         const expiresAt = new Date();
         expiresAt.setMinutes(expiresAt.getMinutes() + 5);
 
-        // Create a new confirmation code without deleting existing ones
+        // The new code replaces the earlier ones, so only one code is valid
+        await prisma.confirmationCode.deleteMany({
+          where: {
+            userId,
+            type: "EMAIL_CHANGE",
+            used: false,
+          },
+        });
+
         await prisma.confirmationCode.create({
           data: {
             code,
             type: "EMAIL_CHANGE",
             userId,
+            target: input.newEmail,
             expiresAt,
           },
         });
 
-        // Send verification email with the code to the user's current email
-        await sendEmailChangeVerification(user.email, input.newEmail, code);
+        // The code goes to the new address (019 I02)
+        await sendEmailChangeVerification(input.newEmail, code);
 
         return {
           success: true,
-          message: "New verification code sent to your email",
+          message: "New verification code sent to your new email",
           expiresAt,
         };
       } catch (error: any) {
@@ -406,29 +608,28 @@ export const userRouter = router({
     .input(
       z.object({
         search: z.string().optional(),
-        filter: z
-          .enum(["all", "active-7-days", "has-creator-pool"])
-          .optional()
-          .default("all"),
+        filter: z.enum(["all", "active-7-days", "has-creator-pool"]).optional().default("all"),
         sort: z
-          .enum(["newest", "name-asc", "name-desc"])
+          .enum(["newest", "name-asc", "name-desc", "most-followers"])
           .optional()
           .default("newest"),
         page: z.number().optional().default(1),
         limit: z.number().optional().default(20), // Default to 20 users per page, max 20
       })
     )
-    .query(async ({ input }): Promise<{ users: Creator[]; total: number }> => {
+    .query(async ({ ctx, input }): Promise<{ users: Person[]; total: number }> => {
       // Ensure limit doesn't exceed 20
       const safeLimit = Math.min(input.limit || 20, 20);
       const safePage = Math.max(input.page || 1, 1);
 
-      // Build the base where clause based on search
-      const whereClause: any = {};
-      if (input.search) {
-        whereClause.name = {
-          contains: input.search,
-        };
+      // Build the base where clause based on search. Only published, not
+      // suspended pages are listed (Fan Graph #22: fan accounts have no page).
+      const whereClause: any = { page_status: "PUBLISHED", block: "no" };
+      // Screen Review 042 I10: match the display name or the @handle. A leading
+      // @ is ignored; the MySQL collation makes contains case insensitive.
+      const term = input.search?.trim().replace(/^@+/, "");
+      if (term) {
+        whereClause.OR = [{ name: { contains: term } }, { handle: { contains: term } }];
       }
 
       // Apply has-creator-pool filter
@@ -441,16 +642,22 @@ export const userRouter = router({
       }
 
       // Apply sorting at the database level
-      let orderBy: any = {};
+      const orderBy: any = {};
       switch (input.sort) {
         case "name-asc":
-          orderBy = { name: "asc" };
+          orderBy.name = "asc";
           break;
         case "name-desc":
-          orderBy = { name: "desc" };
+          orderBy.name = "desc";
           break;
         case "newest":
-          orderBy = { created_at: "desc" };
+          orderBy.created_at = "desc";
+          break;
+        case "most-followers":
+          // Ordered by the counted rule the card displays, not by raw follows.
+          // Prisma cannot express a filtered relation count orderBy, so the page
+          // of ids comes from SQL below and the rows load through findMany.
+          orderBy.created_at = "desc";
           break;
         default:
           break;
@@ -460,33 +667,192 @@ export const userRouter = router({
       const total = await prisma.user.count({ where: whereClause });
 
       // Get paginated users with sorting applied at DB level
-      const paginatedUsers = await prisma.user.findMany({
-        where: whereClause,
-        select: {
-          id: true,
-          name: true,
-          handle: true,
-          image: true,
-          description: true,
-          created_at: true,
-        },
-        orderBy,
-        skip: (safePage - 1) * safeLimit,
-        take: safeLimit,
-      });
+      let paginatedUsers: Prisma.UserGetPayload<{ select: typeof userCardSelect }>[];
 
-      return {
-        users: paginatedUsers.map(user => ({
+      if (input.sort === "most-followers") {
+        // 086 D3: a sort, never a rank. The subquery counts follows the same way
+        // the card displays them (verified email, not suspended), so the order
+        // never contradicts the numbers on the cards.
+        const termLike = term ? `%${term}%` : null;
+        const poolFilter =
+          input.filter === "has-creator-pool"
+            ? Prisma.sql`AND EXISTS (
+                SELECT 1 FROM user_wallets uw
+                JOIN creator_pools cp ON cp.walletId = uw.id
+                WHERE uw.userId = u.id
+              )`
+            : Prisma.empty;
+        const searchFilter = termLike
+          ? Prisma.sql`AND (u.name LIKE ${termLike} OR u.handle LIKE ${termLike})`
+          : Prisma.empty;
+        const ordered = await prisma.$queryRaw<Array<{ id: number }>>(Prisma.sql`
+          SELECT u.id FROM users u
+          WHERE u.page_status = 'PUBLISHED'
+            AND u.block = 'no'
+            ${searchFilter}
+            ${poolFilter}
+          ORDER BY (
+            SELECT COUNT(*) FROM follows f
+            JOIN users fu ON fu.id = f.follower_id
+            WHERE f.creator_id = u.id
+              AND fu.email_verified = 1
+              AND fu.block = 'no'
+          ) DESC, u.created_at DESC
+          LIMIT ${safeLimit} OFFSET ${(safePage - 1) * safeLimit}
+        `);
+        const idOrder = ordered.map(row => row.id);
+        const rows = idOrder.length
+          ? await prisma.user.findMany({
+              where: { ...whereClause, id: { in: idOrder } },
+              select: userCardSelect,
+            })
+          : [];
+        const byId = new Map(rows.map(row => [row.id, row]));
+        paginatedUsers = idOrder.map(id => byId.get(id)).filter(Boolean) as typeof paginatedUsers;
+      } else {
+        paginatedUsers = await prisma.user.findMany({
+          where: whereClause,
+          select: userCardSelect,
+          orderBy: Object.keys(orderBy).length ? [orderBy] : undefined,
+          skip: (safePage - 1) * safeLimit,
+          take: safeLimit,
+        });
+      }
+
+      const ids = paginatedUsers.map(user => user.id);
+
+      // One read per table for the whole page: themes, follower counts, the viewer's follows and stakes
+      const themeIds = [
+        ...new Set(
+          paginatedUsers
+            .map(user => Number(user.theme))
+            .filter(id => Number.isInteger(id) && id > 0)
+        ),
+      ];
+      const viewerId = ctx.user?.sub ?? null;
+      const [themes, followerGroups, viewerFollows, viewerPoolFans, viewer] = await Promise.all([
+        themeIds.length
+          ? prisma.theme.findMany({
+              where: { id: { in: themeIds } },
+              select: { id: true, config: true },
+            })
+          : [],
+        ids.length
+          ? prisma.follow.groupBy({
+              by: ["creator_id"],
+              where: { creator_id: { in: ids }, follower: COUNTED_FOLLOWER },
+              _count: { _all: true },
+            })
+          : [],
+        viewerId && ids.length
+          ? prisma.follow.findMany({
+              where: { follower_id: viewerId, creator_id: { in: ids } },
+              select: { creator_id: true },
+            })
+          : [],
+        viewerId ? batchPoolFanCreatorIds(ids, viewerId) : new Set<number>(),
+        viewerId
+          ? prisma.user.findUnique({
+              where: { id: viewerId },
+              select: { follow_disclosure_seen_at: true },
+            })
+          : null,
+      ]);
+      const themeById = new Map<number, ThemeConfig | null>();
+      for (const theme of themes) themeById.set(theme.id, theme.config as ThemeConfig | null);
+      const followerCountById = new Map<number, number>();
+      for (const group of followerGroups)
+        followerCountById.set(group.creator_id, group._count._all);
+      const followingIds = new Set(viewerFollows.map(row => row.creator_id));
+
+      // Bounded concurrency: a cold page must not fire 20 parallel chain reads at
+      // once (RNS verification and signed file URLs), so users are built 4 at a
+      // time while the batch reads above stay one query per table.
+      const buildPerson = async (user: (typeof paginatedUsers)[number]): Promise<Person> => {
+        const visibleBlocks = user.blocks.filter(block => {
+          // Some legacy rows hold a JSON string; unparseable configs show as visible
+          const config = visibleBlockConfig(block.config);
+          return !config?.hidden;
+        });
+        const platforms: string[] = [];
+        for (const block of visibleBlocks) {
+          if (block.type !== "link" && block.type !== "media") continue;
+          const platform = (block.config as { platform?: string } | null)?.platform;
+          if (!platform || UNMARKED_PLATFORMS.has(platform) || platforms.includes(platform))
+            continue;
+          platforms.push(platform);
+        }
+        const pool = user.wallet?.creatorPools[0] ?? null;
+        const theme = themeById.get(Number(user.theme)) ?? null;
+
+        const [avatar, cover, poolImage, identity] = await Promise.all([
+          getFileUrl({ legacyImageField: user.image, imageFileId: user.image_file_id }).catch(
+            () => null
+          ),
+          coverFrom(theme?.background),
+          pool?.image_file_id
+            ? getFileUrl({ legacyImageField: null, imageFileId: pool.image_file_id }).catch(
+                () => null
+              )
+            : Promise.resolve(null),
+          // 109 I01: the same rule as the public page, so the card never
+          // shows a name the page hides. Any doubt or delay shows no chip.
+          user.revo_name
+            ? withTimeout(
+                computeRnsIdentity({
+                  storedName: user.revo_name,
+                  wallet: user.wallet?.address ?? null,
+                  display: parseRnsDisplay(user.rns_display),
+                }).then(result => result.identity),
+                RNS_READ_TIMEOUT_MS,
+                null
+              )
+            : Promise.resolve(null),
+        ]);
+
+        const counted = followerCountById.get(user.id) ?? 0;
+        const count = publicCount(counted, user.show_follower_count);
+
+        return {
           id: user.id.toString(),
           displayName: user.name,
           username: user.handle || "",
-          avatar: user.image,
-          bio: user.description || "",
-          banner: null, // Placeholder
-          category: "uncategorized",
-        })),
-        total,
+          avatar,
+          // Explore cards show the bio as plain text; no creator HTML renders there
+          bio: htmlToPlainText(user.description),
+          // Month only, matching what the card shows (the day is not part of the payload)
+          joinedAt: user.created_at.toISOString().slice(0, 7),
+          cover,
+          // Explore shows a linked name or Verified only (no block identity, 112 D9)
+          rns:
+            identity?.linked && identity.chip !== "none"
+              ? { chip: identity.chip, name: identity.name }
+              : null,
+          followerCount: count.followerCount,
+          showCount: count.showCount,
+          newOnAmped: count.newOnAmped,
+          linkCount: visibleBlocks.filter(block => block.type === "link").length,
+          mediaCount: visibleBlocks.filter(block => block.type === "media").length,
+          platforms,
+          pool: pool
+            ? { name: pool.name || "Creator pool", fans: pool.fans, image: poolImage }
+            : null,
+          viewer: viewerId
+            ? {
+                isOwner: viewerId === user.id,
+                following: followingIds.has(user.id),
+                poolFan: viewerPoolFans.has(user.id),
+                disclosureSeen: !!viewer?.follow_disclosure_seen_at,
+              }
+            : null,
+        };
       };
-    }),
 
+      const users: Person[] = [];
+      for (let i = 0; i < paginatedUsers.length; i += 4) {
+        users.push(...(await Promise.all(paginatedUsers.slice(i, i + 4).map(buildPerson))));
+      }
+
+      return { users, total };
+    }),
 });

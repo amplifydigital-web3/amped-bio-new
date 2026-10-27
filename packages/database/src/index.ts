@@ -1,0 +1,144 @@
+import { randomBytes } from "crypto";
+import { Prisma, PrismaClient } from "./generated/index.js";
+
+const prisma = withUuidV7Id(new PrismaClient());
+
+export { prisma, PrismaClient };
+export * from "./generated/index.js";
+
+// NOTE: consumers load this file as raw TypeScript (Node type stripping), so it
+// must not import sibling .ts modules via a ".js" specifier — keep helpers here.
+
+// Int columns per model, e.g. { Account: Set { "id", "userId" } }.
+const intFieldsByModel = new Map<string, Set<string>>(
+  Prisma.dmmf.datamodel.models.map(model => [
+    model.name,
+    new Set(model.fields.filter(field => field.type === "Int").map(field => field.name)),
+  ])
+);
+
+const NUMERIC_STRING = /^-?\d+$/;
+
+const toInt = (value: unknown): unknown => {
+  if (typeof value === "string" && NUMERIC_STRING.test(value)) return Number(value);
+  if (Array.isArray(value)) return value.map(toInt);
+  return value;
+};
+
+// Coerces a value assigned to an Int field: either a scalar/array or a filter
+// object such as { equals, in, notIn, not, lt, gte, ... }.
+const coerceIntValue = (value: unknown): unknown => {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) return toInt(value);
+  return Object.fromEntries(
+    Object.entries(value).map(([key, inner]) => [key, coerceIntValue(inner)])
+  );
+};
+
+const coerceObject = (value: unknown, intFields: Set<string>): unknown => {
+  if (Array.isArray(value)) return value.map(item => coerceObject(item, intFields));
+  if (
+    value === null ||
+    typeof value !== "object" ||
+    value instanceof Date ||
+    value instanceof Uint8Array
+  ) {
+    return value;
+  }
+  return Object.fromEntries(
+    Object.entries(value).map(([key, inner]) => {
+      if (intFields.has(key)) return [key, coerceIntValue(inner)];
+      if (key === "AND" || key === "OR" || key === "NOT")
+        return [key, coerceObject(inner, intFields)];
+      return [key, inner];
+    })
+  );
+};
+
+// Replaces Bytes values (Uint8Array) in a query result with base64 strings.
+const bytesToBase64 = (value: unknown): unknown => {
+  if (value instanceof Uint8Array) return Buffer.from(value).toString("base64");
+  if (Array.isArray(value)) return value.map(bytesToBase64);
+  if (value === null || typeof value !== "object" || Object.getPrototypeOf(value) !== Object.prototype)
+    return value;
+  return Object.fromEntries(Object.entries(value).map(([key, inner]) => [key, bytesToBase64(inner)]));
+};
+
+/**
+ * Better Auth serializes every id and id reference as a string unless
+ * `generateId` is "serial". Because we use a custom `generateId` (UUID v7 for
+ * OAuth tables), lookups such as `account.findMany({ where: { userId: "1" } })`
+ * reach Prisma with strings for Int columns. This extension converts numeric
+ * strings back to numbers for Int fields in `where` and `data` arguments.
+ *
+ * The same `String(id)` turns a Binary(16) id into "1,161,99,...", which Prisma
+ * cannot read back. Results therefore return Bytes values as base64, a string
+ * that survives `String()` and that Prisma accepts as Bytes input.
+ */
+export function withNumericIdCoercion(client: PrismaClient) {
+  return client.$extends({
+    name: "numeric-id-coercion",
+    query: {
+      $allModels: {
+        async $allOperations({ model, args, query }: { model: string; args: unknown; query: (args: unknown) => unknown }) {
+          const intFields = intFieldsByModel.get(model);
+          if (!intFields || intFields.size === 0 || !args || typeof args !== "object")
+            return bytesToBase64(await query(args));
+
+          const nextArgs: Record<string, unknown> = { ...(args as Record<string, unknown>) };
+          for (const key of ["where", "data", "create", "update"]) {
+            if (key in nextArgs) nextArgs[key] = coerceObject(nextArgs[key], intFields);
+          }
+          return bytesToBase64(await query(nextArgs as typeof args));
+        },
+      },
+    },
+  });
+}
+
+// ── UUID v7 for new entities ──────────────────────────────────────────────
+
+/**
+ * Generate a UUID v7 (time-ordered) as a 16-byte Uint8Array.
+ */
+function uuidv7(): Uint8Array {
+  const time = Date.now();
+  const buf = randomBytes(16);
+  const hi = Math.floor(time / 0x10000);
+  const lo = time & 0xffff;
+  buf[0] = (hi >>> 24) & 0xff;
+  buf[1] = (hi >>> 16) & 0xff;
+  buf[2] = (hi >>> 8) & 0xff;
+  buf[3] = hi & 0xff;
+  buf[4] = (lo >>> 8) & 0xff;
+  buf[5] = lo & 0xff;
+  buf[6] = 0x70 | ((buf[6] as number) & 0x0f);
+  buf[8] = 0x80 | ((buf[8] as number) & 0x3f);
+  return buf;
+}
+
+const uuidV7Models = new Set<string>(["FeatureInterest"]);
+
+export function withUuidV7Id(client: PrismaClient) {
+  return client.$extends({
+    name: "uuid-v7-id",
+    query: {
+      $allModels: {
+        async $allOperations({ model, args, query }: { model: string; args: unknown; query: (args: unknown) => unknown }) {
+          if (!uuidV7Models.has(model)) return query(args);
+          const next = { ...(args as Record<string, unknown>) } as Record<string, unknown>;
+          for (const key of ["data", "create"] as const) {
+            const val = next[key as string];
+            if (val && typeof val === "object" && !Array.isArray(val) && !("id" in val)) {
+              (val as Record<string, unknown>)["id"] = uuidv7();
+            }
+          }
+          const upsert = next["upsert"] as Record<string, unknown> | undefined;
+          if (upsert && typeof upsert["create"] === "object" && upsert["create"] !== null && !("id" in (upsert["create"] as Record<string, unknown>))) {
+            (upsert["create"] as Record<string, unknown>)["id"] = uuidv7();
+          }
+          return query(next as typeof args);
+        },
+      },
+    },
+  });
+}

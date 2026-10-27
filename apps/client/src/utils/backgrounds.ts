@@ -274,7 +274,7 @@ export const videos = [
     id: "christmas_ornaments",
     type: "video",
     value: `${awsS3}/Christmas_Ornaments.mp4`,
-    label: "Cristmas Ornaments",
+    label: "Christmas Ornaments",
     thumbnail: `${thumbnailsPath}/Christmas_Ornaments_thumbnail.jpg`,
   },
   {

@@ -19,6 +19,7 @@ export interface NameDetails {
 export interface RevoName {
   name: string;
   labelName: string;
+  /** Grace end from the subgraph. Use rnsExpiryFromGraceEnd for the registration expiry. */
   expiryDateWithGrace: string;
 }
 

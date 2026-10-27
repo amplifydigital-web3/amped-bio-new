@@ -1,87 +1,107 @@
-import React, { useState } from "react";
-import { Coins, Image, Clock, ArrowLeftRight } from "lucide-react";
-import NFTModal from "../NFTModal";
-import { TabType, ProfileTabsProps, NFT } from "./types";
+import { useEffect } from "react";
+import { useSearchParams } from "react-router";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@repo/ui";
+import { useDestinationTab } from "@/hooks/useDestinationTab";
+import { RNS_FLAGS } from "@/config/rns/flags";
+import { RnsTab } from "../rns/RnsTab";
+import { clearRnsParams } from "../rns/useRnsRoute";
 import TokensTab from "./components/TokensTab";
-import NFTsTab from "./components/NFTsTab";
-import TransactionsTab from "./components/TransactionsTab";
-import TransfersTab from "./components/TransfersTab";
-import TabSkeletons, { EmptyState } from "./TabSkeletons";
+import { ActivityTab } from "../activity/ActivityTab";
 
-const tabs = [
-  { id: "tokens" as TabType, label: "Tokens", icon: Coins },
-  { id: "nfts" as TabType, label: "NFTs", icon: Image, disabled: true },
-  { id: "transactions" as TabType, label: "Transactions", icon: Clock },
-  { id: "transfers" as TabType, label: "Transfers", icon: ArrowLeftRight },
-];
+// Screen Review 057, 058 (D19). Wallet tabs: Tokens and Activity. Activity
+// replaces the Transactions and Transfers tabs; its chips live in ?filter=.
+// NFTs was a disabled tab with no content and is not rendered (D07).
+// Screen Review 101 I01: RNS is the third tab, only with VITE_SHOW_RNS on.
+// Screen Review 055 I01: the tabs container and each view sit on the room;
+// the Tokens view handles its own loading, zero and error states.
 
-export default function ProfileTabs({ isEmpty = false, loading = false }: ProfileTabsProps) {
-  const [activeTab, setActiveTab] = useState<TabType>("tokens");
-  const [selectedNFT, setSelectedNFT] = useState<NFT | null>(null);
-  const [isNFTModalOpen, setIsNFTModalOpen] = useState(false);
+const TABS = RNS_FLAGS.enabled
+  ? (["tokens", "activity", "rns"] as const)
+  : (["tokens", "activity"] as const);
 
-  const renderContent = () => {
-    if (loading) {
-      return <TabSkeletons activeTab={activeTab} />;
+// Old ?tab= values land on the Activity chip they became
+const LEGACY_TABS: Record<string, string | null> = {
+  transactions: null,
+  transfers: "transfers",
+};
+
+export default function ProfileTabs() {
+  const [params, setParams] = useSearchParams();
+  const [tab, setDestinationTab] = useDestinationTab(TABS);
+  // Leaving the RNS tab drops its view params (name, address, flow)
+  const setTab = (next: string) => {
+    if (next !== "rns") {
+      setParams(
+        current => {
+          const updated = new URLSearchParams(current);
+          clearRnsParams(updated);
+          updated.set("tab", next);
+          return updated;
+        },
+        { replace: true }
+      );
+      return;
     }
-
-    if (isEmpty) {
-      return <EmptyState />;
-    }
-
-    switch (activeTab) {
-      case "tokens":
-        return <TokensTab />;
-      case "nfts":
-        return <NFTsTab />;
-      case "transactions":
-        return <TransactionsTab />;
-      case "transfers":
-        return <TransfersTab />;
-      default:
-        return null;
-    }
+    setDestinationTab(next);
   };
 
+  // 077 I01: ?tab=names (the Names tab in the 077 boards) lands on the RNS
+  // tab and keeps its name, address and flow params.
+  useEffect(() => {
+    if (params.get("tab") !== "names" || !RNS_FLAGS.enabled) return;
+    setParams(
+      current => {
+        const updated = new URLSearchParams(current);
+        updated.set("tab", "rns");
+        return updated;
+      },
+      { replace: true }
+    );
+  }, [params, setParams]);
+
+  useEffect(() => {
+    const raw = params.get("tab");
+    if (!raw || !(raw in LEGACY_TABS)) return;
+    setParams(
+      current => {
+        const updated = new URLSearchParams(current);
+        updated.set("tab", "activity");
+        const filter = LEGACY_TABS[raw];
+        if (filter) updated.set("filter", filter);
+        return updated;
+      },
+      { replace: true }
+    );
+  }, [params, setParams]);
+
   return (
-    <>
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-        <div className="border-b border-gray-200 overflow-x-auto">
-          <nav
-            className="flex space-x-4 sm:space-x-8 px-4 sm:px-6 min-w-max sm:min-w-0"
-            aria-label="Tabs"
-          >
-            {tabs.map(tab => {
-              const Icon = tab.icon;
-              const isActive = activeTab === tab.id;
-
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => !tab.disabled && !loading && setActiveTab(tab.id)}
-                  className={`flex items-center space-x-2 whitespace-nowrap py-3 sm:py-4 px-1 border-b-2 font-medium text-xs sm:text-sm transition-colors duration-200 touch-manipulation ${
-                    isActive
-                      ? "border-blue-500 text-blue-600"
-                      : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                  } ${tab.disabled || loading ? "opacity-50 cursor-not-allowed" : ""}`}
-                  disabled={tab.disabled || loading}
-                >
-                  <Icon className="w-4 h-4" />
-                  <span>{tab.label}</span>
-                </button>
-              );
-            })}
-          </nav>
-        </div>
-
-        <div className="p-4 sm:p-6">{renderContent()}</div>
-      </div>
-
-      <NFTModal
-        isOpen={isNFTModalOpen}
-        onClose={() => setIsNFTModalOpen(false)}
-        nft={selectedNFT}
-      />
-    </>
+    <div>
+      <Tabs value={tab} onValueChange={setTab} className="flex flex-col gap-[21px]">
+        <TabsList aria-label="Wallet sections" className="max-sm:w-full">
+          <TabsTrigger value="tokens" className="max-sm:flex-1">
+            Tokens
+          </TabsTrigger>
+          <TabsTrigger value="activity" className="max-sm:flex-1">
+            Activity
+          </TabsTrigger>
+          {RNS_FLAGS.enabled && (
+            <TabsTrigger value="rns" className="max-sm:flex-1">
+              RNS
+            </TabsTrigger>
+          )}
+        </TabsList>
+        <TabsContent value="tokens" className="mt-0">
+          <TokensTab />
+        </TabsContent>
+        <TabsContent value="activity" className="mt-0">
+          <ActivityTab />
+        </TabsContent>
+        {RNS_FLAGS.enabled && (
+          <TabsContent value="rns" className="mt-0">
+            <RnsTab />
+          </TabsContent>
+        )}
+      </Tabs>
+    </div>
   );
 }

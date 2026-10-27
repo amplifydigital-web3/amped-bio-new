@@ -10,16 +10,19 @@ import {
   Section,
   Text,
   Tailwind,
+  Link,
 } from "@react-email/components";
 
 interface EmailChangeTemplateProps {
   code?: string;
   newEmail?: string;
+  privacyUrl?: string;
 }
 
 const EmailChangeTemplate = ({
   code = "123456",
   newEmail = "new@example.com",
+  privacyUrl = "https://amped.bio/privacy",
 }: EmailChangeTemplateProps) => {
   return (
     <Html>
@@ -38,8 +41,7 @@ const EmailChangeTemplate = ({
               </Heading>
 
               <Text className="text-[16px] leading-[1.5em] text-[#3d4852] mt-0 text-left">
-                You've requested to change your email address to <strong>{newEmail}</strong>. Please
-                use the verification code below to confirm this change:
+                Enter this code in Amped.Bio to make <strong>{newEmail}</strong> your sign in email:
               </Text>
 
               <Section className="text-center my-[30px]">
@@ -49,12 +51,12 @@ const EmailChangeTemplate = ({
               </Section>
 
               <Text className="text-[16px] leading-[1.5em] text-[#3d4852] mt-0 text-left">
-                If you did not request this email change, please ignore this message or contact
-                support immediately.
+                If you did not ask for this, ignore this email. Your account does not change unless
+                the code is entered.
               </Text>
 
               <Text className="text-[16px] leading-[1.5em] text-[#3d4852] mt-0 text-left">
-                This code will expire in 30 minutes.
+                This code expires in 5 minutes.
               </Text>
 
               <Text className="text-[16px] leading-[1.5em] text-[#3d4852] mt-0 text-left">
@@ -68,7 +70,12 @@ const EmailChangeTemplate = ({
 
             <Section className="text-center py-[32px]">
               <Text className="text-[12px] leading-[1.5em] text-[#b0adc5] m-0">
-                © 2025 Amplify Digital. All rights reserved.
+                © 2026 Oneiro N.A., Inc., dba Amplify Digital. All rights reserved.
+              </Text>
+              <Text className="text-[12px] leading-[1.5em] text-[#b0adc5] m-0">
+                <Link href={privacyUrl} className="text-[#b0adc5] underline">
+                  Privacy Policy
+                </Link>
               </Text>
             </Section>
           </Container>

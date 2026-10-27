@@ -20,7 +20,19 @@ RUN pnpm install --frozen-lockfile --filter=@repo/landingpage...
 
 WORKDIR /app/apps/landingpage
 
-RUN pnpm run build
+# Next.js has no Vite-like --mode: a production build only loads .env.production,
+# so the selected committed env file is exported into the environment instead
+# (NEXT_PUBLIC_* are inlined from process.env at build time). Like the client's
+# VITE_MODE, the default is staging: build with --build-arg APP_ENV=production
+# for another environment.
+ARG APP_ENV=staging
+
+# Local env overrides are gitignored but still land in the build context, and a
+# real environment variable wins over the env files loaded by Next.js, so drop
+# them before building
+RUN rm -f .env.local .env.*.local
+
+RUN set -a && . ./.env.${APP_ENV} && set +a && pnpm run build
 
 # Stage 2: Production runtime
 FROM node:24-alpine AS runner

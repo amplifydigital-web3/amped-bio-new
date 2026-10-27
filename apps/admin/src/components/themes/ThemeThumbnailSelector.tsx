@@ -1,188 +1,113 @@
-import { useState, useRef, ChangeEvent, useEffect } from "react";
-import { Image as ImageIcon, Upload } from "lucide-react";
-import {
-  ALLOWED_COLLECTION_THUMBNAIL_FILE_EXTENSIONS,
-  ALLOWED_COLLECTION_THUMBNAIL_FILE_TYPES,
-} from "@repo/constants";
-import { trpc } from "@repo/ui";
+import { useEffect, useId, useRef, useState, type ChangeEvent } from "react";
+import { Plus } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import { Button, cn, trpc } from "@repo/ui";
+import { ALLOWED_COLLECTION_THUMBNAIL_FILE_TYPES } from "@repo/constants";
+import { FieldError } from "../../kit/parts";
+import { imageLimitsLine, validateImageFile } from "./uploads";
 
-interface ThemeThumbnailSelectorProps {
-  onFileSelect: (file: File | null) => void;
-  onError?: (error: string) => void;
-  selectedFile?: File | null;
-  showRequiredError?: boolean;
-}
-
+// Screen Review 088 I02. The thumbnail field: a 89 square well that shows the
+// chosen image untouched (creator made content), Change and Remove, the
+// allowed types and size from getLimits, and the field error under it.
 export function ThemeThumbnailSelector({
   onFileSelect,
   onError,
   selectedFile,
-  showRequiredError = false,
-}: ThemeThumbnailSelectorProps) {
+  error,
+  required = true,
+  autoFocus = false,
+}: {
+  onFileSelect: (file: File | null) => void;
+  onError?: (error: string) => void;
+  selectedFile?: File | null;
+  // Field error text, for example "Thumbnail is required."
+  error?: string;
+  required?: boolean;
+  autoFocus?: boolean;
+}) {
+  const id = useId();
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const { data: adminUploadLimits } = useQuery(trpc.admin.upload.getLimits.queryOptions());
+  const inputRef = useRef<HTMLInputElement>(null);
+  const wellRef = useRef<HTMLButtonElement>(null);
+  const { data: limits } = useQuery(trpc.admin.upload.getLimits.queryOptions());
 
-  // Update preview URL when selectedFile changes
   useEffect(() => {
-    // Clean up previous preview URL if it exists
-    if (previewUrl) {
-      URL.revokeObjectURL(previewUrl);
+    if (!selectedFile) {
       setPreviewUrl(null);
+      return;
     }
-
-    // Create new preview URL if there's a selected file
-    if (selectedFile) {
-      const objectUrl = URL.createObjectURL(selectedFile);
-      setPreviewUrl(objectUrl);
-
-      // Return cleanup function
-      return () => {
-        URL.revokeObjectURL(objectUrl);
-      };
-    }
+    const url = URL.createObjectURL(selectedFile);
+    setPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
   }, [selectedFile]);
 
-  const handleFileSelect = async (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  useEffect(() => {
+    if (autoFocus) wellRef.current?.focus();
+  }, [autoFocus]);
 
-    if (!file) {
-      onFileSelect(null);
-      if (previewUrl) {
-        URL.revokeObjectURL(previewUrl);
-        setPreviewUrl(null);
-      }
+  const onChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    const problem = validateImageFile(file, limits);
+    if (problem) {
+      onError?.(problem);
       return;
     }
-
-    // Reset file input
-    e.target.value = "";
-
-    // Validate file type
-    if (!ALLOWED_COLLECTION_THUMBNAIL_FILE_TYPES.includes(file.type)) {
-      const errorMsg = `Only ${ALLOWED_COLLECTION_THUMBNAIL_FILE_EXTENSIONS.join(", ").toUpperCase()} images are allowed`;
-      onError?.(errorMsg);
-      return;
-    }
-
-    // Validate file extension
-    const fileExtension = file.name.split(".").pop()?.toLowerCase() || "";
-    if (!ALLOWED_COLLECTION_THUMBNAIL_FILE_EXTENSIONS.includes(fileExtension)) {
-      const errorMsg = `Only ${ALLOWED_COLLECTION_THUMBNAIL_FILE_EXTENSIONS.join(", ")} file extensions are allowed`;
-      onError?.(errorMsg);
-      return;
-    }
-
-    // Validate file size using admin-specific limits
-    const maxFileSize = adminUploadLimits?.maxCollectionThumbnailFileSize || 50 * 1024 * 1024; // Fallback to 50MB if limits not loaded yet
-    if (file.size > maxFileSize) {
-      const errorMsg = `File size must be less than ${(maxFileSize / (1024 * 1024)).toFixed(2)}MB`;
-      onError?.(errorMsg);
-      return;
-    }
-
-    // Clean up previous preview URL if it exists
-    if (previewUrl) {
-      URL.revokeObjectURL(previewUrl);
-      setPreviewUrl(null);
-    }
-
-    // Let the useEffect handle creating the new preview URL
     onFileSelect(file);
   };
 
-  const clearSelection = () => {
-    if (previewUrl) {
-      URL.revokeObjectURL(previewUrl);
-      setPreviewUrl(null);
-    }
-    onFileSelect(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
-  };
-
   return (
-    <div className="space-y-3">
-      <label className="block text-sm font-medium text-gray-700">
-        Theme Thumbnail <span className="text-red-500">*</span>
-      </label>
-
-      {/* Thumbnail selection display */}
-      {selectedFile ? (
-        <div className="flex items-center justify-between p-3 border border-gray-300 rounded-md bg-gray-50">
-          <div className="flex items-center space-x-3">
-            <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-100 border border-gray-200 flex-shrink-0">
-              {previewUrl ? (
-                <img src={previewUrl} alt="Preview" className="w-full h-full object-cover" />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center">
-                  <ImageIcon className="w-5 h-5 text-gray-400" />
-                </div>
-              )}
-            </div>
-            <div className="flex-1">
-              <p className="text-sm font-medium text-gray-900 truncate">{selectedFile.name}</p>
-              <p className="text-xs text-gray-500">
-                {selectedFile.type} • {(selectedFile.size / 1024).toFixed(1)} KB
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center space-x-2">
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="inline-flex items-center px-3 py-1 border border-gray-300 shadow-sm text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-            >
-              Change
-            </button>
-            <button
-              type="button"
-              onClick={clearSelection}
-              className="inline-flex items-center px-3 py-1 border border-gray-300 shadow-sm text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-            >
-              Clear
-            </button>
-          </div>
-        </div>
-      ) : (
+    <div className="space-y-2 font-prism">
+      <p id={`${id}-label`} className="text-prism-label font-semibold text-prism-ink">
+        Thumbnail
+        {required && <span className="font-normal text-prism-ink-2"> (Required)</span>}
+      </p>
+      <div className="flex items-center gap-3">
         <button
+          ref={wellRef}
           type="button"
-          onClick={() => fileInputRef.current?.click()}
-          className={`w-full flex items-center justify-center px-3 py-3 border-2 border-dashed rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
-            showRequiredError
-              ? "border-red-300 text-red-600 hover:border-red-400 hover:text-red-700"
-              : "border-gray-300 text-gray-600 hover:border-gray-400 hover:text-gray-700"
-          }`}
+          aria-labelledby={`${id}-label`}
+          aria-describedby={`${id}-note`}
+          aria-invalid={error ? true : undefined}
+          onClick={() => inputRef.current?.click()}
+          className={cn(
+            "prism-well prism-focus flex h-[89px] w-[89px] shrink-0 items-center justify-center overflow-hidden !rounded-prism-13",
+            error && "shadow-[inset_0_0_0_1.5px_#B3261E]"
+          )}
         >
-          <Upload className="w-5 h-5 mr-2" />
-          <span className="text-sm font-medium">Select Thumbnail</span>
+          {previewUrl ? (
+            <img src={previewUrl} alt="" className="h-full w-full object-cover" />
+          ) : (
+            <Plus aria-hidden className="h-[21px] w-[21px] text-prism-ink-2" />
+          )}
+          <span className="sr-only">
+            {selectedFile ? "Change thumbnail" : "Choose a thumbnail"}
+          </span>
         </button>
+        {selectedFile && (
+          <div className="min-w-0 space-y-1">
+            <p className="truncate text-prism-meta text-prism-ink">{selectedFile.name}</p>
+            <Button type="button" variant="ghost" size="sm" onClick={() => onFileSelect(null)}>
+              Remove
+            </Button>
+          </div>
+        )}
+      </div>
+      {error ? (
+        <FieldError id={`${id}-note`}>{error}</FieldError>
+      ) : (
+        <p id={`${id}-note`} className="text-prism-meta text-prism-ink-2">
+          {imageLimitsLine(limits)}
+        </p>
       )}
-
-      {/* Error message for required field */}
-      {showRequiredError && !selectedFile && (
-        <p className="text-sm text-red-600 mt-1">Theme thumbnail is required</p>
-      )}
-
-      {/* Hidden file input */}
       <input
+        ref={inputRef}
         type="file"
-        ref={fileInputRef}
         className="hidden"
         accept={ALLOWED_COLLECTION_THUMBNAIL_FILE_TYPES.join(",")}
-        onChange={handleFileSelect}
+        onChange={onChange}
       />
-
-      {/* File Requirements */}
-      <p className="text-xs text-gray-500">
-        {ALLOWED_COLLECTION_THUMBNAIL_FILE_EXTENSIONS.join(", ").toUpperCase()}. Max{" "}
-        {adminUploadLimits?.maxCollectionThumbnailFileSize
-          ? (adminUploadLimits.maxCollectionThumbnailFileSize / (1024 * 1024)).toFixed(2)
-          : "50"}
-        MB.
-      </p>
     </div>
   );
 }

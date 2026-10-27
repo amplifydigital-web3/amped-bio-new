@@ -1,6 +1,6 @@
 import { adminProcedure, router } from "../trpc";
 import { z } from "zod";
-import { prisma } from "../../services/DB";
+import { prisma } from "@repo/database";
 import { SITE_SETTINGS } from "@repo/constants";
 
 export const settingsRouter = router({

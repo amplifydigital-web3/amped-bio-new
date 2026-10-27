@@ -1,9 +1,11 @@
 name: Client Tests
 
+# Automatic triggers are disabled: GitHub Actions is blocked on this repository
+# (the account is billing-locked), so every run is reported as failed before
+# the job starts. Keeping only `workflow_dispatch` stops the red runs while the
+# workflow definition stays intact for manual runs once billing is resolved.
 on:
-  pull_request:
-    branches: [main, development]
-  workflow_dispatch:  # Allow manual triggering
+  workflow_dispatch:
 
 jobs:
   auth-tests:
@@ -26,7 +28,7 @@ jobs:
       - name: Install pnpm
         uses: pnpm/action-setup@v3
         with:
-          version: 8
+          # Version comes from "packageManager" in package.json (pnpm 9, lockfile v9)
           run_install: false
 
       - name: Get pnpm store directory
@@ -95,15 +97,17 @@ jobs:
 
       - name: Run database migrations
         run: |
-          cd apps/server
-          pnpm prisma generate
-          pnpm prisma migrate deploy
+          cd packages/database
+          pnpm run prisma:generate
+          pnpm run prisma:migrate
 
       - name: Build and start backend
         run: |
           cd apps/server
           pnpm build
-          NODE_ENV=testing pnpm start &
+          # The step above loads apps/server/.env.example (PORT=24300), but the client is
+          # built in testing mode against 43000, so pin the port to what this job probes.
+          NODE_ENV=testing PORT=43000 pnpm start &
           echo "Waiting for backend on port 43000"
           wait-for-it -t 30 localhost:43000
           if [ $? -ne 0 ]; then

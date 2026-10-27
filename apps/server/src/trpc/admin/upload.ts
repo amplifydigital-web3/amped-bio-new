@@ -3,6 +3,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { s3Service } from "../../services/S3Service";
 import { uploadedFileService } from "../../services/UploadedFileService";
+import { assertUploadVerified } from "../../services/uploadVerification";
 import { env } from "../../env";
 import {
   ALLOWED_COLLECTION_THUMBNAIL_FILE_EXTENSIONS,
@@ -11,7 +12,7 @@ import {
   ALLOWED_BACKGROUND_FILE_TYPES,
   ThemeConfig,
 } from "@repo/constants";
-import { prisma } from "../../services/DB";
+import { prisma } from "@repo/database";
 
 const requestThemeCollectionImageSchema = z.object({
   collectionId: z.number().positive(),
@@ -115,6 +116,7 @@ export const adminUploadRouter = router({
           "category",
           input.contentType,
           input.fileExtension,
+          input.fileSize,
           input.collectionId
         );
 
@@ -136,6 +138,7 @@ export const adminUploadRouter = router({
         };
       } catch (error) {
         console.error("Error generating presigned URL for theme collection image:", error);
+        if (error instanceof TRPCError) throw error;
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Failed to generate upload URL for theme collection image",
@@ -156,15 +159,9 @@ export const adminUploadRouter = router({
         }
 
         const fileKey = uploadedFile.s3_key;
-        const bucket = uploadedFile.bucket;
 
-        const fileExists = await s3Service.fileExists({ fileKey, bucket });
-        if (!fileExists) {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "File not found in S3. Please upload the file first.",
-          });
-        }
+        // Exists, size matches the declared size, and the real type is allowed
+        await assertUploadVerified(uploadedFile, ALLOWED_COLLECTION_THUMBNAIL_FILE_TYPES);
 
         const currentCollection = await prisma.themeCategory.findUnique({
           where: { id: input.collectionId },
@@ -251,6 +248,7 @@ export const adminUploadRouter = router({
           "backgrounds", // Use backgrounds category for theme thumbnails since thumbnails are only allowed for backgrounds
           input.contentType,
           input.fileExtension,
+          input.fileSize,
           undefined, // categoryId not needed for thumbnails
           input.themeId, // themeId for organization
           true // isThumbnail = true
@@ -273,6 +271,7 @@ export const adminUploadRouter = router({
         };
       } catch (error) {
         console.error("Error generating presigned URL for theme thumbnail:", error);
+        if (error instanceof TRPCError) throw error;
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Failed to generate upload URL for theme thumbnail",
@@ -294,18 +293,11 @@ export const adminUploadRouter = router({
           });
         }
 
-        // Get fileKey and bucket from database
+        // Get fileKey from database
         const fileKey = uploadedFile.s3_key;
-        const bucket = uploadedFile.bucket;
 
-        // Now verify that the file exists in S3 before proceeding
-        const fileExists = await s3Service.fileExists({ fileKey, bucket });
-        if (!fileExists) {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "File not found in S3. Please upload the file first.",
-          });
-        }
+        // Exists, size matches the declared size, and the real type is allowed
+        await assertUploadVerified(uploadedFile, ALLOWED_COLLECTION_THUMBNAIL_FILE_TYPES);
 
         // Update the file record with the actual filename and mark as completed
         await uploadedFileService.updateFileStatus({
@@ -403,6 +395,7 @@ export const adminUploadRouter = router({
           "backgrounds",
           input.contentType,
           input.fileExtension,
+          input.fileSize,
           undefined, // categoryId not needed for backgrounds
           input.themeId, // themeId for organization
           false // isThumbnail = false
@@ -426,6 +419,7 @@ export const adminUploadRouter = router({
         };
       } catch (error) {
         console.error("Error generating presigned URL for theme background:", error);
+        if (error instanceof TRPCError) throw error;
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Failed to generate upload URL for theme background",
@@ -447,18 +441,11 @@ export const adminUploadRouter = router({
           });
         }
 
-        // Get fileKey and bucket from database
+        // Get fileKey from database
         const fileKey = uploadedFile.s3_key;
-        const bucket = uploadedFile.bucket;
 
-        // Now verify that the file exists in S3 before proceeding
-        const fileExists = await s3Service.fileExists({ fileKey, bucket });
-        if (!fileExists) {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "File not found in S3. Please upload the file first.",
-          });
-        }
+        // Exists, size matches the declared size, and the real type is allowed
+        await assertUploadVerified(uploadedFile, ALLOWED_BACKGROUND_FILE_TYPES);
 
         // Update the file record with the actual filename and mark as completed
         await uploadedFileService.updateFileStatus({

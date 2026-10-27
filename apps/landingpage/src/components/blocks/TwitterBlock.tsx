@@ -1,9 +1,9 @@
 "use client";
 
-import { FaXTwitter } from "react-icons/fa6";
 import type { ThemeConfig } from "@repo/constants";
 import { MediaBlock } from "@repo/constants";
-import { EmbeddedTweet, TweetSkeleton } from "react-tweet";
+import { EmbeddedTweet } from "react-tweet";
+import { Caption, EmbedSkeleton, embedTitle } from "./frame";
 import { useTweet } from "react-tweet";
 import type { Tweet, TweetEntities } from "react-tweet/api";
 import { useMemo } from "react";
@@ -36,9 +36,7 @@ function asEntityArray<T>(value: T | T[] | undefined | null): T[] {
  * Ensures all entity arrays are present and properly typed before enrichment.
  * @see https://github.com/vercel/react-tweet/issues/218#issuecomment-4521112920
  */
-function normalizeTweetEntities(
-  entities?: TweetEntities | null,
-): TweetEntities {
+function normalizeTweetEntities(entities?: TweetEntities | null): TweetEntities {
   if (!entities || typeof entities !== "object" || Array.isArray(entities)) {
     return {
       hashtags: [],
@@ -91,63 +89,48 @@ function normalizeTweet(tweet: Tweet): Tweet {
   };
 }
 
+/** Container luminance picks react-tweet's light or dark theme (040 I07). */
+function tweetTheme(theme: ThemeConfig): "light" | "dark" {
+  const hex = (theme.containerColor || theme.buttonColor || "#ffffff").replace("#", "");
+  const full =
+    hex.length === 3
+      ? hex
+          .split("")
+          .map(c => c + c)
+          .join("")
+      : hex.slice(0, 6);
+  const value = parseInt(full, 16);
+  if (Number.isNaN(value)) return "light";
+  const [r, g, b] = [(value >> 16) & 255, (value >> 8) & 255, value & 255].map(c => {
+    const v = c / 255;
+    return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b < 0.4 ? "dark" : "light";
+}
+
+// Screen Review 040 I01, I02, I07, I09: no label row and no visitor facing
+// error text. An invalid link, a deleted post or a failed load renders nothing;
+// while loading, a 377 skeleton holds the space.
 export function TwitterBlock({ block, theme }: TwitterBlockProps) {
-  const extractedId = block.config.url ? extractTweetId(block.config.url) : null;
-  const tweetId = extractedId ?? undefined;
+  const tweetId = (block.config.url ? extractTweetId(block.config.url) : null) ?? undefined;
+  const { data, isLoading } = useTweet(tweetId);
+  const tweet = useMemo(() => (data ? normalizeTweet(data) : null), [data]);
 
-  const { data, isLoading, error } = useTweet(tweetId);
-
-  const tweet = useMemo(
-    () => (data ? normalizeTweet(data) : null),
-    [data],
-  );
-
-  if (!block.config.url) {
-    return (
-      <div className="w-full p-6 rounded-lg bg-[#1DA1F2]/10 border-2 border-dashed border-[#1DA1F2]/20 flex flex-col items-center justify-center space-y-2">
-        <FaXTwitter className="w-8 h-8 text-[#1DA1F2]" />
-        <p className="text-sm text-[#1DA1F2]" style={{ fontFamily: theme.fontFamily }}>
-          Add a X post URL
-        </p>
-      </div>
-    );
-  }
+  if (!tweetId) return null;
+  if (!isLoading && !tweet) return null;
 
   return (
-    <div className="w-full space-y-2">
-      <div className="flex items-center space-x-2 px-3">
-        <FaXTwitter className="w-4 h-4 text-[#1DA1F2]" />
-        <span
-          className="text-sm font-medium text-[#1DA1F2]"
-          style={{ fontFamily: theme.fontFamily }}
-        >
-          X
-        </span>
+    <figure className="w-full">
+      <div
+        role="group"
+        aria-label={embedTitle("X", block.config.content || block.config.label)}
+        data-theme={tweetTheme(theme)}
+        className="relative w-full overflow-hidden rounded-prism-13 [&_.react-tweet-theme]:!m-0 [&_.react-tweet-theme]:!max-w-none"
+        style={isLoading ? { minHeight: 377 } : undefined}
+      >
+        {isLoading ? <EmbedSkeleton /> : tweet ? <EmbeddedTweet tweet={tweet} /> : null}
       </div>
-      {!tweetId ? (
-        <div className="w-full p-4 rounded-lg bg-[#1DA1F2]/10 border border-[#1DA1F2]/20 text-center">
-          <p className="text-sm text-[#1DA1F2]" style={{ fontFamily: theme.fontFamily }}>
-            Invalid tweet URL. Please update with a valid X post link.
-          </p>
-        </div>
-      ) : isLoading ? (
-        <TweetSkeleton />
-      ) : tweet ? (
-        <EmbeddedTweet tweet={tweet} />
-      ) : (
-        <div className="w-full p-4 rounded-lg bg-[#1DA1F2]/10 border border-[#1DA1F2]/20 text-center">
-          <p className="text-sm text-[#1DA1F2]" style={{ fontFamily: theme.fontFamily }}>
-            {error ? "Failed to load tweet." : "Tweet not found."}
-          </p>
-        </div>
-      )}
-      {block.config.content && block.config.content.trim() !== "" && (
-        <div className="mt-2 px-3 py-2">
-          <p className="text-sm text-gray-700" style={{ fontFamily: theme.fontFamily }}>
-            {block.config.content}
-          </p>
-        </div>
-      )}
-    </div>
+      <Caption text={block.config.content} theme={theme} />
+    </figure>
   );
 }

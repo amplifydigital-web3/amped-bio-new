@@ -13,7 +13,5 @@ export const REGISTRATION_DURATIONS: Record<Duration, number> = {
   "5_years": 157680000,
 };
 
-export const DOMAIN_SUFFIX = ".revotest.eth";
-
 // Price feed URL for tREVO price
 export const PRICE_FEED_URL = "";

@@ -3,7 +3,6 @@ import { SpotifyBlock } from "./SpotifyBlock";
 import { InstagramBlock } from "./InstagramBlock";
 import { YouTubeBlock } from "./YouTubeBlock";
 import { TwitterBlock } from "./TwitterBlock";
-import { TokenPriceBlock } from "./TokenPriceBlock";
 import { NFTCollectionBlock } from "./NFTCollectionBlock";
 import { UniswapBlock } from "./UniswapBlock";
 import { SubstackBlock } from "./SubstackBlock";
@@ -27,8 +26,9 @@ export function MediaBlock({ block, theme }: MediaBlockProps) {
       return <YouTubeBlock block={block} theme={theme} />;
     case "twitter":
       return <TwitterBlock block={block} theme={theme} />;
+    // 040 D3: token price shows mock data, so it does not render until it is wired
     case "token-price":
-      return <TokenPriceBlock block={block} theme={theme} />;
+      return null;
     case "nft-collection":
       return <NFTCollectionBlock block={block} theme={theme} />;
     case "uniswap":

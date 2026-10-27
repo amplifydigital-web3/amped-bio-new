@@ -34,6 +34,6 @@
     // Node types (avoids unnecessary @types/node)
     "types": ["node"]
   },
-  "include": ["src/**/*", "src/lib/prisma/**/*"],
-  "exclude": ["node_modules", "dist"]
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "src/__tests__"]
 }

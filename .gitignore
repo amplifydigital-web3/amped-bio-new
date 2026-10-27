@@ -16,9 +16,6 @@ build
 # Turborepo
 .turbo
 
-# Vercel
-.vercel
-
 # Build outputs
 dist
 dist-ssr
@@ -49,9 +46,18 @@ lerna-debug.log*
 # Local env files
 /apps/server/.env
 /apps/server/.env*.local
+/apps/auth-server/.env
+/apps/auth-server/.env*.local
+
+# Build outputs
+*.tsbuildinfo
+*.bak
 
 # Mac OS
 .DS_Store
+
+# Staging USDC/CDP credentials (never commit)
+staging-usdc.txt
 apps/client/cypress/screenshots
 apps/client/.env
 .env

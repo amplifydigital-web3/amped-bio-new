@@ -1,73 +1,35 @@
 import type { ThemeConfig } from "@repo/constants";
 import { MediaBlock } from "@repo/constants";
-import { SlSocialSpotify } from "react-icons/sl";
+import { EmbedFrame, embedTitle } from "./frame";
 
-interface SpotifyBlockProps {
-  block: MediaBlock;
-  theme: ThemeConfig;
-}
+// Screen Review 040 I02, I07: no platform label row; 152 for a track or
+// episode, 352 for a playlist, album or show.
+const TALL = ["playlist", "album", "show", "artist"];
 
-function getSpotifyEmbedUrl(url: string): string {
+function spotifyEmbed(url: string): { src: string; tall: boolean } | null {
   try {
-    // Convert Spotify URL to embed URL
-    const spotifyUrl = new URL(url);
-    const path = spotifyUrl.pathname;
-
-    if (path.includes("track")) {
-      // For tracks
-      return `https://open.spotify.com/embed${path}`;
-    } else if (path.includes("playlist")) {
-      // For playlists
-      return `https://open.spotify.com/embed${path}?utm_source=generator`;
-    } else {
-      return url;
-    }
+    const parsed = new URL(url);
+    if (!parsed.hostname.endsWith("spotify.com")) return null;
+    const path = parsed.pathname.replace(/^\/embed/, "").replace(/^\/intl-[a-z]+/, "");
+    const kind = path.split("/")[1] ?? "";
+    if (!kind) return null;
+    return { src: `https://open.spotify.com/embed${path}`, tall: TALL.includes(kind) };
   } catch {
-    return url;
+    return null;
   }
 }
 
-export function SpotifyBlock({ block, theme }: SpotifyBlockProps) {
-  // Use either content or url, prioritizing content
-  const spotifyUrl = block.config.content || block.config.url || "";
-  const embedUrl = getSpotifyEmbedUrl(spotifyUrl);
-
-  const isTrack = spotifyUrl.includes("track");
-  const isPlaylist = spotifyUrl.includes("playlist");
-
-  if (!spotifyUrl) {
-    return (
-      <div className="w-full p-6 rounded-lg bg-[#1DB954]/10 border-2 border-dashed border-[#1DB954]/20 flex flex-col items-center justify-center space-y-2">
-        <SlSocialSpotify className="w-8 h-8 text-[#1DB954]" />
-        <p className="text-sm text-[#1DB954]" style={{ fontFamily: theme.fontFamily }}>
-          Add a Spotify track or playlist URL
-        </p>
-      </div>
-    );
-  }
-
+export function SpotifyBlock({ block, theme }: { block: MediaBlock; theme: ThemeConfig }) {
+  const embed = spotifyEmbed(block.config.content || block.config.url || "");
+  // 040 I01: nothing renders for a link only the creator can fix
+  if (!embed) return null;
   return (
-    <div className="w-full space-y-2">
-      <div className="flex items-center space-x-2 px-3">
-        <SlSocialSpotify className="w-4 h-4 text-[#1DB954]" />
-        <span
-          className="text-sm font-medium text-[#1DB954]"
-          style={{ fontFamily: theme.fontFamily }}
-        >
-          {isTrack ? "Spotify Track" : isPlaylist ? "Spotify Playlist" : "Spotify"}
-        </span>
-      </div>
-      <div className="w-full rounded-lg overflow-hidden bg-[#121212] shadow-lg">
-        <iframe
-          src={embedUrl}
-          width="100%"
-          height={isPlaylist ? "380" : "152"}
-          frameBorder="0"
-          allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-          loading="lazy"
-          className="w-full"
-        />
-      </div>
-    </div>
+    <EmbedFrame
+      title={embedTitle("Spotify", block.config.label)}
+      src={embed.src}
+      height={embed.tall ? 352 : 152}
+      allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+      theme={theme}
+    />
   );
 }

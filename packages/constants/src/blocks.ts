@@ -2,14 +2,25 @@ import { z } from "zod";
 import { allowedPlatforms, mediaPlataforms, PlatformId } from "./platforms";
 
 // TypeScript type definitions for block types
-type BaseBlockType = "link" | "media" | "text" | "pool" | "referral";
+type BaseBlockType =
+  | "link"
+  | "media"
+  | "text"
+  | "pool"
+  | "referral"
+  | "follow"
+  | "followers"
+  | "rnsid"
+  | "telegram_message"
+  | "telegram_group";
 
 export type BaseBlock<type extends BaseBlockType = any, T = any> = {
   id: number;
   user_id?: number;
   type: type;
   order: number;
-  config: T;
+  /** `hidden` keeps a block off the page without deleting it (Screen Review 036 I09) */
+  config: T & { hidden?: boolean };
   created_at?: string;
   updated_at?: string | null;
 };
@@ -46,13 +57,209 @@ export type PoolBlock = BaseBlock<
 
 export type ReferralBlock = BaseBlock<"referral", {}>;
 
-export type BlockType = LinkBlock | MediaBlock | TextBlock | PoolBlock | ReferralBlock;
+// Fan Graph phase 1c (Build Board #30): a Follow button in the page flow and a
+// Followers social proof card. Spec: docs/features/follow-blocks.md. Both are
+// singletons, like the referral block.
+export type FollowBlock = BaseBlock<"follow", { label: string }>;
+
+export type FollowersGrowthRange = "7d" | "30d";
+export type FollowersFacesOrder = "newest" | "longest" | "poolFans";
+export type FollowersFacesMax = 6 | 12;
+
+export type FollowersBlockConfig = {
+  /** Card title, 1 to 40 characters */
+  title: string;
+  show: {
+    /** Count and growth line. Hidden under 10 followers and while the count is hidden */
+    count: boolean;
+    /** Followers who chose to appear on public lists */
+    faces: boolean;
+    /** Followers who also stake in the creator's pool */
+    poolFans: boolean;
+    milestone: boolean;
+    /** Where followers come from, kinds only */
+    sources: boolean;
+  };
+  growthRange: FollowersGrowthRange;
+  facesOrder: FollowersFacesOrder;
+  facesMax: FollowersFacesMax;
+  /** A Follow button inside the card */
+  followButton: boolean;
+};
+
+export type FollowersBlock = BaseBlock<"followers", FollowersBlockConfig>;
+
+// RNS ID block (Build Board #33, Screen Review 112): who runs the page, from
+// the same server identity rule as the header chip (108, 109). One per page.
+// The block never carries identity data; the public renderer reads
+// `profile.identity`, so the owner's Page > RNS switches and the binding
+// rule apply before anything reaches a visitor.
+export type RnsIdBlockStyle = "nameplate" | "idcard" | "proofstrip" | "seal";
+export type RnsIdBlockTap = "sheet" | "inline" | "none";
+
+export type RnsIdBlockConfig = {
+  style: RnsIdBlockStyle;
+  /** Eyebrow on ID Card and Proof Strip, 1 to 24 characters */
+  label: string;
+  /** sheet: the identity sheet. inline: the facts open under the block. none: static */
+  tap: RnsIdBlockTap;
+  show: {
+    /** Display name and handle (ID Card, Seal sentence) */
+    displayName: boolean;
+    /** Avatar (ID Card) */
+    avatar: boolean;
+    /** Month the page joined Amped.Bio */
+    since: boolean;
+    /** The name Authbase checked. Verified pages only, server applied (112 D1) */
+    nameOnId: boolean;
+    /** Authbase's 18+ fact. Verified pages only, server applied */
+    ageOver18: boolean;
+    /** Gender from the Authbase ID check. Verified pages only, server applied */
+    gender: boolean;
+    /** Country from the Authbase ID check. Verified pages only, server applied */
+    country: boolean;
+  };
+};
+
+export type RnsIdBlock = BaseBlock<"rnsid", RnsIdBlockConfig>;
+
+export const RNSID_LABEL_MAX = 24;
+
+export const DEFAULT_RNSID_CONFIG: RnsIdBlockConfig = {
+  style: "nameplate",
+  label: "Identity",
+  tap: "sheet",
+  show: {
+    displayName: true,
+    avatar: true,
+    since: true,
+    nameOnId: false,
+    ageOver18: false,
+    gender: false,
+    country: false,
+  },
+};
+
+/**
+ * The attributes Authbase shares with Amped.Bio, in display order. Mirrors
+ * `ConsentAttribute` in authbase-backend: values arrive only when the owner
+ * consented to share them and is Verified. Publishing one also needs the
+ * owner's RNS ID block switch below.
+ */
+export const AUTHBASE_ATTRIBUTE_KEYS = ["name", "age_over_18", "gender", "country"] as const;
+
+export type AuthbaseAttributeKey = (typeof AUTHBASE_ATTRIBUTE_KEYS)[number];
+
+/** The RNS ID block switch that shows each attribute */
+export const RNSID_ATTRIBUTE_SWITCH: Record<
+  AuthbaseAttributeKey,
+  "nameOnId" | "ageOver18" | "gender" | "country"
+> = {
+  name: "nameOnId",
+  age_over_18: "ageOver18",
+  gender: "gender",
+  country: "country",
+};
+
+export const AUTHBASE_ATTRIBUTE_LABELS: Record<AuthbaseAttributeKey, string> = {
+  name: "Name on ID",
+  age_over_18: "Over 18",
+  gender: "Gender",
+  country: "Country",
+};
+
+/** A shared value as people read it: "true" to Yes, "F" to Female, "US" to United States. */
+export function formatAuthbaseAttribute(key: AuthbaseAttributeKey, value: string): string {
+  if (key === "age_over_18") return value === "true" ? "Yes" : value === "false" ? "No" : value;
+  if (key === "gender") return value === "M" ? "Male" : value === "F" ? "Female" : value;
+  if (key === "country" && /^[A-Za-z]{2}$/.test(value)) {
+    try {
+      return new Intl.DisplayNames(["en"], { type: "region" }).of(value.toUpperCase()) ?? value;
+    } catch {
+      return value;
+    }
+  }
+  return value;
+}
+
+/** Which tap behaviours a style offers (112 D3) */
+export function rnsIdTapsFor(style: RnsIdBlockStyle): readonly RnsIdBlockTap[] {
+  return style === "idcard" || style === "proofstrip" ? ["sheet", "inline"] : ["sheet", "none"];
+}
+
+// Messaging on Telegram (Build Board #2, spec decision 14, Screen Review 115):
+// Message me on Telegram and Join my Telegram group. One of each per page. The
+// config holds the label only: whether the door is open and its rule come from
+// the server (getHandle telegramDoor), so a creator never edits rule text and a
+// stake amount never reaches the page.
+export type TelegramMessageBlockConfig = { label: string };
+export type TelegramGroupBlockConfig = { label: string };
+export type TelegramMessageBlock = BaseBlock<"telegram_message", TelegramMessageBlockConfig>;
+export type TelegramGroupBlock = BaseBlock<"telegram_group", TelegramGroupBlockConfig>;
+
+export const TELEGRAM_BLOCK_LABEL_MAX = 40;
+export const DEFAULT_TELEGRAM_MESSAGE_LABEL = "Message me on Telegram";
+export const DEFAULT_TELEGRAM_GROUP_LABEL = "Join my Telegram group";
+export const DEFAULT_TELEGRAM_MESSAGE_CONFIG: TelegramMessageBlockConfig = {
+  label: DEFAULT_TELEGRAM_MESSAGE_LABEL,
+};
+export const DEFAULT_TELEGRAM_GROUP_CONFIG: TelegramGroupBlockConfig = {
+  label: DEFAULT_TELEGRAM_GROUP_LABEL,
+};
+
+export const FOLLOW_LABEL_MAX = 24;
+export const FOLLOWERS_TITLE_MAX = 40;
+
+export const DEFAULT_FOLLOW_CONFIG: FollowBlock["config"] = { label: "Follow" };
+
+export const DEFAULT_FOLLOWERS_CONFIG: FollowersBlockConfig = {
+  title: "Followers",
+  show: { count: true, faces: true, poolFans: true, milestone: true, sources: false },
+  growthRange: "7d",
+  facesOrder: "newest",
+  facesMax: 6,
+  followButton: true,
+};
+
+export type BlockType =
+  | LinkBlock
+  | MediaBlock
+  | TextBlock
+  | PoolBlock
+  | ReferralBlock
+  | FollowBlock
+  | FollowersBlock
+  | RnsIdBlock
+  | TelegramMessageBlock
+  | TelegramGroupBlock;
+
+/** Block types a page holds at most once. The Add block dialog opens the existing row. */
+export const SINGLETON_BLOCK_TYPES = [
+  "referral",
+  "follow",
+  "followers",
+  "rnsid",
+  "telegram_message",
+  "telegram_group",
+] as const;
+
+/**
+ * Capsule rule (follow-blocks spec 3.8): a renderable block that carries its
+ * own Follow button takes Follow and the count out of the Amped frame capsule,
+ * so one Follow is on screen at a time.
+ */
+export function blockCarriesFollow(block: BlockType): boolean {
+  if ((block.config as { hidden?: boolean }).hidden) return false;
+  if (block.type === "follow") return true;
+  return block.type === "followers" && block.config.followButton !== false;
+}
 
 // Define configuration schemas for each block type
 export const linkConfigSchema = z.object({
   platform: z.enum(allowedPlatforms),
   url: z.string().url("Must be a valid URL"),
   label: z.string().min(1, "Label is required"),
+  hidden: z.boolean().optional(),
 });
 
 export const mediaConfigSchema = z.object({
@@ -60,6 +267,7 @@ export const mediaConfigSchema = z.object({
   url: z.string().url("Must be a valid URL"),
   label: z.string(),
   content: z.string().optional(),
+  hidden: z.boolean().optional(),
 });
 
 export const poolConfigSchema = z.object({
@@ -67,6 +275,7 @@ export const poolConfigSchema = z.object({
     .string()
     .regex(/^0x[a-fA-F0-9]+$/, "Must be a valid blockchain address starting with 0x"),
   label: z.string().min(1, "Label is required"),
+  hidden: z.boolean().optional(),
 });
 
 // Define allowed HTML tags
@@ -114,24 +323,136 @@ export const textConfigSchema = z.object({
         message: "JavaScript content is not allowed in the HTML",
       }
     ),
+  hidden: z.boolean().optional(),
 });
 
-export const referralConfigSchema = z.object({});
+export const referralConfigSchema = z.object({ hidden: z.boolean().optional() });
+
+export const followConfigSchema = z.object({
+  label: z.string().trim().min(1, "Label is required").max(FOLLOW_LABEL_MAX),
+  hidden: z.boolean().optional(),
+});
+
+export const followersConfigSchema = z.object({
+  title: z.string().trim().min(1, "Title is required").max(FOLLOWERS_TITLE_MAX),
+  show: z.object({
+    count: z.boolean().default(true),
+    faces: z.boolean().default(true),
+    poolFans: z.boolean().default(true),
+    milestone: z.boolean().default(true),
+    sources: z.boolean().default(false),
+  }),
+  growthRange: z.enum(["7d", "30d"]).default("7d"),
+  facesOrder: z.enum(["newest", "longest", "poolFans"]).default("newest"),
+  facesMax: z.union([z.literal(6), z.literal(12)]).default(6),
+  followButton: z.boolean().default(true),
+  hidden: z.boolean().optional(),
+});
+
+export const rnsIdConfigSchema = z.object({
+  style: z.enum(["nameplate", "idcard", "proofstrip", "seal"]).default("nameplate"),
+  label: z.string().trim().min(1, "Label is required").max(RNSID_LABEL_MAX).default("Identity"),
+  tap: z.enum(["sheet", "inline", "none"]).default("sheet"),
+  show: z
+    .object({
+      displayName: z.boolean().default(true),
+      avatar: z.boolean().default(true),
+      since: z.boolean().default(true),
+      nameOnId: z.boolean().default(false),
+      ageOver18: z.boolean().default(false),
+      gender: z.boolean().default(false),
+      country: z.boolean().default(false),
+    })
+    .default({
+      displayName: true,
+      avatar: true,
+      since: true,
+      nameOnId: false,
+      ageOver18: false,
+      gender: false,
+      country: false,
+    }),
+  hidden: z.boolean().optional(),
+});
+
+const telegramLabelSchema = (fallback: string) =>
+  z.string().trim().min(1, "Label is required").max(TELEGRAM_BLOCK_LABEL_MAX).default(fallback);
+
+export const telegramMessageConfigSchema = z.object({
+  label: telegramLabelSchema(DEFAULT_TELEGRAM_MESSAGE_LABEL),
+  hidden: z.boolean().optional(),
+});
+
+export const telegramGroupConfigSchema = z.object({
+  label: telegramLabelSchema(DEFAULT_TELEGRAM_GROUP_LABEL),
+  hidden: z.boolean().optional(),
+});
+
+/** The config schema for a block type. Unknown types fall back to the union. */
+const CONFIG_SCHEMAS: Record<string, z.ZodTypeAny> = {
+  link: linkConfigSchema,
+  media: mediaConfigSchema,
+  text: textConfigSchema,
+  pool: poolConfigSchema,
+  referral: referralConfigSchema,
+  follow: followConfigSchema,
+  followers: followersConfigSchema,
+  rnsid: rnsIdConfigSchema,
+  telegram_message: telegramMessageConfigSchema,
+  telegram_group: telegramGroupConfigSchema,
+};
+
+// The referral schema accepts any object, so it stays last in the fallback
+const anyBlockConfigSchema = z.union([
+  linkConfigSchema,
+  mediaConfigSchema,
+  textConfigSchema,
+  poolConfigSchema,
+  followConfigSchema,
+  followersConfigSchema,
+  rnsIdConfigSchema,
+  referralConfigSchema,
+]);
+
+export function blockConfigSchemaFor(type: string): z.ZodTypeAny {
+  return CONFIG_SCHEMAS[type] ?? anyBlockConfigSchema;
+}
+
+/**
+ * Validates `config` with the schema its `type` names, so a link with a bad
+ * URL is refused instead of parsing as another block's config.
+ */
+function refineTypedConfig(
+  block: { type: string; config: Record<string, unknown> },
+  ctx: z.RefinementCtx
+) {
+  const result = blockConfigSchemaFor(block.type).safeParse(block.config);
+  if (result.success) return;
+  for (const issue of result.error.issues) {
+    ctx.addIssue({ ...issue, path: ["config", ...issue.path] });
+  }
+}
+
+function parseTypedConfig<T extends { type: string; config: Record<string, unknown> }>(block: T) {
+  return {
+    ...block,
+    config: blockConfigSchemaFor(block.type).parse(block.config) as BlockType["config"],
+  };
+}
+
+const blockTypeField = z.string().min(1, "Block type is required");
+const rawConfigField = z.record(z.string(), z.unknown());
 
 // Schema for a single block
-export const blockSchema = z.object({
-  id: z.number(),
-  type: z.string().min(1, "Block type is required"),
-  order: z.number().default(0),
-  // Config is validated separately based on type
-  config: z.union([
-    linkConfigSchema,
-    mediaConfigSchema,
-    textConfigSchema,
-    poolConfigSchema,
-    referralConfigSchema,
-  ]),
-});
+export const blockSchema = z
+  .object({
+    id: z.number(),
+    type: blockTypeField,
+    order: z.number().default(0),
+    config: rawConfigField,
+  })
+  .superRefine(refineTypedConfig)
+  .transform(parseTypedConfig);
 
 // Schema for editing multiple blocks
 export const editBlocksSchema = z.object({
@@ -139,17 +460,10 @@ export const editBlocksSchema = z.object({
 });
 
 // Schema for adding a new block - type specific validation
-export const addBlockSchema = z.object({
-  type: z.string().min(1, "Block type is required"),
-  order: z.number().default(0),
-  config: z.union([
-    linkConfigSchema,
-    mediaConfigSchema,
-    textConfigSchema,
-    poolConfigSchema,
-    referralConfigSchema,
-  ]),
-});
+export const addBlockSchema = z
+  .object({ type: blockTypeField, order: z.number().default(0), config: rawConfigField })
+  .superRefine(refineTypedConfig)
+  .transform(parseTypedConfig);
 
 // Schema for block id parameter
 export const blockIdParamSchema = z.object({

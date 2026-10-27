@@ -1,21 +1,9 @@
 "use client";
 
-import { Button } from "@repo/ui";
-import { FaGoogle } from "react-icons/fa6";
+import { GoogleSignInButton } from "@repo/ui";
 
-interface GoogleLoginButtonProps {
-  onClick: () => void;
-}
-
-export function GoogleLoginButton({ onClick }: GoogleLoginButtonProps) {
-  return (
-    <Button
-      variant="outline"
-      className="w-full flex items-center justify-center gap-2"
-      onClick={onClick}
-    >
-      <FaGoogle className="w-5 h-5" />
-      <span>Continue with Google</span>
-    </Button>
-  );
+// The /sign page (row 074) still imports this name; it renders the one shared
+// Continue with Google button from @repo/ui (Screen Review 010 I01).
+export function GoogleLoginButton({ onClick }: { onClick: () => void }) {
+  return <GoogleSignInButton onClick={onClick} />;
 }

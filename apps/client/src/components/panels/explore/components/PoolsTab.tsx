@@ -1,15 +1,13 @@
-import React, { useState, useEffect } from "react";
-import { Users, Coins } from "lucide-react";
+import React, { useEffect } from "react";
 import PoolSkeleton from "./PoolSkeleton";
-import { useQuery } from "@tanstack/react-query";
-import { trpc } from "@repo/ui";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { PoolCardMedium, trpc } from "@repo/ui";
 import { getChainConfig } from "@repo/web3";
-import PoolDetailsModal from "../ExplorePoolDetailsModal";
-import StakeModal from "../StakeModal";
-import { formatEther } from "viem";
+import { useSearchParams } from "react-router";
+import PoolPanel from "../pool-panel/PoolPanel";
 import { useChainId } from "wagmi";
-import Decimal from "decimal.js";
-import { formatNumberWithSeparators } from "@/utils/numberUtils";
+import { formatTokenAmount } from "../pool-panel/format";
+import { TestnetLine } from "../pool-panel/sections";
 
 // Define filter and sort types
 type PoolFilter = "all" | "no-fans" | "more-than-10-fans" | "more-than-10k-stake";
@@ -20,6 +18,10 @@ interface PoolsTabProps {
   poolFilter: PoolFilter;
   poolSort: PoolSort;
   shouldOpenModal?: boolean; // If true, open modal instead of navigating to pool page
+  // 045 I10: the result count beside Sort, and Searching while a new query loads
+  onResult?: (result: { count: number; fetching: boolean }) => void;
+  // 045 I13: Clear search and Clear filter in the no results state
+  emptyActions?: React.ReactNode;
 }
 
 const PoolsTab: React.FC<PoolsTabProps> = ({
@@ -27,12 +29,16 @@ const PoolsTab: React.FC<PoolsTabProps> = ({
   poolFilter,
   poolSort,
   shouldOpenModal = false,
+  onResult,
+  emptyActions,
 }) => {
   const chainId = useChainId();
 
   const {
     data: pools,
     isLoading,
+    isFetching,
+    isPlaceholderData,
     refetch,
   } = useQuery({
     ...trpc.pools.fan.getPools.queryOptions({
@@ -42,56 +48,39 @@ const PoolsTab: React.FC<PoolsTabProps> = ({
       sort: poolSort,
     }),
     enabled: !!chainId,
+    // Keep the current results on screen while a new query loads (045 I10)
+    placeholderData: keepPreviousData,
   });
 
-  // State for pool address detection (for opening modal directly from URL)
-  const [poolAddressFromParam, setPoolAddressFromParam] = useState<string | null>(null);
-  const [isPoolModalOpen, setIsPoolModalOpen] = useState(false);
-  const [selectedPoolAddress, setSelectedPoolAddress] = useState<string | null>(null);
-
-  // Check for pool address parameter on mount
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const urlParams = new URLSearchParams(window.location.search);
-      const poolAddress = urlParams.get("pa"); // Using 'pa' parameter for pool address to avoid conflict with panel param
+    if (!pools) return;
+    onResult?.({ count: pools.length, fetching: isFetching && isPlaceholderData });
+  }, [pools, isFetching, isPlaceholderData, onResult]);
 
-      // Validate if it looks like an Ethereum address
-      if (poolAddress && /^0x[a-fA-F0-9]{40}$/.test(poolAddress)) {
-        setPoolAddressFromParam(poolAddress);
-        setSelectedPoolAddress(poolAddress);
-        // Open modal directly with the address
-        setIsPoolModalOpen(true);
-      }
-    }
-  }, []);
+  // The open pool lives in ?pool=<address> (D27), so the panel survives a
+  // reload and the link can be shared. Legacy ?pa= links are rewritten.
+  const [params, setParams] = useSearchParams();
+  const selectedPoolAddress = params.get("pool");
 
-  // State for modals and selected pool
-  const [selectedStakingPool, setSelectedStakingPool] = useState<any>(null);
-  const [isStakeModalOpen, setIsStakeModalOpen] = useState(false);
+  useEffect(() => {
+    const legacy = params.get("pa");
+    if (!legacy) return;
+    const next = new URLSearchParams(params);
+    next.delete("pa");
+    if (!next.get("pool")) next.set("pool", legacy);
+    setParams(next, { replace: true });
+  }, [params, setParams]);
 
-  const handleJoinPool = (poolId: number) => {
-    if (pools) {
-      const pool = pools.find(p => p.id === poolId);
-      if (pool) {
-        // Criar um objeto que tenha a estrutura esperada pelo useStaking
-        // Pass the stakedAmount in its original format to the staking component
-        const poolForStaking = {
-          id: pool.id,
-          name: pool.name, // Include name field as well
-          description: pool.description ?? "",
-          chainId: pool.chainId,
-          address: pool.address,
-          image: pool.image,
-          stakedByYou: 0,
-          stakedAmount: pool.stakedAmount
-            ? parseFloat(formatEther(pool.stakedAmount as unknown as bigint))
-            : 0,
-        };
+  const openPool = (address: string) => {
+    const next = new URLSearchParams(params);
+    next.set("pool", address);
+    setParams(next, { replace: true });
+  };
 
-        setSelectedStakingPool(poolForStaking);
-        setIsStakeModalOpen(true);
-      }
-    }
+  const closePool = () => {
+    const next = new URLSearchParams(params);
+    next.delete("pool");
+    setParams(next, { replace: true });
   };
 
   const handleViewPool = (poolId: number) => {
@@ -99,121 +88,77 @@ const PoolsTab: React.FC<PoolsTabProps> = ({
       const pool = pools.find(p => p.id === poolId);
       if (pool && pool.address) {
         if (shouldOpenModal) {
-          // Open modal instead of navigating
-          setSelectedPoolAddress(pool.address);
-          setIsPoolModalOpen(true);
+          openPool(pool.address);
         } else {
           // The dedicated pool page lives on the public site
-          window.location.href = `${import.meta.env.VITE_LANDING_URL}/i/pools/${pool.address}`;
+          window.location.href = `${import.meta.env.VITE_LANDINGPAGE_URL}/i/pools/${pool.address}`;
         }
       }
     }
   };
 
-  // Apply filtering and sorting
-
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {/* 086 (QA): every pool list carries the verbatim testnet line. Above the
+          list at 390, under it on desktop. */}
+      <div className="sm:hidden">
+        <TestnetLine />
+      </div>
+      {/* Prism medium pool cards (QA-028), the same card as the public pools
+          directory (070). The whole card opens the pool panel. */}
+      <ul className="prism-stagger grid grid-cols-1 gap-[21px] sm:grid-cols-2 xl:grid-cols-3">
         {isLoading ? (
-          Array.from({ length: 6 }).map((_, index) => <PoolSkeleton key={index} />)
-        ) : pools && pools.length > 0 ? (
-          pools.map(pool => (
-            <div
-              key={pool.id}
-              className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden"
-            >
-              {pool.image ? (
-                <div className="h-32 bg-gradient-to-r from-blue-500 to-purple-600 relative overflow-hidden">
-                  <img
-                    src={pool.image.url}
-                    alt={pool.name}
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute inset-0 bg-black bg-opacity-20"></div>
-                </div>
-              ) : (
-                <div className="h-32 bg-gray-200" />
-              )}
-
-              <div className="p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">{pool.name}</h3>
-                <p className="text-gray-600 text-sm mb-4 line-clamp-2">
-                  {pool.description ?? "No description available."}
-                </p>
-
-                <div className="space-y-3 mb-4">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-gray-500">Total Stake</span>
-                    <span className="font-semibold text-gray-900">
-                      {pool.stakedAmount !== undefined && pool.stakedAmount !== null
-                        ? formatNumberWithSeparators(
-                            Decimal.max(
-                              new Decimal("0"),
-                              new Decimal(formatEther(pool.stakedAmount)).minus(
-                                new Decimal("0.0015")
-                              )
-                            )
-                              .toDecimalPlaces(3, Decimal.ROUND_DOWN)
-                              .toString()
-                          )
-                        : "0"}{" "}
-                      {getChainConfig(parseInt(pool.chainId))?.nativeCurrency.symbol || "REVO"}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-gray-500">Fans</span>
-                    <span className="font-semibold text-gray-900">
-                      {(pool.fans ?? 0).toLocaleString()}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex space-x-2">
-                  <button
-                    onClick={() => handleViewPool(pool.id)}
-                    className="flex-1 py-2 px-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors duration-200 flex items-center justify-center space-x-1"
-                  >
-                    <Users className="w-4 h-4" />
-                    <span>View Pool</span>
-                  </button>
-                  <button
-                    onClick={() => handleJoinPool(pool.id)}
-                    className={`flex-1 py-2 px-3 rounded-lg font-medium transition-colors duration-200 flex items-center justify-center space-x-1 bg-blue-600 text-white hover:bg-blue-700`}
-                  >
-                    <Coins className="w-4 h-4" />
-                    <span>Stake</span>
-                  </button>
-                </div>
-              </div>
-            </div>
+          Array.from({ length: 6 }).map((_, index) => (
+            <li key={index}>
+              <PoolSkeleton />
+            </li>
           ))
+        ) : pools && pools.length > 0 ? (
+          pools.map(pool => {
+            const symbol = getChainConfig(parseInt(pool.chainId))?.nativeCurrency.symbol || "tREVO";
+            const staked = `${
+              pool.stakedAmount !== undefined && pool.stakedAmount !== null
+                ? formatTokenAmount(BigInt(pool.stakedAmount))
+                : "0"
+            } ${symbol}`;
+            const fans = `${(pool.fans ?? 0).toLocaleString("en-US")} ${pool.fans === 1 ? "fan" : "fans"}`;
+            return (
+              <li key={pool.id}>
+                <PoolCardMedium
+                  onSelect={() => handleViewPool(pool.id)}
+                  ariaLabel={`${pool.name}, ${fans}, ${staked} staked`}
+                  pool={{
+                    name: pool.name,
+                    artUrl: pool.image?.url,
+                    stats: [
+                      { label: "Fans", value: fans },
+                      { label: "Total staked", value: staked },
+                    ],
+                  }}
+                />
+              </li>
+            );
+          })
         ) : (
-          <div className="text-center py-8 text-gray-500 col-span-full">No reward pools found.</div>
+          <li className="col-span-full space-y-3 py-8 text-center font-prism text-prism-body text-prism-ink-2">
+            <p>No pools found.</p>
+            {emptyActions}
+          </li>
         )}
+      </ul>
+      <div className="hidden sm:block">
+        <TestnetLine />
       </div>
 
-      {/* Modals */}
-      {isStakeModalOpen && selectedStakingPool && (
-        <StakeModal
-          pool={selectedStakingPool}
-          isOpen={isStakeModalOpen}
-          onClose={() => setIsStakeModalOpen(false)}
-          onStakeSuccess={refetch}
-        />
-      )}
-      {/* Pool Details Modal for both URL parameter and clicked pools */}
-      {isPoolModalOpen && (poolAddressFromParam || selectedPoolAddress) && (
-        <PoolDetailsModal
-          poolAddress={poolAddressFromParam || selectedPoolAddress || undefined} // Use either URL parameter or selected pool, ensuring it's string or undefined for the prop
-          isOpen={isPoolModalOpen}
-          onClose={() => {
-            setIsPoolModalOpen(false);
-            setPoolAddressFromParam(null);
-            setSelectedPoolAddress(null);
-          }}
-        />
-      )}
+      {/* Pool details and the stake, unstake and claim flows (rows 046 to 048) */}
+      <PoolPanel
+        open={!!selectedPoolAddress}
+        onOpenChange={next => {
+          if (!next) closePool();
+        }}
+        poolAddress={selectedPoolAddress ?? undefined}
+        onChanged={refetch}
+      />
     </div>
   );
 };

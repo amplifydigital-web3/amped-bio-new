@@ -1,8 +1,14 @@
 import { privateProcedure, publicProcedure, router } from "./trpc";
 import { z } from "zod";
-import { prisma } from "../services/DB";
+import { prisma } from "@repo/database";
 import { TRPCError } from "@trpc/server";
-import { addBlockSchema, blockIdParamSchema, editBlocksSchema } from "@repo/constants";
+import {
+  SINGLETON_BLOCK_TYPES,
+  addBlockSchema,
+  blockIdParamSchema,
+  editBlocksSchema,
+} from "@repo/constants";
+import { sanitizeBlockConfig } from "../utils/sanitizeBlockConfig";
 
 export const blocksRouter = router({
   // Get all blocks for the user
@@ -70,7 +76,8 @@ export const blocksRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.user!.sub;
-      const { id, type, order, config } = input;
+      const { id, type, order } = input;
+      const config = sanitizeBlockConfig(type, input.config);
 
       try {
         const block = await prisma.block.findUnique({
@@ -118,7 +125,8 @@ export const blocksRouter = router({
 
     try {
       for (let idx = 0; idx < blocks.length; idx++) {
-        const { id, type, config } = blocks[idx];
+        const { id, type } = blocks[idx];
+        const config = sanitizeBlockConfig(type, blocks[idx].config);
 
         const block = await prisma.block.findUnique({
           where: {
@@ -159,22 +167,27 @@ export const blocksRouter = router({
 
   addBlock: privateProcedure.input(addBlockSchema).mutation(async ({ ctx, input }) => {
     const userId = ctx.user!.sub;
-    const { type, config } = input;
+    const { type } = input;
+    const config = sanitizeBlockConfig(type, input.config);
 
     try {
       const result = await prisma.$transaction(async tx => {
-        if (type === "referral") {
-          const existingReferralBlock = await tx.block.findFirst({
+        // Referral, Follow button and Followers are one per page (#30 decision 3)
+        if ((SINGLETON_BLOCK_TYPES as readonly string[]).includes(type)) {
+          const existing = await tx.block.findFirst({
             where: {
               user_id: userId,
-              type: "referral",
+              type,
             },
           });
 
-          if (existingReferralBlock) {
+          if (existing) {
             throw new TRPCError({
               code: "BAD_REQUEST",
-              message: "You can only have one Referral Link block per profile",
+              message:
+                type === "referral"
+                  ? "You can only have one Referral Link block per profile"
+                  : "This block is already on your page",
             });
           }
         }
@@ -239,13 +252,18 @@ export const blocksRouter = router({
     }
   }),
 
-  registerClick: publicProcedure.input(blockIdParamSchema).mutation(async ({ input }) => {
+  registerClick: publicProcedure.input(blockIdParamSchema).mutation(async ({ ctx, input }) => {
     const { id } = input;
 
     try {
-      await prisma.block.update({
+      // A signed in creator clicking their own block (editor preview or their own
+      // public page) is not a visitor click. updateMany with a user_id filter skips
+      // the increment in that case without an extra query.
+      const viewerId = ctx.user?.sub;
+      await prisma.block.updateMany({
         where: {
           id: id,
+          ...(viewerId ? { user_id: { not: viewerId } } : {}),
         },
         data: {
           clicks: {

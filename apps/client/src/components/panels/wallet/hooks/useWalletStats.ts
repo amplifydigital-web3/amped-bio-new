@@ -1,33 +1,33 @@
 import { useQuery } from "@tanstack/react-query";
 import { trpc } from "@repo/ui";
-import { formatUnits } from "viem";
-import { RouterOutput } from "@repo/ui";
+import { toWei } from "../../explore/pool-panel/format";
 
-type WalletStatsOutput = RouterOutput<"wallet", "getWalletStats">;
-
-export const useWalletStats = () => {
-  const { data, isLoading, refetch } = useQuery({
+/**
+ * Screen Review 049: the Wallet summary figures. Staked counts fan stakes plus
+ * the creator's own pool stake (I14); Pools joined counts other creators'
+ * pools only (I15). Refetches every 15 s and updates in place. `stats` stays
+ * null until the first answer, and `failed` is true only when there is no
+ * answer to show, so a failed query never reads as 0 (I12).
+ */
+export function useWalletStats(enabled = true) {
+  const query = useQuery({
     ...trpc.wallet.getWalletStats.queryOptions(),
     refetchInterval: 15000,
+    enabled,
   });
 
-  const stats = data
+  const stats = query.data
     ? {
-        myStake: formatUnits(BigInt((data as WalletStatsOutput).myStake), 18),
-        stakedToMe: formatUnits(BigInt((data as WalletStatsOutput).stakedToMe), 18),
-        stakersSupportingMe: (data as WalletStatsOutput).stakersSupportingMe,
-        creatorPoolsJoined: (data as WalletStatsOutput).creatorPoolsJoined,
+        staked: toWei(query.data.myStake) ?? 0n,
+        ownPoolStake: toWei(query.data.ownPoolStake) ?? 0n,
+        poolsJoined: query.data.creatorPoolsJoined,
       }
-    : {
-        myStake: "0",
-        stakedToMe: "0",
-        stakersSupportingMe: 0,
-        creatorPoolsJoined: 0,
-      };
+    : null;
 
   return {
     stats,
-    isLoading,
-    refetch,
+    loading: query.isPending,
+    failed: query.isError && !query.data,
+    refetch: query.refetch,
   };
-};
+}

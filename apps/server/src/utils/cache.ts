@@ -4,7 +4,7 @@ import { env } from "../env";
 
 let redisClient: Redis | null = null;
 
-function getRedisClient(): Redis | null {
+export function getRedisClient(): Redis | null {
   if (!redisClient) {
     try {
       redisClient = new Redis({
@@ -69,6 +69,15 @@ class FallbackCache {
 
   async delete(key: string): Promise<boolean> {
     return this.cache.delete(key);
+  }
+
+  /** Atomic read-and-delete for single use tokens. */
+  async take<T>(key: string): Promise<T | null> {
+    const entry = this.cache.get(key);
+    if (!entry) return null;
+    this.cache.delete(key);
+    if (Date.now() > entry.expiresAt) return null;
+    return entry.value as T;
   }
 
   async clear(): Promise<void> {
@@ -228,6 +237,31 @@ class Cache {
 
     const fallback = getFallbackCache();
     return await fallback.has(key);
+  }
+
+  /**
+   * Atomic read-and-delete (Redis GETDEL): the value is returned to exactly one
+   * caller, which is what single use tokens (OIDC state) need. Falls back to
+   * get + delete when the server does not support GETDEL.
+   */
+  async take<T>(key: string): Promise<T | null> {
+    const redis = getRedisClient();
+    if (redis) {
+      try {
+        const value = await (redis as unknown as { getdel?: (k: string) => Promise<string | null> })
+          .getdel?.(key);
+        if (value === null || value === undefined) return null;
+        try {
+          return JSON.parse(value) as T;
+        } catch {
+          return null;
+        }
+      } catch (error) {
+        console.warn(`[CACHE] Redis take failed for key "${key}", using fallback`);
+      }
+    }
+    const fallback = getFallbackCache();
+    return await fallback.take<T>(key);
   }
 
   async delete(key: string): Promise<boolean> {

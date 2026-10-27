@@ -1,249 +1,276 @@
 "use client";
 
-import { useState } from "react";
-import Image from "next/image";
-import { Shield, AlertCircle, Loader2, KeyRound, LogOut } from "lucide-react";
-import { authClient } from "@/lib/auth-client";
-import { getPanelEditUrl } from "@/lib/panel";
-import { Button } from "@repo/ui";
+import { Suspense, useEffect, useRef, useState, type FormEvent } from "react";
+import { useSearchParams } from "next/navigation";
+import { AlertCircle, LoaderCircle } from "lucide-react";
 import {
-  InputOTP,
-  InputOTPGroup,
-  InputOTPSlot,
-} from "@/components/ui/input-otp";
+  AuthCard,
+  AuthLegalLine,
+  Button,
+  Checkbox,
+  Input,
+  Notice,
+  navigateToProviderRedirect,
+} from "@repo/ui";
+import { authClient } from "@/lib/auth-client";
+import { AuthLayout } from "@/components/auth/AuthLayout";
+import { CodeInput } from "@/components/auth/CodeInput";
+import { PRIVACY_POLICY_URL } from "@/components/layout/PublicFooter";
+import { getPostAuthDestination, goTo } from "@/lib/panel";
 
-export default function TwoFactorChallengePage() {
-  // Private areas live in apps/client, so after a successful 2FA challenge the
-  // user is sent to the panel instead of the public site.
-  const redirectToPanel = async () => {
-    const { data: sessionData } = await authClient.getSession();
-    const user = sessionData?.user as { handle?: string } | undefined;
-    window.location.href = getPanelEditUrl(user?.handle || "");
-  };
+const WRONG_CODE = "That code did not work. Codes change every 30 seconds, so use the newest one.";
+const WRONG_BACKUP = "That backup code did not work. Check it and try again.";
 
+type Blocked = "attempts" | "timeout" | null;
+
+// Backup codes look like ABCDE-12345; pasted lists may carry a "1. " prefix
+const cleanBackup = (value: string) => value.replace(/[^a-zA-Z0-9-]/g, "").slice(0, 11);
+const cleanPastedBackup = (value: string) =>
+  cleanBackup(value.replace(/^[^a-zA-Z0-9]*\d+\.\s*/, ""));
+
+// Two factor challenge (Screen Review 014): the shared auth card with one job.
+// Six digit wells that submit on the sixth digit, Verify, Trust this device,
+// backup mode in place, Sign out and go back.
+function TwoFactorChallenge() {
+  const params = useSearchParams();
+  const [mode, setMode] = useState<"totp" | "backup">("totp");
   const [code, setCode] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [useBackupCode, setUseBackupCode] = useState(false);
   const [backupCode, setBackupCode] = useState("");
   const [trustDevice, setTrustDevice] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [blocked, setBlocked] = useState<Blocked>(null);
+  const [loading, setLoading] = useState(false);
+  const codeRef = useRef<HTMLInputElement>(null);
+  const backupRef = useRef<HTMLInputElement>(null);
+  const noticeRef = useRef<HTMLDivElement>(null);
+  const firstRender = useRef(true);
 
-  const handleVerifyTotp = async () => {
-    if (code.length !== 6) return;
+  // Switching modes moves focus to the new input (014 I08)
+  useEffect(() => {
+    if (firstRender.current) {
+      firstRender.current = false;
+      return;
+    }
+    (mode === "totp" ? codeRef : backupRef).current?.focus();
+  }, [mode]);
+
+  useEffect(() => {
+    if (blocked) noticeRef.current?.focus();
+  }, [blocked]);
+
+  const succeed = (data: unknown) => {
+    // OAuth flows continue at the provider; otherwise a safe returnTo or Home
+    if (navigateToProviderRedirect(data)) return;
+    goTo(getPostAuthDestination(params));
+  };
+
+  const fail = (failure: { code?: string; status?: number } | null | undefined) => {
+    const code = failure?.code ?? "";
+    if (/TOO_MANY|LOCKED/.test(code) || failure?.status === 429) return setBlocked("attempts");
+    if (/INVALID_TWO_FACTOR_COOKIE/.test(code) || failure?.status === 401)
+      return setBlocked("timeout");
+    setError(mode === "totp" ? WRONG_CODE : WRONG_BACKUP);
+    if (mode === "totp") {
+      setCode("");
+      setTimeout(() => codeRef.current?.focus());
+    } else {
+      setTimeout(() => backupRef.current?.focus());
+    }
+  };
+
+  const verifyTotp = async (value: string) => {
+    if (value.length !== 6) return codeRef.current?.focus();
     setLoading(true);
     setError(null);
     try {
       const { data, error: verifyError } = await authClient.twoFactor.verifyTotp({
-        code,
+        code: value,
         trustDevice,
       });
       if (verifyError) {
-        setError(verifyError.message || "Invalid code. Please try again.");
-        return;
+        console.error("Two factor verification failed:", verifyError);
+        return fail(verifyError);
       }
-      if (data) {
-        await redirectToPanel();
-        return;
-      }
+      succeed(data);
     } catch (err) {
-      setError((err as Error).message || "Verification failed. Please try again.");
+      console.error("Two factor verification failed:", err);
+      setError("The code could not be checked. Check your connection and try again.");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleVerifyBackupCode = async () => {
-    if (!backupCode.trim()) return;
+  const verifyBackup = async () => {
+    const value = backupCode.trim();
+    if (!value) {
+      setError("Enter one of your backup codes.");
+      return backupRef.current?.focus();
+    }
     setLoading(true);
     setError(null);
     try {
       const { data, error: verifyError } = await authClient.twoFactor.verifyBackupCode({
-        code: backupCode.trim(),
+        code: value,
         trustDevice,
       });
       if (verifyError) {
-        setError(verifyError.message || "Invalid backup code. Please try again.");
-        return;
+        console.error("Backup code verification failed:", verifyError);
+        return fail(verifyError);
       }
-      if (data) {
-        await redirectToPanel();
-        return;
-      }
+      succeed(data);
     } catch (err) {
-      setError((err as Error).message || "Verification failed. Please try again.");
+      console.error("Backup code verification failed:", err);
+      setError("The code could not be checked. Check your connection and try again.");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleCancel = async () => {
+  const signOutAndGoBack = async () => {
     try {
       await authClient.signOut();
-    } catch (error) {
-      console.error("Sign out failed:", error);
+    } catch (err) {
+      console.error("Sign out failed:", err);
     } finally {
       window.location.href = "/";
     }
   };
 
+  const switchMode = () => {
+    setError(null);
+    setCode("");
+    setBackupCode("");
+    setMode(current => (current === "totp" ? "backup" : "totp"));
+  };
+
+  const signInAgain = `/login${params.toString() ? `?${params.toString()}` : ""}`;
+
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-4">
-      <div className="mb-8">
-        <Image src="/logo.svg" alt="Amped Bio" width={0} height={0} className="h-8 w-auto" priority />
-      </div>
-
-      <div className="w-full max-w-md bg-white rounded-xl shadow-sm border border-gray-200 p-8">
-        <div className="text-center mb-6">
-          <div className="mx-auto w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center mb-4">
-            {useBackupCode ? (
-              <KeyRound className="w-6 h-6 text-blue-600" />
-            ) : (
-              <Shield className="w-6 h-6 text-blue-600" />
-            )}
-          </div>
-          <h1 className="text-xl font-semibold text-gray-900">
-            {useBackupCode ? "Use Backup Code" : "Two-Factor Authentication"}
-          </h1>
-          <p className="text-sm text-gray-500 mt-2">
-            {useBackupCode
-              ? "Enter one of your backup codes to sign in."
-              : "Enter the 6-digit code from your authenticator app."}
-          </p>
-        </div>
-
-        {error && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md flex items-start gap-2">
-            <AlertCircle className="h-5 w-5 text-red-500 mt-0.5 flex-shrink-0" />
-            <p className="text-sm text-red-600">{error}</p>
-          </div>
-        )}
-
-        {useBackupCode ? (
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Backup Code
-              </label>
-              <input
-                type="text"
-                value={backupCode}
-                onChange={(e) => {
-                  const cleaned = e.target.value.replace(/[^a-zA-Z0-9-]/g, "").slice(0, 11);
-                  setBackupCode(cleaned);
-                }}
-                onPaste={(e) => {
-                  e.preventDefault();
-                  const pasted = e.clipboardData.getData("text");
-                  const cleaned = pasted.replace(/^[^a-zA-Z0-9]*\d+\.\s*/, "").replace(/[^a-zA-Z0-9-]/g, "").slice(0, 11);
-                  setBackupCode(cleaned);
-                }}
-                placeholder="XXXXX-XXXXX"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md text-center text-lg tracking-widest focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                autoFocus
-              />
-            </div>
-            <Button
-              onClick={handleVerifyBackupCode}
-              disabled={loading || !backupCode.trim()}
-              className="w-full"
-            >
-              {loading ? (
-                <span className="flex items-center justify-center">
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Verifying...
-                </span>
-              ) : (
-                "Verify Backup Code"
-              )}
+    <AuthCard
+      title={mode === "totp" ? "Enter your code" : "Use a backup code"}
+      subtitle={
+        mode === "totp"
+          ? "Open your authenticator app and type the 6 digit code for Amped.Bio."
+          : "Enter one of the codes you saved when you turned on two factor."
+      }
+      notice={
+        blocked ? (
+          <Notice
+            ref={noticeRef}
+            tabIndex={-1}
+            role="alert"
+            variant="warning"
+            className="outline-none"
+            title={blocked === "attempts" ? "Too many attempts" : undefined}
+          >
+            <p>
+              {blocked === "attempts"
+                ? "Wait a few minutes, then sign in again."
+                : "Your sign in timed out."}
+            </p>
+            <Button className="mt-2" asChild>
+              <a href={signInAgain}>Sign in again</a>
             </Button>
-
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={trustDevice}
-                onChange={(e) => setTrustDevice(e.target.checked)}
-                className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-              />
-              <span className="text-sm text-gray-600">Trust this device for 30 days</span>
-            </label>
+          </Notice>
+        ) : undefined
+      }
+      footer={<AuthLegalLine privacyHref={PRIVACY_POLICY_URL} />}
+    >
+      <form
+        noValidate
+        onSubmit={(event: FormEvent<HTMLFormElement>) => {
+          event.preventDefault();
+          void (mode === "totp" ? verifyTotp(code) : verifyBackup());
+        }}
+      >
+        {mode === "totp" ? (
+          <div className="space-y-2">
+            <CodeInput
+              ref={codeRef}
+              value={code}
+              onChange={value => {
+                setCode(value);
+                if (error) setError(null);
+              }}
+              onComplete={value => void verifyTotp(value)}
+              disabled={loading}
+              invalid={!!error}
+              describedBy={error ? "two-factor-error" : undefined}
+            />
           </div>
         ) : (
-          <div className="space-y-6">
-            <div className="flex justify-center">
-              <InputOTP
-                maxLength={6}
-                value={code}
-                onChange={(value) => setCode(value)}
-                onComplete={handleVerifyTotp}
-                disabled={loading}
-              >
-                <InputOTPGroup>
-                  <InputOTPSlot index={0} />
-                  <InputOTPSlot index={1} />
-                  <InputOTPSlot index={2} />
-                  <InputOTPSlot index={3} />
-                  <InputOTPSlot index={4} />
-                  <InputOTPSlot index={5} />
-                </InputOTPGroup>
-              </InputOTP>
-            </div>
-
-            <Button
-              onClick={handleVerifyTotp}
-              disabled={loading || code.length !== 6}
-              className="w-full"
-            >
-              {loading ? (
-                <span className="flex items-center justify-center">
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Verifying...
-                </span>
-              ) : (
-                "Verify"
-              )}
-            </Button>
-
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={trustDevice}
-                onChange={(e) => setTrustDevice(e.target.checked)}
-                className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-              />
-              <span className="text-sm text-gray-600">Trust this device for 30 days</span>
-            </label>
+          <div className="space-y-2">
+            <Input
+              ref={backupRef}
+              id="two-factor-backup"
+              label="Backup code"
+              autoComplete="off"
+              autoCapitalize="characters"
+              spellCheck={false}
+              autoFocus
+              value={backupCode}
+              disabled={loading}
+              helper="Looks like ABCDE-12345"
+              aria-invalid={!!error || undefined}
+              aria-describedby={error ? "two-factor-error" : undefined}
+              onChange={event => {
+                setBackupCode(cleanBackup(event.target.value));
+                if (error) setError(null);
+              }}
+              onPaste={event => {
+                event.preventDefault();
+                setBackupCode(cleanPastedBackup(event.clipboardData.getData("text")));
+              }}
+            />
           </div>
         )}
 
-        <div className="mt-4 text-center">
-          <button
-            type="button"
-            onClick={() => {
-              setUseBackupCode(!useBackupCode);
-              setError(null);
-              setCode("");
-              setBackupCode("");
-            }}
-            className="text-sm text-blue-600 hover:text-blue-700"
+        {error && (
+          <p
+            id="two-factor-error"
+            role="alert"
+            className="mt-[13px] flex items-start gap-1.5 font-prism text-prism-meta text-prism-danger"
           >
-            {useBackupCode
-              ? "Use authenticator app instead"
-              : "Use backup code instead"}
-          </button>
-        </div>
+            <AlertCircle className="mt-px h-[21px] w-[21px] shrink-0" aria-hidden />
+            {error}
+          </p>
+        )}
 
-        <div className="mt-6 pt-4 border-t border-gray-200">
-          <Button
-            variant="outline"
-            onClick={handleCancel}
-            disabled={loading}
-            className="w-full text-gray-500 hover:text-gray-700 border-gray-200"
-          >
-            <LogOut className="mr-2 h-4 w-4" />
-            Cancel and return to home
+        <div className="pt-[34px]">
+          <Button type="submit" size="lg" className="w-full" disabled={loading} aria-busy={loading}>
+            {loading && (
+              <LoaderCircle className="animate-spin motion-reduce:animate-none" aria-hidden />
+            )}
+            {loading ? "Verifying" : "Verify"}
           </Button>
         </div>
+      </form>
+
+      <div className="mt-[21px]">
+        <Checkbox checked={trustDevice} onCheckedChange={setTrustDevice}>
+          Trust this device for 30 days
+        </Checkbox>
       </div>
-    </div>
+      <div className="mt-[13px]">
+        <Button variant="ghost" onClick={switchMode} disabled={loading}>
+          {mode === "totp" ? "Use a backup code instead" : "Use your authenticator app"}
+        </Button>
+      </div>
+      <div className="mt-[21px] border-t border-prism-line pt-[21px]">
+        <Button variant="ghost" onClick={() => void signOutAndGoBack()} disabled={loading}>
+          Sign out and go back
+        </Button>
+      </div>
+    </AuthCard>
+  );
+}
+
+export default function TwoFactorChallengePage() {
+  return (
+    <AuthLayout>
+      <Suspense fallback={null}>
+        <TwoFactorChallenge />
+      </Suspense>
+    </AuthLayout>
   );
 }

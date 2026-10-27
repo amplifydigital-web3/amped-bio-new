@@ -1,0 +1,189 @@
+/**
+ * Screen Review 104 D1, 105 I04, 106 I08: the Authbase router behind the RNS
+ * Identity, Attributes and Facets tabs. Authbase, the database and the session
+ * layer are mocked, so no network or database is needed.
+ */
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const WALLET = "0x7a3f00000000000000000000000000000000c91e";
+
+const state = vi.hoisted(() => ({
+  rows: new Map<string, { user_id: number; feature: string; source: string }>(),
+  statusCalls: [] as string[],
+  publicAttributes: false,
+  status: "VERIFIED" as string,
+  // The wallet owner's block rows, or null for a wallet with no Amped.Bio account
+  ownerBlocks: null as { type: string; config: unknown }[] | null,
+}));
+
+vi.mock("../utils/auth", () => ({ auth: { api: { getSession: vi.fn(async () => null) } } }));
+vi.mock("../services/authbase", async () => {
+  const actual =
+    await vi.importActual<typeof import("../services/authbase")>("../services/authbase");
+  return {
+    AuthbaseError: class extends Error {},
+    isAuthbaseConfigured: () => true,
+    publicSharedAttributes: actual.publicSharedAttributes,
+    getAuthbaseWalletStatus: vi.fn(async (address: string) => {
+      state.statusCalls.push(address);
+      const verified = state.status === "VERIFIED" || state.status === "VERIFIED_WITH_BADGE";
+      return {
+        wallet_address: address,
+        status: state.status,
+        verified,
+        hasBadge: false,
+        attributes: { name: "Maya Lin", country: "US", gender: "F", legal_id: "X123" },
+      };
+    }),
+  };
+});
+// The owner's block switches come from rnsIdentity; its chain reads stay out
+vi.mock("../services/rns", () => ({}));
+vi.mock("../services/rnsSummary", () => ({}));
+vi.mock("../utils/cache", () => ({ cache: {} }));
+vi.mock("../env", () => ({
+  env: {
+    get RNS_PUBLIC_ATTRIBUTES() {
+      return state.publicAttributes;
+    },
+  },
+}));
+vi.mock("@repo/database", () => {
+  const key = (where: { user_id: number; feature: string }) => `${where.user_id}:${where.feature}`;
+  return {
+    prisma: {
+      userWallet: {
+        findUnique: vi.fn(async () =>
+          state.ownerBlocks ? { user: { blocks: state.ownerBlocks } } : null
+        ),
+      },
+      featureInterest: {
+        findUnique: vi.fn(
+          async ({
+            where,
+          }: {
+            where: { user_id_feature: { user_id: number; feature: string } };
+          }) => (state.rows.get(key(where.user_id_feature)) ? { id: 1 } : null)
+        ),
+        upsert: vi.fn(
+          async ({
+            where,
+            create,
+          }: {
+            where: { user_id_feature: { user_id: number; feature: string } };
+            create: { user_id: number; feature: string; source: string };
+          }) => {
+            const k = key(where.user_id_feature);
+            if (!state.rows.has(k)) state.rows.set(k, create);
+            return state.rows.get(k);
+          }
+        ),
+        deleteMany: vi.fn(async ({ where }: { where: { user_id: number; feature: string } }) => {
+          state.rows.delete(key(where));
+          return { count: 1 };
+        }),
+      },
+    },
+  };
+});
+
+import { authbaseRouter } from "../trpc/authbase";
+
+const ctx = (user?: { sub: number; wallet: string | null }) =>
+  ({
+    req: {} as never,
+    res: {} as never,
+    user: user && { ...user, email: "maya@lin.studio", role: "user", poolAddresses: {} },
+  }) as Parameters<typeof authbaseRouter.createCaller>[0];
+
+beforeEach(() => {
+  state.rows.clear();
+  state.statusCalls.length = 0;
+  state.publicAttributes = false;
+  state.status = "VERIFIED";
+  state.ownerBlocks = [
+    { type: "rnsid", config: { show: { nameOnId: true, country: true, gender: false } } },
+  ];
+});
+
+describe("authbase router", () => {
+  it("the public lookup never returns shared attributes", async () => {
+    const result = await authbaseRouter.createCaller(ctx()).getWalletStatus({ address: WALLET });
+    expect(result?.attributes).toEqual({});
+    expect(JSON.stringify(result)).not.toContain("Maya Lin");
+  });
+
+  it("079 D2 on: a Verified wallet returns only what its owner's block shows", async () => {
+    state.publicAttributes = true;
+    const result = await authbaseRouter.createCaller(ctx()).getWalletStatus({ address: WALLET });
+    expect(result?.attributes).toEqual({ name: "Maya Lin", country: "US" });
+    expect(JSON.stringify(result)).not.toContain("X123");
+    expect(await authbaseRouter.createCaller(ctx()).isConfigured()).toEqual({
+      configured: true,
+      publicAttributes: true,
+    });
+  });
+
+  it("079 D2 on: no Amped.Bio account, or a hidden block, returns no attributes", async () => {
+    state.publicAttributes = true;
+    state.ownerBlocks = null;
+    const caller = authbaseRouter.createCaller(ctx());
+    expect((await caller.getWalletStatus({ address: WALLET }))?.attributes).toEqual({});
+    state.ownerBlocks = [{ type: "rnsid", config: { show: { nameOnId: true }, hidden: true } }];
+    expect((await caller.getWalletStatus({ address: WALLET }))?.attributes).toEqual({});
+  });
+
+  it("079 D2 on: Not verified and Not linked never return attributes", async () => {
+    state.publicAttributes = true;
+    for (const status of ["NOT_VERIFIED", "NOT_LINKED"]) {
+      state.status = status;
+      const result = await authbaseRouter.createCaller(ctx()).getWalletStatus({ address: WALLET });
+      expect(result?.attributes).toEqual({});
+    }
+  });
+
+  it("getMyStatus reads the session wallet and returns the owner's attributes", async () => {
+    const result = await authbaseRouter.createCaller(ctx({ sub: 7, wallet: WALLET })).getMyStatus();
+    expect(state.statusCalls).toEqual([WALLET]);
+    expect(result?.attributes).toEqual({
+      name: "Maya Lin",
+      country: "US",
+      gender: "F",
+      legal_id: "X123",
+    });
+  });
+
+  it("getMyStatus with no wallet returns null and asks Authbase nothing", async () => {
+    const result = await authbaseRouter.createCaller(ctx({ sub: 7, wallet: null })).getMyStatus();
+    expect(result).toBeNull();
+    expect(state.statusCalls).toEqual([]);
+  });
+
+  it("signed out callers cannot read or set Notify me", async () => {
+    await expect(authbaseRouter.createCaller(ctx()).identityInterest()).rejects.toThrow();
+    await expect(
+      authbaseRouter.createCaller(ctx()).setIdentityInterest({ on: true, source: "attributes" })
+    ).rejects.toThrow();
+  });
+
+  it("Notify me is one record shared by Attributes and Facets", async () => {
+    const caller = authbaseRouter.createCaller(ctx({ sub: 7, wallet: WALLET }));
+    expect(await caller.identityInterest()).toEqual({ on: false });
+    await caller.setIdentityInterest({ on: true, source: "attributes" });
+    await caller.setIdentityInterest({ on: true, source: "facets" });
+    expect(state.rows.size).toBe(1);
+    expect([...state.rows.values()][0].source).toBe("attributes");
+    expect(await caller.identityInterest()).toEqual({ on: true });
+    await caller.setIdentityInterest({ on: false, source: "facets" });
+    expect(await caller.identityInterest()).toEqual({ on: false });
+  });
+
+  it("another account does not see the first account's Notify me", async () => {
+    await authbaseRouter
+      .createCaller(ctx({ sub: 7, wallet: WALLET }))
+      .setIdentityInterest({ on: true, source: "facets" });
+    expect(
+      await authbaseRouter.createCaller(ctx({ sub: 8, wallet: null })).identityInterest()
+    ).toEqual({ on: false });
+  });
+});

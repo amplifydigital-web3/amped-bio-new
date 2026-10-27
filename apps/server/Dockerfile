@@ -20,15 +20,14 @@ WORKDIR /app
 # Dependency layer — kept stable so `pnpm install` is cached between builds.
 # Only the files needed to resolve the workspace and run the install-time
 # lifecycle scripts are copied before installing:
-#   - the workspace packages' sources (their `prepare` builds them via tsup)
-#   - the server manifest (defines `postinstall`)
-#   - the Prisma schema (used by `postinstall` -> `prisma generate`)
+#   - the workspace packages' sources, including `@repo/database` (its sources,
+#     its Prisma schema and its `postinstall` -> `prisma generate`)
+#   - the server manifest
 # App source changes therefore never invalidate this layer.
 # ---------------------------------------------------------------------------
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
 COPY packages ./packages
 COPY apps/server/package.json ./apps/server/package.json
-COPY apps/server/prisma ./apps/server/prisma
 
 # Pre-download the pnpm version pinned in package.json (pnpm@9.15.1) so the
 # runtime CMD ["pnpm", "start"] never triggers a network fetch. Keep this in
@@ -53,13 +52,18 @@ RUN pnpm run build
 RUN chown -R node:node /app
 USER node
 
-# Expose port 3000 (or whatever port your server uses)
-EXPOSE 3000
+# The image bakes no port in: the app listens on PORT from the environment. The
+# committed apps/server/.env.example sets 24300 (what the README publishes); when
+# PORT is unset env.ts falls back to 43000, which the HEALTHCHECK below mirrors.
+# EXPOSE is metadata only, so publish whichever port you configure.
+EXPOSE 24300
 
-# Health check: "/" responds with a 302 redirect to the frontend, so any 2xx/3xx
-# status means the server is up and serving requests
-HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
-  CMD node -e "fetch('http://127.0.0.1:3000/',{redirect:'manual'}).then(r=>process.exit(r.status>=200&&r.status<400?0:1)).catch(()=>process.exit(1))"
+# Report container health from inside the image so any orchestrator can act on it.
+# The probe hits the dependency-free /health liveness route, so a failure always
+# means the HTTP server itself is no longer serving requests. PORT is expanded by
+# the shell at runtime and defaults to the value env.ts uses when PORT is not set.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+  CMD wget -q -O /dev/null "http://127.0.0.1:${PORT:-43000}/health" || exit 1
 
 # Start the server
 CMD ["pnpm", "start"]
