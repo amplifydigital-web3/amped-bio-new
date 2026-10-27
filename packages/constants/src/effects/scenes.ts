@@ -1,4 +1,6 @@
-import { PARTICLE_PARAMS, particleOptions } from "./scenes.particles";
+import { PARTICLE_PARAMS, particleOptions, presetOptions } from "./scenes.particles";
+import { EMOJI_SET_PARAM, SCENE_PRESETS, emojiGlyphs } from "./scenes.presets";
+import type { ParticlePreset } from "./particlePresets";
 import type { EffectEntry } from "./types";
 
 /**
@@ -71,4 +73,57 @@ export const SCENE_EFFECTS: readonly EffectEntry[] = [
   overlay("confetti", "Confetti", "Colorful confetti", 7),
   overlay("stars", "Stars", "Twinkling stars", 8),
   overlay("geometric", "Geometric", "Connected geometric shapes", 9),
+  ...Object.keys(SCENE_PRESETS).map(sceneEntry),
 ];
+
+/**
+ * Phase 2 Scene core (board 01): the Plus scenes on the slim bundle. Light,
+ * like the v1 overlays; no v1 integer, so the editor stores them by id.
+ */
+function sceneEntry(id: string): EffectEntry {
+  const scene = SCENE_PRESETS[id]!;
+  // Density and speed without the palette: emoji keep their own colors
+  const motionParams = { density: PARTICLE_PARAMS.density, speed: PARTICLE_PARAMS.speed };
+  const params = scene.emojiSet
+    ? { ...motionParams, set: EMOJI_SET_PARAM }
+    : scene.emoji
+      ? motionParams
+      : PARTICLE_PARAMS;
+  return {
+    id: `scene.${id}`,
+    layer: "scene",
+    label: scene.label,
+    description: scene.description,
+    tier: "plus",
+    engine: "particles",
+    cost: "light",
+    source: "amped",
+    colorMode: scene.emoji ? "fixed" : "theme",
+    params,
+    loop: true,
+    render: {
+      kind: "particles",
+      options: (p, colors) => {
+        const preset = scene.emojiSet
+          ? withGlyphs(scene.preset, String(p["set"] ?? ""))
+          : scene.preset;
+        return presetOptions(preset, p, colors);
+      },
+      plugins: [],
+    },
+    preview: { sample: "scene" },
+    addedIn: 2,
+  };
+}
+
+/** Emoji rain with the creator's set in place of the preset glyphs. */
+function withGlyphs(preset: ParticlePreset, set: string): ParticlePreset {
+  const particles = (preset as { particles?: Record<string, unknown> }).particles ?? {};
+  return {
+    ...preset,
+    particles: {
+      ...particles,
+      shape: { type: "emoji", options: { emoji: { value: emojiGlyphs(set) } } },
+    },
+  };
+}
