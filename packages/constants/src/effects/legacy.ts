@@ -327,6 +327,8 @@ export function upgradeTheme(
       ? storedButton.id
       : legacyEffectId("buttonStyle", v1.buttonStyle);
   const containerId = legacyEffectId("containerStyle", v1.containerStyle);
+  const storedHover = v1.buttonEffectId ? findEffect(v1.buttonEffectId) : undefined;
+  const storedPress = v1.buttonPressId ? findEffect(v1.buttonPressId) : undefined;
 
   return themeConfigV2Schema.parse({
     version: 2,
@@ -365,8 +367,18 @@ export function upgradeTheme(
       border: oneOf(BORDER_STYLES, v1.buttonBorder, "none"),
       layout: oneOf(BUTTON_LAYOUTS, v1.buttonLayout, "label"),
     },
-    buttonHover: { id: legacyEffectId("buttonEffect", v1.buttonEffect), params: {} },
-    buttonPress: { id: "buttonPress.none", params: {} },
+    buttonHover: {
+      // A v2 hover stored by id wins over the v1 integer (phase 2)
+      id:
+        storedHover?.layer === "buttonHover"
+          ? storedHover.id
+          : legacyEffectId("buttonEffect", v1.buttonEffect),
+      params: {},
+    },
+    buttonPress: {
+      id: storedPress?.layer === "buttonPress" ? storedPress.id : "buttonPress.none",
+      params: {},
+    },
     name: { id: legacyEffectId("heroEffect", v1.heroEffect), params: {}, appliesTo: "name" },
     cursor: { id: "cursor.none", params: {} },
   });
