@@ -4,7 +4,7 @@ import type { CSSProperties, PointerEvent, ReactNode } from "react";
 import { ChevronRight } from "lucide-react";
 import type { AnyThemeConfig, EffectEntry, ThemeColors } from "@repo/constants";
 import { cn } from "../utils";
-import { effectClassName, lookFor } from "./look";
+import { effectClassName, hoverSpeedMs, lookFor } from "./look";
 import { buttonSurfaceClass } from "./surface";
 
 // Screen Review 040: shared pieces of the creator page block renderer. Blocks
@@ -102,10 +102,13 @@ export function CreatorButton({
   const onPointerDown = ripple
     ? (event: PointerEvent<HTMLElement>) => playPress(press, look.colors, event)
     : undefined;
+  // Editor chrome: the hover's Speed sets the transition; Default keeps its own
+  const speed = hoverSpeedMs(look);
   const style: CSSProperties = {
     backgroundColor: look.values.buttonColor,
     fontFamily: look.values.fontFamily,
     color: look.values.fontColor,
+    ...(speed ? { transitionDuration: `${speed}ms` } : {}),
   };
   const content = (
     <>
