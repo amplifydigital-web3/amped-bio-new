@@ -121,6 +121,8 @@ export interface EffectEntry {
   params: Readonly<Record<string, ParamSpec>>;
   /** Looping effects get the Settle control (once or always). */
   loop?: boolean;
+  /** One cycle of a looping class effect in ms, so the Speed param can scale it. */
+  loopMs?: number;
   render: EffectRender;
   preview: PreviewRecipe;
   /** The v1 integer this entry replaces, when it is the primary match. */

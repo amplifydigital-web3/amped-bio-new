@@ -1,4 +1,29 @@
-import type { EffectEntry } from "./types";
+import type { EffectEntry, ParamSpec } from "./types";
+
+/**
+ * Editor chrome params (spec 3.5, board 08). Speed scales a loop's cycle;
+ * Medium is the cycle as shipped, so no saved page changes. Colors swaps the
+ * text color an effect paints with (the sheen, the outline, the shadow, the
+ * glow) for a custom one; Your theme keeps the creator's text color.
+ */
+export const NAME_SPEED_PARAM = {
+  kind: "choice",
+  options: ["slow", "medium", "fast"],
+  default: "medium",
+  label: "Speed",
+} as const satisfies ParamSpec;
+
+export const NAME_SPEED_FACTOR: Readonly<Record<string, number>> = { slow: 1.6, fast: 0.6 };
+
+const NAME_COLOR_PARAMS = {
+  palette: { kind: "choice", options: ["theme", "custom"], default: "theme", label: "Colors" },
+  color: { kind: "color", default: "#ffffff", label: "Custom color" },
+} as const satisfies Record<string, ParamSpec>;
+
+const loopParams = (loopMs: number, colors = false): Partial<EffectEntry> => ({
+  loopMs,
+  params: { speed: NAME_SPEED_PARAM, ...(colors ? NAME_COLOR_PARAMS : {}) },
+});
 
 /**
  * Name effects. The v1 heroEffect values as the public page renders them
@@ -63,6 +88,7 @@ export const NAME_EFFECTS: readonly EffectEntry[] = [
     "drop-shadow-[0_0_10px_var(--amped-name-glow)]",
     {
       cost: "still",
+      params: NAME_COLOR_PARAMS,
     }
   ),
   name(
@@ -95,6 +121,7 @@ export const NAME_EFFECTS: readonly EffectEntry[] = [
   ),
   name("wave", "Wave", "Your name moves in a wave", 6, "motion-safe:animate-wave", {
     loop: true,
+    ...loopParams(1000),
     render: { kind: "class", className: "motion-safe:animate-wave", settledClassName: "" },
   }),
   name("neon", "Neon", "Neon light", 7, "text-[#ff00ff] drop-shadow-[0_0_10px_#ff00ff]", {
@@ -104,10 +131,12 @@ export const NAME_EFFECTS: readonly EffectEntry[] = [
   name("rainbow", "Rainbow", "Cycles through rainbow colors", 8, "motion-safe:animate-rainbow", {
     colorMode: "fixed",
     loop: true,
+    ...loopParams(3000),
     render: { kind: "class", className: "motion-safe:animate-rainbow", settledClassName: "" },
   }),
   name("glitch", "Glitch", "A glitch flicker", 9, "motion-safe:animate-glitch", {
     loop: true,
+    ...loopParams(3000),
     render: { kind: "class", className: "motion-safe:animate-glitch", settledClassName: "" },
   }),
   ...NEW_NAME_EFFECTS(),
@@ -155,7 +184,7 @@ function NEW_NAME_EFFECTS(): EffectEntry[] {
         settledClassName:
           "[background-image:linear-gradient(110deg,var(--amped-font)_42%,color-mix(in_srgb,var(--amped-font)_30%,#fff)_50%,var(--amped-font)_58%)] bg-[length:250%_100%] bg-left-top bg-clip-text [-webkit-text-fill-color:transparent]",
       },
-      { loop: true }
+      { loop: true, ...loopParams(2600, true) }
     ),
     // The theme gradient: button color to text color and back, sweeping
     v2(
@@ -169,7 +198,7 @@ function NEW_NAME_EFFECTS(): EffectEntry[] {
         settledClassName:
           "[background-image:linear-gradient(90deg,var(--amped-btn),var(--amped-font),var(--amped-btn))] bg-[length:200%_100%] bg-left bg-clip-text [-webkit-text-fill-color:transparent]",
       },
-      { loop: true }
+      { loop: true, ...loopParams(3000, true) }
     ),
     v2(
       "outline",
@@ -180,7 +209,7 @@ function NEW_NAME_EFFECTS(): EffectEntry[] {
         className:
           "[-webkit-text-fill-color:transparent] [-webkit-text-stroke:0.06em_var(--amped-font)]",
       },
-      { cost: "still" }
+      { cost: "still", params: NAME_COLOR_PARAMS }
     ),
     v2(
       "chrome",
@@ -203,7 +232,7 @@ function NEW_NAME_EFFECTS(): EffectEntry[] {
         className:
           "[text-shadow:0.04em_0.04em_0_color-mix(in_srgb,var(--amped-font)_55%,#000),0.08em_0.08em_0_color-mix(in_srgb,var(--amped-font)_50%,#000),0.12em_0.12em_0_color-mix(in_srgb,var(--amped-font)_45%,#000),0.16em_0.16em_0_color-mix(in_srgb,var(--amped-font)_40%,#000),0.2em_0.2em_0_color-mix(in_srgb,var(--amped-font)_35%,#000)]",
       },
-      { cost: "still" }
+      { cost: "still", params: NAME_COLOR_PARAMS }
     ),
     // Entrances: once per visit, 610 ms, never delay the text (spec 3.5)
     v2(

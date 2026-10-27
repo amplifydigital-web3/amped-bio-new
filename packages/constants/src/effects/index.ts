@@ -12,3 +12,6 @@ export { EMOJI_SET_PARAM, SCENE_PRESETS, emojiGlyphs, type ScenePreset } from ".
 export * from "./scenes.gradients";
 export * from "./surfaces";
 export { nameSettle, isNameEntrance } from "./names";
+export { NAME_SPEED_FACTOR, NAME_SPEED_PARAM } from "./names";
+export { HOVER_SPEED_MS, HOVER_SPEED_PARAM } from "./buttonHovers";
+export { PAGE_BUDGET, pageCost, type CostPart, type PageCost } from "./cost";
