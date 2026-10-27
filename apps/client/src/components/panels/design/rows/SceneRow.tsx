@@ -4,6 +4,7 @@ import { DisclosureRow } from "../kit/DisclosureRow";
 import { OptionGrid, OptionTile } from "../kit/OptionTile";
 import { CreatorBackdrop } from "../kit/CreatorArt";
 import { useDesign } from "../kit/useDesign";
+import { ParamPanel } from "../kit/ParamStrip";
 import {
   SCENE_FILTERS,
   SCENE_FILTER_LABELS,
@@ -47,6 +48,8 @@ function SceneTileView({
     <OptionTile
       label={tile.entry.label}
       description={tile.entry.description}
+      tier={tile.entry.tier}
+      cost={tile.entry.cost}
       selected={selected}
       focusable={focusable}
       disabled={locked}
@@ -77,7 +80,7 @@ function SceneTileView({
 }
 
 export function SceneRow() {
-  const { config, values } = useDesign();
+  const { config, values, locked, update, yourColors } = useDesign();
   const [filter, setFilter] = useState<SceneFilter>("all");
   // One live tile at most (029 I02)
   const [live, setLive] = useState<string | null>(null);
@@ -109,6 +112,15 @@ export function SceneRow() {
             />
           ))}
         </OptionGrid>
+        {selected && selected.entry.id !== "scene.none" && (
+          <ParamPanel
+            entry={selected.entry}
+            stored={config.particlesParams}
+            disabled={locked}
+            yourColors={yourColors}
+            onChange={params => update({ particlesParams: params })}
+          />
+        )}
         {filter === "shaders" && (
           <p className="text-prism-meta text-prism-ink-2">
             No shader scenes yet. They arrive with the Showcase effects.

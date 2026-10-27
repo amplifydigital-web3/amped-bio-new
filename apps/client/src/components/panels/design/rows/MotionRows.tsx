@@ -7,7 +7,8 @@ import { OptionGrid, OptionTile } from "../kit/OptionTile";
 import { ButtonSpecimen, CreatorBackdrop } from "../kit/CreatorArt";
 import { ContrastNotice } from "../kit/Notices";
 import { cardFill, formatRatio, useDesign, useSpecimenLabel } from "../kit/useDesign";
-import { getEffect } from "@repo/constants";
+import { getEffect, legacyEffectId } from "@repo/constants";
+import { ParamPanel } from "../kit/ParamStrip";
 import {
   PRESS_IDS,
   currentPress,
@@ -111,9 +112,15 @@ function ButtonHoverTile({
   const label = useSpecimenLabel();
   const { playing, setPlaying, playFor } = usePlay();
   const look = { ...config, ...values };
+  const entry = getEffect(
+    "buttonHover",
+    effect.effectId ?? legacyEffectId("buttonEffect", effect.id)
+  );
   return (
     <OptionTile
       label={effect.name}
+      tier={themeV2On ? entry.tier : undefined}
+      cost={themeV2On ? entry.cost : undefined}
       selected={selected}
       focusable={focusable}
       disabled={locked}
@@ -148,9 +155,17 @@ function ButtonHoverTile({
 }
 
 export function ButtonHoverRow() {
-  const { values, config } = useDesign();
+  const { values, config, locked, update } = useDesign();
   const storedId = themeV2On ? config.buttonEffectId : undefined;
   const selectedIndex = hoverIndex(BUTTON_EFFECTS, values.buttonEffect, storedId);
+  const selectedTile = BUTTON_EFFECTS[selectedIndex];
+  const selectedEntry =
+    themeV2On && selectedTile
+      ? getEffect(
+          "buttonHover",
+          selectedTile.effectId ?? legacyEffectId("buttonEffect", selectedTile.id)
+        )
+      : null;
   return (
     <DisclosureRow
       id="button-hover"
@@ -168,6 +183,14 @@ export function ButtonHoverRow() {
             />
           ))}
         </OptionGrid>
+        {selectedEntry && (
+          <ParamPanel
+            entry={selectedEntry}
+            stored={config.buttonEffectParams}
+            disabled={locked}
+            onChange={params => update({ buttonEffectParams: params })}
+          />
+        )}
         <p className="text-prism-meta text-prism-ink-2">
           {themeV2On
             ? "Hover needs a pointer. Phones feel the press effect below instead."
