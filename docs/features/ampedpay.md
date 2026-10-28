@@ -1,6 +1,6 @@
 # AmpedPay: contract and admin controls spec
 
-Status: spec for approval, 2026-10-28. Build Board #50 (AmpedPay contract and payments core).
+Status: approved, 2026-10-28 (Rob approved all seven decisions in section 7). Build Board #50 (AmpedPay contract and payments core).
 Owner: Rob Frasca. Drafted by Claude.
 Supersedes: the AmpedPay block in the memberships spec 3.4 (8 Oct, fixed 95/5 split) and the contract rules in the content spec 3.9 (12 Oct, split table). Where they disagree, this document wins.
 Related: content spec 3.9 (purchase flow, split table, refunds), USDC wallet spec 3.4 and 3.8 (relayer, screening, Admin Money), gating engine v2 (`paid` kind, G4), PR plan (24 Oct): PAY-1 and PAY-2.
@@ -262,7 +262,39 @@ Pause and Resume sit on a1 as their own confirm dialogs, on the existing Admin M
 
 PAY-A1 can start now. It needs no contract.
 
-## 7. Decisions for Rob (recommended first)
+### 6.1 Testing on Base Sepolia
+
+Staging (`development`, `app.staging.amped.bio`, `api.staging.amped.bio` and the staging admin) runs the whole flow on Base Sepolia before anything touches Base mainnet. Mainnet waits for the single audit (Rob, 24 Oct).
+
+**Setup (Build Board #53, B3, plus the items below):**
+
+| Item | Staging value |
+| --- | --- |
+| Chain | `PAYMENT_CHAIN=base-sepolia`, USDC `0x036CbD53842c5426634e7929541eC2318f3dCF7e` |
+| Safe | One Safe on Base Sepolia, 1 of 2 owners (decision 3). It owns the proxy, holds `DEFAULT_ADMIN_ROLE`, `PARAMS_ROLE` and `PAUSER_ROLE`, and is the treasury |
+| Coinbase accounts on `base-sepolia` | Relayer (exists in the plan), split signer (EIP-712 signing only), pauser (only `pause()` on AmpedPay), Safe proposer (a Safe delegate with no other rights) |
+| Gas | Base Sepolia ETH for the deploy key, the relayer and the pauser |
+| Test USDC | Circle's faucet sends 20 USDC on Base Sepolia per request, one request per address every 2 hours. Fund each test fan wallet from it |
+| Deploy | `forge script` from `packages/contracts` to Base Sepolia, verified on Base Sepolia BaseScan. Addresses go in `apps/*/.env.staging` and `docs/ops/ampedpay-staging.md` |
+| Admin portal | The environment pill reads Staging, Base Sepolia. Every staging page states that test USDC has no value |
+
+**Safe proposals on staging.** Safe's supported-network list did not confirm the Transaction Service on Base Sepolia when this spec was written. PAY-A2 checks it first. If it is supported, staging uses the same delegate flow as production. If not, staging alone uses the fallback: the portal shows the Safe transaction (target, calldata, value 0) for an owner to submit in the Safe app or with the Safe CLI, and the indexer still marks the change applied from `ParamChanged`.
+
+**Staging test run (Full QA before Staging is approved):**
+
+1. Pay with creator and platform only. The creator gets 95% and the treasury 5% in one transaction.
+2. Pay with a promoter and a partner. Every `Share` event matches the signed table.
+3. Each refusal in acceptance 2, sent from a test script against the staging contract.
+4. Nonce binding: a valid fan authorization paired with a different signed split reverts.
+5. Refund the full amount from the creator and the treasury. A second refund of the same payment reverts.
+6. Pause from the portal. New payments revert. Resume through a second admin and the Safe.
+7. Lower the fee floor through the Safe, then the platform fee with an effective date. Quotes change only on that date.
+8. A plain `admin` sees every page and can change nothing. A drafter cannot approve their own change.
+9. Limits: above the per payment maximum, above the daily limit, an expired quote.
+
+The run is recorded as a staging QA document and linked from card #50 before the Staging stage is approved.
+
+## 7. Decisions (approved by Rob, 28 Oct, as recommended)
 
 1. **Two person rule on money settings.** Recommended: yes, a second `payments_admin` approves every change except Pause. Why: one compromised or mistaken admin account cannot change where money goes. Alternative: one admin with two factor and a log.
 2. **Who can pause the contract.** Recommended: any `payments_admin` from the portal through the pauser account; resume through the Safe. Why: stopping payments in an incident should take seconds, not a signing round. Alternative: Safe only for both.
@@ -280,7 +312,7 @@ PAY-A1 can start now. It needs no contract.
 | Treasury Safe address | Rob | Sepolia deploy |
 | Who holds `payments_admin` at launch | Rob | PAY-A1 go live |
 | Notice period for fee increases under seller terms | Counsel | Fee changes in production |
-| Whether Safe Transaction Service supports the staging chain (Base Sepolia) for delegate proposals in our setup | Engineering | PAY-A2 |
+| Whether the Safe Transaction Service supports Base Sepolia (fallback in 6.1 if not) | Engineering | PAY-A2 on staging |
 | CDP pauser account and split signer account (B3) | Rob, Gustavo | PAY-A2, PAY-2 |
 
 ## Sources
@@ -289,7 +321,10 @@ PAY-A1 can start now. It needs no contract.
 - Safe delegate management (Transaction Service): https://help.multisig.ledger.com/guides/api-guides/4.-delegate-management
 - Safe API Kit reference: https://docs.safe.global/sdk/api-kit/reference/reference
 - OpenZeppelin upgradeable access control: https://tessl.io/registry/tessl/npm-openzeppelin--contracts-upgradeable/5.4.0/files/docs/access-control.md
+- Safe API supported networks: https://docs.safe.global/api-supported-networks
+- Circle testnet faucet: https://faucet.circle.com/
 
 ## Revision log
 
+- 2026-10-28 (later): Rob approved decisions 1 to 7 as recommended. Added 6.1, testing on Base Sepolia: staging setup, test USDC from Circle's faucet, the staging Safe proposal fallback, and the staging test run.
 - 2026-10-28: v1. One AmpedPay interface on the split table. Nonce binding. Every parameter classified as constant, on chain or server, with ranges and change paths. Admin roles, two person rule, Safe proposals, `AdminChange` log, admin pages a1 to a4. PR plan adds PAY-0, PAY-A1, PAY-A2.
