@@ -4,7 +4,12 @@ import { getFileUrl } from "../utils/fileUrlResolver";
 import { ThemeConfig } from "@repo/constants";
 import { prisma } from "@repo/database";
 import { z } from "zod";
-import { HANDLE_MIN_LENGTH, HANDLE_REGEX, sanitizeRichText } from "@repo/constants";
+import {
+  HANDLE_MIN_LENGTH,
+  HANDLE_REGEX,
+  publicReservedReason,
+  sanitizeRichText,
+} from "@repo/constants";
 import { sanitizeBlockConfig } from "../utils/sanitizeBlockConfig";
 import { logger } from "better-auth";
 import { getPublicTrackingPixels } from "./trackingPixels";
@@ -17,7 +22,10 @@ import {
   rnsIdBlockOptions,
   type PublicRnsIdentity,
 } from "../services/rnsIdentity";
-import { assertHandleAvailable, newHandleSchema } from "../services/pageHandle";
+import { changeHandle, newHandleSchema } from "../services/pageHandle";
+import { matchReserved } from "../services/reservedHandles";
+import { enforceRateLimits } from "../utils/rateLimit";
+import { getVisitorIp } from "../services/analytics/visitorIp";
 
 export const SITEMAP_MAX_PAGE_SIZE = 10000;
 
@@ -70,26 +78,44 @@ function settledOrFallback<T>(result: PromiseSettledResult<T>, fallback: T, labe
 }
 
 const appRouter = router({
-  // Check if a handle is available for use
-  checkAvailability: publicProcedure.input(handleParamSchema).query(async ({ input }) => {
+  // Check if a handle is available for use. Reserved handles (Build Board D2,
+  // spec 4.3): a reserved word answers reason "reserved", or "taken" for
+  // partner and hold words (A5). The account lookup always runs, so reserved
+  // and free words take the same time. Limited per IP.
+  checkAvailability: publicProcedure.input(handleParamSchema).query(async ({ ctx, input }) => {
     const { handle } = input;
 
+    const ip = getVisitorIp(ctx.req).ip || "unknown";
+    await enforceRateLimits(
+      [{ key: `handle-check:${ip}`, limit: 60, windowSeconds: 60 }],
+      "Too many checks. Try again in a minute."
+    );
+
     try {
-      const count = await prisma.user.count({
-        where: {
-          OR: [
-            { handle: handle },
-            { handle: handle.toLowerCase() },
-            { handle: handle.toUpperCase() },
-          ],
-        },
-      });
+      const [count, match] = await Promise.all([
+        prisma.user.count({
+          where: {
+            OR: [
+              { handle: handle },
+              { handle: handle.toLowerCase() },
+              { handle: handle.toUpperCase() },
+            ],
+          },
+        }),
+        matchReserved(handle),
+      ]);
+
+      const reservedReason = publicReservedReason(match);
+      if (reservedReason) {
+        return { available: false, handle, reason: reservedReason };
+      }
 
       const available = count === 0;
 
       return {
         available,
         handle,
+        reason: available ? null : ("taken" as const),
       };
     } catch (error) {
       throw new TRPCError({
@@ -107,16 +133,7 @@ const appRouter = router({
       const userId = ctx.user!.sub;
 
       try {
-        await assertHandleAvailable(prisma, newHandle);
-
-        await prisma.user.update({
-          where: {
-            id: userId,
-          },
-          data: {
-            handle: newHandle,
-          },
-        });
+        await changeHandle(prisma, userId, newHandle);
 
         return {
           success: true,
