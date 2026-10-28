@@ -4,6 +4,7 @@
 
 export * from "./upload";
 export * from "./handle";
+export * from "./reservedHandles";
 export * from "./platforms";
 export * from "./theme";
 export * from "./collections";
@@ -28,4 +29,3 @@ export * from "./usdc";
 export * from "./content";
 export * from "./mediaToken";
 export * from "./contentJob";
-
