@@ -57,6 +57,13 @@ export function HandleStatusLine({
         <span className="text-prism-danger">{url} is taken. Pick another.</span>
       </>
     );
+  } else if (status === "Reserved") {
+    content = (
+      <>
+        <AlertCircle className="h-[21px] w-[21px] shrink-0 text-prism-danger" aria-hidden />
+        <span className="text-prism-danger">{url} is reserved. Pick another.</span>
+      </>
+    );
   } else if (status === "TooShort") {
     content = (
       <>
