@@ -1200,6 +1200,39 @@ model RelayerFundingEvent {
   @@map("relayer_funding_events")
 }
 
+// One admin change to a money setting (Build Board #50, spec docs/features/ampedpay.md
+// 3.5 to 3.7). A payments_admin drafts it with a reason; a different payments_admin
+// approves it with two factor; only then does it apply (server) or go to the Safe
+// (contract, PAY-A2). Rows are the change log: never deleted, never edited after
+// applied. The settings write and the status update run in one transaction.
+model AdminChange {
+  id           Bytes     @id @db.Binary(16) // UUIDv7
+  area         String    @db.VarChar(24) // payments
+  target       String    @db.VarChar(16) // server | contract
+  key          String    @db.VarChar(64) // catalog item id: platform_fee_bps, feeFloorBps ...
+  oldValue     String    @map("old_value") @db.VarChar(1024)
+  newValue     String    @map("new_value") @db.VarChar(1024)
+  effectiveAt  DateTime? @map("effective_at")
+  reason       String    @db.VarChar(500)
+  // draft | approved | proposed | applied | rejected | expired | superseded
+  status       String    @db.VarChar(16)
+  draftedById  Int       @map("drafted_by_id")
+  approvedById Int?      @map("approved_by_id")
+  // Why the second admin rejected it, or why a pause needed no approval
+  decisionNote String?   @map("decision_note") @db.VarChar(500)
+  safeTxHash   String?   @map("safe_tx_hash") @db.VarChar(66)
+  txHash       String?   @map("tx_hash") @db.VarChar(66)
+  chainId      Int?      @map("chain_id")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  decidedAt    DateTime? @map("decided_at")
+  appliedAt    DateTime? @map("applied_at")
+
+  @@index([area, createdAt])
+  @@index([status])
+  @@index([area, key, status])
+  @@map("admin_changes")
+}
+
 // One Buy USDC attempt through Coinbase (Build Board #5, spec 3.2 and 3.5).
 // Coinbase is the seller: it quotes, charges, verifies and delivers. Amped.Bio
 // stores what the fan saw and what Coinbase reported. The chain decides
