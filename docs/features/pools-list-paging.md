@@ -1,6 +1,6 @@
 # Paginate and index the pools list
 
-Status: spec for approval, 27 Oct 2026. Build Board: D7 "Paginate and index the pools list" (Step 1, priority 10).
+Status: revision 2, 28 Oct 2026. Rob's answers recorded: P1 and P3 as recommended, P2 alternative (keep description search). Revision 1 was 27 Oct. Build Board: D7 "Paginate and index the pools list" (Step 1, priority 10).
 Owner: Rob Frasca. Drafted by Claude.
 Baseline: `development` at a3ce333.
 Design: no new screens. The two Pools tabs keep their Prism 2.2 layout; the change is how they page (section 5).
@@ -72,7 +72,7 @@ Output: `{ pools: PoolTabRewardPool[], nextCursor: string | null, total: number 
 Rules:
 
 - Filters and sorts run in SQL on the new columns. The `id` is the tie break in every sort, so pages never repeat or skip.
-- Search: an address matches `poolAddress` exactly. Text matches `name`, `wallet.user.handle` (with or without `@`) and `wallet.user.name`, prefix first then contains. Description search is dropped (decision P2).
+- Search: an address matches `poolAddress` exactly. Text matches `name`, `wallet.user.handle` (with or without `@`), `wallet.user.name` and `description` (P2, Rob kept description search on 28 Oct). Ranking: prefix matches on name and handle first, then contains on name, handle and creator name, then description matches last. `description` is `LongText`, so it gets a FULLTEXT index (`@@fulltext([description])`) and is searched with `MATCH ... AGAINST` in boolean mode for terms of 3 or more characters; shorter terms skip the description.
 - Suspended creators and hidden pools are excluded (`docs/features/suspended-pages.md`).
 - Chain reads happen only for the pools on the page, and only on a cache miss. The page renders from database columns; live values replace them when present. A cold cache costs at most `limit` pools of reads.
 - APY: read from cache for the page; a miss returns `apy: undefined` and queues a background refresh, so the request never waits on `calculatePoolAPY` for more than the page.
@@ -92,17 +92,17 @@ No visual change beyond the Show more button, which already exists in the Prism 
 
 ## 6. Decisions for Rob (recommended first)
 
-**P1. Page size.** Recommended: 24, Show more. Why: fills two rows on desktop and keeps the phone list short. Alternative: infinite scroll. Harder to reach the footer and to share a position.
+**P1. Page size.** Chosen 28 Oct: recommended. Recommended: 24, Show more. Why: fills two rows on desktop and keeps the phone list short. Alternative: infinite scroll. Harder to reach the footer and to share a position.
 
-**P2. Search fields.** Recommended: pool name, creator handle, creator name, exact address. Why: these are what people type. Alternative: keep description search too. Slower and noisy.
+**P2. Search fields.** **Chosen 28 Oct: the alternative, keep description search too.** Recommended was pool name, creator handle, creator name and exact address. Description matches rank last and use a FULLTEXT index so the cost stays bounded.
 
-**P3. Numbers shown on cards.** Recommended: database columns first, replaced by live chain values when cached. Why: a page never waits on the RPC. Alternative: always live. Exact, but slow when the RPC is slow.
+**P3. Numbers shown on cards.** Chosen 28 Oct: recommended. Recommended: database columns first, replaced by live chain values when cached. Why: a page never waits on the RPC. Alternative: always live. Exact, but slow when the RPC is slow.
 
 ## 7. Build
 
 | PR | Scope | Size |
 | --- | --- | --- |
-| PL1 | Migration (columns, indexes, `createdAt`), writers in the stake paths, backfill script | 1 day |
+| PL1 | Migration (columns, indexes, FULLTEXT on description, `createdAt`), writers in the stake paths, backfill script | 1 day |
 | PL2 | Paged `getPools`, `getPoolsLegacy`, search rules, page cache, tests | 1 day |
 | PL3 | Both Pools tabs and the block editor search on the paged API | 0.5 day |
 | PL4 | Drop the text columns and `getPoolsLegacy` (one release later) | 0.2 day |
@@ -112,7 +112,7 @@ No visual change beyond the Show more button, which already exists in the Prism 
 1. With 5,000 seeded pools, the first page returns in under 300 ms with a warm cache and under 1.5 s with a cold cache, and makes chain reads for at most 24 pools.
 2. Paging through every sort returns each pool once, with no repeats, while stakes change between pages.
 3. Most staked and most fans order matches the database columns; a stake in the app updates the pool's position on the next request.
-4. Searching a creator handle with or without `@` finds their pool.
+4. Searching a creator handle with or without `@` finds their pool. A word that appears only in a pool's description finds it, ranked after name and handle matches.
 5. A suspended creator's pool and a hidden pool never appear.
 6. Both Pools tabs show the same first page and the same count.
 7. Typecheck, build and tests pass. Copy has no em or en dashes.

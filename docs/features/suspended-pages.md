@@ -1,6 +1,6 @@
 # Hide suspended users' bios
 
-Status: spec for approval, 27 Oct 2026. Build Board: D10 "Hide suspended users' bios" (Step 1, priority 2).
+Status: revision 2, 28 Oct 2026. Rob's answers recorded: D1 alternative ("This page is unavailable"), D2, D3 and D4 as recommended. Revision 1 was 27 Oct. Build Board: D10 "Hide suspended users' bios" (Step 1, priority 2).
 Owner: Rob Frasca. Drafted by Claude.
 Baseline: `development` at a3ce333. Open PR #308 (Better Auth admin plugin) is taken into account.
 Design: Suspended page states, https://claude.ai/artifact/Csm9JxUnw2ZtUKsmHpeter
@@ -52,7 +52,7 @@ export function notSuspendedWhere(now = new Date()): Prisma.UserWhereInput {
 
 ### 3.2 Visitors
 
-- `getHandle` returns `NOT_FOUND` for a suspended account, owner included (the owner sees the editor notice in 3.3 instead). Message: `Handle not found`. The landing app already maps NOT_FOUND to its 404 page, so visitors see the standard "Page not found" state. Recommended in decision 1: no public "suspended" wording.
+- `getHandle` refuses a suspended account, owner included (the owner sees the editor notice in 3.3 instead), with `NOT_FOUND` and `cause.unavailable = true`. The error formatter in `trpc/trpc.ts` passes `unavailable` to the client the same way it passes `retryAfter`. The landing app renders a new "This page is unavailable" state (D1, Rob chose the alternative on 28 Oct): heading "This page is unavailable", one line "There is nothing to show at amped.bio/{handle} right now.", and an Explore creators button. No reason is given. The response is HTTP 404 with `noindex`, so search engines drop it. A handle that never existed keeps the standard "Page not found" state.
 - Share image: the OG route returns the generic Amped.Bio image for a suspended handle. Suspension calls `revalidateTag("profile:<handle>")` on the landing app (new internal route, section 4) so the cached image clears at once rather than after an hour.
 - Pools: `getPools` adds `wallet: { user: notSuspendedWhere() }` to the where clause. `getPoolByAddress` and `getPoolDetailsForModal` return NOT_FOUND for a suspended creator's pool. The pool contract stays on chain; fans keep their stake and can unstake from the Wallet Stakes tab, which reads by fan wallet and stays open.
 - Telegram door and Message me: `telegramDoor` returns null for a suspended creator. Existing threads close for new fan messages with the standard "This creator is not taking messages" state.
@@ -88,13 +88,13 @@ export function notSuspendedWhere(now = new Date()): Prisma.UserWhereInput {
 
 ## 5. Decisions for Rob (recommended first)
 
-**D1. What a visitor sees.** Recommended: the standard 404 "Page not found". Why: it reveals nothing about a moderation action and protects Amped if the suspension is disputed. Alternative: "This page is unavailable" with no reason. Clearer for fans who had the link, but it signals that something happened.
+**D1. What a visitor sees.** **Chosen 28 Oct: the alternative, "This page is unavailable" with no reason.** Recommended was the standard 404 "Page not found", which reveals nothing about a moderation action. The chosen state is clearer for fans who had the link. It signals that something happened, so the copy gives no reason and the status stays 404 with noindex.
 
-**D2. Owner sessions.** Recommended: revoke every session when an account is suspended. Why: a suspended creator should not keep editing, messaging or publishing. Alternative: keep sessions and rely on the editor notice. Less disruptive during a mistaken suspension, but the creator can still send messages.
+**D2. Owner sessions.** Chosen 28 Oct: recommended. Recommended: revoke every session when an account is suspended. Why: a suspended creator should not keep editing, messaging or publishing. Alternative: keep sessions and rely on the editor notice. Less disruptive during a mistaken suspension, but the creator can still send messages.
 
-**D3. Fans who paid.** Recommended: purchases and memberships already paid stay in Fan Library and keep playing; nothing new can be bought. Why: the fan paid in good faith; refunds follow the store terms. Alternative: hide paid items too and handle refunds case by case.
+**D3. Fans who paid.** Chosen 28 Oct: recommended. Recommended: purchases and memberships already paid stay in Fan Library and keep playing; nothing new can be bought. Why: the fan paid in good faith; refunds follow the store terms. Alternative: hide paid items too and handle refunds case by case.
 
-**D4. One field after #308.** Recommended: keep `block` as the admin switch and treat a plugin ban as suspended too, through `isSuspended`. Retire `block` in a later cleanup once the admin app moves to `banUser`. Why: no data migration now. Alternative: migrate `block` into `banned` in #308's follow up.
+**D4. One field after #308.** Chosen 28 Oct: recommended. Recommended: keep `block` as the admin switch and treat a plugin ban as suspended too, through `isSuspended`. Retire `block` in a later cleanup once the admin app moves to `banUser`. Why: no data migration now. Alternative: migrate `block` into `banned` in #308's follow up.
 
 ## 6. Build
 
@@ -102,7 +102,7 @@ One PR, `fix/hide-suspended-pages`, about 1 day. Lands after or rebased on #308.
 
 ## 7. Acceptance
 
-1. A blocked account's handle returns 404 on amped.bio for a signed out visitor, a signed in visitor and the owner.
+1. A blocked account's handle shows "This page is unavailable" with HTTP 404 and noindex, for a signed out visitor, a signed in visitor and the owner. A handle that never existed still shows "Page not found".
 2. The share image for that handle is the generic image within one minute of the block.
 3. The account's pool is gone from the pool list and its pool page returns 404. A fan can still unstake from the Wallet Stakes tab.
 4. The Message me block and Telegram door are gone; a fan cannot start or continue a thread.
