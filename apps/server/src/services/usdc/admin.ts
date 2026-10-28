@@ -15,6 +15,7 @@ import { uuidv7 } from "../../utils/uuid-v7";
 import { paymentChain, paymentClient } from "./chain";
 import { startOfUtcDay } from "./limits";
 import { getRelayer, isRelayerConfigured } from "./relayer";
+import { gasLines } from "../payments/settings";
 
 /**
  * Admin, Money (spec 3.8, Build Board #29 USDC-3). Amped.Bio pays Base gas
@@ -123,7 +124,7 @@ export async function setSendsPaused(paused: boolean) {
   return { paused };
 }
 
-async function relayerState() {
+export async function relayerState() {
   if (!isRelayerConfigured()) return { configured: false as const };
   try {
     const relayer = getRelayer();
@@ -149,6 +150,7 @@ export async function moneyOverview(now = new Date()) {
   const week = new Date(now.getTime() - 7 * DAY_MS);
 
   const [
+    lines,
     relayer,
     paused,
     gasToday,
@@ -159,6 +161,7 @@ export async function moneyOverview(now = new Date()) {
     refusedToday,
     price,
   ] = await Promise.all([
+    gasLines(),
     relayerState(),
     sendsPausedSetting(),
     sumGas(today),
@@ -189,7 +192,7 @@ export async function moneyOverview(now = new Date()) {
     enabled: env.USDC_ENABLED,
     paused,
     relayer,
-    gasLines: { alarmEth: env.RELAYER_GAS_ALARM_ETH, stopEth: env.RELAYER_GAS_STOP_ETH },
+    gasLines: lines,
     runwayDays: balanceWei === null ? null : runwayDays(balanceWei, gasWeek.wei),
     gas: {
       todayWei: gasToday.wei.toString(),
