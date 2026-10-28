@@ -144,6 +144,7 @@ A fee change can carry an effective date. Quotes use the old value until that da
 ### 3.5 Who can change what
 
 - New role `payments_admin`, added to `User.role` beside `admin`. Plain `admin` sees every payments page read only.
+- At launch (Rob, 28 Oct): John is the primary `payments_admin` and Rob the secondary. In practice John drafts and Rob approves, and either can pause.
 - Every change needs two factor at the moment of change, even inside a signed in session.
 - **Two person rule.** A `payments_admin` drafts a change with a reason. A different `payments_admin` approves it. Only then does it apply (server setting) or get proposed to the Safe (on chain value). The drafter cannot approve their own change.
 - **Exceptions.** Pause payments (server) and Pause contract (on chain) apply at once by one `payments_admin`, with a reason. Resume follows the two person rule, and the contract resume also needs the Safe.
@@ -271,7 +272,7 @@ Staging (`development`, `app.staging.amped.bio`, `api.staging.amped.bio` and the
 | Item | Staging value |
 | --- | --- |
 | Chain | `PAYMENT_CHAIN=base-sepolia`, USDC `0x036CbD53842c5426634e7929541eC2318f3dCF7e` |
-| Safe | One Safe on Base Sepolia, 1 of 2 owners (decision 3). It owns the proxy, holds `DEFAULT_ADMIN_ROLE`, `PARAMS_ROLE` and `PAUSER_ROLE`, and is the treasury |
+| Safe | One Safe on Base Sepolia, owners Rob and John, 1 of 2 (decision 3). It owns the proxy, holds `DEFAULT_ADMIN_ROLE`, `PARAMS_ROLE` and `PAUSER_ROLE`, and is the treasury |
 | Coinbase accounts on `base-sepolia` | Relayer (exists in the plan), split signer (EIP-712 signing only), pauser (only `pause()` on AmpedPay), Safe proposer (a Safe delegate with no other rights) |
 | Gas | Base Sepolia ETH for the deploy key, the relayer and the pauser |
 | Test USDC | Circle's faucet sends 20 USDC on Base Sepolia per request, one request per address every 2 hours. Fund each test fan wallet from it |
@@ -298,7 +299,7 @@ The run is recorded as a staging QA document and linked from card #50 before the
 
 1. **Two person rule on money settings.** Recommended: yes, a second `payments_admin` approves every change except Pause. Why: one compromised or mistaken admin account cannot change where money goes. Alternative: one admin with two factor and a log.
 2. **Who can pause the contract.** Recommended: any `payments_admin` from the portal through the pauser account; resume through the Safe. Why: stopping payments in an incident should take seconds, not a signing round. Alternative: Safe only for both.
-3. **The multisig.** Recommended: a Safe on Base, 2 of 3 owners named by Rob, one per environment; staging may be 1 of 2. The treasury is a Safe too. Why: no single key controls upgrades, fees or the treasury. Alternative: 3 of 5 for production.
+3. **The multisig.** Recommended: a Safe on Base, 2 of 3 owners named by Rob, one per environment; staging may be 1 of 2. The treasury is a Safe too. Why: no single key controls upgrades, fees or the treasury. Alternative: 3 of 5 for production. Owners (Rob, 28 Oct): staging Rob and John, 1 of 2; production Rob, John and Ciaran, 2 of 3. Each Safe is also that environment's treasury.
 4. **Fee changes and notice.** Recommended: a platform fee change carries an effective date at least 30 days out for an increase, any date for a decrease, and creators get a notice. Counsel confirms the notice period against seller terms. Why: creators agreed to 5%; an increase without notice breaks that. Alternative: on chain timelock of 48 hours on every parameter.
 5. **Portal proposes, owners sign.** Recommended: the server proposes through the Safe Transaction Service as a delegate. Why: owners approve in an app they already trust and the portal never holds an owner key. Alternative: the portal shows calldata for an owner to paste.
 6. **Contract ranges.** Recommended: the ranges in 3.2, including the 10% fee ceiling as a constant. Why: the audit can prove what admins can and cannot do. Alternative: wider ranges set by the Safe.
@@ -308,9 +309,7 @@ The run is recorded as a staging QA document and linked from card #50 before the
 
 | Question | Owner | Blocking |
 | --- | --- | --- |
-| Safe owners and threshold per environment | Rob | Sepolia deploy |
-| Treasury Safe address | Rob | Sepolia deploy |
-| Who holds `payments_admin` at launch | Rob | PAY-A1 go live |
+| Wallet addresses of the Safe owners (Rob and John for staging; Rob, John and Ciaran for production) | Rob, John, Ciaran | Creating the Safes |
 | Notice period for fee increases under seller terms | Counsel | Fee changes in production |
 | Whether the Safe Transaction Service supports Base Sepolia (fallback in 6.1 if not) | Engineering | PAY-A2 on staging |
 | CDP pauser account and split signer account (B3) | Rob, Gustavo | PAY-A2, PAY-2 |
@@ -326,5 +325,6 @@ The run is recorded as a staging QA document and linked from card #50 before the
 
 ## Revision log
 
+- 2026-10-28 (signers): Rob named the Safe owners (staging Rob and John, 1 of 2; production Rob, John and Ciaran, 2 of 3) and the payments admins (John primary, Rob secondary). Each Safe is its environment's treasury. Open questions narrowed to the owners' wallet addresses.
 - 2026-10-28 (later): Rob approved decisions 1 to 7 as recommended. Added 6.1, testing on Base Sepolia: staging setup, test USDC from Circle's faucet, the staging Safe proposal fallback, and the staging test run.
 - 2026-10-28: v1. One AmpedPay interface on the split table. Nonce binding. Every parameter classified as constant, on chain or server, with ranges and change paths. Admin roles, two person rule, Safe proposals, `AdminChange` log, admin pages a1 to a4. PR plan adds PAY-0, PAY-A1, PAY-A2.
