@@ -100,7 +100,7 @@ Steps 1 to 4 are pure reads. Step 5 belongs to the feature (sign a media token, 
 
 Asset. Stake kinds count tREVO now and REVO at mainnet. USDC is never staked and never counts toward a stake rule. `paid` and `member` are the only kinds that involve USDC, and they never read a stake (Rob, 24 Oct).
 
-Units and amounts. Every stake amount is stored as a wei string. The creator sets the minimum for a `stake_min` rule in whole tREVO; the server converts it with `toWei` in `@repo/constants` and stores wei. The amount lives in Amped.Bio's database only. Nothing is written on chain and no contract changes (Rob, 24 Oct). The admin minimum stays where it is today, in the deployed contracts. A mainnet REVO rename changes the label only.
+Units and amounts. Every stake amount is stored as a wei string. The creator sets the minimum for a `stake_min` rule in whole tREVO; from G1 the server converts it with `wholeTokensToWei` in `@repo/constants` and stores wei in `AccessRule`. The messaging `CreatorMessagingSettings.stakeMin` stays whole tREVO and is converted at comparison time (G0). The amount lives in Amped.Bio's database only. Nothing is written on chain and no contract changes (Rob, 24 Oct). The admin minimum stays where it is today, in the deployed contracts. A mainnet REVO rename changes the label only.
 
 How a stake check runs. The server reads the fan's stake in the creator's pool from the `StakedPool` mirror and, on open, a read only `fanStakes(address)` call on the pool contract. It compares that number to the creator's amount. No transaction, no signature, no gas.
 
@@ -308,7 +308,7 @@ Each PR is one branch into `development`, labeled by type, with a handoff doc fo
 
 | PR | Branch | Scope | Depends | Size |
 | --- | --- | --- | --- | --- |
-| G0 | `fix/stake-min-units` | `toWei` and `fromWei` in constants; migrate stored `stakeMin` values to wei; follower rule uses `trustedEmailWhere`; tests with real units | none | 0.5 day |
+| G0 | `fix/stake-min-units` (PR #357) | `wholeTokensToWei` in constants; STAKE_MIN converts the stored whole tREVO `stakeMin` to wei at comparison time, so no data migration and no settings change; follower rule uses `trustedEmailWhere`; tests with real units | none | 0.5 day |
 | G1 | `feat/access-core` | Constants contract, Prisma models and migration, engine, resolvers for `block` and `content`, kinds follower, pool_member, stake_min, any, all, caching, `bumpViewer` hooks in follow, block and stake confirm, rules router behind flag. No UI. | G0 | 4 days |
 | G2 | `refactor/access-adopt` | `rules.ts`, `messaging/access.ts`, Telegram group sweep and broadcast audience call the engine. Resolvers `dm` and `telegram_group`. | G1 | 1.5 days |
 | G3 | `feat/access-blocks` | `Block.accessRuleId`, locked DTO, `checkPage`, `/go`, `openBlock`, rule picker on the block row, unlock sheet in landing app, leak test, copy check | G1 | 4 days |
@@ -373,6 +373,7 @@ Lagging (90 days after paid goes live): share of creators with any paid or membe
 
 ## Revision log
 
+- 2026-10-28: G0 row and units paragraph matched to PR #357: convert at comparison time with `wholeTokensToWei`, no data migration. G1 stores wei in `AccessRule`; G2 maps `stakeMin` through `wholeTokensToWei`.
 - 2026-10-24: Rob: staking is tREVO or REVO only, never USDC. Deployed staking contracts are not changed; gating reads stakes and compares them to the amount the creator sets. The admin minimum stays in the contracts (`_minStake`). v1's 1 REVO app floor removed; `pool_member` is any stake. Acceptance 1 added.
 - 2026-10-23 (later): Rob's direction applied. Age precondition uses the Authbase Over 18 attribute through the shared identity check (G7 removed). Seller verification precondition on paid and member. Sequence: messaging and content live before the engine; G0 before messaging launch.
 - 2026-10-23: v2. Reconciled to development at 48ca154. Audit found no engine, two defects in the messaging evaluator, UUID rule ids on content, the media gateway in place of CloudFront. Added preconditions (blocked, age, early access), one call `open`, `paid` soft unlock, `member` from #25, `rns_verified` defined, adoption of messaging, Telegram and broadcast, and a PR plan G0 to G7.
