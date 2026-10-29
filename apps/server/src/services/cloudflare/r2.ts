@@ -14,6 +14,8 @@ import {
   CompleteMultipartUploadCommand,
   CreateMultipartUploadCommand,
   DeleteObjectCommand,
+  HeadObjectCommand,
+  PutObjectCommand,
   S3Client,
   UploadPartCommand,
 } from "@aws-sdk/client-s3";
@@ -141,6 +143,28 @@ export async function abortR2Multipart(key: string, uploadId: string): Promise<v
 
 export async function deleteR2Object(key: string): Promise<void> {
   await getR2Client().send(new DeleteObjectCommand({ Bucket: env.R2_BUCKET, Key: key }));
+}
+
+/** True when the object exists. A missing key reads as false; other errors throw. */
+export async function r2ObjectExists(key: string): Promise<boolean> {
+  try {
+    await getR2Client().send(new HeadObjectCommand({ Bucket: env.R2_BUCKET, Key: key }));
+    return true;
+  } catch (error) {
+    const status = (error as { $metadata?: { httpStatusCode?: number } }).$metadata?.httpStatusCode;
+    if (status === 404 || (error as { name?: string }).name === "NotFound") return false;
+    throw error;
+  }
+}
+
+/**
+ * Writes a small object the API made itself, such as a caption file the creator
+ * sent as text (fan library spec 3.5). Uploads from browsers never come here.
+ */
+export async function putR2Object(key: string, body: string, contentType: string): Promise<void> {
+  await getR2Client().send(
+    new PutObjectCommand({ Bucket: env.R2_BUCKET, Key: key, Body: body, ContentType: contentType })
+  );
 }
 
 /** HeadObject size check plus the 4 KB magic byte check (spec 3.5 step 2). */

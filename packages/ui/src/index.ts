@@ -250,3 +250,6 @@ export * from "./video-thumbnail";
 
 // Auth storage keys
 export * from "./auth-storage";
+
+// Shared media player (Fan Library #26 phase A)
+export * from "./player";

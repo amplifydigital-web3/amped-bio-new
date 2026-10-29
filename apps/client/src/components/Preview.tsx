@@ -14,6 +14,7 @@ import { ReferralBlock } from "./blocks/ReferralBlock";
 import { FollowBlock } from "./blocks/FollowBlock";
 import { FollowersBlock } from "./blocks/FollowersBlock";
 import { RnsIdBlock } from "./blocks/RnsIdBlock";
+import { ContentBlockPreview } from "./blocks/ContentBlockPreview";
 import { TelegramMessagePreview } from "./blocks/TelegramMessageBlock";
 import { isHTML } from "@/utils/htmlutils";
 import { type BlockType, DEFAULT_RNSID_CONFIG, sanitizeRichHtml } from "@repo/constants";
@@ -267,6 +268,14 @@ export function Preview({
             displayName={profile.name}
             avatarUrl={profile.photoUrl || null}
           />
+        </ErrorBoundary>
+      );
+    }
+    // Content system (#20, spec 3.7): public items only, as on the page
+    if (block.type === "content") {
+      return (
+        <ErrorBoundary key={block.id} fallback={fallback}>
+          <ContentBlockPreview block={block} theme={themeConfig} />
         </ErrorBoundary>
       );
     }

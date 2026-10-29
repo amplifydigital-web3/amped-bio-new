@@ -21,6 +21,7 @@ import { DesignPanel } from "./panels/design/DesignPanel";
 import { AccountPanel } from "./panels/account/AccountPanel";
 import { Rail } from "./shell/Rail";
 import { MobileDock } from "./shell/MobileDock";
+import { EditorMiniPlayer } from "./player/EditorPlayer";
 import { MobileTopBar, TopBar } from "./shell/TopBar";
 import { ShellNavigationProvider } from "./shell/ShellNavigation";
 import { useSupportWidget } from "./shell/useSupportWidget";
@@ -159,6 +160,8 @@ export function Layout({ bannerData, bannerLoading }: LayoutProps) {
             >
               <ActivePanel panel={activePanel} />
             </main>
+            {/* Fan Library #26 phase A: the item playing while you move around */}
+            <EditorMiniPlayer />
           </div>
 
           {/* Commitment field frame: live preview on Page and Design (D08, D10) */}
