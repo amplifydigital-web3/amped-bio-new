@@ -107,8 +107,53 @@ export const FAN_RELATION_LABELS = {
 // other kind, and every kind added later, is skipped until it is added here.
 // ----------------------------------------------------------------------------
 
-/** Link and media platforms that carry crypto. Never rendered inside the Mini App. */
-export const CRYPTO_PLATFORMS = ["token-price", "nft-collection", "uniswap", "opensea"] as const;
+/**
+ * Link and media platforms that carry crypto or point to a non TON asset. Never rendered
+ * inside the Mini App. `creator-pool` is the pool embed; `zora` and `mirror` mint NFTs;
+ * `lens` and `warpcast` are wallet based social apps (counsel confirms, PR 6).
+ */
+export const CRYPTO_PLATFORMS = [
+  "token-price",
+  "nft-collection",
+  "uniswap",
+  "opensea",
+  "creator-pool",
+  "zora",
+  "mirror",
+  "lens",
+  "warpcast",
+] as const;
+
+/**
+ * Hosts a custom link may not point to inside the Mini App: exchanges, NFT markets,
+ * explorers and wallets for non TON assets, and Amped's own pool pages.
+ */
+export const CRYPTO_LINK_HOSTS = [
+  "opensea.io",
+  "uniswap.org",
+  "zora.co",
+  "mirror.xyz",
+  "etherscan.io",
+  "basescan.org",
+  "coinbase.com",
+  "binance.com",
+  "metamask.io",
+  "revolution.network",
+] as const;
+
+/** True when a link URL points to a host in CRYPTO_LINK_HOSTS or to an Amped pool page. */
+export function isCryptoLinkUrl(url: string | null | undefined): boolean {
+  if (!url) return false;
+  // No URL global in this package: scheme, then host up to the first / ? or #
+  const match = /^(?:[a-z][a-z0-9+.-]*:\/\/)?(?:[^@/?#]*@)?([^/?#:]+)(?::\d+)?([^?#]*)/i.exec(
+    url.trim()
+  );
+  if (!match) return false;
+  const host = match[1]!.toLowerCase().replace(/^www\./, "");
+  const path = match[2] ?? "";
+  if (CRYPTO_LINK_HOSTS.some(item => host === item || host.endsWith(`.${item}`))) return true;
+  return /(^|\.)amped\.bio$/.test(host) && /^\/i\/pools(\/|$)/.test(path);
+}
 
 /** Block types the Mini App may render. Link and media also pass the platform check. */
 export const TELEGRAM_MINIAPP_BLOCK_KINDS = [
@@ -135,10 +180,37 @@ export function isMiniAppSafeBlock(block: MiniAppBlockLike): boolean {
   if (block.adult) return false;
   if (!(TELEGRAM_MINIAPP_BLOCK_KINDS as readonly string[]).includes(block.type)) return false;
   if (block.type === "link" || block.type === "media") {
-    const platform = (block.config as { platform?: string } | null)?.platform ?? "";
-    return !(CRYPTO_PLATFORMS as readonly string[]).includes(platform);
+    const config = block.config as { platform?: string; url?: string } | null;
+    if ((CRYPTO_PLATFORMS as readonly string[]).includes(config?.platform ?? "")) return false;
+    return !isCryptoLinkUrl(config?.url);
   }
   return true;
+}
+
+/**
+ * Words the Mini App never shows (spec 3.7, tonSafeRender.test.ts): no non TON asset, no
+ * staking and no return. Checked on the copy and on every string the page endpoint sends.
+ */
+export const TELEGRAM_MINIAPP_BANNED_WORDS = [
+  "revo",
+  "trevo",
+  "stake",
+  "staking",
+  "pool",
+  "apy",
+  "apr",
+  "yield",
+  "usdc",
+  "wallet",
+] as const;
+
+/** The first banned word a string contains, as a whole word, or null. */
+export function miniAppBannedWord(text: string): string | null {
+  const lower = text.toLowerCase();
+  for (const word of TELEGRAM_MINIAPP_BANNED_WORDS) {
+    if (new RegExp(`(^|[^a-z0-9])${word}([^a-z0-9]|$)`).test(lower)) return word;
+  }
+  return null;
 }
 
 // ----------------------------------------------------------------------------
@@ -541,6 +613,32 @@ export const TELEGRAM_BOT_STRINGS = {
 } as const;
 
 // ----------------------------------------------------------------------------
+// Mini App (PR 6, spec r3 3.7, board tg7). No pool, stake or wallet words.
+// ----------------------------------------------------------------------------
+
+export const TELEGRAM_MINIAPP_STRINGS = {
+  title: (creator: string) => `${creator} on Amped.Bio`,
+  messageMain: (creator: string) => `Message ${creator} on Telegram`,
+  joinGroup: (creator: string) => `Join ${creator}'s group`,
+  follow: "Follow",
+  following: "Following",
+  followersLine: (count: number) => (count === 1 ? "1 follower" : `${count} followers`),
+  followed: (creator: string) => `You follow ${creator}.`,
+  share: "Share",
+  shareText: (creator: string) => `${creator} on Amped.Bio`,
+  linkTitle: "Link Telegram to Amped.Bio to continue.",
+  linkBody:
+    "Linking lets the Amped.Bio bot reply to you. Nothing is sent until you write first or turn on updates.",
+  linkButton: "Link Telegram",
+  notNow: "Not now",
+  madeWith: "Made with Amped.Bio",
+  notFound: "This page is not on Amped.Bio.",
+  outsideTelegram: "Open this page from Telegram.",
+  failed: "Something went wrong. Close and open the page again.",
+  followFailed: "That did not work. Try again.",
+} as const;
+
+// ----------------------------------------------------------------------------
 // Groups (PR 5, spec r3 3.2 to 3.6, boards tg5, tg9, tg10, tg13, tg14)
 // ----------------------------------------------------------------------------
 
@@ -729,4 +827,5 @@ export const TELEGRAM_COPY_ROOTS = {
   TELEGRAM_BOT_BUTTONS,
   TELEGRAM_BOT_STRINGS,
   TELEGRAM_GROUP_STRINGS,
+  TELEGRAM_MINIAPP_STRINGS,
 } as const;
