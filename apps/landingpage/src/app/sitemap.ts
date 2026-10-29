@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 import { getBlogPosts } from "@/lib/blog";
-import { fetchPoolsPageData } from "@/lib/getPoolsData";
+import { DEFAULT_POOLS_CHAIN_ID } from "@/lib/getPoolsData";
+import { trpcClient } from "@/lib/trpc";
 import { SITE_URL } from "@/lib/seo";
 
 export const revalidate = 3600;
@@ -22,7 +23,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     getBlogPosts(BLOG_POST_LIMIT)
       .then(result => result.posts)
       .catch(() => []),
-    fetchPoolsPageData(),
+    // Every listed pool, not the first page (spec section 5)
+    trpcClient.pools.list.sitemapPools.query({ chainId: DEFAULT_POOLS_CHAIN_ID }).catch(() => []),
   ]);
 
   const postEntries: MetadataRoute.Sitemap = posts.map(post => ({
@@ -32,8 +34,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.6,
   }));
 
-  const poolEntries: MetadataRoute.Sitemap = (pools ?? []).map(pool => ({
+  const poolEntries: MetadataRoute.Sitemap = pools.map(pool => ({
     url: `${SITE_URL}/i/pools/${pool.address}`,
+    lastModified: new Date(pool.updatedAt),
     changeFrequency: "daily" as const,
     priority: 0.6,
   }));

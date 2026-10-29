@@ -1,8 +1,8 @@
 import { trpcClient } from "./trpc";
 import { AVAILABLE_CHAINS } from "@repo/web3";
 
-/** Shape of the data returned by the getPools query. */
-export type PoolsPageData = Awaited<ReturnType<typeof trpcClient.pools.fan.getPools.query>>;
+/** One page of pools.list.listPools: the SSR first page of the directory. */
+export type PoolsPageData = Awaited<ReturnType<typeof trpcClient.pools.list.listPools.query>>;
 
 /**
  * Chain used for server-side rendering of the pools list. Mirrors the wagmi
@@ -11,8 +11,11 @@ export type PoolsPageData = Awaited<ReturnType<typeof trpcClient.pools.fan.getPo
  */
 export const DEFAULT_POOLS_CHAIN_ID = AVAILABLE_CHAINS[0].id.toString();
 
+/** Same page size as the directory's Show more (PoolsTab). */
+export const POOLS_PAGE_SIZE = 24;
+
 /**
- * Fetch the public pools list from the API server during SSR.
+ * Fetch the first page of the public pools list from the API server during SSR.
  * Returns null when the API is unreachable so callers can decide
  * how to render (fallback or client-side loading).
  */
@@ -20,11 +23,11 @@ export async function fetchPoolsPageData(
   chainId: string = DEFAULT_POOLS_CHAIN_ID
 ): Promise<PoolsPageData | null> {
   try {
-    return await trpcClient.pools.fan.getPools.query({
+    return await trpcClient.pools.list.listPools.query({
       chainId,
-      search: "",
       filter: "all",
       sort: "newest",
+      limit: POOLS_PAGE_SIZE,
     });
   } catch {
     return null;
