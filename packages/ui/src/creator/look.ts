@@ -2,6 +2,7 @@ import type { CSSProperties } from "react";
 import {
   findEffect,
   getEffect,
+  gradientCss,
   isThemeConfigV2,
   upgradeTheme,
   type AnyThemeConfig,
@@ -48,11 +49,6 @@ const PX_BY_SIZE: Record<ThemeConfigV2["fonts"]["size"], string> = {
   xxl: "24px",
 };
 
-function gradientCss(base: Extract<ThemeConfigV2["scene"]["base"], { type: "gradient" }>) {
-  const stops = base.stops.map(stop => `${stop.color} ${stop.at}%`).join(", ");
-  return `linear-gradient(${base.angle}deg, ${stops})`;
-}
-
 /** A v2 config written back into the v1 value shape (colors, font, background). */
 export function v1Values(v2: ThemeConfigV2): ThemeConfig {
   const base = v2.scene.base;
@@ -60,9 +56,23 @@ export function v1Values(v2: ThemeConfigV2): ThemeConfig {
     base.type === "color"
       ? { type: "color", value: base.value }
       : base.type === "gradient"
-        ? { type: "color", value: gradientCss(base) }
+        ? {
+            type: "color",
+            value: gradientCss(base),
+            stops: base.stops,
+            angle: base.angle,
+            ...(base.mesh ? { mesh: true } : {}),
+            ...(base.drift ? { drift: true } : {}),
+            ...(base.texture !== "none" ? { texture: base.texture } : {}),
+          }
         : base.type === "image"
-          ? { type: "image", value: base.value ?? null, id: base.presetId, fileId: base.fileId }
+          ? {
+              type: "image",
+              value: base.value ?? null,
+              id: base.presetId,
+              fileId: base.fileId,
+              ...(base.texture !== "none" ? { texture: base.texture } : {}),
+            }
           : base.type === "video"
             ? {
                 type: "video",

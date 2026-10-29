@@ -1,6 +1,7 @@
 import {
   isThemeConfigV2,
   themeConfigV2Schema,
+  SCENE_TEXTURES,
   type FONT_SIZES,
   type SceneBase,
   type ThemeConfig,
@@ -222,6 +223,43 @@ function positiveInt(value: number | undefined): number | undefined {
   return value !== undefined && Number.isInteger(value) && value > 0 ? value : undefined;
 }
 
+type SceneTexture = (typeof SCENE_TEXTURES)[number];
+
+// Read at call time: theme.ts and this file import each other
+function textureOf(texture: string | undefined): SceneTexture {
+  const known: readonly string[] = SCENE_TEXTURES;
+  return texture && known.includes(texture) ? (texture as SceneTexture) : "none";
+}
+
+/**
+ * A gradient the Background row built (stops on the v1 background, phase 2).
+ * Returns null when the stops are missing or invalid, so the legacy CSS parse
+ * runs instead.
+ */
+function builtGradient(
+  background: NonNullable<ThemeConfig["background"]>
+): Extract<SceneBase, { type: "gradient" }> | null {
+  const stops = (background.stops ?? []).flatMap(stop => {
+    const color = normalizeHex(stop.color);
+    return color && Number.isFinite(stop.at)
+      ? [{ color, at: Math.min(100, Math.max(0, stop.at)) }]
+      : [];
+  });
+  if (stops.length < 2 || stops.length > 4) return null;
+  const angle =
+    typeof background.angle === "number" && Number.isFinite(background.angle)
+      ? Math.min(360, Math.max(0, background.angle))
+      : 180;
+  return {
+    type: "gradient",
+    stops,
+    angle,
+    mesh: background.mesh === true,
+    drift: background.drift === true,
+    texture: textureOf(background.texture),
+  };
+}
+
 function upgradeBackground(background: ThemeConfig["background"]): SceneBase {
   if (!background) return { type: "color", value: V1_DEFAULTS.background };
   const presetId = background.id ? background.id.slice(0, 80) : undefined;
@@ -231,7 +269,7 @@ function upgradeBackground(background: ThemeConfig["background"]): SceneBase {
         type: "image",
         fileId: positiveInt(background.fileId),
         value: absoluteUrl(background.value),
-        texture: "none",
+        texture: textureOf(background.texture),
         presetId,
       };
     case "video":
@@ -243,6 +281,8 @@ function upgradeBackground(background: ThemeConfig["background"]): SceneBase {
         presetId,
       };
     default: {
+      const built = builtGradient(background);
+      if (built) return built;
       const value = background.value ?? "";
       if (/gradient\(/i.test(value)) return parseLegacyGradient(value);
       return { type: "color", value: normalizeHex(value) ?? V1_DEFAULTS.background };

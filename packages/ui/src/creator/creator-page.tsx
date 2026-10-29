@@ -13,6 +13,7 @@ import {
   overlayParticlesId,
 } from "./look";
 import { ParticlesLayer } from "./particles-layer";
+import { gradientScene, textureStyle } from "./scene";
 
 /**
  * Theme Engine v2, phase 1b (docs/features/theme-engine-v2.md, 3.4): the one
@@ -125,22 +126,27 @@ export function CreatorPage({
   const textStyle = creatorTextStyle(theme);
   const particlesEffect = overlayParticlesId(look);
   const embedded = mode !== "public";
+  // Phase 2 Background row: a built gradient may drift; a texture sits on top
+  const gradient = gradientScene(background, paused);
+  const texture = textureStyle(background);
 
   const backgroundLayer = (
     <div
       aria-hidden
-      className={cn(embedded ? "absolute" : "fixed", "inset-0 z-0")}
+      className={cn(embedded ? "absolute" : "fixed", "inset-0 z-0", gradient?.className)}
       // QA-004: set only the background shorthand. Pairing it with
       // backgroundColor makes React write background="" on the client,
       // which clears the color and the video backdrop.
-      style={{
-        background:
-          background?.type === "color"
-            ? background.value || undefined
-            : background?.type === "video"
-              ? VIDEO_BACKDROP
-              : undefined,
-      }}
+      style={
+        gradient?.style ?? {
+          background:
+            background?.type === "color"
+              ? background.value || undefined
+              : background?.type === "video"
+                ? VIDEO_BACKDROP
+                : undefined,
+        }
+      }
     >
       {background?.type === "video" ? (
         <video
@@ -159,6 +165,7 @@ export function CreatorPage({
           style={{ backgroundImage: `url(${background.value})` }}
         />
       ) : null}
+      {texture && <div className="pointer-events-none absolute inset-0" style={texture} />}
       {renderOverlay ? (
         renderOverlay(particlesEffect, paused)
       ) : (

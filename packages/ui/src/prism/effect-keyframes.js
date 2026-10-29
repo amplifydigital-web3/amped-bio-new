@@ -96,6 +96,21 @@ export const effectKeyframes = {
   ".animate-explore-ping": {
     animation: "explore-ping 3s linear infinite",
   },
+  // Background row drift (Theme Engine v2 phase 2, spec 3.5). The sweep angle is a
+  // registered property so it interpolates; without @property support the
+  // gradient stays at its own angle.
+  "@property --amped-sweep": {
+    syntax: "'<angle>'",
+    inherits: "false",
+    initialValue: "0deg",
+  },
+  "@keyframes amped-sweep": {
+    to: { "--amped-sweep": "360deg" },
+  },
+  "@keyframes amped-mesh-drift": {
+    "0%, 100%": { backgroundPosition: "0% 0%" },
+    "50%": { backgroundPosition: "100% 100%" },
+  },
   "@keyframes glitch": {
     "0%": { textShadow: GLITCH_A },
     "15%": { textShadow: GLITCH_A },
@@ -118,4 +133,7 @@ export const effectAnimations = {
   wave: "wave 1s ease-in-out infinite",
   rainbow: "rainbow 3s linear infinite",
   glitch: "glitch 3s infinite",
+  // Background row drift: a linear gradient turns once in 21 s, a mesh drifts in 13 s
+  "amped-sweep": "amped-sweep 21s linear infinite",
+  "amped-mesh-drift": "amped-mesh-drift 13s ease-in-out infinite",
 };
