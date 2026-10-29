@@ -20,11 +20,15 @@ import { type BlockType, DEFAULT_RNSID_CONFIG, sanitizeRichHtml } from "@repo/co
 import { Theme, UserProfile } from "@/types/editor";
 import { trpcClient } from "@repo/ui";
 import {
+  CreatorButton,
+  CreatorPage,
   RnsIdentityChip,
   RnsVerifiedMark,
   THEME_DEFAULTS,
+  creatorTextStyle,
   headerRnsIdentity,
   themeCssVars,
+  type CreatorPageSize,
 } from "@repo/ui";
 import { type ReactNode } from "react";
 import { useReferralHandler } from "@/hooks/useReferralHandler";
@@ -53,6 +57,9 @@ const VIDEO_BACKDROP = "#14141C";
 const fanGraphOn = import.meta.env.VITE_FAN_GRAPH === "true";
 const rnsOn = import.meta.env.VITE_SHOW_RNS === "true";
 const telegramOn = import.meta.env.VITE_SHOW_TELEGRAM === "true";
+// Theme Engine v2 (#28): the preview mounts the shared CreatorPage shell, so it
+// draws what the public page draws (spec 3.4, closes D10)
+const themeV2On = import.meta.env.VITE_SHOW_THEME_V2 === "true";
 
 interface PreviewProps {
   isEditing: boolean;
@@ -62,6 +69,26 @@ interface PreviewProps {
   userId?: number;
   /** Editor preview: a click on a block opens it in the Page list (D10, 036 I13) */
   onBlockSelect?: (id: number) => void;
+  /**
+   * The device the preview renders for (SHOW_THEME_V2). The preview sits in a
+   * scaled device frame, so viewport breakpoints cannot pick the sizes.
+   */
+  layout?: Exclude<CreatorPageSize, "responsive">;
+}
+
+/** 040 I06: the 21 platform icon, or the site favicon for custom links, as on the public page. */
+function LinkIcon({ platform, url }: { platform: string; url: string }) {
+  if (platform === "custom") {
+    return (
+      <img
+        src={`https://www.google.com/s2/favicons?domain=${extractRootDomain(url)}&sz=64`}
+        className="h-[21px] w-[21px] rounded-[5px]"
+        alt=""
+      />
+    );
+  }
+  const Icon = getPlatformIcon(platform);
+  return <Icon className="h-[21px] w-[21px]" />;
 }
 
 /**
@@ -104,6 +131,7 @@ export function Preview({
   theme,
   userId,
   onBlockSelect,
+  layout = "phone",
 }: PreviewProps) {
   const themeConfig = theme.config;
   const { handleReferrerClick } = useReferralHandler();
@@ -132,6 +160,19 @@ export function Preview({
 
   // One block as visitors see it. `fallback` shows when the block throws.
   const renderBlock = (block: BlockType, fallback: ReactNode) => {
+    if (block.type === "link" && themeV2On) {
+      return (
+        <ErrorBoundary key={block.id.toString()} fallback={fallback}>
+          <CreatorButton
+            theme={themeConfig}
+            icon={<LinkIcon platform={block.config.platform} url={block.config.url} />}
+            label={block.config.label}
+            href={block.config.url}
+            onClick={() => handleLinkClick(block)}
+          />
+        </ErrorBoundary>
+      );
+    }
     if (block.type === "link") {
       const Icon = getPlatformIcon(block.config.platform);
       const element =
@@ -243,6 +284,89 @@ export function Preview({
       </ErrorBoundary>
     );
   };
+
+  // One entry per visible block: Fix chips for blocks that cannot render, and
+  // click capture so preview clicks select instead of navigating (006 I05)
+  const blockList = blocks.map(block => {
+    // Hidden blocks render in neither the preview nor the page (036 I09)
+    if (isHidden(block)) return null;
+    const select = onBlockSelect ? () => onBlockSelect(block.id) : undefined;
+    if (blockNeed(block) !== null) {
+      return isEditing ? <FixChip key={block.id} block={block} onFix={select} /> : null;
+    }
+    const fallback = isEditing ? <FixChip block={block} onFix={select} /> : null;
+    const inner = renderBlock(block, fallback);
+    if (!isEditing) return inner;
+    return (
+      <div
+        key={block.id}
+        onClickCapture={event => {
+          // Preview clicks never navigate or count (006 I05)
+          event.preventDefault();
+          event.stopPropagation();
+          select?.();
+        }}
+        className={cn(select && "cursor-pointer")}
+      >
+        {inner}
+      </div>
+    );
+  });
+
+  if (themeV2On) {
+    const shown = blockList.filter(Boolean);
+    return (
+      <CreatorPage
+        theme={themeConfig}
+        mode={isEditing ? "edit" : "preview"}
+        size={layout}
+        profile={{
+          name: profile.name,
+          photo: profile.photoCmp || profile.photoUrl,
+          bio: profile.bio,
+        }}
+        nameExtras={
+          headerIdentity?.chip === "verified" && <RnsVerifiedMark className="ml-2 align-[-3px]" />
+        }
+        identity={
+          headerIdentity && (
+            <RnsIdentityChip
+              identity={headerIdentity}
+              displayName={profile.name}
+              avatarUrl={profile.photoUrl || null}
+              fontFamily={themeConfig?.fontFamily}
+              fontColor={themeConfig?.fontColor}
+              rnsUrl={import.meta.env.VITE_RNS_URL}
+              readOnly
+            />
+          )
+        }
+        blocks={shown.length > 0 ? shown : null}
+        footer={
+          <footer
+            className="mt-[34px] flex flex-col items-center"
+            style={creatorTextStyle(themeConfig)}
+          >
+            <button
+              type="button"
+              onClick={() => {
+                // In the editor this would overwrite the creator's referral
+                // cookie and navigate the editor away to /register
+                if (profile.id && !isEditing) handleReferrerClick(profile.id);
+              }}
+              className={cn(
+                "min-h-[44px] px-1 text-[13px] leading-[16px] underline-offset-2",
+                !isEditing && "hover:underline"
+              )}
+            >
+              Made with Amped.Bio
+            </button>
+          </footer>
+        }
+        renderOverlay={effect => <ParticlesBackground effect={effect} />}
+      />
+    );
+  }
 
   return (
     <div
@@ -394,35 +518,7 @@ export function Preview({
               </div>
 
               {/* Links & Blocks */}
-              <div className="space-y-4">
-                {blocks.map(block => {
-                  // Hidden blocks render in neither the preview nor the page (036 I09)
-                  if (isHidden(block)) return null;
-                  const select = onBlockSelect ? () => onBlockSelect(block.id) : undefined;
-                  if (blockNeed(block) !== null) {
-                    return isEditing ? (
-                      <FixChip key={block.id} block={block} onFix={select} />
-                    ) : null;
-                  }
-                  const fallback = isEditing ? <FixChip block={block} onFix={select} /> : null;
-                  const inner = renderBlock(block, fallback);
-                  if (!isEditing) return inner;
-                  return (
-                    <div
-                      key={block.id}
-                      onClickCapture={event => {
-                        // Preview clicks never navigate or count (006 I05)
-                        event.preventDefault();
-                        event.stopPropagation();
-                        select?.();
-                      }}
-                      className={cn(select && "cursor-pointer")}
-                    >
-                      {inner}
-                    </div>
-                  );
-                })}
-              </div>
+              <div className="space-y-4">{blockList}</div>
 
               {/* Powered by footer */}
               <div className="pt-4 text-center">

@@ -128,6 +128,36 @@ export {
   formatSinceMonth,
   type RnsIdCardProps,
 } from "./creator/rns-id-card";
+// Theme Engine v2 phase 1b: the one creator page shell and its look (Build Board #28)
+export {
+  CreatorPage,
+  VIDEO_BACKDROP,
+  creatorTextStyle,
+  type CreatorPageMode,
+  type CreatorPageProps,
+  type CreatorPageSize,
+} from "./creator/creator-page";
+export { CreatorButton, CREATOR_FOCUS, clampedFontSize } from "./creator/creator-button";
+export {
+  containerBackground,
+  containerOn,
+  effectClassName,
+  hasLoopingMotion,
+  lookCssVars,
+  lookFontColor,
+  lookFor,
+  overlayParticlesId,
+  v1Values,
+  type CreatorLook,
+} from "./creator/look";
+// Motion shared by the landing page and the creator page (spec 3.7)
+export {
+  readMotionPaused,
+  setMotionPaused,
+  useMotionOff,
+  usePausedChoice,
+} from "./motion/motionState";
+export { createFrameWatchdog, lowPower, type FrameWatchdog } from "./motion/watchdog";
 export { ExternalRedirect } from "./external-redirect";
 export { NewVersionDialog } from "./new-version";
 

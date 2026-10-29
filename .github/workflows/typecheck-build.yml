@@ -64,6 +64,10 @@ jobs:
         # Theme Engine v2 registry rules, legacy map and the no pixel change check (#28)
         run: pnpm --filter @repo/constants run test
 
+      - name: Shared UI tests
+        # Theme Engine v2 creator look, CreatorPage markup and the frame watchdog (#28)
+        run: pnpm --filter @repo/ui run test
+
       - name: Compliance copy check
         run: pnpm run check:copy
 
