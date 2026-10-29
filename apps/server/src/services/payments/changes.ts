@@ -412,8 +412,8 @@ async function approveContractChange(
     where: { id: change.id },
     data: {
       status: "proposed",
-      safeTxHash: proposal.safeTxHash,
-      safeNonce: proposal.nonce,
+      // In manual mode the owner's transaction gets its own nonce and hash, so none is kept
+      safeTxHash: proposal.mode === "service" ? proposal.safeTxHash : null,
       chainId: proposal.chainId,
       decisionNote:
         proposal.mode === "service"
@@ -594,7 +594,6 @@ function present(change: ChangeRow, handles: Map<number, string | null>, now: Da
     approvedBy: change.approvedById ? (handles.get(change.approvedById) ?? null) : null,
     decisionNote: change.decisionNote,
     safeTxHash: change.safeTxHash,
-    safeNonce: change.safeNonce,
     txHash: change.txHash,
     chainId: change.chainId,
     // Read from the contract with no portal draft behind it (drafted_by_id 0)
@@ -735,7 +734,7 @@ export async function changeSafeDetails(changeId: Buffer, now = new Date()) {
     mode: safeMode(),
     safe,
     chainId,
-    nonce: change.safeNonce,
+    nonce: status?.nonce ?? null,
     safeTxHash: change.safeTxHash,
     to: call?.to ?? null,
     data: call?.data ?? null,
