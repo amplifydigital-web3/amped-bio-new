@@ -22,21 +22,36 @@ import {
 
 // Board a1, Payments Overview (Build Board #50, spec docs/features/ampedpay.md 3.8). Status
 // and Pause, changes waiting on approval, the key values in force, and the contract, Safe
-// and Coinbase accounts. Pause applies at once by one payments admin; Resume is drafted
-// and approved by a second payments admin (spec 3.5).
+// and Coinbase accounts read live from Base. Pause applies at once by one payments admin:
+// on the server, or on the contract through the pauser account. Resume is drafted and
+// approved by a second payments admin; the contract resume is then executed by the Safe
+// (spec 3.5, decision 2).
 
 function minutes(seconds: number): string {
   return seconds % 60 === 0 ? `${seconds / 60} minutes` : `${seconds} seconds`;
 }
 
-function safeAppUrl(address: string, chainId: number): string {
-  return `https://app.safe.global/home?safe=${chainId === 8453 ? "base" : "basesep"}:${address}`;
-}
+const PAUSE_COPY = {
+  server: {
+    title: "Pause payments?",
+    body: "New quotes and submits stop at once. Payments already signed and submitted finish. Resume needs a second payments admin.",
+    confirm: "Pause payments",
+    done: "Payments paused",
+  },
+  contract: {
+    title: "Pause the contract?",
+    body: "The pauser account sends pause() to AmpedPay. Every pay and refund reverts from the next block. Resume needs a second payments admin and the Safe owners.",
+    confirm: "Pause the contract",
+    done: "Pause sent. The contract stops taking payments from the next block.",
+  },
+} as const;
 
 function PauseDialog({
+  kind,
   open,
   onOpenChange,
 }: {
+  kind: "server" | "contract";
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
@@ -44,20 +59,26 @@ function PauseDialog({
   const [reason, setReason] = useState("");
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | undefined>();
-  const pause = useMutation({
-    ...trpc.admin.payments.pause.mutationOptions(),
+  const copy = PAUSE_COPY[kind];
+  const handlers = {
     onSuccess: () => {
-      toast.success("Payments paused");
+      toast.success(copy.done);
       void queryClient.invalidateQueries({ queryKey: trpc.admin.payments.pathKey() });
       setReason("");
       setCode("");
       onOpenChange(false);
     },
-    onError: failure => {
+    onError: (failure: { message: string }) => {
       setCode("");
       setError(failure.message);
     },
+  };
+  const pauseServer = useMutation({ ...trpc.admin.payments.pause.mutationOptions(), ...handlers });
+  const pauseContract = useMutation({
+    ...trpc.admin.payments.pauseContract.mutationOptions(),
+    ...handlers,
   });
+  const pause = kind === "server" ? pauseServer : pauseContract;
   return (
     <ConfirmDialog
       open={open}
@@ -65,9 +86,9 @@ function PauseDialog({
         if (!next) setError(undefined);
         onOpenChange(next);
       }}
-      title="Pause payments?"
-      body="New quotes and submits stop at once. Payments already signed and submitted finish. Resume needs a second payments admin."
-      confirmLabel="Pause payments"
+      title={copy.title}
+      body={copy.body}
+      confirmLabel={copy.confirm}
       destructive
       busy={pause.isPending}
       onConfirm={() => {
@@ -104,14 +125,24 @@ function StatusCard({
   data,
   viewer,
   onResume,
+  onResumeContract,
 }: {
   data: PaymentsOverviewData;
   viewer: PaymentsViewer | undefined;
   onResume: () => void;
+  onResumeContract: () => void;
 }) {
-  const [pausing, setPausing] = useState(false);
-  const state = !data.enabled ? "off" : data.paused ? "paused" : "on";
+  const [pausing, setPausing] = useState<"server" | "contract" | null>(null);
+  const state = !data.enabled
+    ? "off"
+    : data.contractPaused
+      ? "contract"
+      : data.paused
+        ? "paused"
+        : "on";
   const canChange = !!viewer?.canChange;
+  const twoFactorOn = !!viewer?.twoFactorOn;
+  const contractLive = data.contract.chainReads;
 
   return (
     <section
@@ -127,22 +158,42 @@ function StatusCard({
           >
             {state === "on" ? (
               <CheckCircle2 aria-hidden className="h-5 w-5 text-prism-success" />
-            ) : state === "paused" ? (
+            ) : state === "paused" || state === "contract" ? (
               <PauseCircle aria-hidden className="h-5 w-5 text-prism-warning-ink" />
             ) : (
               <CircleSlash aria-hidden className="h-5 w-5 text-prism-ink-2" />
             )}
             {state === "on"
               ? "Taking payments"
-              : state === "paused"
-                ? "Payments are paused"
-                : "Off in this environment"}
+              : state === "contract"
+                ? "The contract is paused"
+                : state === "paused"
+                  ? "Payments are paused"
+                  : "Off in this environment"}
           </h2>
           <p className="max-w-[72ch] text-prism-body text-prism-ink-2">
             {state === "off"
               ? "PAYMENTS_ENABLED is false, so fans see no checkout. Settings can still be changed so they are ready at launch."
-              : "Pause stops new payments at once. Resume needs a second payments admin."}
+              : "Pause stops new payments at once. Resume needs a second payments admin; the contract resume also needs the Safe owners."}
           </p>
+          <dl className="flex flex-wrap gap-x-5 gap-y-1 pt-1 text-prism-meta">
+            <div className="flex gap-1">
+              <dt className="text-prism-ink-2">Server:</dt>
+              <dd className="font-semibold text-prism-ink">{data.paused ? "Paused" : "Open"}</dd>
+            </div>
+            <div className="flex gap-1">
+              <dt className="text-prism-ink-2">Contract:</dt>
+              <dd className="font-semibold text-prism-ink">
+                {!data.contract.deployed
+                  ? "Not deployed"
+                  : !contractLive
+                    ? "Not read"
+                    : data.contractPaused
+                      ? "Paused"
+                      : "Open"}
+              </dd>
+            </div>
+          </dl>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <WordBadge tone="ink">
@@ -151,20 +202,48 @@ function StatusCard({
           {canChange && !data.paused && (
             <Button
               variant="destructive"
-              onClick={() => setPausing(true)}
-              disabled={!viewer?.twoFactorOn}
+              onClick={() => setPausing("server")}
+              disabled={!twoFactorOn}
             >
               Pause payments
             </Button>
           )}
           {canChange && data.paused && (
-            <Button onClick={onResume} disabled={!viewer?.twoFactorOn}>
+            <Button onClick={onResume} disabled={!twoFactorOn}>
               Resume payments
+            </Button>
+          )}
+          {canChange && contractLive && !data.contractPaused && (
+            <Button
+              variant="destructive"
+              onClick={() => setPausing("contract")}
+              disabled={!twoFactorOn || !data.accounts.pauser.configured}
+              title={
+                data.accounts.pauser.configured
+                  ? undefined
+                  : "The pauser account is not set up. Pause from the Safe."
+              }
+            >
+              Pause the contract
+            </Button>
+          )}
+          {canChange && contractLive && data.contractPaused && (
+            <Button onClick={onResumeContract} disabled={!twoFactorOn}>
+              Resume the contract
             </Button>
           )}
         </div>
       </div>
-      <PauseDialog open={pausing} onOpenChange={setPausing} />
+      <PauseDialog
+        kind="server"
+        open={pausing === "server"}
+        onOpenChange={next => setPausing(next ? "server" : null)}
+      />
+      <PauseDialog
+        kind="contract"
+        open={pausing === "contract"}
+        onOpenChange={next => setPausing(next ? "contract" : null)}
+      />
     </section>
   );
 }
@@ -185,7 +264,8 @@ function WaitingTable({
           Waiting on approval
         </h2>
         <p className="text-prism-meta text-prism-ink-2">
-          A different payments admin approves. Drafts expire after 7 days.
+          A different payments admin approves. On chain changes then wait for the Safe owners.
+          Drafts expire after 7 days.
         </p>
       </div>
       <SlabTable label="Changes waiting on approval">
@@ -252,6 +332,11 @@ function WaitingTable({
                       onClick={() => onReview(change)}
                     >
                       {viewer.userId === change.draftedById ? "Your draft" : "Review"}
+                    </Button>
+                  )}
+                  {change.status === "proposed" && (
+                    <Button variant="secondary" onClick={() => onReview(change)}>
+                      Track
                     </Button>
                   )}
                 </td>
@@ -376,40 +461,113 @@ function NotSetUp() {
   return <WordBadge tone="warning">Not set up</WordBadge>;
 }
 
+function ExplorerLink({ href, children }: { href: string; children: React.ReactNode }) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="prism-focus mt-2 inline-flex min-h-touch items-center gap-1 text-prism-label font-semibold text-prism-nav underline-offset-4 hover:underline"
+    >
+      {children}
+      <ExternalLink aria-hidden className="h-4 w-4" />
+    </a>
+  );
+}
+
+type AccountData = PaymentsOverviewData["accounts"]["pauser"];
+
+/** A Coinbase account: Not set up, Not answering, or its address with its ETH. */
+function AccountValue({ account, showEth }: { account: AccountData; showEth?: boolean }) {
+  if (!account.configured) return <NotSetUp />;
+  if (!account.reachable) return <WordBadge tone="danger">Not answering</WordBadge>;
+  return (
+    <span className="flex items-center justify-end gap-2">
+      <span className="font-mono text-prism-meta" title={account.address}>
+        {shortHex(account.address)}
+      </span>
+      {showEth && (
+        <WordBadge tone={Number(account.balanceEth) > 0 ? "success" : "danger"}>
+          {Number(account.balanceEth).toLocaleString("en-US", { maximumFractionDigits: 4 })} ETH
+        </WordBadge>
+      )}
+    </span>
+  );
+}
+
+function YesNo({ value, yes, no }: { value: boolean | null; yes: string; no: string }) {
+  if (value === null) return <span className="text-prism-ink-2">Not read</span>;
+  return <WordBadge tone={value ? "success" : "danger"}>{value ? yes : no}</WordBadge>;
+}
+
 function Accounts({ data }: { data: PaymentsOverviewData }) {
   const relayer = data.accounts.relayer;
   const explorer = data.explorerUrl;
+  const contract = data.contract;
+  const safe = data.safe;
   return (
     <section aria-labelledby="payments-accounts-title" className="space-y-3">
       <h2 id="payments-accounts-title" className="text-prism-panel-title text-prism-ink">
         Contract and accounts
       </h2>
+      {contract.readFailed && (
+        <Notice variant="warning" title="The contract did not answer.">
+          <p>Values on this page show the deploy defaults until the next read.</p>
+        </Notice>
+      )}
       <div className="grid gap-[13px] lg:grid-cols-3">
         <section aria-label="AmpedPay contract" className="prism-glass-clear !rounded-prism-21 p-5">
           <h3 className="text-prism-label font-bold text-prism-ink">AmpedPay</h3>
           <dl className="mt-3 divide-y divide-prism-line">
             <Line label="Address">
-              {data.contract.address ? (
-                <span className="font-mono">{shortHex(data.contract.address)}</span>
+              {contract.address ? (
+                <span className="font-mono" title={contract.address}>
+                  {shortHex(contract.address)}
+                </span>
               ) : (
                 <WordBadge tone="neutral">Not deployed</WordBadge>
               )}
             </Line>
-            <Line label="Upgrades owned by">Safe</Line>
-            <Line label="Values shown">Deploy defaults</Line>
+            {contract.chainReads && (
+              <>
+                <Line label="State">
+                  <YesNo value={contract.paused === false} yes="Open" no="Paused" />
+                </Line>
+                <Line label="Upgrades owned by the Safe">
+                  <YesNo value={contract.upgradesBySafe} yes="Yes" no="No" />
+                </Line>
+                <Line label="Safe holds admin roles">
+                  <YesNo
+                    value={
+                      contract.safeRoles
+                        ? contract.safeRoles.admin &&
+                          contract.safeRoles.params &&
+                          contract.safeRoles.pauser
+                        : null
+                    }
+                    yes="Yes"
+                    no="Missing"
+                  />
+                </Line>
+                {contract.implementation && (
+                  <Line label="Implementation">
+                    <span className="font-mono" title={contract.implementation}>
+                      {shortHex(contract.implementation)}
+                    </span>
+                  </Line>
+                )}
+              </>
+            )}
+            <Line label="Values shown">
+              {contract.chainReads ? "Read from Base" : "Deploy defaults"}
+            </Line>
           </dl>
-          {data.contract.address && explorer && (
-            <a
-              href={`${explorer}/address/${data.contract.address}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="prism-focus mt-2 inline-flex min-h-touch items-center gap-1 text-prism-label font-semibold text-prism-nav underline-offset-4 hover:underline"
-            >
+          {contract.address && explorer && (
+            <ExplorerLink href={`${explorer}/address/${contract.address}`}>
               View on the explorer
-              <ExternalLink aria-hidden className="h-4 w-4" />
-            </a>
+            </ExplorerLink>
           )}
-          {!data.contract.address && (
+          {!contract.address && (
             <p className="mt-2 text-prism-meta text-prism-ink-2">
               Deploy from packages/contracts, then set AMPEDPAY_ADDRESS.
             </p>
@@ -420,26 +578,44 @@ function Accounts({ data }: { data: PaymentsOverviewData }) {
           <h3 className="text-prism-label font-bold text-prism-ink">Safe</h3>
           <dl className="mt-3 divide-y divide-prism-line">
             <Line label="Address">
-              {data.safe.address ? (
-                <span className="font-mono">{shortHex(data.safe.address)}</span>
+              {safe.address ? (
+                <span className="font-mono" title={safe.address}>
+                  {shortHex(safe.address)}
+                </span>
               ) : (
                 <NotSetUp />
               )}
             </Line>
-            <Line label="Signatures needed">{data.safe.threshold}</Line>
-            <Line label="Owners">Changed in the Safe app</Line>
+            <Line label="Signatures needed">
+              {safe.threshold}
+              {!safe.chainReads && safe.address && (
+                <span className="block text-prism-meta font-normal text-prism-ink-2">
+                  Planned, not read
+                </span>
+              )}
+            </Line>
+            {safe.chainReads && safe.nonce !== null && (
+              <Line label="Next nonce">{String(safe.nonce)}</Line>
+            )}
+            <Line label="Proposals">
+              {safe.proposals === "service" ? (
+                "Queued in the Safe app"
+              ) : (
+                <WordBadge tone="warning">Owner submits by hand</WordBadge>
+              )}
+            </Line>
           </dl>
-          {data.safe.address && (
-            <a
-              href={safeAppUrl(data.safe.address, data.chainId)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="prism-focus mt-2 inline-flex min-h-touch items-center gap-1 text-prism-label font-semibold text-prism-nav underline-offset-4 hover:underline"
-            >
-              Open in Safe
-              <ExternalLink aria-hidden className="h-4 w-4" />
-            </a>
+          {safe.owners.length > 0 && (
+            <div className="mt-2 space-y-1">
+              <p className="text-prism-meta text-prism-ink-2">Owners, changed in the Safe app</p>
+              {safe.owners.map(owner => (
+                <p key={owner} className="font-mono text-prism-meta text-prism-ink" title={owner}>
+                  {shortHex(owner)}
+                </p>
+              ))}
+            </div>
           )}
+          {safe.url && <ExplorerLink href={safe.url}>Open in Safe</ExplorerLink>}
         </section>
 
         <section aria-label="Coinbase accounts" className="prism-glass-clear !rounded-prism-21 p-5">
@@ -460,13 +636,13 @@ function Accounts({ data }: { data: PaymentsOverviewData }) {
               )}
             </Line>
             <Line label="Split signer">
-              <NotSetUp />
+              <AccountValue account={data.accounts.splitSigner} />
             </Line>
             <Line label="Pauser">
-              <NotSetUp />
+              <AccountValue account={data.accounts.pauser} showEth />
             </Line>
             <Line label="Safe proposer">
-              <NotSetUp />
+              <AccountValue account={data.accounts.proposer} />
             </Line>
           </dl>
           <p className="mt-2 text-prism-meta text-prism-ink-2">
@@ -486,7 +662,7 @@ export function PaymentsOverview() {
   });
   const settings = useQuery(trpc.admin.payments.settings.queryOptions());
   const [review, setReview] = useState<PaymentChange | null>(null);
-  const [resuming, setResuming] = useState(false);
+  const [resuming, setResuming] = useState<"server" | "contract" | null>(null);
 
   if (overview.isPending) {
     return (
@@ -509,6 +685,8 @@ export function PaymentsOverview() {
 
   const data = overview.data;
   const pausedRow = settings.data?.items.find(item => item.id === "payments_paused") ?? null;
+  const contractPausedRow =
+    settings.data?.items.find(item => item.id === "contract_paused") ?? null;
 
   return (
     <div className="space-y-[21px] font-prism">
@@ -523,7 +701,12 @@ export function PaymentsOverview() {
           <p>Every payments change asks for a code. Set it up in your Amped.Bio account.</p>
         </Notice>
       )}
-      <StatusCard data={data} viewer={viewer.data} onResume={() => setResuming(true)} />
+      <StatusCard
+        data={data}
+        viewer={viewer.data}
+        onResume={() => setResuming("server")}
+        onResumeContract={() => setResuming("contract")}
+      />
       <WaitingTable changes={data.waiting} viewer={viewer.data} onReview={setReview} />
       <section aria-labelledby="payments-today-title" className="space-y-3">
         <h2 id="payments-today-title" className="text-prism-panel-title text-prism-ink">
@@ -538,10 +721,22 @@ export function PaymentsOverview() {
       <ReviewSheet
         change={review}
         viewer={viewer.data}
+        explorerUrl={data.explorerUrl}
         open={review !== null}
         onOpenChange={open => !open && setReview(null)}
       />
-      <DraftSheet row={pausedRow} open={resuming} onOpenChange={setResuming} presetValue="false" />
+      <DraftSheet
+        row={pausedRow}
+        open={resuming === "server"}
+        onOpenChange={open => setResuming(open ? "server" : null)}
+        presetValue="false"
+      />
+      <DraftSheet
+        row={contractPausedRow}
+        open={resuming === "contract"}
+        onOpenChange={open => setResuming(open ? "contract" : null)}
+        presetValue="false"
+      />
     </div>
   );
 }
