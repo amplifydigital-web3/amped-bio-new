@@ -258,3 +258,28 @@ export function cursorAfter(row: PageRow, sort: PoolListSort): PoolListCursor {
           : null;
   return { sort, tier: Number(row.tier), value, id: Number(row.id) };
 }
+
+/**
+ * Pool search for the Creator pool block (pools.blockEditor.search, PL3).
+ * The same where clause and search tiers as listPools, most fans first
+ * within a tier. A full address returns that pool.
+ */
+export function blockSearchQuery(chainId: string, term: SearchTerm, limit: number): Prisma.Sql {
+  return Prisma.sql`SELECT cp.id, ${NAME_KEY} AS nameKey, cp.poolAddress,
+      u.littlelink_name AS handle, f.s3_key AS s3Key, cp.active_fans AS activeFans,
+      ${tierSql(term)} AS tier
+    ${FROM}
+    WHERE ${whereSql(chainId, "all", term)}
+    ORDER BY tier ASC, cp.active_fans DESC, cp.id DESC
+    LIMIT ${limit}`;
+}
+
+export interface BlockSearchRow {
+  id: number;
+  nameKey: string;
+  poolAddress: string;
+  handle: string | null;
+  s3Key: string | null;
+  activeFans: number | bigint;
+  tier: number | bigint;
+}
