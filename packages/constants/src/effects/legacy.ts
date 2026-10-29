@@ -5,6 +5,8 @@ import {
   CONTAINER_SHAPES,
   BUTTON_SHAPES,
   BUTTON_LAYOUTS,
+  NAME_SETTLES,
+  NAME_TARGETS,
   BORDER_STYLES,
   type FONT_SIZES,
   type SceneBase,
@@ -329,6 +331,7 @@ export function upgradeTheme(
   const containerId = legacyEffectId("containerStyle", v1.containerStyle);
   const storedHover = v1.buttonEffectId ? findEffect(v1.buttonEffectId) : undefined;
   const storedPress = v1.buttonPressId ? findEffect(v1.buttonPressId) : undefined;
+  const storedName = v1.heroEffectId ? findEffect(v1.heroEffectId) : undefined;
 
   return themeConfigV2Schema.parse({
     version: 2,
@@ -379,7 +382,14 @@ export function upgradeTheme(
       id: storedPress?.layer === "buttonPress" ? storedPress.id : "buttonPress.none",
       params: {},
     },
-    name: { id: legacyEffectId("heroEffect", v1.heroEffect), params: {}, appliesTo: "name" },
+    name: {
+      // A v2 name effect stored by id wins over the v1 integer (phase 2)
+      id:
+        storedName?.layer === "name" ? storedName.id : legacyEffectId("heroEffect", v1.heroEffect),
+      params: {},
+      ...(v1.heroEffectLoop ? { loop: oneOf(NAME_SETTLES, v1.heroEffectLoop, "always") } : {}),
+      appliesTo: oneOf(NAME_TARGETS, v1.heroAppliesTo, "name"),
+    },
     cursor: { id: "cursor.none", params: {} },
   });
 }

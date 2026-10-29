@@ -68,6 +68,13 @@ export type EffectRender =
       keyframes: (p: ParamValues, c: ThemeColors) => readonly Record<string, string | number>[];
       options: (p: ParamValues) => Readonly<Record<string, string | number>>;
       trigger: "mount" | "hover" | "press" | "always";
+      /**
+       * Text entrances (name layer): animate the whole text, each letter
+       * (delayed by stagger ms, squeezed to fit 610 ms), or scramble the
+       * glyphs until they settle on the text.
+       */
+      text?: "whole" | "letters" | "scramble";
+      stagger?: number;
     }
   /** tsParticles options; phase 1c makes these color aware factories on v4 slim. */
   | {

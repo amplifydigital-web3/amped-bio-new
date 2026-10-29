@@ -3,7 +3,9 @@ import {
   findEffect,
   getEffect,
   gradientCss,
+  isNameEntrance,
   isThemeConfigV2,
+  nameSettle,
   upgradeTheme,
   type AnyThemeConfig,
   type EffectEntry,
@@ -141,9 +143,35 @@ export function overlayParticlesId(look: CreatorLook): number {
   return look.overlay.legacyId ?? 0;
 }
 
+/** True when the name effect keeps looping (a loop entry settled to always). */
+export function nameLoops(look: CreatorLook): boolean {
+  return look.name.loop === true && nameSettle(look.name, look.v2.name.loop) === "always";
+}
+
+/**
+ * Inline style for the name (and the bio when the effect applies to it): a
+ * loop settled to once plays one cycle, then rests on its last frame (board 08).
+ */
+export function nameLoopStyle(look: CreatorLook, paused = false): CSSProperties | undefined {
+  if (paused || look.name.loop !== true || nameLoops(look)) return undefined;
+  return { animationIterationCount: 1 };
+}
+
+/**
+ * True when the bio wears the name effect too (Applies to: Name and bio). The
+ * letter entrances stay on the name: a bio can be long and carry links.
+ */
+export function nameOnBio(look: CreatorLook): boolean {
+  return (
+    look.v2.name.appliesTo === "nameAndBio" &&
+    look.name.id !== "name.none" &&
+    !isNameEntrance(look.name)
+  );
+}
+
 /** True when the page has motion that loops, so it gets the Pause motion control (041 I02). */
 export function hasLoopingMotion(look: CreatorLook): boolean {
-  return overlayParticlesId(look) !== 0 || look.name.loop === true;
+  return overlayParticlesId(look) !== 0 || nameLoops(look);
 }
 
 /** True when a container surface is on. */

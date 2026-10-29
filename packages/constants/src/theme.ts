@@ -8,6 +8,10 @@ export const CONTAINER_SHAPES = ["rounded", "pill", "squircle", "cut", "arch", "
 export const BUTTON_SHAPES = ["rounded", "pill", "squircle", "cut", "ticket"] as const;
 export const BORDER_STYLES = ["none", "hairline", "thick", "dashed", "gradient", "glow"] as const;
 export const BUTTON_LAYOUTS = ["label", "icon", "split"] as const;
+/** Settle for looping effects: play once when the page opens, or keep looping. */
+export const NAME_SETTLES = ["once", "always"] as const;
+/** What the name effect applies to (board 08). */
+export const NAME_TARGETS = ["name", "nameAndBio"] as const;
 
 // Background schema matching the Background interface from collections
 const BACKGROUND_TEXTURES = ["none", "grain", "dots", "scanlines"] as const;
@@ -68,6 +72,12 @@ export const themeConfigSchema = z.object({
   // buttonEffect on the nearest v1 look. Press is new in v2.
   buttonEffectId: z.enum(EFFECT_IDS.buttonHover as unknown as [string, ...string[]]).optional(),
   buttonPressId: z.enum(EFFECT_IDS.buttonPress as unknown as [string, ...string[]]).optional(),
+  // Theme Engine v2 Name row (spec 3.5, board 08), additive and optional. A
+  // name effect with no v1 integer is stored by id; the editor keeps
+  // heroEffect on the nearest v1 look. Settle and Applies to are new in v2.
+  heroEffectId: z.enum(EFFECT_IDS.name as unknown as [string, ...string[]]).optional(),
+  heroEffectLoop: z.enum(NAME_SETTLES).optional(),
+  heroAppliesTo: z.enum(NAME_TARGETS).optional(),
 });
 
 // Schema for the theme object in editTheme endpoint
@@ -107,7 +117,7 @@ export const effectSlotSchema = (layer: EffectLayer) =>
     id: z.enum(EFFECT_IDS[layer] as unknown as [string, ...string[]]),
     // Clamped against the entry by clampParams before a write or a draw
     params: z.record(z.string(), z.union([z.number(), z.string()])).default({}),
-    loop: z.enum(["once", "always"]).optional(),
+    loop: z.enum(NAME_SETTLES).optional(),
   });
 
 const fontSchema = (defaultWeight: number) =>
@@ -204,7 +214,7 @@ export const themeConfigV2Schema = z
     buttonHover: effectSlotSchema("buttonHover"),
     buttonPress: effectSlotSchema("buttonPress"),
     name: effectSlotSchema("name").extend({
-      appliesTo: z.enum(["name", "nameAndBio"]).default("name"),
+      appliesTo: z.enum(NAME_TARGETS).default("name"),
     }),
     cursor: effectSlotSchema("cursor"),
   })
