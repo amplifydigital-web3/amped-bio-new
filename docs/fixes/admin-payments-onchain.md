@@ -4,20 +4,20 @@ Build Board #50. Spec: `docs/features/ampedpay.md` 3.2, 3.5, 3.6, 3.8 and 6.1 (P
 
 ## What this PR adds
 
-| Area | Files |
-| --- | --- |
-| AmpedPay ABI, role ids, Safe ABI and EIP-712 types, Safe network names and app links | `packages/web3/src/ampedpay.ts`, `packages/web3/src/abis/ampedpay.ts`, exported through `usdc.ts` |
-| Catalog: `contract_paused` item, relayers as `add:0x...` or `remove:0x...` changes | `packages/constants/src/payments.ts` |
-| Live reads of AmpedPay (values, pause, implementation, ProxyAdmin owner, Safe roles) and the Safe (owners, threshold, nonce), cached 30 seconds | `apps/server/src/services/payments/onchain.ts` |
-| Contract ranges, the server values that depend on them, and the call each change becomes | `apps/server/src/services/payments/contractChanges.ts` |
-| Safe transaction, hash, delegate proposal, status, manual fallback | `apps/server/src/services/payments/safe.ts` |
-| Pause through the pauser account | `apps/server/src/services/payments/pauser.ts` |
-| Coinbase accounts: pauser, Safe proposer, split signer | `apps/server/src/services/payments/accounts.ts`, `services/usdc/cdp.ts` (`signEvmTypedData`) |
-| Admin event indexer and Superseded check, started at boot | `apps/server/src/services/payments/indexer.ts`, `bootstrap.ts` |
-| Draft, approve and propose for on chain values; pause contract; Safe details; live Settings and Overview | `services/payments/changes.ts`, `overview.ts`, `settings.ts`, `trpc/admin/payments.ts` |
-| Admin pages: on chain Change, relayer and address inputs, Safe panel (a3), Pause the contract and Resume the contract (a1), live contract, Safe and account cards | `apps/admin/src/pages/payments/` |
-| Tests (26 new; PAY-A1 tests move to shared fakes) | `apps/server/src/__tests__/payments-onchain.test.ts`, `payments-fakes.ts` |
-| Runbook: pauser and proposer policies, Safe proposer registration | `docs/ops/cdp-policy.md` |
+| Area                                                                                                                                                              | Files                                                                                             |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| AmpedPay ABI, role ids, Safe ABI and EIP-712 types, Safe network names and app links                                                                              | `packages/web3/src/ampedpay.ts`, `packages/web3/src/abis/ampedpay.ts`, exported through `usdc.ts` |
+| Catalog: `contract_paused` item, relayers as `add:0x...` or `remove:0x...` changes                                                                                | `packages/constants/src/payments.ts`                                                              |
+| Live reads of AmpedPay (values, pause, implementation, ProxyAdmin owner, Safe roles) and the Safe (owners, threshold, nonce), cached 30 seconds                   | `apps/server/src/services/payments/onchain.ts`                                                    |
+| Contract ranges, the server values that depend on them, and the call each change becomes                                                                          | `apps/server/src/services/payments/contractChanges.ts`                                            |
+| Safe transaction, hash, delegate proposal, status, manual fallback                                                                                                | `apps/server/src/services/payments/safe.ts`                                                       |
+| Pause through the pauser account                                                                                                                                  | `apps/server/src/services/payments/pauser.ts`                                                     |
+| Coinbase accounts: pauser, Safe proposer, split signer                                                                                                            | `apps/server/src/services/payments/accounts.ts`, `services/usdc/cdp.ts` (`signEvmTypedData`)      |
+| Admin event indexer and Superseded check, started at boot                                                                                                         | `apps/server/src/services/payments/indexer.ts`, `bootstrap.ts`                                    |
+| Draft, approve and propose for on chain values; pause contract; Safe details; live Settings and Overview                                                          | `services/payments/changes.ts`, `overview.ts`, `settings.ts`, `trpc/admin/payments.ts`            |
+| Admin pages: on chain Change, relayer and address inputs, Safe panel (a3), Pause the contract and Resume the contract (a1), live contract, Safe and account cards | `apps/admin/src/pages/payments/`                                                                  |
+| Tests (26 new; PAY-A1 tests move to shared fakes)                                                                                                                 | `apps/server/src/__tests__/payments-onchain.test.ts`, `payments-fakes.ts`                         |
+| Runbook: pauser and proposer policies, Safe proposer registration                                                                                                 | `docs/ops/cdp-policy.md`                                                                          |
 
 **Migration: none.** The `admin_changes` table from #375 already has `safe_tx_hash`, `tx_hash` and `chain_id`. The Safe nonce is read from the Safe service, not stored.
 
@@ -43,13 +43,13 @@ Build Board #50. Spec: `docs/features/ampedpay.md` 3.2, 3.5, 3.6, 3.8 and 6.1 (P
 
 ## New environment variables
 
-| Variable | Purpose |
-| --- | --- |
-| `CDP_PAUSER_ACCOUNT` | CDP account name that holds `PAUSER_ROLE` |
-| `CDP_SAFE_PROPOSER_ACCOUNT` | CDP account name registered as a Safe proposer |
-| `CDP_SPLIT_SIGNER_ACCOUNT` | CDP account name of the split signer (shown on Overview; PAY-2 signs with it) |
-| `SAFE_API_KEY` | Safe Transaction Service key |
-| `SAFE_TX_SERVICE_URL` | Optional override for a self hosted service, ending in `/api` |
+| Variable                    | Purpose                                                                       |
+| --------------------------- | ----------------------------------------------------------------------------- |
+| `CDP_PAUSER_ACCOUNT`        | CDP account name that holds `PAUSER_ROLE`                                     |
+| `CDP_SAFE_PROPOSER_ACCOUNT` | CDP account name registered as a Safe proposer                                |
+| `CDP_SPLIT_SIGNER_ACCOUNT`  | CDP account name of the split signer (shown on Overview; PAY-2 signs with it) |
+| `SAFE_API_KEY`              | Safe Transaction Service key                                                  |
+| `SAFE_TX_SERVICE_URL`       | Optional override for a self hosted service, ending in `/api`                 |
 
 All default to empty. With them empty the pages work in read only and manual modes.
 

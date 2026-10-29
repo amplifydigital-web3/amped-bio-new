@@ -4,17 +4,17 @@ Build Board #50. Spec: `docs/features/ampedpay.md` 3.3 to 3.9 (PR #373, approved
 
 ## What this PR adds
 
-| Area | Files |
-| --- | --- |
-| Catalog of every AmpedPay value: key, group, default, range words, where it lives, formatting | `packages/constants/src/payments.ts` |
-| `AdminChange` model and migration | `packages/database/prisma/schema.prisma`, `migrations/20261028200000_admin_changes` |
-| `paymentSettings()`: typed values, defaults, 30 second cache, range rules, fee dates, scheduled changes | `apps/server/src/services/payments/settings.ts` |
-| Two person flow: draft, approve, reject, pause, expiry, change log, Settings view | `apps/server/src/services/payments/changes.ts` |
-| Two factor at the moment of change | `apps/server/src/services/payments/twoFactor.ts` |
-| Overview data (a1) | `apps/server/src/services/payments/overview.ts` |
-| tRPC `admin.payments.*` | `apps/server/src/trpc/admin/payments.ts` |
-| Admin pages: Overview, Settings, Change log, change sheet | `apps/admin/src/pages/payments/` |
-| Tests (29) | `apps/server/src/__tests__/payments-admin.test.ts` |
+| Area                                                                                                    | Files                                                                               |
+| ------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| Catalog of every AmpedPay value: key, group, default, range words, where it lives, formatting           | `packages/constants/src/payments.ts`                                                |
+| `AdminChange` model and migration                                                                       | `packages/database/prisma/schema.prisma`, `migrations/20261028200000_admin_changes` |
+| `paymentSettings()`: typed values, defaults, 30 second cache, range rules, fee dates, scheduled changes | `apps/server/src/services/payments/settings.ts`                                     |
+| Two person flow: draft, approve, reject, pause, expiry, change log, Settings view                       | `apps/server/src/services/payments/changes.ts`                                      |
+| Two factor at the moment of change                                                                      | `apps/server/src/services/payments/twoFactor.ts`                                    |
+| Overview data (a1)                                                                                      | `apps/server/src/services/payments/overview.ts`                                     |
+| tRPC `admin.payments.*`                                                                                 | `apps/server/src/trpc/admin/payments.ts`                                            |
+| Admin pages: Overview, Settings, Change log, change sheet                                               | `apps/admin/src/pages/payments/`                                                    |
+| Tests (29)                                                                                              | `apps/server/src/__tests__/payments-admin.test.ts`                                  |
 
 **Migration: yes.** New table `admin_changes`, UUIDv7 `BINARY(16)` key. Apply it by hand on staging and production after merge, like the earlier money migrations. Please add the `migration` label.
 
@@ -32,22 +32,22 @@ Build Board #50. Spec: `docs/features/ampedpay.md` 3.3 to 3.9 (PR #373, approved
 
 ## Settings and ranges (spec 3.3)
 
-| Item | Stored as | Default | Range checked on the server |
-| --- | --- | --- | --- |
-| `payments_paused` | bool | false | Pause at once, Resume by approval |
-| `platform_fee_bps` | bps | 500 | Contract fee floor to 1,000, and fee plus promoter maximum keeps the creator at the minimum |
-| `one_time_price_min`, `_max` | micro USDC | 0.50, 1,000 | Inside the contract minimum and maximum |
-| `promoter_share_min`, `_max` | bps | 100, 3,000 | 0 to 5,000, creator stays at the minimum |
-| `quote_window_seconds` | int | 600 | 60 to the split limit |
-| `soft_unlock_confirmations` | int | 1 | 1 to 12, not above final |
-| `final_confirmations` | int | 12 | Unlock after to 64 |
-| `purchases_per_day_per_account` | int | 20 | 1 to 500 |
-| `purchase_usdc_per_day_per_account` | micro USDC | 2,000 | 1 USDC to 20 times the contract maximum |
-| `promoter_refund_pause_rate` | bps | 1,000 | 100 to 5,000 |
-| `refund_window_days` | int | 30 | 0 to 365 |
-| `relayer_gas_alarm_eth`, `relayer_gas_stop_eth` | ETH | env values | Stop below alarm |
-| `payments_pilot_only` | bool | true | On or off |
-| `payments_pilot_creators` | handles | none | Existing handles only |
+| Item                                            | Stored as  | Default     | Range checked on the server                                                                 |
+| ----------------------------------------------- | ---------- | ----------- | ------------------------------------------------------------------------------------------- |
+| `payments_paused`                               | bool       | false       | Pause at once, Resume by approval                                                           |
+| `platform_fee_bps`                              | bps        | 500         | Contract fee floor to 1,000, and fee plus promoter maximum keeps the creator at the minimum |
+| `one_time_price_min`, `_max`                    | micro USDC | 0.50, 1,000 | Inside the contract minimum and maximum                                                     |
+| `promoter_share_min`, `_max`                    | bps        | 100, 3,000  | 0 to 5,000, creator stays at the minimum                                                    |
+| `quote_window_seconds`                          | int        | 600         | 60 to the split limit                                                                       |
+| `soft_unlock_confirmations`                     | int        | 1           | 1 to 12, not above final                                                                    |
+| `final_confirmations`                           | int        | 12          | Unlock after to 64                                                                          |
+| `purchases_per_day_per_account`                 | int        | 20          | 1 to 500                                                                                    |
+| `purchase_usdc_per_day_per_account`             | micro USDC | 2,000       | 1 USDC to 20 times the contract maximum                                                     |
+| `promoter_refund_pause_rate`                    | bps        | 1,000       | 100 to 5,000                                                                                |
+| `refund_window_days`                            | int        | 30          | 0 to 365                                                                                    |
+| `relayer_gas_alarm_eth`, `relayer_gas_stop_eth` | ETH        | env values  | Stop below alarm                                                                            |
+| `payments_pilot_only`                           | bool       | true        | On or off                                                                                   |
+| `payments_pilot_creators`                       | handles    | none        | Existing handles only                                                                       |
 
 Contract bounds use the deploy defaults from spec 3.2 until PAY-A2 reads them from Base.
 

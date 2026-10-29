@@ -99,11 +99,11 @@ Build Board #50, spec `docs/features/ampedpay.md` 3.2, 3.6 and 6.1. Two more
 accounts per environment in the same CDP project, each limited by its own
 policy. Neither can move money.
 
-| Account | Env var | Name | Holds | Does |
-| --- | --- | --- | --- | --- |
-| Pauser | `CDP_PAUSER_ACCOUNT` | `amped-pauser-staging` | `PAUSER_ROLE` on AmpedPay (deploy script) and a little ETH | Sends `pause()` when a payments admin presses Pause the contract |
-| Safe proposer | `CDP_SAFE_PROPOSER_ACCOUNT` | `amped-safe-proposer-staging` | Nothing on chain; a Safe delegate | Signs the Safe transactions it proposes to the Safe Transaction Service |
-| Split signer | `CDP_SPLIT_SIGNER_ACCOUNT` | `amped-split-signer-staging` | `splitSigner` on AmpedPay | Signs split tables (PAY-2). Shown on Overview from PAY-A2 |
+| Account       | Env var                     | Name                          | Holds                                                      | Does                                                                    |
+| ------------- | --------------------------- | ----------------------------- | ---------------------------------------------------------- | ----------------------------------------------------------------------- |
+| Pauser        | `CDP_PAUSER_ACCOUNT`        | `amped-pauser-staging`        | `PAUSER_ROLE` on AmpedPay (deploy script) and a little ETH | Sends `pause()` when a payments admin presses Pause the contract        |
+| Safe proposer | `CDP_SAFE_PROPOSER_ACCOUNT` | `amped-safe-proposer-staging` | Nothing on chain; a Safe delegate                          | Signs the Safe transactions it proposes to the Safe Transaction Service |
+| Split signer  | `CDP_SPLIT_SIGNER_ACCOUNT`  | `amped-split-signer-staging`  | `splitSigner` on AmpedPay                                  | Signs split tables (PAY-2). Shown on Overview from PAY-A2               |
 
 ### Pauser policy
 
