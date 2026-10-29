@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { allowedPlatforms, mediaPlataforms, PlatformId } from "./platforms";
+import { safeLinkUrlSchema, safeWebUrlSchema } from "./safeHref";
 
 // TypeScript type definitions for block types
 type BaseBlockType =
@@ -257,14 +258,16 @@ export function blockCarriesFollow(block: BlockType): boolean {
 // Define configuration schemas for each block type
 export const linkConfigSchema = z.object({
   platform: z.enum(allowedPlatforms),
-  url: z.string().url("Must be a valid URL"),
+  // D57: http, https, mailto or tel only. z.string().url() alone accepts javascript:
+  url: safeLinkUrlSchema,
   label: z.string().min(1, "Label is required"),
   hidden: z.boolean().optional(),
 });
 
 export const mediaConfigSchema = z.object({
   platform: z.enum(mediaPlataforms),
-  url: z.string().url("Must be a valid URL"),
+  // D57: embeds take http or https only
+  url: safeWebUrlSchema,
   label: z.string(),
   content: z.string().optional(),
   hidden: z.boolean().optional(),
