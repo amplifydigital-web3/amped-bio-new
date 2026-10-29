@@ -13,6 +13,9 @@ import {
   AdminBroadcasts,
   AdminTelegram,
   AdminMoney,
+  PaymentsOverview,
+  PaymentsSettings,
+  PaymentsLog,
 } from "./pages";
 
 function AppRouter() {
@@ -41,6 +44,10 @@ function AppRouter() {
           <Route path="broadcasts" element={<AdminBroadcasts />} />
           <Route path="telegram" element={<AdminTelegram />} />
           <Route path="money" element={<AdminMoney />} />
+          {/* AmpedPay admin controls (Build Board #50): boards a1, a2 and a4 */}
+          <Route path="payments" element={<PaymentsOverview />} />
+          <Route path="payments/settings" element={<PaymentsSettings />} />
+          <Route path="payments/log" element={<PaymentsLog />} />
           {/* ndau conversions moved to the support portal; old links land on the dashboard */}
           <Route path="ndau-conversions" element={<Navigate to="/" replace />} />
         </Route>

@@ -5,6 +5,7 @@ import { startTelegramLoop } from "./services/telegram/loop";
 import { registerTelegramOutboxHandlers } from "./services/telegram/broadcast";
 import { registerMessagingOutboxHandlers } from "./services/messaging/delivery";
 import { startUsdcIndexer } from "./services/usdc";
+import { startPaymentsAdminIndexer } from "./services/payments/indexer";
 import { startContentSweeper } from "./services/content/state";
 import { startOnrampTokenPurge } from "./services/onramp/sessions";
 import { getGeoIpReader } from "./services/analytics/geoipDatabase";
@@ -27,6 +28,9 @@ startTelegramLoop();
 
 // USDC in the wallet (Build Board #29): index USDC transfers on Base. No-op until USDC_ENABLED.
 startUsdcIndexer();
+// AmpedPay admin (Build Board #50): mark Safe changes applied from the contract's events.
+// No-op until AMPEDPAY_ADDRESS is set.
+startPaymentsAdminIndexer();
 // Content system (Build Board #20): fail uploads left unfinished for 24 hours and release their bytes.
 startContentSweeper();
 // Buy USDC: delete expired Coinbase userAuthTokens after their 60 day life

@@ -141,3 +141,6 @@ export function formatUsdc(units: bigint, maxDecimals: 2 | 4 = 2): string {
   if (kept.length > 2) kept = kept.replace(/0+$/, "").padEnd(2, "0");
   return `${BigInt(whole).toLocaleString("en-US")}.${kept}`;
 }
+
+// AmpedPay, the payment contract on this chain (Build Board #50)
+export * from "./ampedpay";

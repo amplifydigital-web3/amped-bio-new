@@ -267,6 +267,25 @@ const envSchema = z.object({
   ONRAMP_DOMAIN: z.string().default(""),
   // Key for the stored Coinbase userAuthToken (AES-256-GCM). Falls back to BETTER_AUTH_SECRET.
   ONRAMP_DATA_KEY: z.string().default(""),
+  // AmpedPay (Build Board #50), spec docs/features/ampedpay.md 3.3 and 6.1. Master switch for
+  // payments. While false the admin Payments pages still show and change every setting, so
+  // values are ready before launch; fans see nothing.
+  PAYMENTS_ENABLED: boolSchema(false),
+  // AmpedPay proxy and the environment's Safe, from the deploy script output. Empty until the
+  // contract is deployed (PAY-1 on Base Sepolia). The admin shows "Not deployed" until then.
+  AMPEDPAY_ADDRESS: z.string().default(""),
+  AMPEDPAY_SAFE: z.string().default(""),
+  // PAY-A2: Coinbase Server Wallet accounts by name (Build Board #53, B3). The pauser may only
+  // call pause() on AmpedPay; the Safe proposer is a Safe delegate that signs proposals and
+  // nothing else; the split signer is shown on Overview and used by PAY-2.
+  CDP_PAUSER_ACCOUNT: z.string().default(""),
+  CDP_SAFE_PROPOSER_ACCOUNT: z.string().default(""),
+  CDP_SPLIT_SIGNER_ACCOUNT: z.string().default(""),
+  // Safe Transaction Service API key (developer.safe.global). Without it, or without the
+  // proposer, an approved on chain change shows the Safe transaction for an owner to submit.
+  SAFE_API_KEY: z.string().default(""),
+  // Optional override for a self hosted Transaction Service, ending in /api
+  SAFE_TX_SERVICE_URL: z.string().default(""),
   // Content system (Build Board #20), PR 2. Spec 3.17. Secrets never live in committed .env files.
   // Master switch for uploads. Off everywhere until the Cloudflare setup checklist is done.
   // Turning it off during an incident stops new uploads; items already stored keep working.
