@@ -11,6 +11,8 @@ const state = vi.hoisted(() => ({
   pageRows: [] as unknown[],
   total: 0,
   rateLimits: [] as { key: string; limit: number }[][],
+  multicall: vi.fn(async (_args: unknown) => [] as unknown[]),
+  refreshed: [] as { id: number; creatorStaked: bigint }[],
 }));
 
 vi.mock("@repo/database", async () => {
@@ -39,7 +41,7 @@ vi.mock("../utils/cache", () => ({
       state.cache.set(key, JSON.parse(JSON.stringify(value)));
     }),
   },
-  CACHE_TTL: { APY: 14400 },
+  CACHE_TTL: { APY: 14400, POOL_DATA: 900 },
   getAPYCacheKey: (chain: number, address: string) => `apy:${chain}:${address}`,
   getPoolsCacheKey: (chain: number, address: string) => `pools_public_data:${chain}:${address}`,
   getRedisClient: () => null,
@@ -48,6 +50,13 @@ vi.mock("../utils/cache", () => ({
 vi.mock("../utils/rateLimit", () => ({
   enforceRateLimits: vi.fn(async (rules: { key: string; limit: number }[]) => {
     state.rateLimits.push(rules);
+  }),
+}));
+
+vi.mock("../services/poolStats", () => ({
+  poolsListVersionKey: (chainId: string) => `pools:list:ver:${chainId}`,
+  refreshPoolStatsQuietly: vi.fn(async (id: number, options: { creatorStaked: bigint }) => {
+    state.refreshed.push({ id, creatorStaked: options.creatorStaked });
   }),
 }));
 
@@ -62,12 +71,13 @@ vi.mock("../services/S3Service", () => ({
 vi.mock("@repo/web3", () => ({
   getChainConfig: (id: number) => (id === 73863 ? { id } : null),
   getRpcTransport: () => null,
+  CREATOR_POOL_ABI: [],
   calculatePoolAPY: vi.fn(async () => ({})),
 }));
 
 vi.mock("viem", async importOriginal => ({
   ...(await importOriginal<typeof import("viem")>()),
-  createPublicClient: () => ({}),
+  createPublicClient: () => ({ multicall: state.multicall }),
 }));
 
 vi.mock("../trpc/trpc", async () => {
@@ -117,7 +127,14 @@ beforeEach(() => {
   state.pageRows = [];
   state.total = 0;
   state.rateLimits.length = 0;
+  state.refreshed.length = 0;
+  state.multicall.mockReset();
+  state.multicall.mockResolvedValue([]);
 });
+
+const flush = async () => {
+  for (let i = 0; i < 6; i++) await new Promise(resolve => setImmediate(resolve));
+};
 
 describe("cursor", () => {
   it("round trips and refuses another sort (acceptance 10)", () => {
@@ -309,6 +326,35 @@ describe("pools.list.listPools", () => {
       73863,
       expect.anything()
     );
+  });
+
+  it("refreshes a missing live total from the chain, and the columns when it moved", async () => {
+    const same = row(6);
+    const moved = row(7);
+    state.pageRows = [same, moved];
+    state.cache.set(`apy:73863:${same.poolAddress}`, 100);
+    state.cache.set(`apy:73863:${moved.poolAddress}`, 100);
+    state.multicall.mockResolvedValue([
+      { status: "success", result: 6n * E },
+      { status: "success", result: 0n },
+      { status: "success", result: 5n * E },
+      { status: "success", result: 4n * E },
+    ]);
+    const page = await caller().listPools({ chainId: "73863", search: "pool" });
+    // The page shows the columns and never waits on the chain
+    expect(page.pools.map(p => p.stakedAmount)).toEqual([6n * E, 7n * E]);
+    await flush();
+    expect(state.multicall).toHaveBeenCalledTimes(1);
+    expect(state.cache.get(`pools_public_data:73863:${moved.poolAddress}`)).toEqual({
+      creatorStaked: (5n * E).toString(),
+      totalStake: (9n * E).toString(),
+      fans: 7,
+    });
+    // Only the pool whose chain total differs from its column is rewritten
+    expect(state.refreshed).toEqual([{ id: 7, creatorStaked: 5n * E }]);
+
+    const again = await caller().listPools({ chainId: "73863", search: "pool" });
+    expect(again.pools[1].stakedAmount).toBe(9n * E);
   });
 
   it("limits searches more tightly", async () => {
