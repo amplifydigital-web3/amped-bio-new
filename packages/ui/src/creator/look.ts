@@ -143,6 +143,14 @@ export function overlayParticlesId(look: CreatorLook): number {
   return look.overlay.legacyId ?? 0;
 }
 
+/**
+ * The overlay the page plays: a v1 overlay or a phase 2 scene stored by id.
+ * Retired overlays play none (041 I06).
+ */
+export function playingOverlay(look: CreatorLook): EffectEntry | null {
+  return look.overlay && !look.overlay.retired ? look.overlay : null;
+}
+
 /** True when the name effect keeps looping (a loop entry settled to always). */
 export function nameLoops(look: CreatorLook): boolean {
   return look.name.loop === true && nameSettle(look.name, look.v2.name.loop) === "always";
@@ -171,7 +179,7 @@ export function nameOnBio(look: CreatorLook): boolean {
 
 /** True when the page has motion that loops, so it gets the Pause motion control (041 I02). */
 export function hasLoopingMotion(look: CreatorLook): boolean {
-  return overlayParticlesId(look) !== 0 || nameLoops(look);
+  return playingOverlay(look) !== null || nameLoops(look);
 }
 
 /** True when a container surface is on. */

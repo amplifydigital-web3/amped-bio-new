@@ -13,7 +13,7 @@ import {
   type ThemeConfig,
   type ThemeConfigV2,
 } from "../theme";
-import { findEffect } from "./registry";
+import { clampParams, findEffect } from "./registry";
 
 /**
  * v1 to v2 (spec 3.3). upgradeTheme is pure and idempotent. It runs on read
@@ -321,7 +321,15 @@ export function upgradeTheme(
     typeof v1.transparency === "number" && Number.isFinite(v1.transparency)
       ? Math.min(100, Math.max(0, v1.transparency))
       : V1_DEFAULTS.transparency;
-  const overlay = legacyEffectId("particlesEffect", v1.particlesEffect);
+  // A v2 scene the Scene row stored by id wins over the v1 integer (phase 2)
+  const storedScene = v1.particlesEffectId ? findEffect(v1.particlesEffectId) : undefined;
+  const overlay =
+    storedScene?.layer === "scene" && storedScene.engine === "particles"
+      ? storedScene.id
+      : legacyEffectId("particlesEffect", v1.particlesEffect);
+  const overlayEntry = findEffect(overlay);
+  const overlayParams =
+    v1.particlesParams && overlayEntry ? clampParams(overlayEntry, v1.particlesParams) : {};
   // A v2 style the Buttons row stored by id wins over the v1 integer (phase 2)
   const storedButton = v1.buttonStyleId ? findEffect(v1.buttonStyleId) : undefined;
   const buttonId =
@@ -349,7 +357,7 @@ export function upgradeTheme(
     },
     scene: {
       base: upgradeBackground(v1.background),
-      ...(overlay === "scene.none" ? {} : { overlay: { id: overlay, params: {} } }),
+      ...(overlay === "scene.none" ? {} : { overlay: { id: overlay, params: overlayParams } }),
     },
     container: {
       id: containerId,

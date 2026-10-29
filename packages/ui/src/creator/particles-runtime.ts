@@ -21,11 +21,22 @@ function ensureSlim(): Promise<void> {
   return slimReady;
 }
 
-/** Starts an overlay inside the element. The caller destroys the container. */
+let mounts = 0;
+
+/**
+ * Starts an overlay inside the element. The caller destroys the container.
+ * Each mount takes its own id: without one, tsParticles reuses its default id
+ * and a second layer (the editor's scene tiles, the preview) replaces the first.
+ */
 export async function mountParticles(
   element: HTMLElement,
   options: Record<string, unknown>
 ): Promise<Container | undefined> {
   await ensureSlim();
-  return tsParticles.load({ element, options: options as ISourceOptions });
+  mounts += 1;
+  return tsParticles.load({
+    id: `amped-particles-${mounts}`,
+    element,
+    options: options as ISourceOptions,
+  });
 }

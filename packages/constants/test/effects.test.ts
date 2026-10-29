@@ -128,7 +128,13 @@ describe("registry lookups", () => {
     expect(listEffects("name", { includeRetired: true }).map(e => e.id)).toContain("name.gradient");
     // Pickers offer what the editor offers today
     expect(listEffects("container").map(e => e.legacyId)).toEqual([0, 1, 2, 3, 4, 5, 7, 9]);
-    expect(listEffects("scene").map(e => e.legacyId)).toEqual([0, 1, 2, 3, 4, 5, 7, 8, 9]);
+    expect(
+      listEffects("scene")
+        .filter(e => e.addedIn === 1)
+        .map(e => e.legacyId)
+    ).toEqual([0, 1, 2, 3, 4, 5, 7, 8, 9]);
+    // The nine v1 overlays plus eight Plus scenes on the slim bundle (phase 2, board 01)
+    expect(listEffects("scene").length).toBe(17);
     expect(
       listEffects("name")
         .filter(e => e.addedIn === 1)

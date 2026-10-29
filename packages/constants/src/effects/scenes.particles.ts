@@ -103,6 +103,18 @@ export function particleOptions(
 ): ParticlePreset {
   const preset = PARTICLE_PRESETS[legacyId];
   if (!preset) return {};
+  return presetOptions(preset, params, colors);
+}
+
+/**
+ * Any preset in the v1 shape with the overlay params applied, in the v4 shape.
+ * The v1 overlays and the phase 2 scenes (scenes.presets.ts) share it.
+ */
+export function presetOptions(
+  preset: ParticlePreset,
+  params: ParamValues = {},
+  colors?: ThemeColors
+): ParticlePreset {
   const out = toV4Options(preset) as LooseOptions;
   const particles = out.particles;
   if (!particles) return out;

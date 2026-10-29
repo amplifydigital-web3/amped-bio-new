@@ -69,7 +69,12 @@ export function ParticlesLayer({
         )
         .then(container => {
           if (cancelled) container?.destroy();
-          else destroy = () => container?.destroy();
+          else {
+            destroy = () => container?.destroy();
+            // Still: hold the first frame and stop the draw loop, so a paused
+            // page and a grid of still tiles cost nothing per frame
+            if (still) requestAnimationFrame(() => container?.pause());
+          }
         })
         .catch(() => {
           // A failed engine load leaves the scene base showing, as with no overlay
