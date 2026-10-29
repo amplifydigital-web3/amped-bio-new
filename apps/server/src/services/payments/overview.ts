@@ -1,21 +1,20 @@
-import { getAddress, isAddress } from "viem";
 import { prisma } from "@repo/database";
 import { PAYMENTS_ADMIN_ROLE } from "@repo/constants";
+import { safeAppUrl } from "@repo/web3";
 import { env } from "../../env";
 import { paymentChain } from "../usdc/chain";
 import { relayerState } from "../usdc/admin";
 import { listChanges } from "./changes";
-import { contractLimits, paymentSettings } from "./settings";
+import { accountState } from "./accounts";
+import { ampedPayAddress, readContractState, readSafeState, safeAddress } from "./onchain";
+import { safeMode } from "./safe";
+import { contractLimits, limitsFromState, paymentSettings } from "./settings";
 
 /**
  * Admin, Payments, Overview (board a1, spec 3.8). Status, changes waiting on approval, the
- * key values in force, and the contract, Safe and Coinbase accounts. Chain reads of the
- * contract and the Safe arrive with PAY-A2; until then they read from the deploy values.
+ * key values in force, and the contract, Safe and Coinbase accounts, read live from Base
+ * with a 30 second cache. A failed read falls back to the deploy values and says so.
  */
-
-function address(value: string): string | null {
-  return value && isAddress(value) ? getAddress(value) : null;
-}
 
 export function hasPaymentsAdminRole(role: string | null | undefined): boolean {
   return (role ?? "")
@@ -34,18 +33,28 @@ export async function paymentsViewer(userId: number, role: string) {
     userId,
     canChange: hasPaymentsAdminRole(role),
     twoFactorOn: !!twoFactor && twoFactor.verified !== false,
+    chainId: paymentChain.id,
+    explorerUrl: paymentChain.blockExplorers?.default.url ?? null,
   };
 }
 
 export async function paymentsOverview(now = new Date()) {
-  const [settings, waiting, relayer] = await Promise.all([
-    paymentSettings(now.getTime()),
-    listChanges({ filter: "waiting", limit: 20, now }),
-    relayerState(),
-  ]);
-  const limits = contractLimits();
-  const contract = address(env.AMPEDPAY_ADDRESS);
-  const safe = address(env.AMPEDPAY_SAFE);
+  const [settings, waiting, relayer, contractRead, safeRead, splitSigner, pauser, proposer] =
+    await Promise.all([
+      paymentSettings(now.getTime()),
+      listChanges({ filter: "waiting", limit: 20, now }),
+      relayerState(),
+      readContractState(now.getTime()),
+      readSafeState(now.getTime()),
+      accountState("splitSigner"),
+      accountState("pauser"),
+      accountState("proposer"),
+    ]);
+  const state = contractRead?.ok ? contractRead.value : null;
+  const limits = state ? limitsFromState(state) : contractLimits();
+  const contract = ampedPayAddress();
+  const safe = safeAddress();
+  const safeState = safeRead?.ok ? safeRead.value : null;
   const production = paymentChain.id === 8453;
 
   return {
@@ -55,6 +64,7 @@ export async function paymentsOverview(now = new Date()) {
     chainId: paymentChain.id,
     explorerUrl: paymentChain.blockExplorers?.default.url ?? null,
     paused: settings.paymentsPaused,
+    contractPaused: state?.paused ?? false,
     waiting: waiting.items,
     settings: {
       platformFeeBps: settings.platformFeeBps,
@@ -77,21 +87,33 @@ export async function paymentsOverview(now = new Date()) {
     contract: {
       deployed: contract !== null,
       address: contract,
-      // Read from Base with PAY-A2: version, ProxyAdmin owner and the contract pause
-      chainReads: false,
+      // True when the values on this page came from the contract, false for deploy defaults
+      chainReads: state !== null,
+      readFailed: contractRead !== null && !contractRead.ok,
+      paused: state?.paused ?? null,
+      implementation: state?.implementation ?? null,
+      proxyAdmin: state?.proxyAdmin ?? null,
+      // The ProxyAdmin is owned by the Safe (spec 3.2). False flags a deploy to fix.
+      upgradesBySafe: state?.proxyAdminOwner && safe ? state.proxyAdminOwner === safe : null,
+      safeRoles: state?.safeRoles ?? null,
+      readAt: state?.readAt.toISOString() ?? null,
     },
     safe: {
       address: safe,
-      // Owners and threshold are read from the Safe with PAY-A2 (decision 3)
-      threshold: production ? "2 of 3" : "1 of 2",
-      chainReads: false,
+      chainReads: safeState !== null,
+      readFailed: safeRead !== null && !safeRead.ok,
+      owners: safeState?.owners ?? [],
+      threshold: safeState
+        ? `${safeState.threshold} of ${safeState.owners.length}`
+        : production
+          ? "2 of 3"
+          : "1 of 2",
+      nonce: safeState?.nonce ?? null,
+      version: safeState?.version ?? null,
+      // service: proposals go to the Safe app queue; manual: an owner submits them
+      proposals: safeMode(),
+      url: safe ? safeAppUrl(paymentChain.id, safe) : null,
     },
-    accounts: {
-      relayer,
-      // Created in the CDP Portal (Build Board #53, B3); read with PAY-A2 and PAY-2
-      splitSigner: null,
-      pauser: null,
-      proposer: null,
-    },
+    accounts: { relayer, splitSigner, pauser, proposer },
   };
 }

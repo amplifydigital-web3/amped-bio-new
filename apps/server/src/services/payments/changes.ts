@@ -1,20 +1,42 @@
+import { getAddress, isAddress, type Address } from "viem";
 import { prisma } from "@repo/database";
 import {
   ADMIN_CHANGE_DRAFT_TTL_MS,
   PAYMENT_ITEMS,
   PAYMENT_ITEM_BY_ID,
   formatPaymentValue,
+  parseAddressListChange,
   type AdminChangeStatus,
   type PaymentItem,
 } from "@repo/constants";
+import { safeAppUrl } from "@repo/web3";
 import { uuidv7 } from "../../utils/uuid-v7";
+import { paymentChain } from "../usdc/chain";
+import { getRelayer, isRelayerConfigured } from "../usdc/relayer";
+import {
+  currentContractValue,
+  encodeContractCall,
+  encodePauseCall,
+  validateContractValue,
+} from "./contractChanges";
+import {
+  ampedPayAddress,
+  clearOnchainCache,
+  readContractState,
+  readRelayers,
+  safeAddress as safeAddressOrNull,
+  type ContractState,
+} from "./onchain";
+import { pauseThroughPauser } from "./pauser";
+import { SafeProposalError, proposalStatus, proposeToSafe, safeMode } from "./safe";
 import {
   PaymentSettingError,
   checkEffectiveAt,
   clearPaymentSettingsCache,
-  contractLimits,
   contractValues,
   itemRows,
+  limitsFromState,
+  liveContractLimits,
   paymentSettings,
   validateServerValue,
   valueType,
@@ -27,13 +49,18 @@ import {
  * Drafts expire after 7 days. Every row is the change log: never deleted, never edited
  * after it applies.
  *
- * On chain values change through the Safe (spec 3.6). PAY-A1 shows them read only; PAY-A2
- * adds the Safe delegate proposal.
+ * On chain values follow the same rule, then go to the Safe (spec 3.6): approval proposes
+ * the Safe transaction and the change reads Proposed until owners execute it and the
+ * indexer reads the event. Pause contract applies at once through the pauser account;
+ * Resume contract is drafted, approved and executed by the Safe.
  */
 
 export class AdminChangeError extends Error {}
 
 const AREA = "payments";
+
+/** drafted_by_id for a change the indexer read from the contract with no matching draft. */
+export const OUTSIDE_PORTAL_USER_ID = 0;
 const OPEN: AdminChangeStatus[] = ["draft", "approved", "proposed"];
 
 export type ChangeFilter = "all" | "waiting" | "applied" | "closed";
@@ -70,18 +97,80 @@ async function knownHandles(value: string): Promise<Set<string>> {
   return new Set(users.map(user => (user.handle ?? "").toLowerCase()));
 }
 
-function requireServerItem(itemId: string): PaymentItem {
+function requireChangeableItem(itemId: string): PaymentItem {
   const item = PAYMENT_ITEM_BY_ID[itemId];
   if (!item) throw new AdminChangeError("That setting does not exist.");
   if (item.target === "fixed") {
     throw new AdminChangeError("This value is fixed in the audited contract and cannot change.");
   }
-  if (item.target === "contract") {
+  return item;
+}
+
+/** Relayer addresses to check on chain: the CDP relayer and every one the log names. */
+async function relayerCandidates(): Promise<Address[]> {
+  const out: Address[] = [];
+  if (isRelayerConfigured()) {
+    try {
+      out.push(await getRelayer().address());
+    } catch {
+      // The relayer card on Overview reports this; the log candidates still apply
+    }
+  }
+  const rows = await prisma.adminChange.findMany({
+    where: { area: AREA, key: "relayers" },
+    select: { newValue: true },
+  });
+  for (const row of rows) {
+    const change = parseAddressListChange(row.newValue);
+    if (change && isAddress(change.address)) out.push(getAddress(change.address));
+  }
+  return out;
+}
+
+export interface OnchainContext {
+  state: ContractState;
+  relayers: Address[];
+}
+
+/** A fresh contract read for a draft or an approval. Refuses when the contract is not readable. */
+async function onchainContext(now: Date): Promise<OnchainContext> {
+  clearOnchainCache();
+  const read = await readContractState(now.getTime());
+  if (!read) {
     throw new AdminChangeError(
-      "On chain values change through the Safe. That flow ships with PAY-A2."
+      "AmpedPay is not deployed in this environment. Set AMPEDPAY_ADDRESS after the deploy."
     );
   }
-  return item;
+  if (!read.ok) {
+    throw new AdminChangeError("The contract did not answer. On chain changes need a live read.");
+  }
+  const relayers = await readRelayers(await relayerCandidates(), now.getTime());
+  if (!relayers?.ok) {
+    throw new AdminChangeError("The contract did not answer. On chain changes need a live read.");
+  }
+  return { state: read.value, relayers: relayers.value };
+}
+
+/** The current value and the canonical new value of a contract change. */
+function checkContractChange(
+  item: PaymentItem,
+  raw: string,
+  context: OnchainContext,
+  serverValues: Record<string, string>
+): { oldValue: string; newValue: string } {
+  try {
+    const oldValue = currentContractValue(item.id, context.state, context.relayers);
+    const newValue = validateContractValue(item.id, raw, {
+      state: context.state,
+      limits: limitsFromState(context.state),
+      relayers: context.relayers,
+      serverValues,
+    });
+    return { oldValue, newValue };
+  } catch (error) {
+    if (error instanceof PaymentSettingError) throw new AdminChangeError(error.message);
+    throw error;
+  }
 }
 
 export interface DraftInput {
@@ -93,11 +182,14 @@ export interface DraftInput {
   now?: Date;
 }
 
-/** Drafts a server change (spec 3.6 step 1 for server values). */
+/** Drafts a change (spec 3.6 step 1). Server values and on chain values alike. */
 export async function draftChange(input: DraftInput) {
   const now = input.now ?? new Date();
-  const item = requireServerItem(input.itemId);
-  if (item.id === "payments_paused" && input.newValue.trim() !== "false") {
+  const item = requireChangeableItem(input.itemId);
+  if (
+    (item.id === "payments_paused" || item.id === "contract_paused") &&
+    input.newValue.trim() !== "false"
+  ) {
     throw new AdminChangeError("Pause applies at once from Overview. Only Resume is drafted.");
   }
   const reason = input.reason.trim();
@@ -116,13 +208,44 @@ export async function draftChange(input: DraftInput) {
 
   clearPaymentSettingsCache();
   const settings = await paymentSettings(now.getTime());
+
+  if (item.target === "contract") {
+    if (input.effectiveAt) {
+      throw new AdminChangeError("On chain values apply when the Safe executes and take no date.");
+    }
+    const { oldValue, newValue } = checkContractChange(
+      item,
+      input.newValue,
+      await onchainContext(now),
+      settings.values
+    );
+    if (newValue === oldValue) {
+      throw new AdminChangeError("The new value is the same as the current one.");
+    }
+    return prisma.adminChange.create({
+      data: {
+        id: uuidv7(),
+        area: AREA,
+        target: "contract",
+        key: item.id,
+        oldValue,
+        newValue,
+        effectiveAt: null,
+        reason,
+        status: "draft",
+        draftedById: input.userId,
+        createdAt: now,
+      },
+    });
+  }
+
   const oldValue = settings.values[item.id] ?? "";
   let newValue: string;
   let effectiveAt: Date | null;
   try {
     newValue = validateServerValue(item.id, input.newValue, {
       values: settings.values,
-      limits: contractLimits(),
+      limits: await liveContractLimits(now.getTime()),
       knownHandles: item.kind === "handles" ? await knownHandles(input.newValue) : undefined,
       now,
     });
@@ -189,7 +312,8 @@ export async function approveChange({
   if (change.draftedById === userId) {
     throw new AdminChangeError("You drafted this change. A different payments admin approves it.");
   }
-  const item = requireServerItem(change.key);
+  const item = requireChangeableItem(change.key);
+  if (item.target === "contract") return approveContractChange(change, item, userId, now);
 
   clearPaymentSettingsCache();
   const settings = await paymentSettings(now.getTime());
@@ -206,7 +330,7 @@ export async function approveChange({
   try {
     validateServerValue(item.id, change.newValue, {
       values: settings.values,
-      limits: contractLimits(),
+      limits: await liveContractLimits(now.getTime()),
       knownHandles: item.kind === "handles" ? await knownHandles(change.newValue) : undefined,
       now,
     });
@@ -232,7 +356,138 @@ export async function approveChange({
   return { status: scheduled ? ("approved" as const) : ("applied" as const) };
 }
 
-/** Rejects a waiting draft with a note. Any payments_admin, including the drafter withdrawing it. */
+type ChangeRecord = NonNullable<Awaited<ReturnType<typeof prisma.adminChange.findUnique>>>;
+
+/**
+ * Approval of an on chain change (spec 3.6 steps 2 and 3). The value is checked again
+ * against a fresh contract read; a moved value supersedes the draft. The row is claimed
+ * first so two admins never propose twice, then the Safe transaction is proposed. If the
+ * proposal fails the draft is released for another try. Nothing changes on chain until
+ * owners execute it.
+ */
+async function approveContractChange(
+  change: ChangeRecord,
+  item: PaymentItem,
+  userId: number,
+  now: Date
+) {
+  const contract = ampedPayAddress();
+  if (!contract) throw new AdminChangeError("AmpedPay is not deployed in this environment.");
+  const context = await onchainContext(now);
+  const settings = await paymentSettings(now.getTime());
+  const current = currentContractValue(item.id, context.state, context.relayers);
+  const stillCurrent =
+    item.id === "relayers" ? true : current.toLowerCase() === change.oldValue.toLowerCase();
+  if (!stillCurrent) {
+    await prisma.adminChange.updateMany({
+      where: { id: change.id, status: "draft" },
+      data: { status: "superseded", decidedAt: now },
+    });
+    throw new AdminChangeError(
+      "This value changed on chain since the draft. Draft it again from the current value."
+    );
+  }
+  checkContractChange(item, change.newValue, context, settings.values);
+
+  const claimed = await prisma.adminChange.updateMany({
+    where: { id: change.id, status: "draft" },
+    data: { status: "approved", approvedById: userId, decidedAt: now },
+  });
+  if (claimed.count === 0) throw new AdminChangeError("Another admin decided this change first.");
+
+  let proposal: Awaited<ReturnType<typeof proposeToSafe>>;
+  try {
+    proposal = await proposeToSafe(encodeContractCall(contract, item.id, change.newValue));
+  } catch (error) {
+    await prisma.adminChange.updateMany({
+      where: { id: change.id, status: "approved" },
+      data: { status: "draft", approvedById: null, decidedAt: null },
+    });
+    if (error instanceof SafeProposalError) throw new AdminChangeError(error.message);
+    console.error("[payments] Safe proposal failed", error);
+    throw new AdminChangeError("The Safe proposal did not go through. Nothing was changed.");
+  }
+
+  await prisma.adminChange.update({
+    where: { id: change.id },
+    data: {
+      status: "proposed",
+      safeTxHash: proposal.safeTxHash,
+      safeNonce: proposal.nonce,
+      chainId: proposal.chainId,
+      decisionNote:
+        proposal.mode === "service"
+          ? "Proposed to the Safe. Owners confirm and execute it in the Safe app."
+          : "Waiting for an owner to submit it in the Safe app. No Safe service key is set.",
+    },
+  });
+  return {
+    status: "proposed" as const,
+    mode: proposal.mode,
+    safeTxHash: proposal.safeTxHash,
+  };
+}
+
+/**
+ * Pause the contract at once (spec 3.5 exception, decision 2, acceptance 6). One
+ * payments_admin, a reason and two factor. The pauser account sends pause(); its CDP policy
+ * allows nothing else. Logged as an applied change with the transaction hash. Resume goes
+ * through draft, approval and the Safe.
+ */
+export async function pauseContract({
+  userId,
+  reason,
+  now = new Date(),
+}: {
+  userId: number;
+  reason: string;
+  now?: Date;
+}) {
+  const text = reason.trim();
+  if (text.length < 3) throw new AdminChangeError("Give a reason for the pause.");
+  const contract = ampedPayAddress();
+  if (!contract) throw new AdminChangeError("AmpedPay is not deployed in this environment.");
+  const context = await onchainContext(now);
+  if (context.state.paused) throw new AdminChangeError("The contract is already paused.");
+
+  const id = uuidv7();
+  let txHash: string;
+  try {
+    txHash = await pauseThroughPauser(encodePauseCall(contract), Buffer.from(id).toString("hex"));
+  } catch (error) {
+    if (error instanceof Error && error.name === "PauserError") {
+      throw new AdminChangeError(error.message);
+    }
+    throw error;
+  }
+  await prisma.adminChange.create({
+    data: {
+      id,
+      area: AREA,
+      target: "contract",
+      key: "contract_paused",
+      oldValue: "false",
+      newValue: "true",
+      reason: text,
+      status: "applied",
+      draftedById: userId,
+      decisionNote: "Sent through the pauser account. Resume needs a second admin and the Safe.",
+      txHash,
+      chainId: paymentChain.id,
+      createdAt: now,
+      decidedAt: now,
+      appliedAt: now,
+    },
+  });
+  clearOnchainCache();
+  return { paused: true, txHash };
+}
+
+/**
+ * Rejects a waiting change with a note. Any payments_admin, including the drafter
+ * withdrawing it. A proposed on chain change closes here; owners also reject it in the Safe
+ * so its nonce does not block later proposals.
+ */
 export async function rejectChange({
   userId,
   changeId,
@@ -248,7 +503,7 @@ export async function rejectChange({
   if (text.length < 3) throw new AdminChangeError("Say why, so the drafter knows what to fix.");
   await expireStaleDrafts(now);
   const result = await prisma.adminChange.updateMany({
-    where: { id: changeId, area: AREA, status: { in: ["draft", "approved"] } },
+    where: { id: changeId, area: AREA, status: { in: ["draft", "approved", "proposed"] } },
     data: { status: "rejected", approvedById: userId, decisionNote: text, decidedAt: now },
   });
   if (result.count === 0) throw new AdminChangeError("This change is no longer waiting.");
@@ -339,7 +594,11 @@ function present(change: ChangeRow, handles: Map<number, string | null>, now: Da
     approvedBy: change.approvedById ? (handles.get(change.approvedById) ?? null) : null,
     decisionNote: change.decisionNote,
     safeTxHash: change.safeTxHash,
+    safeNonce: change.safeNonce,
     txHash: change.txHash,
+    chainId: change.chainId,
+    // Read from the contract with no portal draft behind it (drafted_by_id 0)
+    outsidePortal: change.draftedById === OUTSIDE_PORTAL_USER_ID,
     createdAt: change.createdAt.toISOString(),
     decidedAt: change.decidedAt?.toISOString() ?? null,
     appliedAt: change.appliedAt?.toISOString() ?? null,
@@ -396,8 +655,11 @@ export async function exportChanges(now = new Date()) {
 export async function settingsView(now = new Date()) {
   await expireStaleDrafts(now);
   const settings = await paymentSettings(now.getTime());
-  const limits = contractLimits();
-  const onChain = contractValues(limits);
+  const read = await readContractState(now.getTime());
+  const state = read?.ok ? read.value : null;
+  const relayers = state ? await readRelayers(await relayerCandidates(), now.getTime()) : null;
+  const limits = state ? limitsFromState(state) : await liveContractLimits(now.getTime());
+  const onChain = contractValues(limits, state, relayers?.ok ? relayers.value : null);
 
   const latest = await prisma.adminChange.findMany({
     where: { area: AREA, status: { in: ["applied", ...OPEN] } },
@@ -419,6 +681,9 @@ export async function settingsView(now = new Date()) {
 
   return {
     contractSource: limits.source,
+    contractDeployed: read !== null,
+    contractReadFailed: read !== null && !read.ok,
+    readAt: state?.readAt.toISOString() ?? null,
     items: PAYMENT_ITEMS.map(item => {
       const value =
         item.target === "server" ? (settings.values[item.id] ?? null) : (onChain[item.id] ?? null);
@@ -439,5 +704,47 @@ export async function settingsView(now = new Date()) {
         waiting: waiting.get(item.id) ?? null,
       };
     }),
+  };
+}
+
+/**
+ * The Safe transaction behind an on chain change (board a3): what owners sign, where to find
+ * it, and live confirmations from the Safe service. Rebuilt from the change, so the portal
+ * shows exactly what was proposed.
+ */
+export async function changeSafeDetails(changeId: Buffer, now = new Date()) {
+  const change = await prisma.adminChange.findUnique({ where: { id: changeId } });
+  if (!change || change.area !== AREA) throw new AdminChangeError("That change does not exist.");
+  if (change.target !== "contract") return null;
+  const contract = ampedPayAddress();
+  const safe = safeAddressOrNull();
+  const chainId = change.chainId ?? paymentChain.id;
+  let call: { to: string; data: string; method: string } | null = null;
+  if (contract && change.key !== "contract_paused") {
+    call = encodeContractCall(contract, change.key, change.newValue);
+  } else if (contract && change.newValue === "false") {
+    call = encodeContractCall(contract, "contract_paused", "false");
+  } else if (contract) {
+    call = encodePauseCall(contract);
+  }
+  const status =
+    change.status === "proposed" && change.safeTxHash
+      ? await proposalStatus(change.safeTxHash, now.getTime())
+      : null;
+  return {
+    mode: safeMode(),
+    safe,
+    chainId,
+    nonce: change.safeNonce,
+    safeTxHash: change.safeTxHash,
+    to: call?.to ?? null,
+    data: call?.data ?? null,
+    method: call?.method ?? null,
+    safeUrl: safe ? safeAppUrl(chainId, safe, change.safeTxHash) : null,
+    queueUrl: safe ? safeAppUrl(chainId, safe) : null,
+    confirmations: status?.confirmations ?? null,
+    required: status?.required ?? null,
+    executed: status?.executed ?? false,
+    txHash: change.txHash ?? status?.transactionHash ?? null,
   };
 }
