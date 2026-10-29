@@ -4,6 +4,7 @@ import resetPasswordTemplate from "./ResetPasswordTemplate";
 import emailChangeTemplate from "./EmailChangeTemplate";
 import emailChangeNoticeTemplate from "./EmailChangeNoticeTemplate";
 import welcomeEmailTemplate from "./WelcomeEmailTemplate";
+import handleNoticeTemplate from "./HandleNoticeTemplate";
 import { env } from "../../env";
 import {
   checkTransport,
@@ -171,6 +172,60 @@ export const sendEmailChangeNotice = async (currentEmail: string, newEmail: stri
   return sendEmail({
     to: currentEmail,
     subject: "Your Amped.Bio email change request",
+    html_body: htmlContent,
+  });
+};
+
+// Reserved handles (Build Board D2, spec section 5): the account's handle is
+// now reserved. It chooses a new link before the deadline or moves to the
+// generated one.
+export const sendHandleNotice = async (
+  email: string,
+  options: { handle: string; fallbackHandle: string; deadline: Date }
+) => {
+  const chooseUrl = new URL("/account", env.APP_URL);
+  chooseUrl.searchParams.set("tab", "settings");
+  chooseUrl.searchParams.set("open", "url");
+  const deadline = options.deadline.toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+  const htmlContent = await render(
+    handleNoticeTemplate({
+      kind: "notice",
+      handle: options.handle,
+      fallbackHandle: options.fallbackHandle,
+      deadline,
+      chooseUrl: chooseUrl.toString(),
+      privacyUrl,
+    })
+  );
+  return sendEmail({
+    to: email,
+    subject: "Choose a new link for your Amped.Bio page",
+    html_body: htmlContent,
+  });
+};
+
+// Reserved handles (spec 7.5): an admin gave the account a reserved word
+export const sendHandleAssigned = async (
+  email: string,
+  options: { handle: string; oldHandle: string | null; redirects: boolean }
+) => {
+  const htmlContent = await render(
+    handleNoticeTemplate({
+      kind: "assigned",
+      handle: options.handle,
+      oldHandle: options.oldHandle ?? undefined,
+      redirects: options.redirects,
+      privacyUrl,
+    })
+  );
+  return sendEmail({
+    to: email,
+    subject: `Your Amped.Bio link is now amped.bio/${options.handle}`,
     html_body: htmlContent,
   });
 };
