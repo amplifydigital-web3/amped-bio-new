@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { isSystemReservedHandle } from "@repo/constants";
 import { trpcClient } from "@/lib/trpc";
 import { normalizeHandle, validateHandleFormat, validateHandleLength } from "@/lib/handle";
 
@@ -9,6 +10,8 @@ export type URLStatus =
   | "Checking"
   | "Available"
   | "Unavailable"
+  // Held back by Amped.Bio (Build Board D2): a route, system or company word
+  | "Reserved"
   // The check itself did not finish (network); never reported as taken
   | "Error";
 
@@ -28,13 +31,17 @@ export function useHandleAvailability(raw: string) {
     if (!handle) return setStatus("Unknown");
     if (!validateHandleLength(handle)) return setStatus("TooShort");
     if (!validateHandleFormat(handle)) return setStatus("Invalid");
+    // Route and system words are known here; the server answers for the rest
+    if (isSystemReservedHandle(handle)) return setStatus("Reserved");
 
     setStatus("Checking");
     const timer = setTimeout(() => {
       trpcClient.handle.checkAvailability
         .query({ handle })
         .then(result => {
-          if (id === request.current) setStatus(result.available ? "Available" : "Unavailable");
+          if (id !== request.current) return;
+          if (result.available) setStatus("Available");
+          else setStatus(result.reason === "reserved" ? "Reserved" : "Unavailable");
         })
         .catch(() => {
           if (id === request.current) setStatus("Error");

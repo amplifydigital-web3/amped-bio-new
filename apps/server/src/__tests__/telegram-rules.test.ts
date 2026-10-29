@@ -79,6 +79,23 @@ describe("Telegram access rules", () => {
     });
   });
 
+  it("STAKE_MIN converts the creator's whole tREVO to wei before comparing", async () => {
+    await passingUserIds("STAKE_MIN", { ...ctx, stakeMin: "500" }, [2, 3]);
+    const call = db.$queryRaw.mock.calls[0]![0];
+    expect(call.values).toContain("500000000000000000000");
+    expect(call.values).not.toContain("500");
+  });
+
+  it("the follower rule uses the email grace, like Fan Graph", async () => {
+    await passingUserIds("FOLLOWER", ctx, [1]);
+    const where = db.follow.findMany.mock.calls[0]![0].where;
+    expect(where.follower.block).toBe("no");
+    expect(where.follower.AND[0].OR).toEqual([
+      { email_verified: true },
+      { created_at: { gt: expect.any(Date) } },
+    ]);
+  });
+
   it("a malformed STAKE_MIN threshold refuses instead of falling back to above zero", async () => {
     for (const bad of ["500.5 tREVO", "", " 500", "1e3", null]) {
       expect(await evaluateRule("STAKE_MIN", { ...ctx, stakeMin: bad }, 3)).toEqual({
@@ -123,11 +140,5 @@ describe("Telegram access rules", () => {
     expect(await creatorPoolIds(CREATOR)).toEqual([5, 6]);
     db.userWallet.findUnique.mockResolvedValue(null);
     expect(await creatorPoolIds(CREATOR)).toEqual([]);
-  });
-
-  it("only counts followers whose account counts (verified email, not suspended)", async () => {
-    await passingUserIds("FOLLOWER", ctx, [1]);
-    const where = db.follow.findMany.mock.calls[0]![0].where;
-    expect(where.follower).toEqual({ email_verified: true, block: "no" });
   });
 });

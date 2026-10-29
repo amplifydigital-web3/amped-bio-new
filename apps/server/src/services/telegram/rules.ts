@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { Prisma, prisma } from "@repo/database";
-import type { DmRuleKind } from "@repo/constants";
+import { wholeTokensToWei, type DmRuleKind } from "@repo/constants";
+import { trustedEmailWhere } from "../../utils/verificationGrace";
 
 /**
  * Messaging on Telegram (Build Board #2), spec 3.3 and 3.6. Who may message a creator
@@ -26,14 +27,21 @@ export type RuleContext = {
   creatorUserId: number;
   /** The creator's pools (CreatorPool ids). Empty when the creator has none. */
   poolIds: number[];
-  /** tREVO as a decimal string, STAKE_MIN only */
+  /** STAKE_MIN only: the creator's minimum as a whole number of tREVO ("500"), as stored */
   stakeMin?: string | null;
 };
 
 export type RuleResult = { allowed: true } | { allowed: false; reason: RuleRefusal };
 
-/** Only follows from accounts that count: verified email, not suspended (trpc/follow.ts). */
-const COUNTED_FOLLOWER: Prisma.UserWhereInput = { email_verified: true, block: "no" };
+/**
+ * Only follows from accounts that count, the same rule Fan Graph uses (trpc/follow.ts):
+ * not suspended, and a verified email or still inside the 30 day email grace. A fan who
+ * follows is counted in the creator's follower total and passes the follower door alike.
+ */
+function countedFollower(now = new Date()): Prisma.UserWhereInput {
+  // AND keeps the OR inside trustedEmailWhere clear of other filters
+  return { block: "no", AND: [trustedEmailWhere(now)] };
+}
 
 /** STAKE_MIN accepts a whole number of tREVO, nothing else. */
 const stakeMinSchema = z.string().regex(/^\d+$/);
@@ -51,24 +59,26 @@ export async function creatorPoolIds(creatorUserId: number): Promise<number[]> {
 export async function followerIds(creatorUserId: number, userIds: number[]): Promise<Set<number>> {
   if (userIds.length === 0) return new Set();
   const rows = await prisma.follow.findMany({
-    where: { creator_id: creatorUserId, follower_id: { in: userIds }, follower: COUNTED_FOLLOWER },
+    where: { creator_id: creatorUserId, follower_id: { in: userIds }, follower: countedFollower() },
     select: { follower_id: true },
   });
   return new Set(rows.map(row => row.follower_id));
 }
 
 /**
- * Batch: which of `userIds` hold a stake of at least `stakeMin` (default: above zero) in
- * any of `poolIds`. stakeAmount is Text, so the comparison casts to DECIMAL(65,0) the
- * same way services/broadcast/index.ts counts members.
+ * Batch: which of `userIds` hold a stake of at least `minWei` (default: above zero) in
+ * any of `poolIds`. `minWei` is in wei, the unit of StakedPool.stakeAmount. Callers with
+ * a creator's whole tREVO amount convert it with wholeTokensToWei first. stakeAmount is
+ * Text, so the comparison casts to DECIMAL(65,0) the same way services/broadcast/index.ts
+ * counts members.
  */
 export async function stakerIds(
   poolIds: number[],
   userIds: number[],
-  stakeMin?: string | null
+  minWei?: string | null
 ): Promise<Set<number>> {
   if (poolIds.length === 0 || userIds.length === 0) return new Set();
-  const minimum = stakeMin && /^\d+$/.test(stakeMin) ? stakeMin : null;
+  const minimum = minWei && /^\d+$/.test(minWei) ? minWei : null;
   const rows = minimum
     ? await prisma.$queryRaw<Array<{ userId: number }>>(Prisma.sql`
         SELECT DISTINCT uw.userId AS userId
@@ -132,7 +142,10 @@ export async function passingUserIds(
       // so a misconfigured rule never admits users below the intended minimum
       const minimum = stakeMinSchema.safeParse(ctx.stakeMin);
       if (!minimum.success) return new Set<number>();
-      return stakerIds(ctx.poolIds, ids, minimum.data);
+      // The creator types whole tREVO; stakes are mirrored in wei (gating spec v2, 2.2)
+      const minWei = wholeTokensToWei(minimum.data);
+      if (!minWei) return new Set<number>();
+      return stakerIds(ctx.poolIds, ids, minWei);
     }
   }
 }

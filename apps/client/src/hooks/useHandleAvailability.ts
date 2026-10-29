@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { isSystemReservedHandle } from "@repo/constants";
 import {
   HandleStatus,
   isEquivalentHandle,
@@ -45,6 +46,12 @@ export function useHandleAvailability(url: string, currentUrl: string = "") {
       setUrlStatus("Invalid");
       return;
     }
+    // Reserved handles (Build Board D2): route and system words are known here;
+    // the server answers for the rest
+    if (isSystemReservedHandle(normalizedUrl)) {
+      setUrlStatus("Reserved");
+      return;
+    }
 
     setUrlStatus("Checking");
     let cancelled = false;
@@ -52,7 +59,9 @@ export function useHandleAvailability(url: string, currentUrl: string = "") {
       trpcClient.handle.checkAvailability
         .query({ handle: normalizedUrl })
         .then(response => {
-          if (!cancelled) setUrlStatus(response.available ? "Available" : "Unavailable");
+          if (cancelled) return;
+          if (response.available) setUrlStatus("Available");
+          else setUrlStatus(response.reason === "reserved" ? "Reserved" : "Unavailable");
         })
         .catch(() => {
           // A failed check is not a taken URL

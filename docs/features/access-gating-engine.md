@@ -1,6 +1,6 @@
 # Access Gating Engine v2: build spec
 
-Status: spec for approval, 2026-10-23. Build Board #21.
+Status: spec for approval, 2026-10-24. Build Board #21.
 Owner: Rob Frasca. Drafted by Claude.
 Supersedes: v1 spec (CosimoRob/amped-bio-new, branch docs/wave1-specs, docs/features/access-gating-engine.md, 2026-09-26, revised 10 Oct) and the amendments in Memberships (#25, section 3.3), Live streaming (#27, section 3.4) and Content system (#20, sections 3.6 and 3.13). Where this document is silent, v1 still applies.
 Overview: claude/amped-gating-engine-overview-2026-10-23.md.
@@ -26,7 +26,7 @@ Every paid or members only feature on the board needs one answer: may this perso
 | Messaging and Telegram | Own evaluator over `DmRuleKind` (ANYONE, FOLLOWER, PAID_MEMBER, POOL_MEMBER, STAKE_MIN). Its header says it becomes a thin call into #21 when #21 ships. | `services/telegram/rules.ts`, `services/messaging/access.ts` |
 | Broadcast | Own pool member query (positive stake in the mirror). | `services/broadcast/index.ts` |
 | Follows | ACTIVE follow uses the email grace rule (verified, or inside 30 days). | `trpc/follow.ts`, `utils/verificationGrace.ts` |
-| Stakes | `StakedPool.stakeAmount` is wei as text. Updated only when the fan confirms through Amped. | `trpc/pools/fan.ts` |
+| Stakes | Staking is tREVO now and REVO at mainnet. USDC is never staked (Rob, 24 Oct). `StakedPool.stakeAmount` is wei as text, updated only when the fan confirms through Amped. The admin minimum stake lives in the deployed contracts: each pool takes `_minStake` at deploy and rejects smaller stakes with `InsufficientStake(min, actual)`. The contract has no getter for it. The gating engine never changes, deploys or writes to a staking contract; it only reads stakes. | `trpc/pools/fan.ts`, `packages/web3` `L2_BASE_TOKEN_ABI` |
 | Identity | Authbase status by wallet (`services/authbase.ts`): VERIFIED with tier and `valid_until`, plus consented attributes including `age_over_18`. Used for RNS identity and recipient trust. Nothing stored. | `services/authbase.ts`, `services/rnsTrust.ts` |
 | Payments | `UsdcSend`, `PaymentEvent`, onramp tables. No `Offer`, `Purchase` or `Membership` yet (content PR 9 and 10, Memberships phase C). | schema |
 
@@ -90,15 +90,19 @@ Steps 1 to 4 are pure reads. Step 5 belongs to the feature (sign a media token, 
 | Kind | Params | Pass when | Status |
 | --- | --- | --- | --- |
 | `follower` | none | ACTIVE follow of the owner, using `trustedEmailWhere` from Fan Graph | Live in G1 |
-| `pool_member` | `poolId` | Mirror stake at or above the platform floor in the owner's pool; open intent confirms on chain | Live in G1, pilot allowlist |
-| `stake_min` | `poolId`, `minWei` | Same, at or above `minWei` | Live in G1, pilot allowlist |
+| `pool_member` | `poolId` | Any stake above zero in the owner's pool (the contract already enforces the admin minimum on every stake); open intent confirms on chain | Live in G1, pilot allowlist |
+| `stake_min` | `poolId`, `minWei` | Stake at or above the amount the creator sets | Live in G1, pilot allowlist |
 | `paid` | `offerId` | `PaymentVerifier.verifyPurchase` is `purchased`, or `confirming` (soft unlock, decision 5) | Live with content PR 10 |
 | `member` | `planId` | Membership active, or canceled with `currentPeriodEnd >= now` | Live with Memberships phase C |
 | `any`, `all` | `ruleIds` (2 to 4 leaves, depth 1) | Any or all leaves pass | Live in G1 |
 | `reward_points` | `programId`, `minPoints` | Ledger balance (Rewards #23) | Defined, Later |
 | `rns_verified` | none, or `attribute` | Viewer holds a verified RNS name, or a named identity facet (decision 7) | Defined, Later |
 
-Units. Every stake amount is stored as a wei string. Creator surfaces take whole tREVO and convert with `toWei` in `@repo/constants`. The floor is 1 tREVO (`MIN_GATE_STAKE_WEI = 10^18`), renamed from v1's "1 REVO". A mainnet REVO rename changes the label only.
+Asset. Stake kinds count tREVO now and REVO at mainnet. USDC is never staked and never counts toward a stake rule. `paid` and `member` are the only kinds that involve USDC, and they never read a stake (Rob, 24 Oct).
+
+Units and amounts. Every stake amount is stored as a wei string. The creator sets the minimum for a `stake_min` rule in whole tREVO; from G1 the server converts it with `wholeTokensToWei` in `@repo/constants` and stores wei in `AccessRule`. The messaging `CreatorMessagingSettings.stakeMin` stays whole tREVO and is converted at comparison time (G0). The amount lives in Amped.Bio's database only. Nothing is written on chain and no contract changes (Rob, 24 Oct). The admin minimum stays where it is today, in the deployed contracts. A mainnet REVO rename changes the label only.
+
+How a stake check runs. The server reads the fan's stake in the creator's pool from the `StakedPool` mirror and, on open, a read only `fanStakes(address)` call on the pool contract. It compares that number to the creator's amount. No transaction, no signature, no gas.
 
 Pools. A rule names `poolId` (the `CreatorPool` row) instead of v1's `chainId` plus `poolAddress`. The row already carries both. Only the owner's own pool is accepted (v1 decision 3).
 
@@ -283,19 +287,20 @@ v1 section 3.9 stands. Additions:
 
 ## 5. Acceptance criteria
 
-1. A STAKE_MIN door of 500 tREVO refuses a fan with 499 tREVO and admits one with 500, measured in wei in the mirror. Same for Telegram group admission.
-2. A follower inside the email grace passes `follower` in messaging, Telegram and gating alike. Past the grace without verification, the reason is `follow_pending` and the hint `confirm_email`.
-3. Every refusal returns a reason from `ACCESS_REASONS` and a hint. No refusal JSON contains a stake amount, price set by someone else, email or full wallet.
-4. Signed out, a bio with a gated link, text and content card contains no destination, body, media token or domain in HTML, `getHandle`, JSON-LD, share tags, sitemap or `llms.txt`.
-5. A follower opens a gated link through `/go` in under 1 s at p95 warm, and a pool fan in under 2 s at p95 including the chain read.
-6. After `confirmUnstake`, the next open is refused. After an unstake outside Amped, opens are refused within 60 s.
-7. Chain RPC down: opens refuse with `chain_unavailable`; renders show the locked card.
-8. A creator who blocks a fan refuses that fan on every kind within one request.
-9. A rule edit bumps `version`; decisions cached under the old version are not used.
-10. An 18+ item refuses with `age_check_required` until a passed age check exists, whatever the rule, including for followers and members.
-11. `open` never calls the reveal function on a refusal (unit test with a spy).
-12. Messaging and Telegram suites pass unchanged after G2, plus the new unit tests.
-13. Typecheck, build and tests pass for server, client, landing app and constants. Copy check passes.
+1. A POOL_MEMBER door admits any fan with a stake in the creator's pool and refuses a fan with none. No rule counts a USDC balance. No gating code sends a transaction or calls a state changing contract function.
+2. A STAKE_MIN door of 500 tREVO refuses a fan with 499 tREVO and admits one with 500, measured in wei in the mirror. Same for Telegram group admission.
+3. A follower inside the email grace passes `follower` in messaging, Telegram and gating alike. Past the grace without verification, the reason is `follow_pending` and the hint `confirm_email`.
+4. Every refusal returns a reason from `ACCESS_REASONS` and a hint. No refusal JSON contains a stake amount, price set by someone else, email or full wallet.
+5. Signed out, a bio with a gated link, text and content card contains no destination, body, media token or domain in HTML, `getHandle`, JSON-LD, share tags, sitemap or `llms.txt`.
+6. A follower opens a gated link through `/go` in under 1 s at p95 warm, and a pool fan in under 2 s at p95 including the chain read.
+7. After `confirmUnstake`, the next open is refused. After an unstake outside Amped, opens are refused within 60 s.
+8. Chain RPC down: opens refuse with `chain_unavailable`; renders show the locked card.
+9. A creator who blocks a fan refuses that fan on every kind within one request.
+10. A rule edit bumps `version`; decisions cached under the old version are not used.
+11. An 18+ item refuses with `age_check_required` until a passed age check exists, whatever the rule, including for followers and members.
+12. `open` never calls the reveal function on a refusal (unit test with a spy).
+13. Messaging and Telegram suites pass unchanged after G2, plus the new unit tests.
+14. Typecheck, build and tests pass for server, client, landing app and constants. Copy check passes.
 
 ## 6. Build plan
 
@@ -303,7 +308,7 @@ Each PR is one branch into `development`, labeled by type, with a handoff doc fo
 
 | PR | Branch | Scope | Depends | Size |
 | --- | --- | --- | --- | --- |
-| G0 | `fix/stake-min-units` | `toWei` and `fromWei` in constants; migrate stored `stakeMin` values to wei; follower rule uses `trustedEmailWhere`; tests with real units | none | 0.5 day |
+| G0 | `fix/stake-min-units` (PR #357) | `wholeTokensToWei` in constants; STAKE_MIN converts the stored whole tREVO `stakeMin` to wei at comparison time, so no data migration and no settings change; follower rule uses `trustedEmailWhere`; tests with real units | none | 0.5 day |
 | G1 | `feat/access-core` | Constants contract, Prisma models and migration, engine, resolvers for `block` and `content`, kinds follower, pool_member, stake_min, any, all, caching, `bumpViewer` hooks in follow, block and stake confirm, rules router behind flag. No UI. | G0 | 4 days |
 | G2 | `refactor/access-adopt` | `rules.ts`, `messaging/access.ts`, Telegram group sweep and broadcast audience call the engine. Resolvers `dm` and `telegram_group`. | G1 | 1.5 days |
 | G3 | `feat/access-blocks` | `Block.accessRuleId`, locked DTO, `checkPage`, `/go`, `openBlock`, rule picker on the block row, unlock sheet in landing app, leak test, copy check | G1 | 4 days |
@@ -368,5 +373,7 @@ Lagging (90 days after paid goes live): share of creators with any paid or membe
 
 ## Revision log
 
+- 2026-10-28: G0 row and units paragraph matched to PR #357: convert at comparison time with `wholeTokensToWei`, no data migration. G1 stores wei in `AccessRule`; G2 maps `stakeMin` through `wholeTokensToWei`.
+- 2026-10-24: Rob: staking is tREVO or REVO only, never USDC. Deployed staking contracts are not changed; gating reads stakes and compares them to the amount the creator sets. The admin minimum stays in the contracts (`_minStake`). v1's 1 REVO app floor removed; `pool_member` is any stake. Acceptance 1 added.
 - 2026-10-23 (later): Rob's direction applied. Age precondition uses the Authbase Over 18 attribute through the shared identity check (G7 removed). Seller verification precondition on paid and member. Sequence: messaging and content live before the engine; G0 before messaging launch.
 - 2026-10-23: v2. Reconciled to development at 48ca154. Audit found no engine, two defects in the messaging evaluator, UUID rule ids on content, the media gateway in place of CloudFront. Added preconditions (blocked, age, early access), one call `open`, `paid` soft unlock, `member` from #25, `rns_verified` defined, adoption of messaging, Telegram and broadcast, and a PR plan G0 to G7.

@@ -44,6 +44,9 @@ beforeEach(() => {
   Object.assign(env, { MESSAGING_INVITE_ONLY: true });
 });
 
+/** One tREVO in wei. Stakes are mirrored in wei; creators type whole tREVO. */
+const WEI = 10n ** 18n;
+
 describe("canMessage: the creator takes messages", () => {
   it("is disabled with no settings, settings off, a pause, an unpublished page, or to oneself", async () => {
     expect(await canMessage(JORDAN, MAYA)).toMatchObject({ allowed: false, reason: "disabled" });
@@ -106,7 +109,16 @@ describe("canMessage: the creator's rule", () => {
     expect(await canMessage(SAM, MAYA)).toMatchObject({ allowed: true });
   });
 
-  it("a follow from an unverified account does not count", async () => {
+  it("a follow from an unverified account inside the 30 day email grace counts", async () => {
+    openMessages(fake.db, MAYA, { ruleKind: "FOLLOWER" });
+    const jordan = fake.db.table("user").find((u: any) => u.id === JORDAN);
+    jordan.email_verified = false;
+    jordan.created_at = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000);
+    follow(fake.db, JORDAN, MAYA);
+    expect(await canMessage(JORDAN, MAYA)).toMatchObject({ allowed: true, rule: "FOLLOWER" });
+  });
+
+  it("a follow from an unverified account past the grace does not count", async () => {
     openMessages(fake.db, MAYA, { ruleKind: "FOLLOWER" });
     fake.db.table("user").find((u: any) => u.id === JORDAN).email_verified = false;
     follow(fake.db, JORDAN, MAYA);
@@ -128,13 +140,22 @@ describe("canMessage: the creator's rule", () => {
   });
 
   it("STAKE_MIN compares against the threshold and never returns the amount", async () => {
+    // The creator types whole tREVO; the stake mirror holds wei
     openMessages(fake.db, MAYA, { ruleKind: "STAKE_MIN", stakeMin: "100" });
-    fake.db.stakes.push({ poolId: POOL, userId: JORDAN, amount: 99n });
+    fake.db.stakes.push({ poolId: POOL, userId: JORDAN, amount: 99n * WEI });
     const refused = await canMessage(JORDAN, MAYA);
     expect(refused).toMatchObject({ allowed: false, reason: "stake_below" });
     expect(JSON.stringify(refused)).not.toContain("100");
-    fake.db.stakes[0].amount = 100n;
+    fake.db.stakes[0].amount = 100n * WEI;
     expect(await canMessage(JORDAN, MAYA)).toMatchObject({ allowed: true });
+  });
+
+  it("STAKE_MIN refuses a stake of 100 wei against a 100 tREVO minimum (G0 unit defect)", async () => {
+    openMessages(fake.db, MAYA, { ruleKind: "STAKE_MIN", stakeMin: "100" });
+    fake.db.stakes.push({ poolId: POOL, userId: JORDAN, amount: 100n });
+    expect(await canMessage(JORDAN, MAYA)).toMatchObject({ allowed: false, reason: "stake_below" });
+    fake.db.stakes[0].amount = 100n * WEI - 1n;
+    expect(await canMessage(JORDAN, MAYA)).toMatchObject({ allowed: false, reason: "stake_below" });
   });
 
   it("STAKE_MIN with a malformed threshold refuses everyone", async () => {
