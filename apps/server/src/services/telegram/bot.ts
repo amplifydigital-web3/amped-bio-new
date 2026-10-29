@@ -1,8 +1,13 @@
 import { InlineKeyboard, type Bot, type Context } from "grammy";
 import { prisma } from "@repo/database";
-import { TELEGRAM_BOT_BUTTONS, TELEGRAM_BOT_STRINGS } from "@repo/constants";
+import {
+  TELEGRAM_BOT_BUTTONS,
+  TELEGRAM_BOT_STRINGS,
+  parseTelegramStartPayload,
+} from "@repo/constants";
 import { env } from "../../env";
 import { findByTelegramId, recordLinkEvent, setGlobalTelegramDelivery } from "./accounts";
+import { userIdForLinkCode } from "./linkCodes";
 import {
   handleCreators,
   handleDmStart,
@@ -90,9 +95,19 @@ export async function handleStart(ctx: Context) {
     await recordLinkEvent(account.userId, account.telegramUserId, "bot_started", "start_command");
   }
 
-  // Message me on Telegram: t.me/<bot>?start=dm_{handle}
-  const payload = typeof ctx.match === "string" ? ctx.match.trim() : "";
-  if (payload.startsWith("dm_") && (await handleDmStart(ctx, account, payload.slice(3)))) return;
+  // Message me on Telegram: t.me/<bot>?start=m_{code}. dm_{handle} stays readable for
+  // buttons already on published pages (spec r3 3.5).
+  const payload = parseTelegramStartPayload(typeof ctx.match === "string" ? ctx.match : "");
+  if (payload.kind === "message") {
+    const creatorId = await userIdForLinkCode(payload.code);
+    if (creatorId === null) {
+      await ctx.reply(TELEGRAM_BOT_STRINGS.dmNotFound);
+      return;
+    }
+    if (await handleDmStart(ctx, account, { userId: creatorId })) return;
+  } else if (payload.kind === "legacy_dm") {
+    if (await handleDmStart(ctx, account, { handle: payload.handle })) return;
+  }
 
   const [user, creators] = await Promise.all([
     prisma.user.findUnique({
