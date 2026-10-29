@@ -34,6 +34,27 @@ const isDemoMode = env.VITE_DEMO_MODE === "true";
 
 const TRPC_SERVER_URL = `${env.VITE_API_URL ?? ""}/trpc`;
 
+/**
+ * Sends a tRPC mutation with `navigator.sendBeacon`, so the write survives the
+ * page going away. The URL and the body are the ones httpBatchLink sends: the
+ * procedure path, the `batch=1` parameter and the input under its index.
+ * Returns false when the browser will not take it, so the caller can fall back
+ * to the ordinary path.
+ */
+export function sendTrpcBeacon(path: string, input: unknown): boolean {
+  if (isDemoMode) return false;
+  if (typeof navigator === "undefined" || typeof navigator.sendBeacon !== "function") return false;
+  try {
+    const body = JSON.stringify({ 0: input });
+    return navigator.sendBeacon(
+      `${TRPC_SERVER_URL}/${path}?batch=1`,
+      new Blob([body], { type: "application/json" })
+    );
+  } catch {
+    return false;
+  }
+}
+
 // Create TRPC client with split links: subscriptions use SSE, everything else uses HTTP batching
 export const trpcClient = createTRPCClient<AppRouter>({
   links: isDemoMode
