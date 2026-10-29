@@ -11,6 +11,7 @@ export type PaymentsOverviewData = RouterOutputs["admin"]["payments"]["overview"
 export type PaymentsSettingsData = RouterOutputs["admin"]["payments"]["settings"];
 export type PaymentSettingRow = PaymentsSettingsData["items"][number];
 export type PaymentChange = RouterOutputs["admin"]["payments"]["changes"]["list"]["items"][number];
+export type PaymentSafeDetails = NonNullable<RouterOutputs["admin"]["payments"]["changes"]["safe"]>;
 
 const PAGES = [
   { to: "/payments", label: "Overview", end: true },
@@ -53,7 +54,10 @@ export function WhereBadge({ target }: { target: string }) {
   return <WordBadge tone={entry.tone}>{entry.label}</WordBadge>;
 }
 
-/** Status words for a change (spec 3.7). Approved with a future date reads Scheduled. */
+/**
+ * Status words for a change (spec 3.7). Approved with a future date reads Scheduled; an on
+ * chain change reads In the Safe from approval until the indexer sees it executed.
+ */
 export function changeStatus(change: Pick<PaymentChange, "status" | "scheduled">): {
   label: string;
   tone: BadgeTone;
@@ -81,9 +85,10 @@ export function StatusBadge({ change }: { change: Pick<PaymentChange, "status" |
   return <WordBadge tone={status.tone}>{status.label}</WordBadge>;
 }
 
-/** @handle, or the user id when the account has no handle. */
+/** @handle, or the user id when the account has no handle. Id 0 is a change made in the Safe. */
 export function who(handle: string | null, id: number | null): string {
   if (handle) return `@${handle}`;
+  if (id === 0) return "Safe owners";
   return id ? `User ${id}` : "";
 }
 
@@ -119,4 +124,8 @@ export function unitsToUsdc(units: string): string {
   return rest.length > 0
     ? `${whole}.${rest.length < 2 ? rest.padEnd(2, "0") : rest}`
     : `${whole}.00`;
+}
+
+export function isAddress(value: string): boolean {
+  return /^0x[0-9a-fA-F]{40}$/.test(value.trim());
 }

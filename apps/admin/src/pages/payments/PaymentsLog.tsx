@@ -81,6 +81,8 @@ export function PaymentsLog() {
           "Status",
           "Note",
           "Applied at",
+          "Safe hash",
+          "Transaction",
         ],
         all.map(change => [
           change.createdAt,
@@ -95,6 +97,8 @@ export function PaymentsLog() {
           changeStatus(change).label,
           change.decisionNote,
           change.appliedAt,
+          change.safeTxHash,
+          change.txHash,
         ])
       );
     } catch {
@@ -231,11 +235,15 @@ export function PaymentsLog() {
                   <td className={`${tdClass} py-3 text-prism-meta text-prism-ink-2`}>
                     {change.approvedById
                       ? who(change.approvedBy, change.approvedById)
-                      : change.key === "payments_paused" && change.status === "applied"
+                      : (change.key === "payments_paused" || change.key === "contract_paused") &&
+                          change.newValue === "true" &&
+                          change.status === "applied"
                         ? "Not needed for pause"
-                        : change.status === "draft"
-                          ? "Waiting"
-                          : ""}
+                        : change.outsidePortal
+                          ? "Safe owners"
+                          : change.status === "draft"
+                            ? "Waiting"
+                            : ""}
                   </td>
                   <td className={`${tdClass} py-3`}>
                     <StatusBadge change={change} />
@@ -247,6 +255,11 @@ export function PaymentsLog() {
                     {change.status === "draft" && viewer.data?.canChange && (
                       <Button variant="link" className="block" onClick={() => setReview(change)}>
                         {viewer.data.userId === change.draftedById ? "Your draft" : "Review"}
+                      </Button>
+                    )}
+                    {change.target === "contract" && change.status !== "draft" && (
+                      <Button variant="link" className="block" onClick={() => setReview(change)}>
+                        {change.status === "proposed" ? "Track in the Safe" : "Transaction"}
                       </Button>
                     )}
                   </td>
@@ -269,6 +282,7 @@ export function PaymentsLog() {
       <ReviewSheet
         change={review}
         viewer={viewer.data}
+        explorerUrl={viewer.data?.explorerUrl ?? null}
         open={review !== null}
         onOpenChange={open => !open && setReview(null)}
       />
