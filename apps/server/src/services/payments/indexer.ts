@@ -243,22 +243,24 @@ export async function supersedeStaleProposals(now = new Date()): Promise<number>
   const safe = safeAddress();
   if (!safe || safeMode() !== "service") return 0;
   const proposed = await prisma.adminChange.findMany({
-    where: { area: "payments", target: "contract", status: "proposed", safeNonce: { not: null } },
+    where: { area: "payments", target: "contract", status: "proposed", safeTxHash: { not: null } },
   });
   if (proposed.length === 0) return 0;
   const { nonce } = await paymentsChain().safe(safe);
   let closed = 0;
   for (const change of proposed) {
-    if (change.safeNonce === null || change.safeNonce >= nonce || !change.safeTxHash) continue;
+    if (!change.safeTxHash) continue;
     const status = await safeService().transaction(change.safeTxHash);
+    // The service has not seen it, or the Safe has not reached its nonce yet
+    if (!status || status.nonce >= nonce) continue;
     // Executed: the event marks it Applied, or it failed inside the Safe
-    if (status?.executed && status.successful !== false) continue;
+    if (status.executed && status.successful !== false) continue;
     const result = await prisma.adminChange.updateMany({
       where: { id: change.id, status: "proposed" },
       data: {
         status: "superseded",
         decidedAt: now,
-        decisionNote: status?.executed
+        decisionNote: status.executed
           ? "The Safe executed it and the call reverted. Draft it again."
           : "Another Safe transaction used this nonce. Draft it again.",
       },
