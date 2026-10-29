@@ -9,6 +9,7 @@ import {
   editBlocksSchema,
 } from "@repo/constants";
 import { sanitizeBlockConfig } from "../utils/sanitizeBlockConfig";
+import { keepOwnedContentIds } from "../services/content/blockConfig";
 
 export const blocksRouter = router({
   // Get all blocks for the user
@@ -77,7 +78,11 @@ export const blocksRouter = router({
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.user!.sub;
       const { id, type, order } = input;
-      const config = sanitizeBlockConfig(type, input.config);
+      const config = await keepOwnedContentIds(
+        userId,
+        type,
+        sanitizeBlockConfig(type, input.config)
+      );
 
       try {
         const block = await prisma.block.findUnique({
@@ -126,7 +131,11 @@ export const blocksRouter = router({
     try {
       for (let idx = 0; idx < blocks.length; idx++) {
         const { id, type } = blocks[idx];
-        const config = sanitizeBlockConfig(type, blocks[idx].config);
+        const config = await keepOwnedContentIds(
+          userId,
+          type,
+          sanitizeBlockConfig(type, blocks[idx].config)
+        );
 
         const block = await prisma.block.findUnique({
           where: {
@@ -168,7 +177,7 @@ export const blocksRouter = router({
   addBlock: privateProcedure.input(addBlockSchema).mutation(async ({ ctx, input }) => {
     const userId = ctx.user!.sub;
     const { type } = input;
-    const config = sanitizeBlockConfig(type, input.config);
+    const config = await keepOwnedContentIds(userId, type, sanitizeBlockConfig(type, input.config));
 
     try {
       const result = await prisma.$transaction(async tx => {

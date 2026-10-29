@@ -30,6 +30,7 @@ import { FollowBlock } from "@/components/blocks/FollowBlock";
 import { FollowersBlock } from "@/components/blocks/FollowersBlock";
 import { RnsIdBlock } from "@/components/blocks/RnsIdBlock";
 import { TelegramMessageBlock } from "@/components/blocks/TelegramMessageBlock";
+import { ContentBlock } from "@/components/content/ContentBlock";
 import { FollowContext } from "@/components/follow/FollowContext";
 import { useReferralHandler } from "@/hooks/useReferralHandler";
 import { useAuth } from "@/contexts/AuthContext";
@@ -182,6 +183,7 @@ export function ProfileView({
   const [profile, setProfile] = useState<UserProfile | null>(initialData?.profile ?? null);
   const [blocks, setBlocks] = useState<BlockType[]>(initialData?.blocks ?? []);
   const [theme, setTheme] = useState<Theme | null>(initialData?.theme ?? null);
+  const [contentCards, setContentCards] = useState(initialData?.contentCards ?? {});
   const [hasCreatorPool, setHasCreatorPool] = useState(initialData?.hasCreatorPool ?? false);
   const [creatorPoolAddress, setCreatorPoolAddress] = useState(
     initialData?.creatorPoolAddress ?? null
@@ -328,6 +330,7 @@ export function ProfileView({
           setHasCreatorPool(data.hasCreatorPool);
           setCreatorPoolAddress(data.creatorPoolAddress);
           setTrackingPixels(data.trackingPixels);
+          setContentCards(data.contentCards);
         }
       } catch {
         if (normalizedHandle === DEFAULT_HANDLE) {
@@ -465,6 +468,15 @@ export function ProfileView({
             isOwner={isOwner}
           />
         )
+      ) : block.type === "content" ? (
+        // Content system (#20, spec 3.7): public items only, from getHandle
+        <ContentBlock
+          block={block}
+          theme={themeConfig}
+          cards={contentCards}
+          handle={normalizedHandle}
+          creatorName={profile.name || null}
+        />
       ) : block.type === "telegram_group" ? null : (
         <TextBlock block={block as any} theme={themeConfig as any} />
       )}
