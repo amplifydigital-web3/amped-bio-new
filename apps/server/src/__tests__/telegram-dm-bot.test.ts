@@ -34,6 +34,7 @@ vi.mock("../utils/cache", () => ({
 
 import { env } from "../env";
 import { installBotHandlers } from "../services/telegram/bot";
+import { encodeLinkCode } from "../services/telegram/linkCodes";
 import {
   JORDAN,
   MAYA,
@@ -144,6 +145,20 @@ describe("/start dm_{handle}", () => {
 
   it("an unknown handle gets dmNotFound", async () => {
     await makeBot().handleUpdate(textUpdate(FAN_TG, "/start dm_nobody") as never);
+    expect(replies()[0]!.payload.text).toBe(TELEGRAM_BOT_STRINGS.dmNotFound);
+  });
+});
+
+describe("/start m_{code} (spec r3 3.5)", () => {
+  it("a code resolves to the creator, so long handles never reach the payload", async () => {
+    follow(fake.db, JORDAN, MAYA);
+    const code = encodeLinkCode(MAYA);
+    await makeBot().handleUpdate(textUpdate(FAN_TG, `/start m_${code}`) as never);
+    expect(replies()[0]!.payload.text).toBe(TELEGRAM_BOT_STRINGS.dmReady("Maya Lin"));
+  });
+
+  it("an unknown code gets dmNotFound", async () => {
+    await makeBot().handleUpdate(textUpdate(FAN_TG, `/start m_${encodeLinkCode(4040)}`) as never);
     expect(replies()[0]!.payload.text).toBe(TELEGRAM_BOT_STRINGS.dmNotFound);
   });
 });
