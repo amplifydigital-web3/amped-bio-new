@@ -8,6 +8,8 @@ export default {
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
     "../../packages/ui/src/**/*.{js,ts,jsx,tsx}",
+    // The effect registry carries the class strings the creator page draws
+    "../../packages/constants/src/effects/**/*.ts",
   ],
   theme: {
     extend: {

@@ -1,4 +1,4 @@
-import type { BorderStyle, ContainerShape } from "@repo/constants";
+import type { BorderStyle, ButtonShape, ContainerShape } from "@repo/constants";
 import type { CreatorLook } from "./look";
 
 /**
@@ -51,4 +51,33 @@ export function containerSurfaceClass(look: CreatorLook): string {
   return [containerShapeClass(id, shape), BORDER_STYLE_CLASSES[border] ?? ""]
     .filter(Boolean)
     .join(" ");
+}
+
+// Buttons row (board 07). Same rules: Rounded and None keep the v1 style.
+
+export const BUTTON_SHAPE_CLASSES: Readonly<Record<ButtonShape, string>> = {
+  rounded: "",
+  pill: "rounded-full",
+  squircle: "rounded-[21px] [corner-shape:squircle]",
+  // 8 px corners
+  cut: "rounded-none [clip-path:polygon(8px_0,calc(100%-8px)_0,100%_8px,100%_calc(100%-8px),calc(100%-8px)_100%,8px_100%,0_calc(100%-8px),0_8px)]",
+  // Two 8 px notches at the sides, like a ticket stub
+  ticket:
+    "rounded-[8px] [mask:radial-gradient(circle_8px_at_0_50%,transparent_98%,#000)_left/51%_100%_no-repeat,radial-gradient(circle_8px_at_100%_50%,transparent_98%,#000)_right/51%_100%_no-repeat]",
+};
+
+/** Borders on a button: as on the container, but Thick and Gradient use the
+ * darker button shade, because the button color is the fill. */
+export const BUTTON_BORDER_CLASSES: Readonly<Record<BorderStyle, string>> = {
+  ...BORDER_STYLE_CLASSES,
+  thick: "border-[3px] border-[color:var(--amped-btn-dark)]",
+  gradient:
+    "relative after:pointer-events-none after:absolute after:inset-0 after:rounded-[inherit] after:p-[2px] after:content-[''] after:[background:conic-gradient(from_0deg,var(--amped-btn-dark),var(--amped-font,#000000),var(--amped-btn-dark))] after:[-webkit-mask:linear-gradient(#000_0_0)_content-box,linear-gradient(#000_0_0)] after:[-webkit-mask-composite:xor] after:[mask-composite:exclude]",
+};
+
+/** The shape and border classes the look's buttons carry. */
+export function buttonSurfaceClass(look: CreatorLook): string {
+  const { id, shape, border } = look.v2.button;
+  const shapeClass = id === "button.pill" && shape === "pill" ? "" : BUTTON_SHAPE_CLASSES[shape];
+  return [shapeClass ?? "", BUTTON_BORDER_CLASSES[border] ?? ""].filter(Boolean).join(" ");
 }

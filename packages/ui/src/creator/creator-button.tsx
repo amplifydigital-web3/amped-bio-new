@@ -1,9 +1,11 @@
 "use client";
 
 import type { CSSProperties, ReactNode } from "react";
+import { ChevronRight } from "lucide-react";
 import type { AnyThemeConfig } from "@repo/constants";
 import { cn } from "../utils";
 import { effectClassName, lookFor } from "./look";
+import { buttonSurfaceClass } from "./surface";
 
 // Screen Review 040: shared pieces of the creator page block renderer. Blocks
 // wear only the creator's theme (section 17). Amped contributes rhythm, sizes
@@ -44,9 +46,13 @@ export function CreatorButton({
   newTab?: boolean;
 }) {
   const look = lookFor(theme);
+  // Phase 2 Buttons row (board 07): Label is the v1 anatomy; Icon slot sets
+  // the label beside the icon; Split adds a chevron at the right
+  const layout = look.v2.button.layout;
   const className = cn(
     "flex min-h-commit w-full items-center gap-[13px] px-[21px] py-2",
     effectClassName(look.button),
+    buttonSurfaceClass(look),
     effectClassName(look.buttonHover),
     CREATOR_FOCUS
   );
@@ -61,13 +67,20 @@ export function CreatorButton({
         {icon}
       </span>
       <span
-        className="line-clamp-2 flex-1 break-words text-center font-semibold"
+        className={cn(
+          "line-clamp-2 flex-1 break-words font-semibold",
+          layout === "label" ? "text-center" : "text-left"
+        )}
         style={{ fontSize: clampedFontSize(theme), lineHeight: "20px" }}
       >
         {label}
         {href && newTab && <span className="sr-only"> (opens in a new tab)</span>}
       </span>
-      <span aria-hidden className="w-[21px] shrink-0" />
+      {layout === "split" ? (
+        <ChevronRight aria-hidden className="h-[21px] w-[21px] shrink-0 opacity-70" />
+      ) : layout === "label" ? (
+        <span aria-hidden className="w-[21px] shrink-0" />
+      ) : null}
     </>
   );
   if (href) {

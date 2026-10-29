@@ -130,7 +130,8 @@ describe("registry lookups", () => {
     expect(listEffects("container").map(e => e.legacyId)).toEqual([0, 1, 2, 3, 4, 5, 7, 9]);
     expect(listEffects("scene").map(e => e.legacyId)).toEqual([0, 1, 2, 3, 4, 5, 7, 8, 9]);
     expect(listEffects("name").map(e => e.legacyId)).toEqual([0, 2, 6, 7, 8, 9]);
-    expect(listEffects("button").length).toBe(10);
+    // The ten v1 styles plus Hard shadow (phase 2, board 07)
+    expect(listEffects("button").length).toBe(11);
     expect(listEffects("buttonHover").length).toBe(10);
   });
 
