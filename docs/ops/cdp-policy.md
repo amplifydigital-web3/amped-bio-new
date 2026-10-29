@@ -93,6 +93,96 @@ cap in CDP where the Portal offers one, so a server fault cannot exceed it.
 Set the site setting `usdc_sends_paused` to `true` to stop every send within
 one request. The admin switch arrives with Admin, Money (USDC-3).
 
+## AmpedPay pauser and Safe proposer (PAY-A2)
+
+Build Board #50, spec `docs/features/ampedpay.md` 3.2, 3.6 and 6.1. Two more
+accounts per environment in the same CDP project, each limited by its own
+policy. Neither can move money.
+
+| Account | Env var | Name | Holds | Does |
+| --- | --- | --- | --- | --- |
+| Pauser | `CDP_PAUSER_ACCOUNT` | `amped-pauser-staging` | `PAUSER_ROLE` on AmpedPay (deploy script) and a little ETH | Sends `pause()` when a payments admin presses Pause the contract |
+| Safe proposer | `CDP_SAFE_PROPOSER_ACCOUNT` | `amped-safe-proposer-staging` | Nothing on chain; a Safe delegate | Signs the Safe transactions it proposes to the Safe Transaction Service |
+| Split signer | `CDP_SPLIT_SIGNER_ACCOUNT` | `amped-split-signer-staging` | `splitSigner` on AmpedPay | Signs split tables (PAY-2). Shown on Overview from PAY-A2 |
+
+### Pauser policy
+
+```json
+{
+  "scope": "account",
+  "description": "Amped.Bio AmpedPay pauser: pause() only",
+  "rules": [
+    {
+      "action": "accept",
+      "operation": "sendEvmTransaction",
+      "criteria": [
+        { "type": "evmNetwork", "networks": ["base-sepolia"], "operator": "in" },
+        { "type": "evmAddress", "addresses": ["<AMPEDPAY_ADDRESS>"], "operator": "in" },
+        { "type": "ethValue", "ethValue": "0", "operator": "<=" },
+        {
+          "type": "evmData",
+          "abi": [
+            {
+              "type": "function",
+              "name": "pause",
+              "stateMutability": "nonpayable",
+              "inputs": [],
+              "outputs": []
+            }
+          ],
+          "conditions": [{ "function": "pause" }]
+        }
+      ]
+    }
+  ]
+}
+```
+
+Fund it with about 0.01 ETH on the payment chain. Overview shows its balance.
+`unpause()` is never in this policy: resume always goes through the Safe.
+
+### Safe proposer policy
+
+```json
+{
+  "scope": "account",
+  "description": "Amped.Bio Safe proposer: SafeTx signatures for the environment Safe only",
+  "rules": [
+    {
+      "action": "accept",
+      "operation": "signEvmTypedData",
+      "criteria": [
+        {
+          "type": "evmTypedDataVerifyingContract",
+          "addresses": ["<AMPEDPAY_SAFE>"],
+          "operator": "in"
+        }
+      ]
+    }
+  ]
+}
+```
+
+Criteria shapes follow the CDP policy types; confirm the typed data criteria
+in the Portal editor when attaching. The proposer signs a Safe transaction
+hash, which counts as a proposal, never a confirmation: the Safe only executes
+with owner signatures.
+
+### Register the proposer with the Safe
+
+1. Create a Safe API key at developer.safe.global and store it as
+   `SAFE_API_KEY`. The Transaction Service supports Base Sepolia
+   (`api.safe.global/tx-service/basesep`) and Base (`.../base`).
+2. An owner adds the proposer address as a proposer (delegate) of the Safe in
+   the Safe app (Settings, Setup, Proposers), or through the Transaction
+   Service delegates endpoint signed by an owner.
+3. Approve a test change in the admin portal. It appears in the Safe app queue.
+
+Without `SAFE_API_KEY` or the proposer account, approved on chain changes show
+the Safe transaction (target and data) for an owner to enter in the
+Safe app Transaction Builder. The indexer marks them applied from the
+contract's events either way.
+
 ## Buy USDC through Coinbase (Onramp)
 
 Build Board #5, spec `docs/features/usdc-wallet-onramp.md` 3.5 and 3.12. The
