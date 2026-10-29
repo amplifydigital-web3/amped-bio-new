@@ -456,7 +456,12 @@ export const usersRouter = router({
 
     const users = await prisma.user.findMany({
       where: {
-        OR: [{ email: { contains: query } }, { name: { contains: query } }],
+        // Reserved handles (Build Board D2, RA5): the Assign sheet finds accounts by handle too
+        OR: [
+          { email: { contains: query } },
+          { name: { contains: query } },
+          { handle: { contains: query.replace(/^@/, "").toLowerCase() } },
+        ],
       },
       take: limit,
       orderBy: { created_at: "desc" },
