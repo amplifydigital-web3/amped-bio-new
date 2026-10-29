@@ -1,0 +1,97 @@
+diff --git a/apps/server/src/trpc/pools/fan.ts b/apps/server/src/trpc/pools/fan.ts
+index 1c0f674..8aeb43e 100644
+--- a/apps/server/src/trpc/pools/fan.ts
++++ b/apps/server/src/trpc/pools/fan.ts
+@@ -25,7 +25,6 @@ import {
+   PoolTabRewardPool,
+   PoolDetailsForModal,
+   SlimPoolForUserStakedPool,
+-  PoolSearchResult,
+ } from "@repo/constants";
+ import { applyStakeDelta, refreshPoolStatsQuietly } from "../../services/poolStats";
+ 
+@@ -1868,84 +1867,6 @@ export const poolsFanRouter = router({
+       }
+     }),
+ 
+-  searchPoolsForBlockEditor: publicProcedure
+-    .input(
+-      z.object({
+-        chainId: z.string(),
+-        search: z.string().min(2, "Search must be at least 2 characters"),
+-        limit: z.number().optional().default(3),
+-      })
+-    )
+-    .query(async ({ input }): Promise<PoolSearchResult[]> => {
+-      try {
+-        const whereClause: any = {
+-          chainId: input.chainId,
+-          AND: [{ hidden: false }],
+-        };
+-
+-        // Check if the search query looks like an Ethereum address
+-        const isAddress = /^0x[a-fA-F0-9]{40}$/.test(input.search.trim());
+-
+-        if (isAddress) {
+-          // For address search, do exact match
+-          whereClause.AND.push({
+-            OR: [{ poolAddress: { equals: input.search.toLowerCase() } }],
+-          });
+-        } else {
+-          // For text search, search across multiple fields
+-          whereClause.AND.push({
+-            OR: [
+-              { description: { contains: input.search } },
+-              { poolAddress: { contains: input.search } },
+-              { wallet: { user: { name: { contains: input.search } } } },
+-            ],
+-          });
+-        }
+-
+-        const pools = await prisma.creatorPool.findMany({
+-          where: whereClause,
+-          take: input.limit,
+-          select: {
+-            id: true,
+-            name: true,
+-            poolAddress: true,
+-            wallet: {
+-              select: {
+-                user: {
+-                  select: {
+-                    handle: true,
+-                  },
+-                },
+-              },
+-            },
+-            stakedPools: {
+-              select: {
+-                stakeAmount: true,
+-              },
+-            },
+-          },
+-        });
+-
+-        // Count only users with positive stake amounts for fans count
+-        const results: PoolSearchResult[] = pools.map(pool => ({
+-          id: pool.id,
+-          name: pool.name || `Pool ${pool.id}`,
+-          address: pool.poolAddress!,
+-          fans: pool.stakedPools.filter(staked => BigInt(staked.stakeAmount) > 0n).length,
+-          creatorHandle: pool.wallet?.user?.handle || null,
+-        }));
+-
+-        return results;
+-      } catch (error) {
+-        console.error("Error searching pools for block editor:", error);
+-        if (error instanceof TRPCError) throw error;
+-        throw new TRPCError({
+-          code: "INTERNAL_SERVER_ERROR",
+-          message: "Failed to search pools",
+-        });
+-      }
+-    }),
+-
+   getSystemStats: publicProcedure
+     .input(
+       z.object({

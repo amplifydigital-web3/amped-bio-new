@@ -35,10 +35,10 @@ const userCardSelect = {
     select: {
       address: true,
       creatorPools: {
-        where: { poolAddress: { not: null }, OR: [{ hidden: false }, { hidden: null }] },
+        where: { poolAddress: { not: null }, hidden: false },
         orderBy: { id: "desc" } as const,
         take: 1,
-        select: { name: true, fans: true, image_file_id: true },
+        select: { name: true, activeFans: true, image_file_id: true },
       },
     },
   },
@@ -835,7 +835,7 @@ export const userRouter = router({
           mediaCount: visibleBlocks.filter(block => block.type === "media").length,
           platforms,
           pool: pool
-            ? { name: pool.name || "Creator pool", fans: pool.fans, image: poolImage }
+            ? { name: pool.name || "Creator pool", fans: pool.activeFans, image: poolImage }
             : null,
           viewer: viewerId
             ? {
