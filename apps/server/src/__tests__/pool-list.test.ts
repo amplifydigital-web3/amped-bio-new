@@ -77,6 +77,7 @@ vi.mock("../trpc/trpc", async () => {
 });
 
 import {
+  blockSearchQuery,
   cursorAfter,
   decodeCursor,
   encodeCursor,
@@ -215,6 +216,25 @@ describe("pageQuery", () => {
     const q = pageQuery({ ...base, sort: "most-fans", term: parseSearch("studio") });
     expect(q.sql).toMatch(/ORDER BY tier ASC, cp\.active_fans DESC, cp\.id DESC/);
     expect(q.sql).toContain("MATCH (cp.description) AGAINST (? IN BOOLEAN MODE)");
+  });
+});
+
+describe("blockSearchQuery (PL3)", () => {
+  it("uses the listed pool rules and the search tiers, most fans next", () => {
+    const q = blockSearchQuery("73863", parseSearch("@studio"), 10);
+    expect(q.sql).toContain("cp.hidden = false");
+    expect(q.sql).toContain("u.block = 'no'");
+    expect(q.sql).toMatch(/ORDER BY tier ASC, cp\.active_fans DESC, cp\.id DESC/);
+    expect(q.sql).toContain("u.littlelink_name AS handle");
+    expect(q.values).toContain("studio%");
+    expect(q.values).toContain(10);
+  });
+
+  it("matches a full address exactly", () => {
+    const address = `0x${"b".repeat(40)}`;
+    const q = blockSearchQuery("73863", parseSearch(address), 1);
+    expect(q.sql).toContain("cp.poolAddress = ?");
+    expect(q.values).toContain(address);
   });
 });
 
