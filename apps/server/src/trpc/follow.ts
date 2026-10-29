@@ -792,7 +792,7 @@ export const followRouter = router({
           where: { userId: creator.id },
           select: {
             creatorPools: {
-              where: { poolAddress: { not: null }, OR: [{ hidden: false }, { hidden: null }] },
+              where: { poolAddress: { not: null }, hidden: false },
               orderBy: { id: "desc" },
               take: 1,
               select: { poolAddress: true },
