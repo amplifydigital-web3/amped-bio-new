@@ -34,6 +34,7 @@ import { BROADCAST_ON, longTime, shortTime } from "./utils";
 import { MESSAGES_ON } from "../messages/shared";
 import { MessagesTab } from "../messages/MessagesTab";
 import { FanMessagesSettings } from "../messages/FanMessagesSettings";
+import { InboxTelegramGroups } from "../messages/InboxTelegramGroups";
 
 function invalidateInbox(queryClient: ReturnType<typeof useQueryClient>) {
   void queryClient.invalidateQueries({ queryKey: trpc.broadcast.inbox.pathKey() });
@@ -476,8 +477,9 @@ export function InboxPanel() {
       <TabsContent value="messages">
         <MessagesTab />
       </TabsContent>
-      <TabsContent value="settings" className="max-w-[720px]">
+      <TabsContent value="settings" className="max-w-[720px] space-y-[21px]">
         <FanMessagesSettings />
+        <InboxTelegramGroups />
       </TabsContent>
     </Tabs>
   );
