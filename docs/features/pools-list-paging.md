@@ -1,6 +1,6 @@
 # Paginate and index the pools list
 
-Status: revision 3, 29 Oct 2026, with the Full QA edits applied and Rob's answers on P4 and P5 (`docs/features/pools-list-paging-qa.md`). Revision 2 (28 Oct) recorded Rob's answers: P1 and P3 as recommended, P2 alternative (keep description search). Revision 1 was 27 Oct. Build Board: D7 "Paginate and index the pools list" (Step 1, priority 10).
+Status: revision 4, 29 Oct 2026: build notes from PL1 to PL4 (PRs #387, #389, #391, #392). Revision 3 (29 Oct) applied the Full QA edits and Rob's answers on P4 and P5 (`docs/features/pools-list-paging-qa.md`). Revision 2 (28 Oct) recorded Rob's answers: P1 and P3 as recommended, P2 alternative (keep description search). Revision 1 was 27 Oct. Build Board: D7 "Paginate and index the pools list" (Step 1, priority 10).
 Owner: Rob Frasca. Drafted by Claude.
 Baseline: `development` at 9ed4a4e (revision 1 and 2 read a3ce333; the pool code is unchanged between them).
 Design: no new screens. The two Pools tabs keep their Prism 2.2 layout; the change is how they page (section 5).
@@ -97,7 +97,7 @@ The text column `CreatorPool.revoStaked` and the `fans` column stay until PL4. `
 
 ## 4. The procedure (PL2)
 
-A new procedure, `pools.fan.listPools`, is cursor paged. `getPools` keeps its current shape until PL4, so an editor or landing build deployed before PL3 keeps working.
+A new procedure, `pools.list.listPools`, is cursor paged. It lives in its own router (`trpc/pools/list.ts`, SQL in `services/poolList.ts`) so the 72 KB `fan.ts` is not touched. `pools.fan.getPools` keeps its current shape until PL4, so an editor or landing build deployed before PL3 keeps working.
 
 ```ts
 z.object({
@@ -106,7 +106,7 @@ z.object({
   filter: z.enum(["all", "no-fans", "more-than-10-fans", "more-than-10k-stake"]).default("all"),
   sort: z.enum(["newest", "name-asc", "name-desc", "most-fans", "most-staked"]).default("newest"),
   limit: z.number().int().min(1).max(48).default(24),
-  cursor: z.string().max(256).optional(), // opaque: base64url of JSON [tier, sortValue, id]
+  cursor: z.string().max(256).optional(), // opaque: base64url of JSON [sort, tier, sortValue, id]
 })
 ```
 
@@ -114,12 +114,12 @@ Output: `{ pools: PoolTabRewardPool[], nextCursor: string | null, total: number 
 
 Rules:
 
-- Filters and sorts run in SQL on the new columns. `id` is the last key in every sort, so pages never repeat or skip. `more-than-10k-stake` compares `totalStakeWei > 10000 * 10^18`, as today.
+- Filters and sorts run in SQL on the new columns. `id` is the last key in every sort, so a page never skips a pool. A pool whose sort value changes between two page loads can cross the cursor and come back on a later page; clients drop a repeat by pool id (acceptance 2). `more-than-10k-stake` compares `totalStakeWei > 10000 * 10^18`, as today.
 - Where clause: `chainId`, `hidden = false`, `poolAddress` not null, and the creator not suspended (`wallet.user.block = "no"`, per `docs/features/suspended-pages.md`). Today's code does not exclude suspended creators; this is new.
 - `name` sorts use the column collation (`utf8mb4` case insensitive). PL1's backfill fills null names, so a null name sorts last in `name-asc` and is shown as `Pool {id}`.
 - Search: a full address matches `poolAddress` exactly (lowercased, as today). Text matches `name`, `wallet.user.handle` (a leading `@` is stripped), `wallet.user.name` and `description` (P2). Partial address `contains` is dropped; the explorer (#9) covers address lookups.
-- Search order (decision P5): tier 1 is a prefix match on name or handle, tier 2 is contains on name, handle or creator name, tier 3 is a description match. Within a tier the chosen sort applies, then `id`. The tier is the first key of the cursor. This runs as `$queryRaw` with a computed tier column; the description term uses `MATCH (description) AGAINST (? IN BOOLEAN MODE)` with the term escaped of boolean operators and a trailing `*`, for terms of 3 or more characters (InnoDB's `innodb_ft_min_token_size` is 3); shorter terms skip the description.
-- Chain reads happen only for the pools on the page, and only on a cache miss. The page renders from the database columns; live values replace them when the per pool cache has them (P3). A cold cache costs at most `limit` pools of reads.
+- Search order (decision P5): tier 1 is a prefix match on name or handle, tier 2 is contains on name, handle or creator name, tier 3 is a description match. Within a tier the chosen sort applies, then `id`. The cursor carries the tier after the sort name. This runs as `$queryRaw` with a computed tier column; the description term uses `MATCH (description) AGAINST (? IN BOOLEAN MODE)` with the term escaped of boolean operators and a trailing `*`, for terms of 3 or more characters (InnoDB's `innodb_ft_min_token_size` is 3); shorter terms skip the description.
+- Chain reads happen only for the pools on the page, and only on a cache miss. The page renders from the database columns; live values replace them when the per pool cache has them (P3). A cold cache costs at most `limit` pools of reads. Since `getPools` was the only writer of that cache, `listPools` refreshes it in the background with the APY refresh (same lock): one multicall of `creatorStaked` and `totalFanStaked`, and a `recomputePoolStats` only when the chain total differs from `totalStakeWei`.
 - APY: read from cache for the page. A miss returns `apy: undefined` and schedules one refresh with `setImmediate`, guarded by a Redis `SET NX` lock per pool (60 s), so many requests do not start the same refresh. The request never waits on `calculatePoolAPY`.
 - Response cache: the first page of each `(chainId, filter, sort)` with no search is cached 60 s in Redis under a version key `pools:list:v{n}:{chainId}:...`. `recomputePoolStats` increments the chain's version after a write, so acceptance 3 holds inside the 60 s. With Redis down the procedure runs uncached.
 - Rate limit: the public read limit from the rate limiting spec (D4) applies to `listPools`, with a tighter bucket for requests that carry `search`.
@@ -130,7 +130,7 @@ Rules:
 | --- | --- |
 | Editor Explore, Pools tab | `useInfiniteQuery` on `listPools`; Show more at the end of the list, as the People tab (`UsersTab.tsx`) does; count line reads `total`; a failed Show more keeps the last total and the loaded pools, as `UsersTab` does |
 | amped.bio/i/pools | Same; the SSR first page calls `listPools` with `limit 24`; Show more loads the next cursor on the client. The existing 24 step Show more stays as it looks today |
-| Sitemap (`apps/landingpage/src/app/sitemap.ts`) | Stops using `fetchPoolsPageData`. A new public `pools.fan.sitemapPools({ chainId })` returns `{ address, updatedAt }` for every listed pool (same where clause, no chain reads, cached 1 hour). Without this, PL3 would cut the sitemap to 24 pools |
+| Sitemap (`apps/landingpage/src/app/sitemap.ts`) | Stops using `fetchPoolsPageData`. A new public `pools.list.sitemapPools({ chainId })` returns `{ address, updatedAt }` for every listed pool (same where clause, no chain reads, cached 1 hour). Without this, PL3 would cut the sitemap to 24 pools |
 | Block editor pool search | Already on `pools.blockEditor.search` (`trpc/pools/blockEditor.ts`), which searches name, handle and creator name. It moves to the shared where clause and search tiers, `limit 10`. The dead `fan.searchPoolsForBlockEditor` (line 1960; the client stopped calling it) is deleted |
 
 No visual change beyond the Show more button, which already exists in the Prism kit.
@@ -158,10 +158,14 @@ No visual change beyond the Show more button, which already exists in the Prism 
 
 PL1 grows from 1 to 1.5 days: five writers and four read paths instead of three, plus the transaction and the race fix.
 
+Build status (29 Oct): PL1 #387, PL2 #389, PL3 #391 open against `development`, stacked in that order. PL4 #392 is a draft until PL3 has been live one release. Changes to `fan.ts`, `schema.prisma` and other files too large for the GitHub connector ship as patches under `docs/fixes/`, applied in order before merge.
+
+SQL check: the PL2 and PL3 SQL ran against MariaDB 10.11 with all migrations, including PL4's, and 5,000 seeded pools. Every sort and filter pages to the end with each listed pool once and a count equal to `total`; the first page returns in under 300 ms and uses the `(chainId, hidden, totalStakeWei)` index; handle search with and without `@`, search tiers, description only matches, typed wildcards, exact address and the sitemap behave as above.
+
 ## 8. Acceptance
 
 1. With 5,000 seeded pools, the first page returns in under 300 ms with a warm cache and under 1.5 s with a cold cache, and makes chain reads for at most 24 pools.
-2. Paging through every sort returns each pool once, with no repeats, while stakes change between pages.
+2. Paging through every sort returns each pool, and the client shows each pool once. A pool whose stake changes between pages may move, so the server can send it again on a later page; the client drops the repeat by pool id.
 3. Most staked and most fans order matches the database columns; a stake in the app updates the pool's position on the next request, including the cached first page.
 4. Searching a creator handle with or without `@` finds their pool. A word that appears only in a pool's description finds it, ranked after name and handle matches.
 5. A suspended creator's pool and a hidden pool never appear. A pool whose `hidden` was NULL before the migration appears.
@@ -174,6 +178,7 @@ PL1 grows from 1 to 1.5 days: five writers and four read paths instead of three,
 
 ## Revision log
 
+- 29 Oct, revision 4 (build). Procedures named `pools.list.listPools` and `pools.list.sitemapPools`; cursor carries the sort; acceptance 2 amended for a pool that moves between pages (found in the SQL check); live total cache refreshed by `listPools`; build status and SQL check recorded.
 - 29 Oct, revision 3 (Full QA). Hidden made not null; creator stake column so totals match today's cards; one `recomputePoolStats` writer across five writers and four read paths; stake confirm transaction and race fix; `newest` stays on `id`; new `listPools` so `getPools` stays stable until PL4; search tiers in the cursor; first page cache version key; APY refresh lock; rate limit; suspended creators excluded; sitemap moved to `sitemapPools`; block editor search pointed at the live `pools.blockEditor.search`; PL4 scope named; decisions P4 and P5 added and answered by Rob on 29 Oct (both as recommended); acceptance 7 to 10 added.
 - 28 Oct, revision 2. Rob's answers on P1 to P3.
 - 27 Oct, revision 1.
