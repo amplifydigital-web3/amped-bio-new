@@ -41,3 +41,19 @@ export async function fetchProfilePageData(handle: string): Promise<ProfilePageD
   const result = await fetchProfilePageResult(handle);
   return result.status === "found" ? result.data : null;
 }
+
+/**
+ * Reserved handles (Build Board D2, spec 7.7): the account's current handle
+ * when `handle` is an old handle with a live redirect, else null. A failed
+ * lookup reads as no redirect, so the page falls back to Page not found.
+ */
+async function loadHandleRedirect(handle: string): Promise<string | null> {
+  try {
+    const result = await trpcClient.handle.resolveRedirect.query({ handle });
+    return result?.to ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export const fetchHandleRedirect = cache(loadHandleRedirect);

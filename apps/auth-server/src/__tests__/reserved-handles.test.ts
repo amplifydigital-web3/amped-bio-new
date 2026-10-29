@@ -5,11 +5,32 @@
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const db = vi.hoisted(() => ({ user: { findFirst: vi.fn() } }));
+const db = vi.hoisted(() => ({
+  user: { findFirst: vi.fn() },
+  reservedHandle: { findMany: vi.fn() },
+}));
 vi.mock("../services/DB", () => ({ prisma: db }));
 
+import { seedAdminRows } from "@repo/constants";
 import { checkSignUpHandle, refuseHandleUpdate } from "../utils/handleHooks";
 import { generateUniqueHandle, processEmailToUniqueHandle } from "../utils/onelink-generator";
+import { resetReservedCache } from "../utils/reservedHandles";
+
+const tableRows = (extra: { word: string; category: string; expiresAt?: Date | null }[] = []) => [
+  ...seedAdminRows().map(row => ({ ...row, id: Buffer.alloc(16) })),
+  ...extra.map(row => ({
+    id: Buffer.alloc(16),
+    kind: "EXACT",
+    assignedUserId: null,
+    expiresAt: null,
+    ...row,
+  })),
+];
+
+beforeEach(() => {
+  resetReservedCache();
+  db.reservedHandle.findMany.mockResolvedValue(tableRows());
+});
 
 describe("sign up hook", () => {
   it("refuses reserved and malformed handles", async () => {
@@ -26,6 +47,34 @@ describe("sign up hook", () => {
 
   it("accepts and lowercases a free handle", async () => {
     await expect(checkSignUpHandle("MayaLin")).resolves.toBe("mayalin");
+  });
+});
+
+describe("admin tier from the table (RH2)", () => {
+  it("refuses a word an admin reserved, within 5 s", async () => {
+    await expect(checkSignUpHandle("northlight")).resolves.toBe("northlight");
+    resetReservedCache();
+    db.reservedHandle.findMany.mockResolvedValue(
+      tableRows([{ word: "northlight", category: "BRAND" }])
+    );
+    await expect(checkSignUpHandle("northlight")).rejects.toMatchObject({
+      body: { code: "INVALID_HANDLE", message: "This handle is reserved" },
+    });
+  });
+
+  it("falls back to the seed when the table cannot be read", async () => {
+    resetReservedCache();
+    db.reservedHandle.findMany.mockRejectedValue(new Error("db down"));
+    await expect(checkSignUpHandle("support")).rejects.toMatchObject({
+      body: { code: "INVALID_HANDLE" },
+    });
+  });
+
+  it("ignores a hold past its end date", async () => {
+    db.reservedHandle.findMany.mockResolvedValue(
+      tableRows([{ word: "dealhold", category: "HOLD", expiresAt: new Date(Date.now() - 1000) }])
+    );
+    await expect(checkSignUpHandle("dealhold")).resolves.toBe("dealhold");
   });
 });
 

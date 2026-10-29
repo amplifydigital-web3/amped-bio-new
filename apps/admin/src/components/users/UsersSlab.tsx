@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { z } from "zod";
 import {
+  AtSign,
   ExternalLink,
   Fingerprint,
   Lock,
@@ -30,6 +31,7 @@ import {
 import { CopyButton } from "../../kit/CopyButton";
 import { ConfirmDialog, retryToast } from "../../kit/parts";
 import { WordBadge } from "../../kit/WordBadge";
+import { AssignSheet, type AssignAccount } from "../handles/AssignSheet";
 import {
   SlabSkeletonRows,
   SortHeader,
@@ -246,6 +248,7 @@ export function UsersSlab({
   const [editing, setEditing] = useState<AdminUser | null>(null);
   const [twoFactorUser, setTwoFactorUser] = useState<AdminUser | null>(null);
   const [twoFactorBusy, setTwoFactorBusy] = useState(false);
+  const [giving, setGiving] = useState<AssignAccount | null>(null);
 
   useEffect(() => setBlockOverride({}), [users]);
 
@@ -359,7 +362,10 @@ export function UsersSlab({
                               {user.name}
                             </p>
                             {user.handle && (
-                              <p className="text-prism-meta text-prism-ink-2">@{user.handle}</p>
+                              <p className="flex items-center gap-1 text-prism-meta text-prism-ink-2">
+                                @{user.handle}
+                                {user.assignedWord && <WordBadge tone="nav">Reserved</WordBadge>}
+                              </p>
                             )}
                           </div>
                         </div>
@@ -456,6 +462,16 @@ export function UsersSlab({
                                 {blocked ? <Unlock aria-hidden /> : <Lock aria-hidden />}
                                 {blocked ? `Unblock ${handle}` : `Block ${handle}`}
                               </MenuItem>
+                              {!user.assignedWord && (
+                                <MenuItem
+                                  onSelect={() =>
+                                    setGiving({ id: user.id, handle: user.handle, name: user.name })
+                                  }
+                                >
+                                  <AtSign aria-hidden />
+                                  Give reserved word
+                                </MenuItem>
+                              )}
                               {user.twoFactorEnabled && (
                                 <MenuItem destructive onSelect={() => setTwoFactorUser(user)}>
                                   <ShieldOff aria-hidden />
@@ -487,6 +503,12 @@ export function UsersSlab({
         {footer}
       </div>
 
+      <AssignSheet
+        open={!!giving}
+        onOpenChange={open => !open && setGiving(null)}
+        account={giving}
+        onAssigned={onChanged}
+      />
       <EditUserDialog user={editing} onClose={() => setEditing(null)} onSaved={onChanged} />
       <ConfirmDialog
         open={!!twoFactorUser}

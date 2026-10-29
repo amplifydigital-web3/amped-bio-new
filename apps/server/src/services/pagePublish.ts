@@ -66,7 +66,7 @@ export async function publishPage(userId: number, handle?: string): Promise<Page
       // Reserved handles (Build Board D2): a new handle goes through the one
       // handle write, which checks reserved and taken words
       if (handleChanges) {
-        await changeHandle(tx, userId, next, { page_status: "PUBLISHED" });
+        await changeHandle(tx, userId, next, { extra: { page_status: "PUBLISHED" } });
       } else {
         await tx.user.update({ where: { id: userId }, data: { page_status: "PUBLISHED" } });
       }

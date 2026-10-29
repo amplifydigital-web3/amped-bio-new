@@ -7,6 +7,7 @@ import { registerMessagingOutboxHandlers } from "./services/messaging/delivery";
 import { startUsdcIndexer } from "./services/usdc";
 import { startContentSweeper } from "./services/content/state";
 import { startOnrampTokenPurge } from "./services/onramp/sessions";
+import { startReservedHandlesSweeper } from "./services/handles/sweeper";
 import { getGeoIpReader } from "./services/analytics/geoipDatabase";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -31,6 +32,8 @@ startUsdcIndexer();
 startContentSweeper();
 // Buy USDC: delete expired Coinbase userAuthTokens after their 60 day life
 startOnrampTokenPurge();
+// Reserved handles (Build Board D2): renames on the notice deadline, ends holds and redirects.
+startReservedHandlesSweeper();
 
 // Analytics location: open (or download) GeoLite2 City at boot so the first
 // visits are located and a missing license key shows in the startup log.

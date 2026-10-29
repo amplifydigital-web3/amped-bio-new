@@ -183,6 +183,8 @@ Creator pages and the public site set nothing in your browser until you choose, 
 | Telegram link | Until you unlink or close your account |
 | Telegram link and delivery choice history (no IP address) | 5 years |
 | Messages between fans and creators | 12 months after the last message in the conversation |
+| Notices and redirects when a reserved handle changes | 30 days after the notice or redirect ends |
+| Moderation records of handle actions (including the handle text) | 5 years, kept after the account closes |
 | Support messages | 2 years |
 
 On chain records on the Revolution Network and Base are permanent. We cannot delete them.

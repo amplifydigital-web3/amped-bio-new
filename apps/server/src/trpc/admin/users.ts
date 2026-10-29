@@ -4,6 +4,7 @@ import { TRPCError } from "@trpc/server";
 import { getFileUrl } from "../../utils/fileUrlResolver";
 import { PaginationSchema, UserFilterSchema, UserSearchSchema, UserUpdateSchema } from "./schemas";
 import { prisma } from "@repo/database";
+import { assignedWords } from "../../services/handles/admin";
 
 export const usersRouter = router({
   getUsers: adminProcedure
@@ -190,10 +191,14 @@ export const usersRouter = router({
       // Create a map for easy lookup
       const clicksMap = new Map(clickCounts.map(count => [count.user_id, count._sum.clicks || 0]));
 
+      // Reserved handles (Build Board D2, spec 7.1): the Reserved badge
+      const assigned = await assignedWords(userIds);
+
       // Combine user data with click counts
       const usersWithClicks = usersWithResolvedImages.map(user => ({
         ...user,
         totalClicks: clicksMap.get(user.id) || 0,
+        assignedWord: assigned.get(user.id) ?? null,
       }));
 
       return {
@@ -451,7 +456,12 @@ export const usersRouter = router({
 
     const users = await prisma.user.findMany({
       where: {
-        OR: [{ email: { contains: query } }, { name: { contains: query } }],
+        // Reserved handles (Build Board D2, RA5): the Assign sheet finds accounts by handle too
+        OR: [
+          { email: { contains: query } },
+          { name: { contains: query } },
+          { handle: { contains: query.replace(/^@/, "").toLowerCase() } },
+        ],
       },
       take: limit,
       orderBy: { created_at: "desc" },

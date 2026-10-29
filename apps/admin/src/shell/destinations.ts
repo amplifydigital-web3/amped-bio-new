@@ -1,4 +1,5 @@
 import {
+  AtSign,
   CircleDollarSign,
   Coins,
   FileText,
@@ -132,6 +133,17 @@ export const ADMIN_DESTINATIONS: AdminDestination[] = [
     icon: KeyRound,
     group: "access",
     shortcut: "KeyO",
+    dock: false,
+  },
+  // Reserved handles (Build Board D2, spec 7.1). No shortcut: Cmd plus Option
+  // plus H is Hide Others on macOS, so the page would never see it.
+  {
+    id: "handles",
+    path: "/handles",
+    label: "Handles",
+    title: "Handles",
+    icon: AtSign,
+    group: "access",
     dock: false,
   },
 ];
