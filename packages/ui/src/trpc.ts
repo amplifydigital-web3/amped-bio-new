@@ -1,11 +1,6 @@
 "use client";
 import { QueryClient } from "@tanstack/react-query";
-import {
-  createTRPCClient,
-  httpBatchLink,
-  httpSubscriptionLink,
-  splitLink,
-} from "@trpc/client";
+import { createTRPCClient, httpBatchLink, httpSubscriptionLink, splitLink } from "@trpc/client";
 import { createTRPCOptionsProxy } from "@trpc/tanstack-react-query";
 import type { AppRouter, RouterOutputs } from "../../../apps/server/src/trpc";
 import { mockLink } from "./trpc-links/mock/mock-link";
