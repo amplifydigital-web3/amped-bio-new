@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { PublicHeader } from "@/components/layout/PublicHeader";
 import { ProfileView } from "@/components/ProfileView";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { normalizeHandle } from "@/lib/handle";
-import { fetchProfilePageResult } from "@/lib/getProfileData";
+import { fetchHandleRedirect, fetchProfilePageResult } from "@/lib/getProfileData";
 import { DEFAULT_HANDLE, DEFAULT_PROFILE_DATA, type ProfilePageData } from "@/lib/profilePageData";
 import {
   SITE_URL,
@@ -25,13 +25,21 @@ interface HandlePageProps {
  * Resolve the profile for a handle. Unknown handles return 404. An unreachable
  * API throws, so the visitor sees an error page and crawlers get a 5xx they
  * will retry, instead of a 404 that would drop the page from the index.
+ *
+ * Reserved handles (Build Board D2, spec 7.7): an account that holds the
+ * handle always wins. Only a missing handle asks for a redirect, which answers
+ * 307 (never permanent: the redirect ends and the word can be claimed again).
  */
 async function resolveProfile(handle: string): Promise<ProfilePageData> {
   const result = await fetchProfilePageResult(handle);
 
   if (result.status === "found") return result.data;
   if (handle === DEFAULT_HANDLE) return DEFAULT_PROFILE_DATA;
-  if (result.status === "not_found") notFound();
+  if (result.status === "not_found") {
+    const target = await fetchHandleRedirect(handle);
+    if (target) redirect(`/${encodeURIComponent(target)}`);
+    notFound();
+  }
   throw new Error(`Profile service unavailable for handle "${handle}"`);
 }
 

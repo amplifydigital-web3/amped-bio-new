@@ -65,7 +65,17 @@ vi.mock("@repo/database", () => {
       }
     ),
   };
-  const client = { user, userOnboarding };
+  // Reserved handles (Build Board D2, RH2): no rows, redirects or notices
+  const reservedHandle = {
+    findMany: vi.fn(async () => []),
+    findUnique: vi.fn(async () => null),
+  };
+  const handleRedirect = { deleteMany: vi.fn(async () => ({ count: 0 })) };
+  const handleNotice = {
+    findFirst: vi.fn(async () => null),
+    updateMany: vi.fn(async () => ({ count: 0 })),
+  };
+  const client = { user, userOnboarding, reservedHandle, handleRedirect, handleNotice };
   class PrismaClientKnownRequestError extends Error {
     code = "";
   }

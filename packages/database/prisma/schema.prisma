@@ -79,6 +79,12 @@ model User {
   threadsAsFan            MessageThread[]          @relation("ThreadFan")
   messageReports          MessageReport[]
 
+  // Reserved handles (Build Board D2): the word assigned to this account, the
+  // notices sent to it, and the 90 day redirects from its old handles.
+  reservedHandle  ReservedHandle?
+  handleNotices   HandleNotice[]
+  handleRedirects HandleRedirect[]
+
   // USDC in the wallet (#29): first time the fan opened USDC on Base. The
   // indexer watches this address from then on, and its first screening runs.
   usdc_wallet_seen_at DateTime?
@@ -1631,4 +1637,121 @@ model MessageReport {
   @@index([threadId])
   @@index([createdAt])
   @@map("message_reports")
+}
+
+// Reserved handles (Build Board D2, docs/features/reserved-handles.md 7.9).
+// The admin tier. System tier words live in @repo/constants and never reach
+// this table. A word is reserved either on its own (expires_at null for
+// COMPANY and TRUST, a date for HOLD) or assigned to the one account that may
+// hold it. `created_by_id` carries no foreign key, so the record survives an
+// account deletion, and the launch audit reads it after the fact.
+enum ReservedHandleKind {
+  EXACT
+  PREFIX
+}
+
+enum ReservedHandleCategory {
+  COMPANY
+  TRUST
+  BRAND
+  PARTNER
+  HOLD
+}
+
+model ReservedHandle {
+  id            Bytes                 @id @db.Binary(16) // UUIDv7
+  word          String                @unique @db.VarChar(64)
+  kind          ReservedHandleKind
+  category      ReservedHandleCategory
+  reason        String                @db.VarChar(500)
+  // Null for COMPANY and TRUST, which never end; a date for HOLD
+  expiresAt     DateTime?             @map("expires_at")
+  // The one account that may hold the word. Unique: a word has one holder.
+  assignedUserId Int?                 @unique @map("assigned_user_id")
+  createdById   Int?                  @map("created_by_id")
+  createdAt     DateTime              @default(now()) @map("created_at")
+  updatedAt     DateTime              @updatedAt @map("updated_at")
+
+  assignedUser User? @relation(fields: [assignedUserId], references: [id], onDelete: SetNull)
+
+  @@index([category])
+  @@map("reserved_handles")
+}
+
+// A notice to an account that holds a newly reserved word (spec section 5).
+// NOTICE_SENT starts the deadline; CHOSE_NEW, RENAMED, EXEMPT and CANCELLED
+// end it. The sweeper renames on the deadline.
+enum HandleNoticeTier {
+  SYSTEM
+  ADMIN
+}
+
+enum HandleNoticeState {
+  NOTICE_SENT
+  CHOSE_NEW
+  RENAMED
+  EXEMPT
+  FAILED
+  CANCELLED
+}
+
+model HandleNotice {
+  id           Bytes             @id @db.Binary(16) // UUIDv7
+  userId       Int               @map("user_id")
+  reservedWord String            @map("reserved_word") @db.VarChar(64)
+  tier         HandleNoticeTier
+  state        HandleNoticeState
+  // The handle the account held when the notice started
+  oldHandle    String            @map("old_handle") @db.VarChar(64)
+  // Null once the notice ends
+  deadline     DateTime?
+  // At most MAX_EXTENSIONS (spec 7.6)
+  extensions   Int               @default(0)
+  createdAt    DateTime          @default(now()) @map("created_at")
+  updatedAt    DateTime          @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, reservedWord])
+  @@index([state, deadline])
+  @@map("handle_notices")
+}
+
+// An old handle answering 307 to the account's current handle (spec 7.7).
+// Stores the account, not the new handle, so it follows later renames: no
+// chains and no loops. Deleted once ends_at passes.
+model HandleRedirect {
+  id        Bytes    @id @db.Binary(16) // UUIDv7
+  oldHandle String   @unique @map("old_handle") @db.VarChar(64)
+  userId    Int      @map("user_id")
+  endsAt    DateTime @map("ends_at")
+  hits      Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([endsAt])
+  @@map("handle_redirects")
+}
+
+// One admin action (spec 7.9). Actor and target are plain integers with no
+// foreign key, so the record survives account deletion. Moderation records
+// are kept 5 years (spec 7.11). Shared by every admin area, not only handles.
+model AdminAuditLog {
+  id           Bytes    @id @db.Binary(16) // UUIDv7
+  // Null when the system acts (seed, sweeper, deletion job)
+  actorId      Int?     @map("actor_id")
+  action       String   @db.VarChar(48)
+  targetUserId Int?     @map("target_user_id")
+  // The word, pool or key the action concerns
+  subject      String?  @db.VarChar(64)
+  reason       String?  @db.VarChar(500)
+  before       Json?
+  after        Json?
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@index([action, createdAt])
+  @@index([targetUserId])
+  @@index([subject, createdAt])
+  @@map("admin_audit_log")
 }
