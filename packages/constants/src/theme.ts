@@ -42,6 +42,11 @@ const backgroundSchema = z.object({
   texture: z.enum(BACKGROUND_TEXTURES).optional(),
 });
 
+/** Effect params stored on a v1 config: small, flat, clamped against the entry on read. */
+const effectParamsSchema = z
+  .record(z.string().max(32), z.union([z.number(), z.string().max(64)]))
+  .refine(params => Object.keys(params).length <= 8, "Too many effect params");
+
 // Schema for theme configuration with proper validation
 export const themeConfigSchema = z.object({
   buttonStyle: z.number().optional(),
@@ -82,10 +87,11 @@ export const themeConfigSchema = z.object({
   // scene with no v1 integer is stored by id; the editor keeps particlesEffect
   // on the nearest v1 overlay. Params are clamped against the entry on read.
   particlesEffectId: z.enum(EFFECT_IDS.scene as unknown as [string, ...string[]]).optional(),
-  particlesParams: z
-    .record(z.string().max(32), z.union([z.number(), z.string().max(64)]))
-    .refine(params => Object.keys(params).length <= 8, "Too many scene params")
-    .optional(),
+  particlesParams: effectParamsSchema.optional(),
+  // Editor chrome (spec 3.10): the parameter strip's values for the name
+  // effect and the button hover, clamped against the picked entry on read.
+  heroEffectParams: effectParamsSchema.optional(),
+  buttonEffectParams: effectParamsSchema.optional(),
 });
 
 // Schema for the theme object in editTheme endpoint

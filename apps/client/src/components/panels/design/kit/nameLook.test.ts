@@ -24,8 +24,16 @@ describe("name tiles", () => {
 
   it("writes the id and keeps the nearest v1 look for renderers without the flag", () => {
     const shiny = NAME_TILES.find(t => t.effectId === "name.shiny")!;
-    expect(namePatch(shiny)).toEqual({ heroEffect: 2, heroEffectId: "name.shiny" });
-    expect(namePatch(NAME_TILES[2]!)).toEqual({ heroEffect: 6, heroEffectId: undefined });
+    expect(namePatch(shiny)).toEqual({
+      heroEffect: 2,
+      heroEffectId: "name.shiny",
+      heroEffectParams: undefined,
+    });
+    expect(namePatch(NAME_TILES[2]!)).toEqual({
+      heroEffect: 6,
+      heroEffectId: undefined,
+      heroEffectParams: undefined,
+    });
   });
 
   it("selects a stored id over the integer", () => {

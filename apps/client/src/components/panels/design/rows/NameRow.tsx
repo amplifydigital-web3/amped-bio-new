@@ -13,6 +13,7 @@ import { OptionGrid, OptionTile } from "../kit/OptionTile";
 import { CreatorBackdrop } from "../kit/CreatorArt";
 import { ContrastNotice } from "../kit/Notices";
 import { cardFill, formatRatio, useDesign } from "../kit/useDesign";
+import { ParamPanel } from "../kit/ParamStrip";
 import {
   NAME_TILES,
   nameIndex,
@@ -68,6 +69,8 @@ function NameTileView({
     <OptionTile
       label={entry.label}
       accessibleDescription={entry.description}
+      tier={entry.tier}
+      cost={entry.cost}
       selected={selected}
       focusable={focusable}
       disabled={locked}
@@ -120,7 +123,7 @@ function NameTileView({
 }
 
 export function NameRow() {
-  const { config, values, locked, update, nameContrast } = useDesign();
+  const { config, values, locked, update, nameContrast, yourColors } = useDesign();
   const selectedIndex = nameIndex(values.heroEffect, config.heroEffectId);
   const tile = NAME_TILES[selectedIndex] ?? NAME_TILES[0]!;
   const { entry } = tile;
@@ -146,6 +149,14 @@ export function NameRow() {
             />
           ))}
         </OptionGrid>
+
+        <ParamPanel
+          entry={entry}
+          stored={config.heroEffectParams}
+          disabled={locked}
+          yourColors={yourColors}
+          onChange={params => update({ heroEffectParams: params })}
+        />
 
         {entry.loop && (
           <div className="space-y-2">

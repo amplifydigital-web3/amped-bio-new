@@ -1,12 +1,16 @@
 import type { CSSProperties } from "react";
 import {
+  HOVER_SPEED_MS,
+  NAME_SPEED_FACTOR,
   findEffect,
   getEffect,
   gradientCss,
   isNameEntrance,
   isThemeConfigV2,
   nameSettle,
+  pageCost,
   upgradeTheme,
+  type PageCost,
   type AnyThemeConfig,
   type EffectEntry,
   type ParamValues,
@@ -157,12 +161,46 @@ export function nameLoops(look: CreatorLook): boolean {
 }
 
 /**
- * Inline style for the name (and the bio when the effect applies to it): a
- * loop settled to once plays one cycle, then rests on its last frame (board 08).
+ * Inline style for the name (and the bio when the effect applies to it), from
+ * Settle and the parameter strip (board 08):
+ * - a loop settled to once plays one cycle, then rests on its last frame; a
+ *   weak device plays every loop once (spec 3.7: name, loop to once);
+ * - Speed scales the cycle (Medium is the cycle as shipped);
+ * - a custom color replaces the text color the effect paints with.
  */
-export function nameLoopStyle(look: CreatorLook, paused = false): CSSProperties | undefined {
-  if (paused || look.name.loop !== true || nameLoops(look)) return undefined;
-  return { animationIterationCount: 1 };
+export function nameLoopStyle(
+  look: CreatorLook,
+  paused = false,
+  weak = false
+): CSSProperties | undefined {
+  const style: Record<string, string | number> = {};
+  const params = look.v2.name.params;
+  if (!paused && look.name.loop === true) {
+    if (weak || !nameLoops(look)) style.animationIterationCount = 1;
+    const factor = NAME_SPEED_FACTOR[String(params["speed"])];
+    if (factor && look.name.loopMs)
+      style.animationDuration = `${Math.round(look.name.loopMs * factor)}ms`;
+  }
+  const color = params["color"];
+  if (
+    params["palette"] === "custom" &&
+    typeof color === "string" &&
+    /^#[0-9a-f]{6}$/i.test(color)
+  ) {
+    style["--amped-font"] = color;
+    style["--amped-name-glow"] = `${color}B3`;
+  }
+  return Object.keys(style).length > 0 ? (style as CSSProperties) : undefined;
+}
+
+/** The hover's Speed (editor chrome): Fast 144 ms, Slow 377 ms, Default its own timing. */
+export function hoverSpeedMs(look: CreatorLook): number | undefined {
+  return HOVER_SPEED_MS[String(look.v2.buttonHover.params["speed"])];
+}
+
+/** What the page costs to run (spec 3.7), for the editor's cost chip. */
+export function lookCost(look: CreatorLook): PageCost {
+  return pageCost(look.v2);
 }
 
 /**

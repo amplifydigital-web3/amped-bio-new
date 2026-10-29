@@ -166,6 +166,8 @@ export {
   containerOn,
   effectClassName,
   hasLoopingMotion,
+  hoverSpeedMs,
+  lookCost,
   lookCssVars,
   lookFontColor,
   lookFor,

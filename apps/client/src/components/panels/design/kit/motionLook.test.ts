@@ -29,8 +29,13 @@ describe("hover tiles", () => {
     expect(hoverPatch(tiles[10]!)).toEqual({
       buttonEffect: 9,
       buttonEffectId: "buttonHover.fill-sweep",
+      buttonEffectParams: undefined,
     });
-    expect(hoverPatch(tiles[2]!)).toEqual({ buttonEffect: 2, buttonEffectId: undefined });
+    expect(hoverPatch(tiles[2]!)).toEqual({
+      buttonEffect: 2,
+      buttonEffectId: undefined,
+      buttonEffectParams: undefined,
+    });
   });
 
   it("selects the stored v2 hover first, else the v1 integer", () => {

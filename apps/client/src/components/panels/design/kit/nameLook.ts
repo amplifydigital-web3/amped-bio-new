@@ -45,9 +45,9 @@ export const NAME_TILES: NameTile[] = [
   ...V2_NAMES.map(([effectId, id]) => ({ id, effectId, entry: getEffect("name", effectId) })),
 ];
 
-/** The patch a name tile writes: a v1 tile clears the v2 id. */
+/** The patch a name tile writes: a v1 tile clears the v2 id; a new pick starts from default params. */
 export function namePatch(tile: NameTile): Partial<ThemeConfig> {
-  return { heroEffect: tile.id, heroEffectId: tile.effectId };
+  return { heroEffect: tile.id, heroEffectId: tile.effectId, heroEffectParams: undefined };
 }
 
 /** The selected tile: a stored v2 id first, else the v1 integer. */

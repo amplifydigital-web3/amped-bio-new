@@ -33,6 +33,7 @@ import {
 import { type ReactNode } from "react";
 import { useReferralHandler } from "@/hooks/useReferralHandler";
 import { ErrorBoundary } from "./ErrorBoundary";
+import { usePreviewMotion } from "./preview/PreviewChrome";
 import { AlertCircle } from "lucide-react";
 import { blockNeed, isHidden, mediaName } from "./panels/page/blocks/blockInfo";
 import { useMyPageIdentity, withLiveAttributes } from "./panels/page/rns/useMyPageIdentity";
@@ -135,6 +136,7 @@ export function Preview({
 }: PreviewProps) {
   const themeConfig = theme.config;
   const { handleReferrerClick } = useReferralHandler();
+  const previewMotion = usePreviewMotion();
 
   // 108 I11, 109 I14: the chip exactly as the public page renders it, from
   // the same server rule (rns.getMyPageIdentity), with the sheet read only
@@ -320,6 +322,9 @@ export function Preview({
         theme={themeConfig}
         mode={isEditing ? "edit" : "preview"}
         size={layout}
+        // Editor chrome: Device budget and Pause motion for the preview only
+        device={previewMotion.device}
+        paused={previewMotion.paused}
         profile={{
           name: profile.name,
           photo: profile.photoCmp || profile.photoUrl,

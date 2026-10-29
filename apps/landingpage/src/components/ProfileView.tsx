@@ -16,6 +16,7 @@ import {
   cn,
   hasLoopingMotion as lookHasLoopingMotion,
   lookFor,
+  lowPower,
   THEME_DEFAULTS,
   themeCssVars,
 } from "@repo/ui";
@@ -186,6 +187,8 @@ export function ProfileView({
     initialData?.creatorPoolAddress ?? null
   );
   const [paused, setPaused] = useState(false);
+  // Theme Engine v2 (spec 3.7): weak devices see the still version of moving layers
+  const [weakDevice, setWeakDevice] = useState(false);
   const [cardHeight, setCardHeight] = useState(0);
   const scrollingDown = useScrollingDown();
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -216,6 +219,7 @@ export function ProfileView({
   // Pause motion (041 I02): read the remembered choice once on the client
   useEffect(() => {
     setPaused(readPaused());
+    setWeakDevice(lowPower());
   }, []);
   const togglePaused = () => {
     setPaused(current => {
@@ -628,6 +632,7 @@ export function ProfileView({
       videoRef={videoRef}
       bottomPadding={`calc(89px + env(safe-area-inset-bottom, 0px) + ${cardShowing ? cardHeight + 13 : 0}px)`}
       entranceKey={normalizedHandle}
+      device={weakDevice ? "weak" : undefined}
     />
   ) : (
     <div

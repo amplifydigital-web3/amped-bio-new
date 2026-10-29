@@ -112,6 +112,12 @@ export interface CreatorPageProps {
    * visit. The editor passes none, so a pick replays it.
    */
   entranceKey?: string;
+  /**
+   * Spec 3.7: a weak device sees the still version of the moving layers, in
+   * order: the scene overlay holds still and name loops play once. The editor
+   * forces it with Device budget; the public page reads lowPower().
+   */
+  device?: "strong" | "typical" | "weak";
 }
 
 export function CreatorPage({
@@ -129,6 +135,7 @@ export function CreatorPage({
   videoRef,
   bottomPadding = DEFAULT_BOTTOM,
   entranceKey,
+  device,
 }: CreatorPageProps) {
   const look = lookFor(theme);
   const sizes = SIZE[size];
@@ -141,7 +148,8 @@ export function CreatorPage({
   const gradient = gradientScene(background, paused);
   const texture = textureStyle(background);
   // Phase 2 Name row: Settle, Applies to and the text entrances
-  const nameStyle = { ...textStyle, ...nameLoopStyle(look, paused) };
+  const weak = device === "weak";
+  const nameStyle = { ...textStyle, ...nameLoopStyle(look, paused, weak) };
   const bioEffect = nameOnBio(look) ? effectClassName(look.name, paused) : undefined;
   const bioStyle = bioEffect ? nameStyle : textStyle;
 
@@ -188,7 +196,7 @@ export function CreatorPage({
           entry={playingOverlay(look)}
           params={look.overlayParams}
           colors={look.colors}
-          paused={paused}
+          paused={paused || weak}
         />
       )}
     </div>

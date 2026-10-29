@@ -6,11 +6,15 @@ import { Preview } from "@/components/Preview";
 import { publicPageUrl } from "@/components/shell/pageLink";
 import { PUBLISH_FIRST, usePageUnpublished } from "@/components/shell/pageVisibility";
 import { requestAddBlock } from "./addBlockRequest";
+import { PreviewCostLine, PreviewMotionControls } from "./PreviewChrome";
 import { usePreviewBlockSelect, usePreviewTheme } from "./previewHooks";
 
 // Screen Review 006. The live preview: the commitment field frame on desktop
 // (Phone and Desktop modes, View page footer) and the full width Preview tab
 // on smaller screens. Everything inside the render belongs to the creator.
+
+// Theme Engine v2 (#28, phase 2): the editor chrome around the preview
+const themeV2On = import.meta.env.VITE_SHOW_THEME_V2 === "true";
 
 type Mode = "phone" | "desktop";
 const MODE_KEY = "amped:preview-mode";
@@ -162,6 +166,12 @@ export function PreviewFrame() {
           </TabsTrigger>
         </TabsList>
       </Tabs>
+      {themeV2On && (
+        <>
+          <PreviewMotionControls />
+          <PreviewCostLine />
+        </>
+      )}
 
       {/* The render viewport is the only clipped layer; translateZ keeps the
           creator's fixed background inside it (006 I04) */}
@@ -226,6 +236,12 @@ export function InlinePreview({ onSelected }: { onSelected: () => void }) {
   const onBlockSelect = usePreviewBlockSelect(onSelected);
   return (
     <div className="space-y-[13px] lg:hidden">
+      {themeV2On && (
+        <>
+          <PreviewMotionControls />
+          <PreviewCostLine />
+        </>
+      )}
       <div
         className={cn(
           "relative h-[calc(100dvh-230px)] min-h-[377px] overflow-hidden rounded-prism-21 [transform:translateZ(0)]"

@@ -1,4 +1,17 @@
-import type { EffectEntry } from "./types";
+import type { EffectEntry, ParamSpec } from "./types";
+
+/**
+ * Speed (editor chrome, spec 3.5): Default keeps each hover's own timing, so
+ * no saved page changes; Fast and Slow set the transition to 144 or 377 ms.
+ */
+export const HOVER_SPEED_PARAM = {
+  kind: "choice",
+  options: ["default", "fast", "slow"],
+  default: "default",
+  label: "Speed",
+} as const satisfies ParamSpec;
+
+export const HOVER_SPEED_MS: Readonly<Record<string, number>> = { fast: 144, slow: 377 };
 
 /**
  * Button hover effects. The v1 buttonEffect values 0 to 9 as the public page
@@ -25,7 +38,7 @@ const hover = (
   cost: className ? "light" : "still",
   source: "amped",
   colorMode: "theme",
-  params: {},
+  params: className ? { speed: HOVER_SPEED_PARAM } : {},
   render: className ? { kind: "class", className } : { kind: "none" },
   preview: { sample: "button" },
   ...(legacyId === undefined ? {} : { legacyId }),

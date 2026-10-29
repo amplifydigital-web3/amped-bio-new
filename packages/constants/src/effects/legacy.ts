@@ -340,6 +340,17 @@ export function upgradeTheme(
   const storedHover = v1.buttonEffectId ? findEffect(v1.buttonEffectId) : undefined;
   const storedPress = v1.buttonPressId ? findEffect(v1.buttonPressId) : undefined;
   const storedName = v1.heroEffectId ? findEffect(v1.heroEffectId) : undefined;
+  const hoverId =
+    storedHover?.layer === "buttonHover"
+      ? storedHover.id
+      : legacyEffectId("buttonEffect", v1.buttonEffect);
+  const nameId =
+    storedName?.layer === "name" ? storedName.id : legacyEffectId("heroEffect", v1.heroEffect);
+  // Parameter strip values, clamped against the picked entry (editor chrome)
+  const paramsFor = (id: string, params: ThemeConfig["particlesParams"]) => {
+    const entry = findEffect(id);
+    return params && entry ? clampParams(entry, params) : {};
+  };
 
   return themeConfigV2Schema.parse({
     version: 2,
@@ -380,11 +391,8 @@ export function upgradeTheme(
     },
     buttonHover: {
       // A v2 hover stored by id wins over the v1 integer (phase 2)
-      id:
-        storedHover?.layer === "buttonHover"
-          ? storedHover.id
-          : legacyEffectId("buttonEffect", v1.buttonEffect),
-      params: {},
+      id: hoverId,
+      params: paramsFor(hoverId, v1.buttonEffectParams),
     },
     buttonPress: {
       id: storedPress?.layer === "buttonPress" ? storedPress.id : "buttonPress.none",
@@ -392,9 +400,8 @@ export function upgradeTheme(
     },
     name: {
       // A v2 name effect stored by id wins over the v1 integer (phase 2)
-      id:
-        storedName?.layer === "name" ? storedName.id : legacyEffectId("heroEffect", v1.heroEffect),
-      params: {},
+      id: nameId,
+      params: paramsFor(nameId, v1.heroEffectParams),
       ...(v1.heroEffectLoop ? { loop: oneOf(NAME_SETTLES, v1.heroEffectLoop, "always") } : {}),
       appliesTo: oneOf(NAME_TARGETS, v1.heroAppliesTo, "name"),
     },

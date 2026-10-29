@@ -44,9 +44,9 @@ export function hoverTiles(themeV2On: boolean): HoverTile[] {
   ];
 }
 
-/** The patch a hover tile writes: a v1 tile clears the v2 id. */
+/** The patch a hover tile writes: a v1 tile clears the v2 id; a new pick starts from default params. */
 export function hoverPatch(tile: HoverTile) {
-  return { buttonEffect: tile.id, buttonEffectId: tile.effectId };
+  return { buttonEffect: tile.id, buttonEffectId: tile.effectId, buttonEffectParams: undefined };
 }
 
 /** The selected hover tile: a stored v2 id first, else the v1 integer. */
