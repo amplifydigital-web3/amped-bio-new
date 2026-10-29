@@ -10,11 +10,11 @@ Direction from Rob, 23 Oct: notify name expiry by email too, as its own PR. Deci
 
 An hourly server sweep emails the Amped.Bio owner of an RNS name at four points:
 
-| Stage | When | Subject |
-|---|---|---|
-| `d30` | 30 days or less before expiry | Your RNS name `<name>` expires in N days |
-| `d7` | 7 days or less | same |
-| `d1` | 1 day or less | Your RNS name `<name>` expires in 1 day |
+| Stage   | When                                        | Subject                                               |
+| ------- | ------------------------------------------- | ----------------------------------------------------- |
+| `d30`   | 30 days or less before expiry               | Your RNS name `<name>` expires in N days              |
+| `d7`    | 7 days or less                              | same                                                  |
+| `d1`    | 1 day or less                               | Your RNS name `<name>` expires in 1 day               |
 | `grace` | after expiry, inside the 1 day grace period | `<name>` has expired. Renew it by tomorrow to keep it |
 
 - Only the current stage sends. A missed sweep never sends a burst of older reminders. A name found 5 days out gets the 7 day email only.
@@ -30,15 +30,15 @@ An hourly server sweep emails the Amped.Bio owner of an RNS name at four points:
 
 ## 3. How it works
 
-| Part | File |
-|---|---|
-| Stage rule, days left, subject | `apps/server/src/services/rnsExpiry/stage.ts` |
-| Subgraph read, recipients, dedupe, send, hourly sweeper | `apps/server/src/services/rnsExpiry/index.ts` |
-| Email template (React Email) | `apps/server/src/utils/email/RnsExpiryTemplate.tsx` |
-| Setting procedures `notifications.rnsReminders` and `notifications.setRnsReminders` | `apps/server/src/trpc/notifications.ts` |
-| Account row "Name reminders" | `apps/client/src/components/panels/account/RnsRemindersRow.tsx` |
-| Sweeper start | `apps/server/src/bootstrap.ts` |
-| Env flag `RNS_EXPIRY_EMAILS` (default true) | `apps/server/src/env.ts` |
+| Part                                                                                | File                                                            |
+| ----------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| Stage rule, days left, subject                                                      | `apps/server/src/services/rnsExpiry/stage.ts`                   |
+| Subgraph read, recipients, dedupe, send, hourly sweeper                             | `apps/server/src/services/rnsExpiry/index.ts`                   |
+| Email template (React Email)                                                        | `apps/server/src/utils/email/RnsExpiryTemplate.tsx`             |
+| Setting procedures `notifications.rnsReminders` and `notifications.setRnsReminders` | `apps/server/src/trpc/notifications.ts`                         |
+| Account row "Name reminders"                                                        | `apps/client/src/components/panels/account/RnsRemindersRow.tsx` |
+| Sweeper start                                                                       | `apps/server/src/bootstrap.ts`                                  |
+| Env flag `RNS_EXPIRY_EMAILS` (default true)                                         | `apps/server/src/env.ts`                                        |
 
 - **Subgraph.** One windowed query per sweep across all owners: `revoNames` where `expiryDateWithGrace` is after now and at most 30 days plus grace ahead. It pages by 1000, up to 20 pages. The registration expiry is `expiryDateWithGrace` minus the grace period, the same rule the Wallet uses. A failed read (an HTTP error, a GraphQL `errors` answer or an answer with no `revoNames`) is logged with the status and the errors, and the sweep sends nothing.
 - **Dedupe.** The notice row is written before the send. Its unique key (`userId`, `label`, `expiry`, `stage`) stops a second server from sending the same reminder. One bad name or one bad row is logged and skipped: the other names of the same sweep still go out.
