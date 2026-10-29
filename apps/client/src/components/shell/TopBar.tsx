@@ -21,7 +21,7 @@ const TAB_TITLES: Record<string, Record<string, string>> = {
   design: { themes: "Themes", style: "Style", motion: "Motion" },
   // Settings is the bare Account title (098 I05)
   account: { settings: "Settings", developers: "Developers" },
-  "my-pool": { overview: "Overview", broadcasts: "Broadcasts" },
+  "my-pool": { overview: "Overview", broadcasts: "Broadcasts", telegram: "Telegram group" },
   content: { library: "Library", store: "Store", live: "Live" },
 };
 
