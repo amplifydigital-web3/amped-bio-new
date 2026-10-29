@@ -4,6 +4,7 @@ import { prisma } from "@repo/database";
 import { adminProcedure, router } from "../trpc";
 import { idToHex, hexToId } from "../../services/analytics/ids";
 import { threadMessages } from "../../services/messaging/views";
+import { queueGroupCheck } from "../../services/telegram/groups";
 
 const idSchema = z
   .string()
@@ -253,4 +254,45 @@ export const telegramAdminRouter = router({
       linkedUsers: linked,
     };
   }),
+
+  /** Connected groups for the Groups tab (board tg9). Names, counts and rules only. */
+  listGroups: adminProcedure.query(async () => {
+    const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const [groups, removedToday] = await Promise.all([
+      prisma.telegramGroup.findMany({
+        where: { connectedAt: { not: null }, disconnectedAt: null },
+        orderBy: { connectedAt: "desc" },
+        take: 200,
+        include: { creator: { select: userSelect } },
+      }),
+      prisma.telegramGroupMember.count({
+        where: { removedAt: { gte: dayAgo }, removedReason: { not: "left" } },
+      }),
+    ]);
+    return {
+      removedToday,
+      groups: groups.map(group => ({
+        id: idToHex(group.id),
+        title: group.title,
+        creator: group.creator,
+        ruleKind: group.ruleKind,
+        memberCount: group.memberCount,
+        botIsAdmin: group.botIsAdmin,
+        lastCheckedAt: group.lastCheckedAt,
+      })),
+    };
+  }),
+
+  /** Queue a check now. Logged with the admin's id. */
+  recheckGroup: adminProcedure
+    .input(z.object({ id: idSchema }))
+    .mutation(async ({ ctx, input }) => {
+      const group = await prisma.telegramGroup.findUnique({ where: { id: input.id } });
+      if (!group) throw new TRPCError({ code: "NOT_FOUND", message: "Group not found." });
+      const queued = await queueGroupCheck(group.id);
+      console.info(
+        `[telegram:audit] ${JSON.stringify({ action: "group_recheck", adminUserId: ctx.user!.sub, groupId: idToHex(group.id) })}`
+      );
+      return { queued };
+    }),
 });

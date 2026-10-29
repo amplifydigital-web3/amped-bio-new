@@ -72,6 +72,7 @@ model User {
   broadcastReports        BroadcastReport[]
   notificationPreferences NotificationPreference[]
   telegramAccount         TelegramAccount?
+  telegramGroups          TelegramGroup[]
   telegramLinkEvents      TelegramLinkEvent[]
   messagingSettings       CreatorMessagingSettings?
   messagingSenderStatus   MessagingSenderStatus?
@@ -1007,6 +1008,61 @@ model TelegramAccount {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("telegram_accounts")
+}
+
+// A creator's Telegram supergroup gated by the bot (Build Board #2, phase 2, spec r3
+// 3.2 to 3.6). A row is created pending (connectedAt null) when the bot is added to a
+// group by a linked user; the creator confirms it on the card. Up to 3 per creator.
+model TelegramGroup {
+  id                    Bytes      @id @db.Binary(16)
+  creatorUserId         Int
+  tgChatId              BigInt     @unique
+  title                 String     @db.VarChar(128)
+  ruleKind              DmRuleKind @default(POOL_MEMBER)
+  // STAKE_MIN only: whole tREVO as a decimal string, like CreatorMessagingSettings
+  stakeMin              String?    @db.VarChar(80)
+  // Approval only invite link (creates_join_request)
+  inviteLink            String?    @db.VarChar(255)
+  botIsAdmin            Boolean    @default(false)
+  // Remove members the bot has seen without a linked account (off by default)
+  removeUnverified      Boolean    @default(false)
+  memberCount           Int        @default(0)
+  addedByTelegramUserId BigInt
+  connectedAt           DateTime?
+  lastCheckedAt         DateTime?
+  disconnectedAt        DateTime?
+  createdAt             DateTime   @default(now())
+  updatedAt             DateTime   @updatedAt
+
+  creator User                  @relation(fields: [creatorUserId], references: [id], onDelete: Cascade)
+  members TelegramGroupMember[]
+
+  @@index([creatorUserId])
+  @@map("telegram_groups")
+}
+
+// Members the bot knows about: approved join requests and chat_member updates. The Bot
+// API cannot list a group, so members who joined before the bot are unknown until
+// Telegram reports them.
+model TelegramGroupMember {
+  id             Bytes     @id @db.Binary(16)
+  groupId        Bytes     @db.Binary(16)
+  // null for a member the bot saw without a linked Amped account
+  userId         Int?
+  telegramUserId BigInt
+  approvedAt     DateTime?
+  declinedAt     DateTime?
+  removedAt      DateTime?
+  // rule_failed | unlinked | unverified | left
+  removedReason  String?   @db.VarChar(32)
+  lastVerifiedAt DateTime?
+  createdAt      DateTime  @default(now())
+
+  group TelegramGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, telegramUserId])
+  @@index([groupId, removedAt])
+  @@map("telegram_group_members")
 }
 
 // Link history and the consent record for Telegram delivery (updates_on, updates_off)

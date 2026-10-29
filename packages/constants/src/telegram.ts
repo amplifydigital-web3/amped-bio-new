@@ -517,9 +517,16 @@ export const TELEGRAM_BOT_STRINGS = {
   groupRemoved: (creator: string) =>
     `You no longer meet the rule for ${creator}'s group, so you were removed. You can rejoin once you qualify.`,
   botAddedNoAdmin:
-    "Thanks for adding Amped.Bio. Make me an admin with Invite users and Ban users, then connect this group from My Pool on Amped.Bio. I never post in your group.",
+    "Thanks for adding Amped.Bio. Make me an admin with Invite users and Ban users, then connect this group on Amped.Bio, in My Pool or Inbox, Settings. I never post in your group.",
+  // PR 5: groups (spec r3 3.2 to 3.6)
+  botAddedAdmin: (group: string) =>
+    `${group} is ready to connect. Open My Pool or Inbox, Settings on Amped.Bio to choose who gets in.`,
+  groupNotOpen: (creator: string) => `${creator} has no Telegram group open right now.`,
+  groupInvite: (creator: string) =>
+    `${creator}'s group is open to you. Tap Join group and Telegram asks the group to let you in.`,
   inlineCardLine: (followers: number) =>
     `${followers} followers on Amped.Bio. Messages on Telegram.`,
+  inlineCardLineNoMessages: (followers: number) => `${followers} followers on Amped.Bio.`,
   unlinked:
     "Your Telegram is unlinked from Amped.Bio. This bot will not message you again unless you link it again.",
   // PR 3: fan to creator messages
@@ -529,6 +536,130 @@ export const TELEGRAM_BOT_STRINGS = {
   senderPaused: "Sending is paused on your account for now. Try again tomorrow.",
   replyThreadClosed: "This conversation is closed. Your reply was not sent.",
   dmNotFound: "That page is not on Amped.Bio. Check the link and try again.",
+} as const;
+
+// ----------------------------------------------------------------------------
+// Groups (PR 5, spec r3 3.2 to 3.6, boards tg5, tg9, tg10, tg13, tg14)
+// ----------------------------------------------------------------------------
+
+export const TELEGRAM_GROUP_STRINGS = {
+  tabLabel: "Telegram group",
+  connectTitle: "Connect a group",
+  stepAddBot: "Add the bot",
+  stepMakeAdmin: "Make it admin",
+  stepConfirm: "Confirm the group",
+  rowAddBot: "Open your group, Add members, search @AmpedBioBot.",
+  rowMakeAdmin: "Make it an admin with Invite users and Ban users.",
+  copyBotName: "Copy @AmpedBioBot",
+  copyRights: "Copy the admin rights",
+  copiedBotName: "Copied @AmpedBioBot.",
+  copiedRights: "Copied Invite users and Ban users.",
+  waitingTitle: "Waiting for your group",
+  waitingLine: "Your group appears here as soon as the bot is an admin.",
+  found: (group: string) => `We found ${group}.`,
+  foundLine: "Added by you. Connect it?",
+  foundNoRights: "The bot is in the group but is not an admin with Invite users and Ban users yet.",
+  whoGetsIn: "Who gets in",
+  connect: "Connect group",
+  publicPrompt: "Public group?",
+  publicPaste: "Paste its @username",
+  publicLabel: "Public group username",
+  publicPlaceholder: "@yourgroup",
+  privateLinkNotice:
+    "Private group links cannot be read. Add @AmpedBioBot as an admin and the group appears here.",
+  notFoundPublic: "No public group with that username. Check it, or add the bot as an admin.",
+  notAdmin: "The bot is not an admin yet. Add it and try again.",
+  notYourGroup:
+    "Only an admin of the group can connect it. Link the Telegram account that runs it.",
+  limitReached: "You can connect up to 3 groups.",
+  yourGroups: "Your groups",
+  connected: "Connected",
+  rightsMissing: "Rights missing",
+  privateBotAdmin: "Private group, bot is admin.",
+  checkedAgo: (ago: string) => `Checked ${ago}.`,
+  members: "Members",
+  rule: "Rule",
+  change: "Change",
+  inviteLink: "Invite link",
+  approvalRequired: "Approval required",
+  copyInvite: "Copy the invite link",
+  copiedInvite: "Invite link copied.",
+  lastWeek: "Last check, past 7 days",
+  approved: "Approved",
+  declined: "Declined",
+  removed: "Removed",
+  removeUnverified: {
+    label: "Remove members Amped cannot verify",
+    helper:
+      "Members the bot has seen without a linked account. Off: they are listed and left alone.",
+  },
+  infoLine:
+    "The bot never posts in your group. Removed members who linked Telegram get one message with the reason.",
+  recheck: "Re-check now",
+  recheckQueued: "Check queued. Results land within a few minutes.",
+  disconnect: "Disconnect",
+  disconnectTitle: "Disconnect this group?",
+  disconnectBody:
+    "The invite link stops working. Members stay in the group and the bot stops checking them. You can connect it again later.",
+  disconnected: "Group disconnected.",
+  connectAnother: "Connect another group",
+  changeTitle: "Change who gets in",
+  changeWarning: (n: number) =>
+    n === 1
+      ? "1 member would no longer qualify. They are removed at the next hourly check and get one message with the reason."
+      : `${n} members would no longer qualify. They are removed at the next hourly check and get one message with the reason.`,
+  changeNoLoss: "Everyone in the group still qualifies.",
+  saveRule: "Save rule",
+  cancel: "Cancel",
+  saved: "Saved.",
+  failed: "That did not work. Try again.",
+  off: "Telegram groups are not open yet.",
+  // Join group block on the public page (board tg13)
+  blockJoin: "Join my Telegram group",
+  blockOpensTelegram: "Telegram opens with the invite.",
+  blockNoGroup: "Connect a group in My Pool first. Visitors do not see this button until you do.",
+  // Welcome message kit (board tg14)
+  kitTitle: "Paste this in your channel or group.",
+  kitLine:
+    "Telegram lets you set a welcome message with buttons in your channel settings. Use this text and add a button with your link.",
+  kitText: (link: string, handle: string) =>
+    `Message me on Telegram through Amped.Bio. Tap the link and send your message: ${link}\n\nShare my card in any chat: type @AmpedBioBot ${handle}`,
+  kitButtonText: (creator: string) => `Message ${creator}`,
+  kitButtonLabel: "Button text",
+  kitButtonLink: "Button link",
+  kitCopy: "Copy welcome message",
+  kitCopyLink: "Copy button link",
+  kitCopied: "Welcome message copied.",
+  // Wizard step 4 and Done (board tg10)
+  wizardStep: "Group",
+  wizardTitle: "Connect your Telegram group.",
+  wizardOptional: "Step 4 of 4. Optional.",
+  wizardRuleFromStep2: (rule: string) =>
+    `Rule from step 2: ${rule}. Change it in My Pool any time.`,
+  wizardSkip: "Skip for now",
+  doneInline: (handle: string) => `Type @AmpedBioBot ${handle} in any chat to drop your card.`,
+  doneCopyLink: "Copy my Telegram link",
+  // Admin, Telegram, Groups (board tg9)
+  adminTab: "Groups",
+  adminGroupsConnected: "Groups connected",
+  adminMembers: "Members in groups",
+  adminNoRights: "Bot without rights",
+  adminRemovedToday: "Removed today",
+  adminColumns: {
+    group: "Group",
+    creator: "Creator",
+    rule: "Rule",
+    members: "Members",
+    lastCheck: "Last check",
+    bot: "Bot",
+    action: "Action",
+  },
+  adminBotAdmin: "Admin",
+  adminView: "View",
+  adminRecheck: "Re-check",
+  adminLine:
+    "Admins see group names, counts and rules only. The bot never posts in a group. Every re-check is logged with the admin's handle.",
+  adminEmpty: "No groups connected yet.",
 } as const;
 
 /** Phrases the compliance check rejects on Telegram surfaces, beyond BROADCAST_BANNED_TERMS. */
@@ -578,4 +709,5 @@ export const TELEGRAM_COPY_ROOTS = {
   TELEGRAM_BOT_COMMANDS,
   TELEGRAM_BOT_BUTTONS,
   TELEGRAM_BOT_STRINGS,
+  TELEGRAM_GROUP_STRINGS,
 } as const;

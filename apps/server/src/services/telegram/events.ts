@@ -15,7 +15,12 @@ export type TelegramEventName =
   | "dm_reply_latency"
   | "dm_refused"
   | "dm_blocked"
-  | "dm_reported";
+  | "dm_reported"
+  | "group_connected"
+  | "group_join_decided"
+  | "group_member_removed"
+  | "inline_card_shown"
+  | "inline_card_picked";
 
 type EventValue = string | number | boolean | null;
 
