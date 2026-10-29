@@ -6,108 +6,15 @@
  * better-auth are faked in memory.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { JOHN, PLAIN, ROB, db, resetPaymentsFakes, store } from "./payments-fakes";
 
-type Row = Record<string, any>;
-
-const store = vi.hoisted(() => ({
-  settings: new Map<string, Row>(),
-  changes: [] as Row[],
-  users: [] as Row[],
-  twoFactor: new Map<number, Row>(),
+vi.mock("@repo/database", async () => ({
+  prisma: (await import("./payments-fakes")).db,
+  Prisma: {},
 }));
-
-function matches(row: Row, where: Row = {}): boolean {
-  return Object.entries(where).every(([key, condition]) => {
-    const value = row[key];
-    if (
-      condition &&
-      typeof condition === "object" &&
-      !(condition instanceof Date) &&
-      !Buffer.isBuffer(condition)
-    ) {
-      if ("in" in condition) return condition.in.includes(value);
-      if ("lt" in condition) return value < condition.lt;
-      if ("lte" in condition) return value !== null && value <= condition.lte;
-      return true;
-    }
-    if (Buffer.isBuffer(condition)) return Buffer.isBuffer(value) && condition.equals(value);
-    return value === condition;
-  });
-}
-
-const db = vi.hoisted(() => {
-  const api: Row = {
-    siteSettings: {
-      findMany: vi.fn(async ({ where }: Row) =>
-        [...store.settings.values()].filter(row => where.setting_key.in.includes(row.setting_key))
-      ),
-      findUnique: vi.fn(async ({ where }: Row) => store.settings.get(where.setting_key) ?? null),
-      upsert: vi.fn(async ({ where, create, update }: Row) => {
-        const existing = store.settings.get(where.setting_key);
-        const row = existing ? { ...existing, ...update } : { ...create };
-        store.settings.set(where.setting_key, row);
-        return row;
-      }),
-    },
-    adminChange: {
-      create: vi.fn(async ({ data }: Row) => {
-        const row = {
-          effectiveAt: null,
-          approvedById: null,
-          decisionNote: null,
-          safeTxHash: null,
-          txHash: null,
-          chainId: null,
-          decidedAt: null,
-          appliedAt: null,
-          createdAt: new Date(),
-          ...data,
-        };
-        store.changes.push(row);
-        return row;
-      }),
-      findFirst: vi.fn(
-        async ({ where }: Row) => store.changes.find(row => matches(row, where)) ?? null
-      ),
-      findUnique: vi.fn(
-        async ({ where }: Row) =>
-          store.changes.find(row => Buffer.from(row.id).equals(where.id)) ?? null
-      ),
-      findMany: vi.fn(async ({ where, take }: Row) => {
-        const rows = store.changes
-          .filter(row => matches(row, where))
-          .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-        return take ? rows.slice(0, take) : rows;
-      }),
-      updateMany: vi.fn(async ({ where, data }: Row) => {
-        let count = 0;
-        for (const row of store.changes) {
-          if (matches(row, where)) {
-            Object.assign(row, data);
-            count += 1;
-          }
-        }
-        return { count };
-      }),
-    },
-    user: {
-      findMany: vi.fn(async ({ where }: Row) => {
-        if (where.handle) return store.users.filter(user => where.handle.in.includes(user.handle));
-        return store.users.filter(user => where.id.in.includes(user.id));
-      }),
-    },
-    twoFactor: {
-      findUnique: vi.fn(async ({ where }: Row) => store.twoFactor.get(where.userId) ?? null),
-    },
-  };
-  api.$transaction = vi.fn(async (fn: (tx: Row) => unknown) => fn(api));
-  return api;
-});
-
-const verifyTOTP = vi.hoisted(() => vi.fn());
-
-vi.mock("@repo/database", () => ({ prisma: db, Prisma: {} }));
-vi.mock("../utils/auth", () => ({ auth: { api: { verifyTOTP } } }));
+vi.mock("../utils/auth", async () => ({
+  auth: { api: { verifyTOTP: (await import("./payments-fakes")).verifyTOTP } },
+}));
 vi.mock("../services/usdc/admin", () => ({
   relayerState: vi.fn(async () => ({ configured: false })),
 }));
@@ -135,9 +42,6 @@ import {
 import { clearTwoFactorFailuresForTests } from "../services/payments/twoFactor";
 import { paymentsAdminRouter } from "../trpc/admin/payments";
 
-const JOHN = 11;
-const ROB = 12;
-const PLAIN = 13;
 const NOW = new Date("2026-10-28T15:00:00Z");
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -156,27 +60,9 @@ const plain = () => caller(PLAIN, "admin");
 beforeEach(() => {
   vi.clearAllMocks();
   vi.useRealTimers();
-  store.settings.clear();
-  store.changes.length = 0;
-  store.users.splice(
-    0,
-    store.users.length,
-    { id: JOHN, handle: "john" },
-    { id: ROB, handle: "rob" },
-    { id: PLAIN, handle: "ops" },
-    { id: 40, handle: "maya_lin" },
-    { id: 41, handle: "dj-kai" }
-  );
-  store.twoFactor.clear();
-  store.twoFactor.set(JOHN, { verified: true });
-  store.twoFactor.set(ROB, { verified: true });
-  store.twoFactor.set(PLAIN, { verified: true });
+  resetPaymentsFakes();
   clearPaymentSettingsCache();
   clearTwoFactorFailuresForTests();
-  verifyTOTP.mockImplementation(async ({ body }: Row) => {
-    if (body.code === "123456") return { token: "session-token", user: {} };
-    throw new Error("INVALID_CODE");
-  });
   Object.assign(env, {
     PAYMENTS_ENABLED: false,
     AMPEDPAY_ADDRESS: "",
@@ -498,7 +384,7 @@ describe("two person rule (acceptance 4)", () => {
     ).rejects.toThrow(/expired/);
   });
 
-  it("refuses on chain and fixed values until PAY-A2", async () => {
+  it("refuses fixed values, and on chain values while the contract is not deployed", async () => {
     await expect(
       john().changes.draft({
         key: "feeFloorBps",
@@ -506,7 +392,7 @@ describe("two person rule (acceptance 4)", () => {
         reason: "Lower floor",
         code: "123456",
       })
-    ).rejects.toThrow(/Safe/);
+    ).rejects.toThrow(/not deployed/);
     await expect(
       john().changes.draft({
         key: "MAX_FEE_BPS",
