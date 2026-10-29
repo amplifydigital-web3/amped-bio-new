@@ -4,6 +4,7 @@ import { startBroadcastSweeper } from "./services/broadcast";
 import { startTelegramLoop } from "./services/telegram/loop";
 import { registerTelegramOutboxHandlers } from "./services/telegram/broadcast";
 import { registerMessagingOutboxHandlers } from "./services/messaging/delivery";
+import { registerGroupOutboxHandlers, startGroupChecks } from "./services/telegram/groups";
 import { startUsdcIndexer } from "./services/usdc";
 import { startContentSweeper } from "./services/content/state";
 import { startOnrampTokenPurge } from "./services/onramp/sessions";
@@ -23,7 +24,10 @@ startBroadcastSweeper();
 // Messaging on Telegram (Build Board #2): drain the inbox and outbox tables. No-op until TELEGRAM_ENABLED.
 registerTelegramOutboxHandlers();
 registerMessagingOutboxHandlers();
+registerGroupOutboxHandlers();
 startTelegramLoop();
+// Phase 2: hourly group checks. No-op until TELEGRAM_GROUPS.
+startGroupChecks();
 
 // USDC in the wallet (Build Board #29): index USDC transfers on Base. No-op until USDC_ENABLED.
 startUsdcIndexer();

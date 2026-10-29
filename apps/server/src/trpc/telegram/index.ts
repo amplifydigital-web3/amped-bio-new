@@ -16,6 +16,7 @@ import { isOidcConfigured, startTelegramLink } from "../../services/telegram/oid
 import { getBotUsername } from "../../services/telegram/client";
 import { enqueueOutbox } from "../../services/telegram/loop";
 import { getOrCreateLinkCode } from "../../services/telegram/linkCodes";
+import { telegramGroupsRouter } from "./groups";
 
 /** Where the browser lands after Telegram (PR 4). The handle must name a published page. */
 const returnToSchema = z
@@ -142,4 +143,5 @@ export const telegramLinkRouter = router({
 
 export const telegramRouter = router({
   link: telegramLinkRouter,
+  groups: telegramGroupsRouter,
 });
