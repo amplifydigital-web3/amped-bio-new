@@ -137,7 +137,7 @@ export {
   type CreatorPageProps,
   type CreatorPageSize,
 } from "./creator/creator-page";
-export { CreatorButton, CREATOR_FOCUS, clampedFontSize } from "./creator/creator-button";
+export { CreatorButton, CREATOR_FOCUS, clampedFontSize, playPress } from "./creator/creator-button";
 // Theme Engine v2 phase 1c: the one particle overlay (tsParticles v4 slim)
 export { ParticlesLayer, type ParticlesLayerProps } from "./creator/particles-layer";
 export { particleLayerOptions } from "./creator/particles-options";

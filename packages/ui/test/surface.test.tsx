@@ -14,7 +14,8 @@ import {
 } from "../src/creator/surface";
 import * as publicStyles from "../../../apps/landingpage/src/lib/styles";
 
-// Theme Engine v2 phase 2, Container row: shape and border over the surface.
+// Theme Engine v2 phase 2, Container, Buttons, Hover and press rows: what the
+// rows add over the v1 surface and button.
 
 const PROFILE = { name: "Maya Rivera" };
 // A full v1 color and font set, so the v1 and v2 shapes resolve to the same values
@@ -139,5 +140,28 @@ describe("CreatorButton surface and layout", () => {
       buttonLayout: "split",
     };
     expect(button(upgradeTheme(v1) as never)).toBe(button(v1));
+  });
+});
+
+// Theme Engine v2 phase 2, Button hover and press rows (board 09).
+
+describe("CreatorButton hover and press", () => {
+  it("adds no press classes and no handler by default", () => {
+    const html = button({ buttonStyle: 0 });
+    expect(html).not.toContain("active:scale-[0.97]");
+    expect(html).not.toContain("overflow-hidden");
+  });
+
+  it("draws a phase 2 hover from its stored id", () => {
+    const html = button({ buttonEffect: 9, buttonEffectId: "buttonHover.fill-sweep" });
+    expect(html).toContain("hover:before:scale-x-100");
+    expect(html).not.toContain("before:via-white/20");
+  });
+
+  it("presses in for Dip and clips the ripple for Ripple", () => {
+    expect(button({ buttonPressId: "buttonPress.dip" })).toContain(
+      "motion-safe:active:scale-[0.97]"
+    );
+    expect(button({ buttonPressId: "buttonPress.ripple" })).toContain("relative overflow-hidden");
   });
 });

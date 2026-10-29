@@ -12,8 +12,9 @@ const hover = (
   id: string,
   label: string,
   description: string,
-  legacyId: number,
-  className: string
+  legacyId: number | undefined,
+  className: string,
+  extra: Partial<EffectEntry> = {}
 ): EffectEntry => ({
   id: `buttonHover.${id}`,
   layer: "buttonHover",
@@ -27,10 +28,15 @@ const hover = (
   params: {},
   render: className ? { kind: "class", className } : { kind: "none" },
   preview: { sample: "button" },
-  legacyId,
+  ...(legacyId === undefined ? {} : { legacyId }),
   addedIn: 1,
+  ...extra,
 });
 
+// Phase 2 (board 09) adds core hovers with no v1 integer at the end. The editor
+// stores their id as buttonEffectId and keeps buttonEffect on the nearest v1
+// look. Their colors come from currentColor (the creator's text color), so the
+// label keeps its contrast.
 export const BUTTON_HOVER_EFFECTS: readonly EffectEntry[] = [
   hover("none", "None", "No hover effect", 0, ""),
   hover(
@@ -95,5 +101,45 @@ export const BUTTON_HOVER_EFFECTS: readonly EffectEntry[] = [
     "A light sweep across the button",
     9,
     "hover:before:opacity-100 focus-visible:before:opacity-100 before:absolute before:inset-0 before:bg-gradient-to-r before:from-transparent before:via-white/20 before:to-transparent before:opacity-0 before:transition-opacity overflow-hidden relative duration-[233ms] ease-[cubic-bezier(0.2,0,0,1)]"
+  ),
+  hover(
+    "fill-sweep",
+    "Fill sweep",
+    "A tint in your text color sweeps across",
+    undefined,
+    "relative isolate overflow-hidden before:absolute before:inset-0 before:-z-10 before:origin-left before:scale-x-0 before:bg-[color-mix(in_srgb,currentColor_14%,transparent)] before:transition-transform before:duration-[233ms] before:ease-[cubic-bezier(0.2,0,0,1)] motion-reduce:before:transition-none hover:before:scale-x-100 focus-visible:before:scale-x-100",
+    { addedIn: 2 }
+  ),
+  hover(
+    "underline-grow",
+    "Underline grow",
+    "An underline grows under the label",
+    undefined,
+    "relative before:absolute before:inset-x-[21px] before:bottom-[6px] before:h-[2px] before:origin-left before:scale-x-0 before:bg-current before:transition-transform before:duration-[233ms] before:ease-[cubic-bezier(0.2,0,0,1)] motion-reduce:before:transition-none hover:before:scale-x-100 focus-visible:before:scale-x-100",
+    { addedIn: 2 }
+  ),
+  hover(
+    "border-draw",
+    "Border draw",
+    "A border in your text color draws in",
+    undefined,
+    "ring-inset ring-[color:color-mix(in_srgb,currentColor_60%,transparent)] transition-shadow duration-[233ms] ease-[cubic-bezier(0.2,0,0,1)] hover:ring-2 focus-visible:ring-2",
+    { addedIn: 2 }
+  ),
+  hover(
+    "icon-slide",
+    "Icon slide",
+    "The icon slides toward the label",
+    undefined,
+    "[&>span:first-child]:transition-transform [&>span:first-child]:duration-[233ms] [&>span:first-child]:ease-[cubic-bezier(0.2,0,0,1)] motion-safe:[&:hover>span:first-child]:translate-x-[5px] motion-safe:[&:focus-visible>span:first-child]:translate-x-[5px]",
+    { addedIn: 2 }
+  ),
+  hover(
+    "arrow-nudge",
+    "Arrow nudge",
+    "The arrow nudges right; pairs with the Split layout",
+    undefined,
+    "[&>svg]:transition-transform [&>svg]:duration-[233ms] [&>svg]:ease-[cubic-bezier(0.2,0,0,1)] motion-safe:[&:hover>svg]:translate-x-[5px] motion-safe:[&:focus-visible>svg]:translate-x-[5px]",
+    { addedIn: 2 }
   ),
 ];

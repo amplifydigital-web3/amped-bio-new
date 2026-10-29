@@ -1,8 +1,8 @@
 "use client";
 
-import type { CSSProperties, ReactNode } from "react";
+import type { CSSProperties, PointerEvent, ReactNode } from "react";
 import { ChevronRight } from "lucide-react";
-import type { AnyThemeConfig } from "@repo/constants";
+import type { AnyThemeConfig, EffectEntry, ThemeColors } from "@repo/constants";
 import { cn } from "../utils";
 import { effectClassName, lookFor } from "./look";
 import { buttonSurfaceClass } from "./surface";
@@ -23,6 +23,44 @@ export function clampedFontSize(theme: AnyThemeConfig | null | undefined) {
 /** 039 I13: focus shows a 2px outline in the creator's text color. */
 export const CREATOR_FOCUS =
   "outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--amped-font)]";
+
+/**
+ * Plays a WAAPI press effect (Ripple) from the press point: one span sized to
+ * 2.5 times the button width, removed when it finishes. Never delays the
+ * click, and plays nothing under reduced motion (decision 6, spec 3.5).
+ */
+export function playPress(
+  entry: EffectEntry,
+  colors: ThemeColors,
+  event: PointerEvent<HTMLElement>
+): void {
+  if (entry.render.kind !== "waapi" || entry.render.trigger !== "press") return;
+  const button = event.currentTarget;
+  if (typeof button.animate !== "function") return;
+  if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+  const box = button.getBoundingClientRect();
+  const size = box.width * 2.5;
+  const dot = document.createElement("span");
+  dot.setAttribute("aria-hidden", "true");
+  Object.assign(dot.style, {
+    position: "absolute",
+    left: `${event.clientX - box.left}px`,
+    top: `${event.clientY - box.top}px`,
+    width: `${size}px`,
+    height: `${size}px`,
+    borderRadius: "50%",
+    pointerEvents: "none",
+  });
+  button.appendChild(dot);
+  const params = {};
+  const animation = dot.animate(
+    entry.render.keyframes(params, colors) as Keyframe[],
+    entry.render.options(params) as KeyframeAnimationOptions
+  );
+  const remove = () => dot.remove();
+  animation.onfinish = remove;
+  animation.oncancel = remove;
+}
 
 /**
  * 040 I06: one button anatomy for link, referral and pool calls to action.
@@ -49,13 +87,21 @@ export function CreatorButton({
   // Phase 2 Buttons row (board 07): Label is the v1 anatomy; Icon slot sets
   // the label beside the icon; Split adds a chevron at the right
   const layout = look.v2.button.layout;
+  // Phase 2 Button press row: a class press (Dip) or a ripple from the press point
+  const press = look.buttonPress;
+  const ripple = press.render.kind === "waapi";
   const className = cn(
     "flex min-h-commit w-full items-center gap-[13px] px-[21px] py-2",
     effectClassName(look.button),
     buttonSurfaceClass(look),
     effectClassName(look.buttonHover),
+    effectClassName(press),
+    ripple && "relative overflow-hidden",
     CREATOR_FOCUS
   );
+  const onPointerDown = ripple
+    ? (event: PointerEvent<HTMLElement>) => playPress(press, look.colors, event)
+    : undefined;
   const style: CSSProperties = {
     backgroundColor: look.values.buttonColor,
     fontFamily: look.values.fontFamily,
@@ -90,6 +136,7 @@ export function CreatorButton({
         target={newTab ? "_blank" : undefined}
         rel={newTab ? "noopener noreferrer" : undefined}
         onClick={onClick}
+        onPointerDown={onPointerDown}
         className={className}
         style={style}
       >
@@ -98,7 +145,13 @@ export function CreatorButton({
     );
   }
   return (
-    <button type="button" onClick={onClick} className={className} style={style}>
+    <button
+      type="button"
+      onClick={onClick}
+      onPointerDown={onPointerDown}
+      className={className}
+      style={style}
+    >
       {content}
     </button>
   );

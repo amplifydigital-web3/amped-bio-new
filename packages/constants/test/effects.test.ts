@@ -132,7 +132,13 @@ describe("registry lookups", () => {
     expect(listEffects("name").map(e => e.legacyId)).toEqual([0, 2, 6, 7, 8, 9]);
     // The ten v1 styles plus Hard shadow (phase 2, board 07)
     expect(listEffects("button").length).toBe(11);
-    expect(listEffects("buttonHover").length).toBe(10);
+    // The ten v1 hovers plus five core hovers (phase 2, board 09)
+    expect(listEffects("buttonHover").length).toBe(15);
+    expect(listEffects("buttonPress").map(e => e.id)).toEqual([
+      "buttonPress.none",
+      "buttonPress.ripple",
+      "buttonPress.dip",
+    ]);
   });
 
   it("clampParams clamps, snaps, defaults and drops unknown keys", () => {

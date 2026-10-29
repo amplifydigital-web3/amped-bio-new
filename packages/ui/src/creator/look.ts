@@ -32,6 +32,8 @@ export interface CreatorLook {
   container: EffectEntry;
   button: EffectEntry;
   buttonHover: EffectEntry;
+  /** Press effect, new in v2 (decision 6). */
+  buttonPress: EffectEntry;
   name: EffectEntry;
   /** The particle overlay, or null for none. */
   overlay: EffectEntry | null;
@@ -108,6 +110,7 @@ export function lookFor(theme: AnyThemeConfig | null | undefined): CreatorLook {
     container: getEffect("container", v2.container.id),
     button: getEffect("button", v2.button.id),
     buttonHover: getEffect("buttonHover", v2.buttonHover.id),
+    buttonPress: getEffect("buttonPress", v2.buttonPress.id),
     name: getEffect("name", v2.name.id),
     overlay: overlay && overlay.id !== "scene.none" ? overlay : null,
     overlayParams: v2.scene.overlay?.params ?? {},

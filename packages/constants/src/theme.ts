@@ -63,6 +63,11 @@ export const themeConfigSchema = z.object({
   buttonShape: z.enum(BUTTON_SHAPES).optional(),
   buttonBorder: z.enum(BORDER_STYLES).optional(),
   buttonLayout: z.enum(BUTTON_LAYOUTS).optional(),
+  // Theme Engine v2 Hover and press rows (spec 3.5, board 09), additive and
+  // optional. A hover with no v1 integer is stored by id; the editor keeps
+  // buttonEffect on the nearest v1 look. Press is new in v2.
+  buttonEffectId: z.enum(EFFECT_IDS.buttonHover as unknown as [string, ...string[]]).optional(),
+  buttonPressId: z.enum(EFFECT_IDS.buttonPress as unknown as [string, ...string[]]).optional(),
 });
 
 // Schema for the theme object in editTheme endpoint

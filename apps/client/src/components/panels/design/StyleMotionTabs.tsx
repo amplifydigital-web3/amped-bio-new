@@ -8,7 +8,7 @@ import { BackgroundRow } from "./rows/BackgroundRow";
 import { ContainerRow } from "./rows/ContainerRow";
 import { ButtonsRow } from "./rows/ButtonsRow";
 import { TextRow } from "./rows/TextRow";
-import { ButtonHoverRow, NameEffectRow, ParticlesRow } from "./rows/MotionRows";
+import { ButtonHoverRow, ButtonPressRow, NameEffectRow, ParticlesRow } from "./rows/MotionRows";
 
 // Screen Review 027. Style holds Background, Container, Buttons and Text;
 // Motion holds Button hover, Particles and Name effect. One row open at a time.
@@ -60,6 +60,7 @@ export function MotionTab() {
         readOnly={locked}
       >
         <ButtonHoverRow />
+        <ButtonPressRow />
         <ParticlesRow />
         <NameEffectRow />
       </DisclosureGroup>
