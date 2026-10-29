@@ -4,6 +4,7 @@ import {
   Menu,
   MenuContent,
   MenuItem,
+  MenuLabel,
   MenuSeparator,
   MenuSub,
   MenuSubContent,
@@ -28,6 +29,8 @@ import { PUBLISH_FIRST, usePageUnpublished } from "./pageVisibility";
 // unpublished (QA-008) those rows are disabled and name the reason.
 // Sign out and Switch account end the wallet session too, so the next
 // account in this browser never inherits the previous account's wallet.
+// On mobile the Help rows sit inline under a Help label: a side sub list has
+// no room beside a full width menu on a phone and could not be reached.
 export function AccountMenu({ mobile = false }: { mobile?: boolean }) {
   const { authUser } = useAuth();
   const { signOutEverywhere } = useWalletContext();
@@ -155,15 +158,23 @@ export function AccountMenu({ mobile = false }: { mobile?: boolean }) {
             </a>
           </MenuItem>
         )}
-        <MenuSub>
-          <MenuSubTrigger>
-            <HelpCircle aria-hidden />
-            Help
-          </MenuSubTrigger>
-          <MenuSubContent className="w-[288px]">
+        {mobile ? (
+          <>
+            <MenuSeparator />
+            <MenuLabel>Help</MenuLabel>
             <HelpMenuItems />
-          </MenuSubContent>
-        </MenuSub>
+          </>
+        ) : (
+          <MenuSub>
+            <MenuSubTrigger>
+              <HelpCircle aria-hidden />
+              Help
+            </MenuSubTrigger>
+            <MenuSubContent className="w-[288px]">
+              <HelpMenuItems />
+            </MenuSubContent>
+          </MenuSub>
+        )}
         <MenuSeparator />
         <MenuItem onSelect={() => void handleSignOut(true)}>
           <ArrowLeftRight aria-hidden />
