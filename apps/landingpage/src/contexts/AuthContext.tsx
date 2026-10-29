@@ -170,12 +170,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     isPending: isPending || isInitializing,
     signUp,
     signOut: async () => {
+      // The client returns a failed sign out instead of throwing. Throw it, so
+      // the caller never clears the user while the server session stays valid.
       try {
-        await authClient.signOut();
+        const { error: signOutError } = await authClient.signOut();
+        if (signOutError) throw new Error(signOutError.message || "Sign out failed");
         setAuthUser(null);
         setError(null);
       } catch (error) {
         setError((error as Error).message);
+        throw error;
       }
     },
     resetPassword,
