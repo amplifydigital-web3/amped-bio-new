@@ -13,6 +13,7 @@ import {
   AdminBroadcasts,
   AdminTelegram,
   AdminMoney,
+  AdminHandles,
 } from "./pages";
 
 function AppRouter() {
@@ -41,6 +42,7 @@ function AppRouter() {
           <Route path="broadcasts" element={<AdminBroadcasts />} />
           <Route path="telegram" element={<AdminTelegram />} />
           <Route path="money" element={<AdminMoney />} />
+          <Route path="handles" element={<AdminHandles />} />
           {/* ndau conversions moved to the support portal; old links land on the dashboard */}
           <Route path="ndau-conversions" element={<Navigate to="/" replace />} />
         </Route>
