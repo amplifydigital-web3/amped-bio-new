@@ -227,6 +227,8 @@ const envSchema = z.object({
   MESSAGING_INVITE_ONLY: boolSchema(true),
   // Gated creator groups (phase 2)
   TELEGRAM_GROUPS: boolSchema(false),
+  // The Mini App page endpoint, follow and share (phase 3). Counsel confirms TON safe mode first.
+  TELEGRAM_MINIAPP: boolSchema(false),
 
   // USDC in the wallet (Build Board #29), spec docs/features/usdc-wallet-onramp.md 3.3 and 3.4.
   // Master switch for gasless sends and the indexer. Off until the CDP relayer account exists.

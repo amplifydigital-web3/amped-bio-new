@@ -20,7 +20,10 @@ export type TelegramEventName =
   | "group_join_decided"
   | "group_member_removed"
   | "inline_card_shown"
-  | "inline_card_picked";
+  | "inline_card_picked"
+  | "miniapp_opened"
+  | "miniapp_follow"
+  | "miniapp_share";
 
 type EventValue = string | number | boolean | null;
 
