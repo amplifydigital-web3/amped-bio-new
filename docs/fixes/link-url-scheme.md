@@ -11,7 +11,7 @@ A creator could store a link that runs script on amped.bio when a visitor taps i
 - `sanitizeBlockConfig` returned link configs unchanged, on save and on public reads.
 - The public page (`ProfileView.tsx`, through `CreatorButton`) and the editor preview (`Preview.tsx`) render `href={block.config.url}`.
 
-The editor preview is the worst sink. A click there runs script in app.amped.bio with the creator signed in. Once the Agency System (#38) ships, agencies open their creators' editors, which would make this cross account.
+The editor preview renders the same href. Today every preview runs with `isEditing`, and its click capture stops navigation, so the link cannot run there. It is one change away from running script in app.amped.bio with the creator signed in, so the fix guards it too.
 
 ## 2. Fix
 
