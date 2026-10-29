@@ -23,6 +23,8 @@ vi.mock("@repo/ui", async () => ({
   queryClient: { setQueryData: vi.fn() },
 }));
 vi.mock("./lib/uploads", () => ({ refreshContent: vi.fn() }));
+// Preview and captions have their own tests (ItemMedia.test.tsx)
+vi.mock("./ItemMedia", () => ({ ItemPreview: () => null, CaptionsSection: () => null }));
 
 const ID = "abcdefgh12345678";
 
