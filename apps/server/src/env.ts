@@ -267,6 +267,14 @@ const envSchema = z.object({
   ONRAMP_DOMAIN: z.string().default(""),
   // Key for the stored Coinbase userAuthToken (AES-256-GCM). Falls back to BETTER_AUTH_SECRET.
   ONRAMP_DATA_KEY: z.string().default(""),
+  // AmpedPay (Build Board #50), spec docs/features/ampedpay.md 3.3 and 6.1. Master switch for
+  // payments. While false the admin Payments pages still show and change every setting, so
+  // values are ready before launch; fans see nothing.
+  PAYMENTS_ENABLED: boolSchema(false),
+  // AmpedPay proxy and the environment's Safe, from the deploy script output. Empty until the
+  // contract is deployed (PAY-1 on Base Sepolia). The admin shows "Not deployed" until then.
+  AMPEDPAY_ADDRESS: z.string().default(""),
+  AMPEDPAY_SAFE: z.string().default(""),
   // Content system (Build Board #20), PR 2. Spec 3.17. Secrets never live in committed .env files.
   // Master switch for uploads. Off everywhere until the Cloudflare setup checklist is done.
   // Turning it off during an incident stops new uploads; items already stored keep working.
