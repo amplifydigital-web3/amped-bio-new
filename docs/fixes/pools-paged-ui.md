@@ -24,6 +24,10 @@ The patch deletes `fan.searchPoolsForBlockEditor` (no caller since Screen Review
 | Block editor pool search | `pools.blockEditor.search` runs on the shared rules: listed pools only (not hidden, creator not suspended), search tiers, then most fans. `limit` max 10; the editor still asks for 8. Fans in search and in Your pool come from `active_fans`, so the creator never counts (P4). |
 | `fan.searchPoolsForBlockEditor` | Deleted (patch above). |
 
+### Live totals without getPools
+
+`pools.fan.getPools` was the only writer of the live total cache (`getPoolsCacheKey`, 15 minutes) that `listPools` reads for decision P3. Once both tabs leave it, that cache would empty and cards would only ever show the columns. `listPools` now refreshes it in the background, in the same step and lock as the APY refresh: for the cards on the page with no cached total, one multicall reads `creatorStaked` and `totalFanStaked`, writes the cache, and rewrites the stats columns only when the chain total differs from `total_stake_wei` (so the list version is not bumped for nothing). The page never waits on it. Chain reads stay limited to the cards on the page (acceptance 1).
+
 Both tabs drop a pool that comes back on a later page, by pool id. This is the repeat on move limit found in PL2: a pool whose stake changes between two page loads can cross the cursor.
 
 No visual change beyond the Show more row and the count line, both from the Prism kit.
@@ -39,8 +43,9 @@ Behavior notes for review:
 - `apps/landingpage/src/lib/getPoolsData.ts`
 - `apps/landingpage/src/app/sitemap.ts`
 - `apps/server/src/services/poolList.ts` (adds `blockSearchQuery`)
+- `apps/server/src/trpc/pools/list.ts` (live total refresh)
 - `apps/server/src/trpc/pools/blockEditor.ts`
-- `apps/server/src/__tests__/pool-list.test.ts` (2 new tests)
+- `apps/server/src/__tests__/pool-list.test.ts` (3 new tests)
 - `docs/fixes/pools-paged-ui.patch` (`fan.ts`)
 
 No migration.
@@ -49,7 +54,7 @@ No migration.
 
 - Typecheck clean for server, client and landing (the repo's pre-commit typecheck).
 - Lint: no errors in changed files.
-- Server tests: 834 pass (2 new). The 5 unhandled errors are the same as on PL2 and `development`. OAuth suites excluded, as on `development`.
+- Server tests: 835 pass (3 new). The 5 unhandled errors are the same as on PL2 and `development`. OAuth suites excluded, as on `development`.
 - Client `vite build` passes. Landing `next build` passes; with no API reachable the SSR page and sitemap fall back as before.
 - The block search SQL ran against MariaDB 10.11 with all migrations and 5,000 pools: handle search with `@`, tiers ascending, listed pools only, exact address, a description only word in tier 3.
 
