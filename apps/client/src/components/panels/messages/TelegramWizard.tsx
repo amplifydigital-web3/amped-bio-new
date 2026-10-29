@@ -191,8 +191,8 @@ export function TelegramWizard() {
   });
 
   const dmLink =
-    status.data?.botUsername && profile.handle
-      ? telegramDmLink(status.data.botUsername, profile.handle)
+    status.data?.botUsername && status.data.linkCode
+      ? telegramDmLink(status.data.botUsername, status.data.linkCode)
       : null;
   const copyDmLink = async () => {
     if (!dmLink) return;
