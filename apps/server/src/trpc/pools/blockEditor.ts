@@ -65,7 +65,7 @@ export const poolsBlockEditorRouter = router({
             chainId: input.chainId,
             poolAddress: { not: null },
             AND: [
-              { OR: [{ hidden: false }, { hidden: null }] },
+              { hidden: false },
               isAddress
                 ? { poolAddress: { equals: search.toLowerCase() } }
                 : {
