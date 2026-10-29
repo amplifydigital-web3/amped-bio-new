@@ -363,7 +363,6 @@ export function Preview({
             </button>
           </footer>
         }
-        renderOverlay={effect => <ParticlesBackground effect={effect} />}
       />
     );
   }

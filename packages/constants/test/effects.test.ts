@@ -12,14 +12,13 @@ import {
   getEffect,
   legacyEffectId,
   listEffects,
+  toV4Options,
   type EffectEntry,
 } from "../src/index";
 // The two live renderers' maps and presets. Phase 1b replaces them with the
 // shared renderer; until then the registry must match them class for class.
 import * as editorStyles from "../../../apps/client/src/utils/styles";
 import * as publicStyles from "../../../apps/landingpage/src/lib/styles";
-import { particleConfigs as editorParticles } from "../../../apps/client/src/components/particles/particleConfigs";
-import { particleConfigs as publicParticles } from "../../../apps/landingpage/src/lib/particleConfigs";
 
 const LEGACY_IDS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 
@@ -215,9 +214,9 @@ describe("no pixel change: the registry matches today's renderers", () => {
     }
   });
 
-  it("particle presets equal both app copies", () => {
-    expect(PARTICLE_PRESETS).toEqual(editorParticles);
-    expect(PARTICLE_PRESETS).toEqual(publicParticles);
+  it("particle overlays play the v1 preset at their default params", () => {
+    // Phase 1c deleted both apps' particleConfigs.ts; PARTICLE_PRESETS is the
+    // one copy and the old renderers read it (scenes.particles.ts)
     for (const n of LEGACY_IDS.slice(1)) {
       const entry = findEffect(legacyEffectId("particlesEffect", n))!;
       expect(entry.render.kind).toBe("particles");
@@ -228,7 +227,9 @@ describe("no pixel change: the registry matches today's renderers", () => {
           container: "#ffffff",
           text: "#000000",
         };
-        expect(entry.render.options({}, colors)).toEqual(publicParticles[n]);
+        expect(entry.render.options(clampParams(entry), colors)).toEqual(
+          toV4Options(PARTICLE_PRESETS[n]!)
+        );
       }
     }
   });

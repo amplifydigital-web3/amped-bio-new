@@ -6,6 +6,8 @@ import {
   upgradeTheme,
   type AnyThemeConfig,
   type EffectEntry,
+  type ParamValues,
+  type ThemeColors,
   type ThemeConfig,
   type ThemeConfigV2,
 } from "@repo/constants";
@@ -32,6 +34,10 @@ export interface CreatorLook {
   name: EffectEntry;
   /** The particle overlay, or null for none. */
   overlay: EffectEntry | null;
+  /** The overlay's params from the v2 slot (empty for v1 configs). */
+  overlayParams: ParamValues;
+  /** The creator's colors as effects read them (theme color mode). */
+  colors: ThemeColors;
 }
 
 const PX_BY_SIZE: Record<ThemeConfigV2["fonts"]["size"], string> = {
@@ -84,14 +90,23 @@ export function lookFor(theme: AnyThemeConfig | null | undefined): CreatorLook {
   if (theme && CACHE.has(theme)) return CACHE.get(theme)!;
   const v2 = upgradeTheme(theme ?? undefined);
   const overlay = v2.scene.overlay ? findEffect(v2.scene.overlay.id) : undefined;
+  const values = isThemeConfigV2(theme) ? v1Values(v2) : ((theme as ThemeConfig | undefined) ?? {});
+  const text = values.fontColor || THEME_DEFAULTS.fontColor;
   const look: CreatorLook = {
     v2,
-    values: isThemeConfigV2(theme) ? v1Values(v2) : ((theme as ThemeConfig | undefined) ?? {}),
+    values,
     container: getEffect("container", v2.container.id),
     button: getEffect("button", v2.button.id),
     buttonHover: getEffect("buttonHover", v2.buttonHover.id),
     name: getEffect("name", v2.name.id),
     overlay: overlay && overlay.id !== "scene.none" ? overlay : null,
+    overlayParams: v2.scene.overlay?.params ?? {},
+    colors: {
+      button: values.buttonColor || THEME_DEFAULTS.buttonColor,
+      buttonText: text,
+      container: values.containerColor || THEME_DEFAULTS.containerColor,
+      text,
+    },
   };
   if (theme) CACHE.set(theme, look);
   return look;

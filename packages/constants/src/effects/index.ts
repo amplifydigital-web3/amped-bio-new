@@ -7,3 +7,4 @@ export * from "./types";
 export * from "./registry";
 export * from "./legacy";
 export { PARTICLE_PRESETS, type ParticlePreset } from "./particlePresets";
+export { PARTICLE_PARAMS, particleOptions, toV4Options } from "./scenes.particles";
