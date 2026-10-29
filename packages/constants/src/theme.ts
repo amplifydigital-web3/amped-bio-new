@@ -2,6 +2,12 @@ import { z } from "zod";
 import { findEffect, EFFECT_IDS } from "./effects/registry";
 import type { EffectLayer } from "./effects/types";
 
+// Theme Engine v2 surface sub controls (spec 3.5, decision 5). Declared before
+// the v1 schema because the Container row stores them on v1 configs too.
+export const CONTAINER_SHAPES = ["rounded", "pill", "squircle", "cut", "arch", "blob"] as const;
+export const BUTTON_SHAPES = ["rounded", "pill", "squircle", "cut", "ticket"] as const;
+export const BORDER_STYLES = ["none", "hairline", "thick", "dashed", "gradient", "glow"] as const;
+
 // Background schema matching the Background interface from collections
 const BACKGROUND_TEXTURES = ["none", "grain", "dots", "scanlines"] as const;
 
@@ -45,6 +51,10 @@ export const themeConfigSchema = z.object({
   buttonEffect: z.number().optional(),
   particlesEffect: z.number().optional(),
   heroEffect: z.number().optional(),
+  // Theme Engine v2 Container row (spec 3.5, board 03), additive and optional.
+  // v1 renderers ignore them; upgradeTheme carries them into the v2 container.
+  containerShape: z.enum(CONTAINER_SHAPES).optional(),
+  containerBorder: z.enum(BORDER_STYLES).optional(),
 });
 
 // Schema for the theme object in editTheme endpoint
@@ -75,9 +85,6 @@ export type AmpedThemeImport = z.infer<typeof ampedThemeImportSchema>;
 
 const hexColor = z.string().regex(/^#[0-9a-f]{6}$/i, "Use a #RRGGBB color");
 
-export const CONTAINER_SHAPES = ["rounded", "pill", "squircle", "cut", "arch", "blob"] as const;
-export const BUTTON_SHAPES = ["rounded", "pill", "squircle", "cut", "ticket"] as const;
-export const BORDER_STYLES = ["none", "hairline", "thick", "dashed", "gradient", "glow"] as const;
 export const BUTTON_LAYOUTS = ["label", "icon", "split"] as const;
 export const SCENE_TEXTURES = BACKGROUND_TEXTURES;
 /** v1 offers five sizes (14, 16, 18, 20, 24 px), so v2 keeps five. */

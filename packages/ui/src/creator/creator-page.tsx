@@ -14,6 +14,7 @@ import {
 } from "./look";
 import { ParticlesLayer } from "./particles-layer";
 import { gradientScene, textureStyle } from "./scene";
+import { containerSurfaceClass } from "./surface";
 
 /**
  * Theme Engine v2, phase 1b (docs/features/theme-engine-v2.md, 3.4): the one
@@ -185,7 +186,13 @@ export function CreatorPage({
       style={{ paddingBottom: bottomPadding }}
     >
       <div
-        className={cn("w-full", surface && sizes.pad, effectClassName(look.container))}
+        className={cn(
+          "w-full",
+          surface && sizes.pad,
+          effectClassName(look.container),
+          // Phase 2 Container row: shape and border over the surface
+          containerSurfaceClass(look)
+        )}
         style={surface ? { backgroundColor: containerBackground(look) } : undefined}
       >
         <header className="flex flex-col items-center text-center">

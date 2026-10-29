@@ -2,6 +2,8 @@ import {
   isThemeConfigV2,
   themeConfigV2Schema,
   SCENE_TEXTURES,
+  CONTAINER_SHAPES,
+  BORDER_STYLES,
   type FONT_SIZES,
   type SceneBase,
   type ThemeConfig,
@@ -231,6 +233,13 @@ function textureOf(texture: string | undefined): SceneTexture {
   return texture && known.includes(texture) ? (texture as SceneTexture) : "none";
 }
 
+// A value from the list, or the fallback for one that slipped past the schema
+function oneOf<T extends string>(list: readonly T[], value: string | undefined, fallback: T): T {
+  return value !== undefined && (list as readonly string[]).includes(value)
+    ? (value as T)
+    : fallback;
+}
+
 /**
  * A gradient the Background row built (stops on the v1 background, phase 2).
  * Returns null when the stops are missing or invalid, so the legacy CSS parse
@@ -332,8 +341,13 @@ export function upgradeTheme(
     container: {
       id: containerId,
       params: {},
-      shape: containerId === "container.arch" ? "arch" : "rounded",
-      border: "none",
+      // The Container row stores shape and border on v1 configs (phase 2)
+      shape: oneOf(
+        CONTAINER_SHAPES,
+        v1.containerShape,
+        containerId === "container.arch" ? "arch" : "rounded"
+      ),
+      border: oneOf(BORDER_STYLES, v1.containerBorder, "none"),
     },
     button: {
       id: buttonId,

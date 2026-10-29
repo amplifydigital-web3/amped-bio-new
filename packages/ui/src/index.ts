@@ -144,6 +144,12 @@ export { particleLayerOptions } from "./creator/particles-options";
 // Theme Engine v2 phase 2: built gradients, drift and textures (Background row)
 export { gradientScene, textureStyle, type SceneLook } from "./creator/scene";
 export {
+  BORDER_STYLE_CLASSES,
+  CONTAINER_SHAPE_CLASSES,
+  containerShapeClass,
+  containerSurfaceClass,
+} from "./creator/surface";
+export {
   containerBackground,
   containerOn,
   effectClassName,
