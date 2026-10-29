@@ -14,6 +14,8 @@ import {
   groupWeek,
   listCreatorGroups,
   previewRule,
+  primaryGroup,
+  qualifies,
   queueGroupCheck,
   setGroupRule,
   setRemoveUnverified,
@@ -149,6 +151,20 @@ export const telegramGroupsRouter = router({
       return { queued: await queueGroupCheck(group.id) };
     })
   ),
+
+  /**
+   * Whether the signed in viewer qualifies for a creator's group (the Join group block,
+   * board tg13). Only a yes or no: never the group, its link or an amount. The bot checks
+   * the rule again when the fan taps through.
+   */
+  canJoin: privateProcedure
+    .input(z.object({ creatorUserId: z.number().int().positive() }))
+    .query(async ({ ctx, input }) => {
+      if (!env.TELEGRAM_GROUPS) return { open: false, allowed: false };
+      const group = await primaryGroup(input.creatorUserId);
+      if (!group?.inviteLink) return { open: false, allowed: false };
+      return { open: true, allowed: await qualifies(group, ctx.user!.sub) };
+    }),
 
   disconnect: privateProcedure
     .input(z.object({ groupId: idSchema }))

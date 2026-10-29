@@ -1,12 +1,15 @@
 import { useQuery } from "@tanstack/react-query";
-import { Send } from "lucide-react";
+import { Send, Users } from "lucide-react";
 import { trpc } from "@repo/ui";
 import {
+  DEFAULT_TELEGRAM_GROUP_LABEL,
   DEFAULT_TELEGRAM_MESSAGE_LABEL,
   DM_RULE_LABELS,
   type DmRuleKind,
+  type TelegramGroupBlock as TelegramGroupBlockType,
   type TelegramMessageBlock as TelegramMessageBlockType,
 } from "@repo/constants";
+import { useTelegramGroups } from "../panels/messages/telegramGroupsData";
 import type { ThemeConfig } from "../../types/editor";
 import { cn } from "../../utils/cn";
 import { getButtonBaseStyle, getButtonEffectStyle } from "../../utils/styles";
@@ -30,16 +33,19 @@ export function TelegramMessageBlock({
   theme,
   label,
   ruleKind,
+  icon,
+  fallbackLabel = DEFAULT_TELEGRAM_MESSAGE_LABEL,
 }: {
-  block?: TelegramMessageBlockType;
+  block?: TelegramMessageBlockType | TelegramGroupBlockType;
   theme: ThemeConfig | undefined;
   label?: string;
   /** The creator's rule; no hint for Anyone */
   ruleKind?: DmRuleKind | null;
+  /** The mark before the label; the send mark by default */
+  icon?: React.ReactNode;
+  fallbackLabel?: string;
 }) {
-  const text =
-    (label ?? block?.config.label ?? DEFAULT_TELEGRAM_MESSAGE_LABEL).trim() ||
-    DEFAULT_TELEGRAM_MESSAGE_LABEL;
+  const text = (label ?? block?.config.label ?? fallbackLabel).trim() || fallbackLabel;
   const hint = ruleKind && ruleKind !== "ANYONE" ? DM_RULE_LABELS[ruleKind] : null;
   return (
     <div className="space-y-1.5">
@@ -57,7 +63,7 @@ export function TelegramMessageBlock({
         }}
       >
         <span aria-hidden className="flex h-[21px] w-[21px] shrink-0 items-center justify-center">
-          <Send className="h-[21px] w-[21px]" />
+          {icon ?? <Send className="h-[21px] w-[21px]" />}
         </span>
         <span
           className="line-clamp-2 flex-1 break-words text-center font-semibold"
@@ -102,6 +108,35 @@ export function TelegramMessagePreview({
         block={block}
         theme={theme}
         ruleKind={on ? (settings.data!.ruleKind as DmRuleKind) : null}
+      />
+    </div>
+  );
+}
+
+/**
+ * The preview's Join my Telegram group block (board tg13): the creator's button with
+ * a group mark and the connected group's rule under it. Faded until a group is
+ * connected, since visitors do not see it before then.
+ */
+export function TelegramGroupPreview({
+  block,
+  theme,
+}: {
+  block: TelegramGroupBlockType;
+  theme: ThemeConfig | undefined;
+}) {
+  const groups = useTelegramGroups();
+  const group = groups.data?.enabled
+    ? groups.data.groups.find(item => item.state === "connected")
+    : undefined;
+  return (
+    <div className={cn(!group && "opacity-60")}>
+      <TelegramMessageBlock
+        block={block}
+        theme={theme}
+        icon={<Users className="h-[21px] w-[21px]" />}
+        fallbackLabel={DEFAULT_TELEGRAM_GROUP_LABEL}
+        ruleKind={group ? group.ruleKind : null}
       />
     </div>
   );

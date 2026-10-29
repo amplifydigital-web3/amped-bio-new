@@ -14,7 +14,7 @@ import { ReferralBlock } from "./blocks/ReferralBlock";
 import { FollowBlock } from "./blocks/FollowBlock";
 import { FollowersBlock } from "./blocks/FollowersBlock";
 import { RnsIdBlock } from "./blocks/RnsIdBlock";
-import { TelegramMessagePreview } from "./blocks/TelegramMessageBlock";
+import { TelegramGroupPreview, TelegramMessagePreview } from "./blocks/TelegramMessageBlock";
 import { isHTML } from "@/utils/htmlutils";
 import { type BlockType, DEFAULT_RNSID_CONFIG, sanitizeRichHtml } from "@repo/constants";
 import { Theme, UserProfile } from "@/types/editor";
@@ -270,7 +270,7 @@ export function Preview({
         </ErrorBoundary>
       );
     }
-    // Messaging on Telegram (#2, row 115). The group block waits on PR 5.
+    // Messaging on Telegram (#2, row 115 and board tg13)
     if (block.type === "telegram_message") {
       if (!telegramOn) return null;
       return (
@@ -279,7 +279,14 @@ export function Preview({
         </ErrorBoundary>
       );
     }
-    if (block.type === "telegram_group") return null;
+    if (block.type === "telegram_group") {
+      if (!telegramOn) return null;
+      return (
+        <ErrorBoundary key={block.id} fallback={fallback}>
+          <TelegramGroupPreview block={block} theme={themeConfig} />
+        </ErrorBoundary>
+      );
+    }
     return (
       <ErrorBoundary key={block.id} fallback={fallback}>
         <TextBlock block={block} theme={themeConfig} />

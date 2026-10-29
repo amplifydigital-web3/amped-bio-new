@@ -30,6 +30,7 @@ import { FollowBlock } from "@/components/blocks/FollowBlock";
 import { FollowersBlock } from "@/components/blocks/FollowersBlock";
 import { RnsIdBlock } from "@/components/blocks/RnsIdBlock";
 import { TelegramMessageBlock } from "@/components/blocks/TelegramMessageBlock";
+import { TelegramGroupBlock } from "@/components/blocks/TelegramGroupBlock";
 import { FollowContext } from "@/components/follow/FollowContext";
 import { useReferralHandler } from "@/hooks/useReferralHandler";
 import { useAuth } from "@/contexts/AuthContext";
@@ -465,7 +466,22 @@ export function ProfileView({
             isOwner={isOwner}
           />
         )
-      ) : block.type === "telegram_group" ? null : (
+      ) : block.type === "telegram_group" ? (
+        // Board tg13: live only while the creator has a connected group
+        telegramMarkOn && (
+          <TelegramGroupBlock
+            block={block}
+            theme={themeConfig}
+            door={profile.telegramGroupDoor}
+            handle={normalizedHandle}
+            creatorUserId={profile.id}
+            creatorName={profile.name}
+            signedIn={!!authUser}
+            authPending={authPending}
+            isOwner={isOwner}
+          />
+        )
+      ) : (
         <TextBlock block={block as any} theme={themeConfig as any} />
       )}
     </ErrorBoundary>

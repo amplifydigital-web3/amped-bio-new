@@ -218,6 +218,8 @@ export const TELEGRAM_APP_STRINGS = {
     PAID_MEMBER: (creator: string) => `Members only. Membership is on ${creator}'s page.`,
     POOL_MEMBER: (creator: string) => `Pool fans only. ${creator}'s pool is on their page.`,
     FOLLOWER: (creator: string) => `Follow ${creator} to get in.`,
+    STAKE_MIN: (creator: string) =>
+      `Fans above a minimum stake. The details are on ${creator}'s page.`,
   },
   exploreTooltip: "Messages on Telegram",
   accountNotLinked: {
@@ -560,6 +562,15 @@ export const TELEGRAM_GROUP_STRINGS = {
   foundLine: "Added by you. Connect it?",
   foundNoRights: "The bot is in the group but is not an admin with Invite users and Ban users yet.",
   whoGetsIn: "Who gets in",
+  /** Helper lines under the group rule tiles (board tg5) */
+  ruleHelpers: {
+    ANYONE: "Anyone who linked Telegram to Amped.Bio.",
+    FOLLOWER: "People who follow you, hold a membership or back your pool.",
+    PAID_MEMBER: "People with a paid membership.",
+    POOL_MEMBER: "People who back your pool. Checked every hour.",
+    STAKE_MIN: "Fans below the amount are removed at the next check.",
+  },
+  waitingLink: "Link Telegram first, so the bot knows the group is yours.",
   connect: "Connect group",
   publicPrompt: "Public group?",
   publicPaste: "Paste its @username",
@@ -577,6 +588,7 @@ export const TELEGRAM_GROUP_STRINGS = {
   rightsMissing: "Rights missing",
   privateBotAdmin: "Private group, bot is admin.",
   checkedAgo: (ago: string) => `Checked ${ago}.`,
+  notChecked: "Not checked yet.",
   members: "Members",
   rule: "Rule",
   change: "Change",
@@ -618,7 +630,12 @@ export const TELEGRAM_GROUP_STRINGS = {
   blockJoin: "Join my Telegram group",
   blockOpensTelegram: "Telegram opens with the invite.",
   blockNoGroup: "Connect a group in My Pool first. Visitors do not see this button until you do.",
+  blockEditorLine: "Visitors who qualify get the invite in Telegram.",
+  blockGroupField: "Group",
+  blockRuleNote: "The rule comes from the group. Change it in My Pool, Telegram group.",
+  blockOpenMyPool: "Open My Pool",
   // Welcome message kit (board tg14)
+  kitOpen: "Welcome message for your channel",
   kitTitle: "Paste this in your channel or group.",
   kitLine:
     "Telegram lets you set a welcome message with buttons in your channel settings. Use this text and add a button with your link.",
@@ -630,10 +647,12 @@ export const TELEGRAM_GROUP_STRINGS = {
   kitCopy: "Copy welcome message",
   kitCopyLink: "Copy button link",
   kitCopied: "Welcome message copied.",
+  kitLinkCopied: "Button link copied.",
   // Wizard step 4 and Done (board tg10)
   wizardStep: "Group",
   wizardTitle: "Connect your Telegram group.",
   wizardOptional: "Step 4 of 4. Optional.",
+  wizardStepOf: (step: number) => `Step ${step} of 4`,
   wizardRuleFromStep2: (rule: string) =>
     `Rule from step 2: ${rule}. Change it in My Pool any time.`,
   wizardSkip: "Skip for now",

@@ -3,13 +3,17 @@ import { useQuery } from "@tanstack/react-query";
 import {
   DEFAULT_TELEGRAM_GROUP_LABEL,
   DEFAULT_TELEGRAM_MESSAGE_LABEL,
+  DM_RULE_LABELS,
   TELEGRAM_APP_STRINGS as S,
+  TELEGRAM_GROUP_STRINGS as G,
   TELEGRAM_BLOCK_LABEL_MAX,
   type TelegramGroupBlock,
   type TelegramMessageBlock,
 } from "@repo/constants";
 import { Button, Notice, trpc } from "@repo/ui";
+import { useEditor } from "@/contexts/EditorContext";
 import { useOpenTelegramWizard } from "../../messages/shared";
+import { useTelegramGroups } from "../../messages/telegramGroupsData";
 import { FieldError } from "./LinkFields";
 import { wellClass } from "./linkValue";
 import type { ConfigChange } from "./BlockFields";
@@ -19,7 +23,9 @@ import type { ConfigChange } from "./BlockFields";
  * Screen Review 115, board tg4 editor). The label only: the rule and whether the
  * door is open come from Inbox, Settings, so no rule text is ever typed here.
  * With Fan messages off, the row says visitors do not see the button yet and
- * offers wizard A. The group block waits on Telegram groups (PR 5).
+ * offers wizard A. The group block (board tg13) shows the connected group and its
+ * rule, read only: both are set in My Pool, Telegram group (or Inbox, Settings
+ * without a pool). With no group connected, visitors do not see it yet.
  */
 export function TelegramBlockFields({
   block,
@@ -37,6 +43,21 @@ export function TelegramBlockFields({
     enabled: isMessage,
     staleTime: 30_000,
   });
+  const groups = useTelegramGroups();
+  const { setActivePanelAndNavigate } = useEditor();
+  const groupSettings = useQuery({
+    ...trpc.messaging.creator.getSettings.queryOptions(),
+    enabled: !isMessage && !!groups.data?.enabled,
+    staleTime: 30_000,
+  });
+  const groupsOn = !!groups.data?.enabled;
+  const group = groups.data?.enabled
+    ? groups.data.groups.find(item => item.state === "connected")
+    : undefined;
+  const openGroups = () =>
+    groupSettings.data?.requirements.hasPool
+      ? setActivePanelAndNavigate("my-pool", undefined, { tab: "telegram" })
+      : setActivePanelAndNavigate("inbox", undefined, { tab: "settings" });
   const error = label.trim() ? null : S.blockLabelRequired;
 
   return (
@@ -49,9 +70,17 @@ export function TelegramBlockFields({
           </Button>
         </Notice>
       )}
-      {!isMessage && (
+      {!isMessage && !groupsOn && (
         <Notice variant="info" className="rounded-prism-13">
           <p>{S.groupBlockSoon}</p>
+        </Notice>
+      )}
+      {!isMessage && groupsOn && !group && groups.data && (
+        <Notice variant="info" className="rounded-prism-13">
+          <p>{G.blockNoGroup}</p>
+          <Button variant="ghost" className="mt-2" onClick={openGroups}>
+            {G.blockOpenMyPool}
+          </Button>
         </Notice>
       )}
       <div className="space-y-2">
@@ -83,13 +112,25 @@ export function TelegramBlockFields({
             id="telegram-block-label-help"
             className="flex justify-between text-prism-meta text-prism-ink-2"
           >
-            <span>{S.blockLabelHelper}</span>
+            <span>{isMessage ? S.blockLabelHelper : G.blockEditorLine}</span>
             <span className="tabular-nums">
               {label.length} / {TELEGRAM_BLOCK_LABEL_MAX}
             </span>
           </p>
         )}
       </div>
+      {!isMessage && group && (
+        <div className="space-y-2">
+          <p className="text-prism-label font-semibold text-prism-ink">{G.blockGroupField}</p>
+          <div className="prism-well flex min-h-touch items-center justify-between gap-3 rounded-prism-13 px-[13px]">
+            <span className="min-w-0 truncate text-prism-label text-prism-ink">{group.title}</span>
+            <span className="shrink-0 text-prism-meta text-prism-ink-2">
+              {DM_RULE_LABELS[group.ruleKind]}
+            </span>
+          </div>
+          <p className="text-prism-meta text-prism-ink-2">{G.blockRuleNote}</p>
+        </div>
+      )}
     </div>
   );
 }
