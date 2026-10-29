@@ -24,6 +24,7 @@ export const SYSTEM_RESERVED_HANDLES: ReadonlySet<string> = new Set([
   "privacy",
   "register",
   "sign",
+  "tg",
   // routes on the board
   "pools",
   "pool",
