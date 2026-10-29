@@ -145,14 +145,10 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
 
   const setUser = useCallback(
     async (handle: string) => {
-      // console.group(`🔍 Setting User: ${handle}`);
-      // console.info("🚀 Loading user data...");
       try {
         const onlinkData = await trpcClient.handle.getHandle.query({ handle });
 
         if (!onlinkData) {
-          // console.info("❌ User not found:", handle);
-          // console.groupEnd();
           return;
         }
         const { user, theme, blocks: blocks_raw, hasCreatorPool } = onlinkData;
@@ -214,8 +210,6 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
           if (kept.themeConfig) markThemeDirty();
           markDirty();
         }
-        // console.info("✅ User setup complete");
-        // console.groupEnd();
         return onlinkData;
       } catch (error) {
         console.info("❌ Error getting user:", error);
@@ -227,9 +221,6 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
 
   const setProfile = useCallback(
     (profile: UserProfile) => {
-      console.group("👤 Setting Profile");
-      console.info("New profile data:", profile);
-
       const updatedProfile = { ...profile };
 
       if (
@@ -251,13 +242,6 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
         profile: updatedProfile,
       }));
       markDirty();
-      console.info(
-        "✅ Profile updated with handle:",
-        updatedProfile.handle,
-        "and formatted handle:",
-        updatedProfile.handleFormatted
-      );
-      console.groupEnd();
     },
     [markDirty]
   );
@@ -299,8 +283,6 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
 
   const updateBlock = useCallback(
     (id: number, updatedConfig: any) => {
-      console.group(`🔄 Updating Block: ${id}`);
-      console.info("Update data:", updatedConfig);
       setState(prevState => ({
         ...prevState,
         blocks: prevState.blocks.map(block =>
@@ -308,39 +290,29 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
         ),
       }));
       markDirty();
-      console.info("✅ Block updated");
-      console.groupEnd();
     },
     [markDirty]
   );
 
   const reorderBlocks = useCallback(
     (blocks: BlockType[]) => {
-      console.group("🔀 Reordering Blocks");
-      console.info(`Reordering ${blocks.length} blocks`);
       setState(prevState => ({
         ...prevState,
         blocks,
       }));
       markDirty();
-      console.info("✅ Blocks reordered");
-      console.groupEnd();
     },
     [markDirty]
   );
 
   const updateThemeConfig = useCallback(
     (config: Partial<ThemeConfig>) => {
-      console.group("🎨 Updating Theme Config");
-      console.info("New config:", config);
       setState(prevState => ({
         ...prevState,
         theme: { ...prevState.theme, config: { ...prevState.theme.config, ...config } },
       }));
       markDirty();
       markThemeDirty();
-      console.info("✅ Theme config updated");
-      console.groupEnd();
     },
     [markDirty, markThemeDirty]
   );
@@ -388,8 +360,6 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
 
   const setBackground = useCallback(
     (background: Background) => {
-      console.group("🖼️ Setting Background");
-      console.info("Background:", background);
       setState(prevState => ({
         ...prevState,
         theme: {
@@ -399,16 +369,12 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
       }));
       markDirty();
       markThemeDirty();
-      console.info("✅ Background updated");
-      console.groupEnd();
     },
     [markDirty, markThemeDirty]
   );
 
   const setBackgroundForUpload = useCallback(
     (background: Background) => {
-      console.group("📁 Setting Background for Upload");
-      console.info("Background:", background);
       setState(prevState => ({
         ...prevState,
         theme: {
@@ -417,54 +383,36 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
         },
       }));
       markDirty();
-      console.info("✅ Background updated for upload (no theme change marked)");
-      console.groupEnd();
     },
     [markDirty]
   );
 
   const addToGallery = useCallback((image: GalleryImage) => {
-    console.group("🖼️ Adding to Gallery");
-    console.info("Image:", image);
     setState(prevState => ({
       ...prevState,
       gallery: [...prevState.gallery, image],
     }));
-    console.info("✅ Image added to gallery");
-    console.groupEnd();
   }, []);
 
   const removeFromGallery = useCallback((url: string) => {
-    console.group("🗑️ Removing from Gallery");
-    console.info("URL:", url);
     setState(prevState => ({
       ...prevState,
       gallery: prevState.gallery.filter(image => image.url !== url),
     }));
-    console.info("✅ Image removed from gallery");
-    console.groupEnd();
   }, []);
 
   const applyTheme = useCallback((theme: Theme) => {
-    console.group("🎨 Applying Theme");
-    console.info("Theme:", theme.name);
     setState(prevState => ({
       ...prevState,
       theme,
     }));
-    console.info("✅ Theme applied");
-    console.groupEnd();
   }, []);
 
   const setSelectedPoolId = useCallback((id: string | null) => {
-    console.group("🏊 Setting Selected Pool ID");
-    console.info(`Pool ID: ${id}`);
     setState(prevState => ({
       ...prevState,
       selectedPoolId: id,
     }));
-    console.info("✅ Selected pool ID updated");
-    console.groupEnd();
   }, []);
 
   // Stores the current profile, theme and blocks. Reads the latest state from
@@ -664,15 +612,12 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
   }, [setSavedRevoName]);
 
   const setDefault = useCallback(() => {
-    console.group("🔄 Resetting to Default");
     setState(initialState);
     setChanges(false);
     setThemeChanges(false);
     revision.current = 0;
     savedRevision.current = 0;
     setSaveStatus("idle");
-    console.info("✅ Reset to default state");
-    console.groupEnd();
   }, []);
 
   const exportTheme = useCallback((customFilename?: string) => {

@@ -1,11 +1,11 @@
 # Theme Engine v2: effects registry, shared renderer, catalog, fonts, sharing
 
-Status: spec and boards for approval, 2026-10-10. Build Board #28. The three card decisions are answered (Rob chose the recommendation on each). Build starts on Rob's approval of the boards in section 3.1 and decisions 4 to 12.
+Status: approved for build, 2026-10-26. Build Board #28. Rob approved boards 01 to 12 (Screen Review rows 139 to 150) and chose the recommendation on every decision, 1 to 13. Phase 1a (registry and schema) is the first build PR.
 Owner: Rob Frasca. Drafted by Claude, 2026-10-10, against amplifydigital-web3/amped-bio-new `development` at 29db7cb.
 Overview: docs/overviews/theme-engine-v2.md (project doc claude/amped-theme-engine-v2-overview-2026-10-07.md). This spec implements it and does not restate the research.
 Screens: Prism 2.2 boards 01 to 12 on the Theme Engine v2 design canvas (https://claude.ai/artifact/5oErPADNijTy9hTbXuA4GV). Design QA: docs/features/theme-engine-v2-design-qa.md. Screen Review rows 139 to 150.
-Depends on: Prism 2.2 rollout #20 (Design screens 023 to 033 shipped), motion layer #26 phase 2 (merged in #291 on 8 Oct; its frame watchdog is extracted into `packages/ui` in phase 1b), test setup PR #304 (Vitest, open). Feeds: Paid themes #3.
-Plan rechecked: 2026-10-10 against `development` 29db7cb and the motion layer as merged (#290, #291). Changes in the revision log.
+Depends on: Prism 2.2 rollout #20 (Design screens 023 to 033 shipped), motion layer #26 phase 2 (merged in #291 on 8 Oct; its frame watchdog is extracted into `packages/ui` in phase 1b), test setup PR #304 (Vitest, merged 14 Oct). Feeds: Paid themes #3.
+Plan rechecked: 2026-10-26 against `development` a3ce333 (337 commits after 29db7cb). Changes in the revision log.
 
 ## 1. Research summary
 
@@ -27,13 +27,13 @@ What is on `development` today, confirmed in code on 10 Oct.
 
 v2 replaces integer maps with one typed effect registry in `packages/constants/src/effects/` and one shared page renderer in `packages/ui/src/creator/`, then grows the catalog to about 150 picks across six layers (scene, container, button, button effect, name, cursor), opens the full Google Fonts catalog, versions the theme file, and adds saved looks, history and share links. The overview holds the architecture, catalog tiers, library and license verdicts and the competition read.
 
-### Decisions answered by Rob on the Build Board card (recommended answer on all three)
+### Decisions answered by Rob on the Build Board card (recommended answer on all)
 
 1. **Effect budget per page.** 1 heavy or 3 light effects before the weak device fallback renders the still version. Written into 3.7.
 2. **Font delivery.** Self host the chosen families through a Fontsource build step on Amped's CDN, no request to Google before consent. Written into 3.8; the Google path stays as `FONT_DELIVERY=google` for staging comparison only.
 3. **react-bits in sold themes.** No. react-bits derived effects ship free as core and plus; any shader Amped wants inside a paid theme is rewritten as Amped's own GLSL. Written into 3.5 (the `source` field) and 3.11.
 
-### Decision open for Rob (added 10 Oct on the plan recheck)
+### Decision added 10 Oct on the plan recheck (answered 26 Oct: recommended)
 
 13. **WebGL engine for showcase scenes and the blob cursor.** Recommended: no library. Extract the raw WebGL setup from the merged `HeroBeam.tsx` into a shared helper in `packages/ui/src/motion/webgl.ts` (context, full screen triangle, uniforms, resize, loop, about 2 KB) and port each shader onto it. Why: the motion layer shipped this way, so it is proven on the live site, it adds no dependency, and every ported shader becomes Amped's own code, which also serves decision 3. Alternative: add OGL 1.0.x (about 13 KB gzip). Faster to port the react-bits shaders as written, but it is a new dependency the motion layer chose not to take. The registry names the engine `webgl` either way, so only phase 3 changes.
 
@@ -43,7 +43,7 @@ v2 replaces integer maps with one typed effect registry in `packages/constants/s
 - Ship the shared renderer beside the old two behind `SHOW_THEME_V2` (staging all, then Rob's handle, then all). Delete the old renderers one release after full rollout.
 - Read v1 rows forever. Write v2 on the next save. Additive database changes only. No long lived v2 branch.
 
-### Decisions made in this spec (recommended, Rob confirms with the boards)
+### Decisions made in this spec (Rob confirmed the recommendation on all, 26 Oct)
 
 4. **Scene replaces Background plus Particles.** One Scene layer with a base slot (color, gradient, photo, video, shader) and an overlay slot (particles). The Style tab Background row edits the base; the Motion tab Scene row edits motion scenes and particles, and when a shader scene is on it replaces the base while it runs (board 10 notice). Why: today particles already sit over the background. Alternative: a third row. More rows, same result.
 5. **Shape, border and layout are sub controls, not ids.** Container and Buttons each carry `shape`, `border` and (buttons) `layout` params. Why: 8 surfaces, 6 shapes and 6 borders yield 288 looks from 20 entries. Alternative: 288 tiles.
@@ -158,7 +158,7 @@ export const themeConfigV2Schema = z.object({
   fonts: z.object({
     name: z.object({ family: z.string().max(80), weight: z.number().min(100).max(900).default(700), italic: z.boolean().default(false), axes: z.record(z.string(), z.number()).default({}) }),
     body: z.object({ family: z.string().max(80), weight: z.number().min(100).max(900).default(400), italic: z.boolean().default(false), axes: z.record(z.string(), z.number()).default({}) }),
-    size: z.enum(["s", "m", "l", "xl"]).default("m"),
+    size: z.enum(["s", "m", "l", "xl", "xxl"]).default("m"),   // five v1 sizes: 14, 16, 18, 20, 24 px
   }),
   scene: z.object({
     base: z.discriminatedUnion("type", [
@@ -210,10 +210,10 @@ export const BORDER_STYLES = ["none", "hairline", "thick", "dashed", "gradient",
 `legacy.ts` exports `upgradeTheme(v1: ThemeConfig): ThemeConfigV2`:
 
 - `buttonStyle` 0 to 9 map to `button.soft`, `button.pill` (shape pill), `button.outline`, `button.shadow`, `button.glass`, `button.neon`, `button.gradient`, `button.floating`, `button.bordered-glow`, `button.minimal`. Ids outside the map become `button.soft`.
-- `containerStyle` 0, 1, 2, 3, 4, 5, 7, 9 map to `container.none`, `frosted`, `floating`, `gradient-border`, `neon-glow`, `double-border`, `minimal-glass`, `modern-card`. 6 maps to `container.modern-card`; 8 maps to `container.frosted` with `shape: "arch"`.
+- `containerStyle` 0, 1, 2, 3, 4, 5, 7, 9 map to `container.none`, `frosted`, `floating`, `gradient-border`, `neon-glow`, `double-border`, `minimal-glass`, `modern-card`. 6 and 8, no longer offered in the editor, map to retired entries `container.soft-card` and `container.arch` (shape `arch`) that keep their current classes (corrected 26 Oct: no pixel change).
 - `buttonEffect` 0 to 9 map to `buttonHover.none`, `scale`, `glow`, `slide`, `bounce`, `pulse`, `shake`, `rotate`, `pop`, `shine`. Bounce and pulse become 233 ms one shot on both renderers (the editor's infinite loop was a drift bug).
 - `heroEffect` 0, 2, 6, 7, 8, 9 map to `name.none`, `glow`, `wave`, `neon`, `rainbow`, `glitch`. 1 maps to `name.gradient` (returns in v2). 3 maps to `name.typewriter` (fixed). 4 and 5 (undefined classes today) map to `name.blur-in` and `name.split-reveal`, the nearest entrances.
-- `particlesEffect` maps to `scene.overlay`: 0 none, then `scene.floating-dots`, `links`, `snow`, `bubbles`, `fireflies`, `confetti`, `stars`, `geometric`. 6 (retired Matrix) becomes none.
+- `particlesEffect` maps to `scene.overlay`: 0 none, then `scene.floating-dots`, `links`, `snow`, `bubbles`, `fireflies`, `confetti`, `stars`, `geometric`. 6 (Matrix, not offered in the editor) maps to the retired entry `scene.matrix` with its current preset (corrected 26 Oct).
 - `background` maps to `scene.base`: `color` to `{type: "color"}`, a CSS gradient string to `{type: "gradient"}` parsed into stops and angle (the 4 known gradients are matched by string; any other string that contains at least one hex color becomes a two stop gradient from its first two hex colors, and a string with no hex color at all, such as a plain CSS function, falls back to the default gradient stops #3b82f6 to #8b5cf6 at 90 degrees), `image` and `video` keep their ids and urls.
 - `fontFamily` to `fonts.name.family` and `fonts.body.family` (same family), `fontSize` to `fonts.size`, colors to `colors`, `transparency` to `colors.containerOpacity`.
 - `buttonText` is derived: the contrast guard picks black or white against `button`.
@@ -425,5 +425,6 @@ Acceptance:
 
 ## Revision log
 
+- 2026-10-26 (approval and plan recheck for phase 1a): Rob approved the twelve boards and confirmed decisions 4 to 13 with the recommendation. The Build Board card showed the effect budget alternative selected; it is corrected to the recommendation this spec already carried. Recheck against `development` a3ce333: `theme.ts`, both style maps and both particle preset files are unchanged since 29db7cb, so 1a holds as written. `Preview.tsx` and `ProfileView.tsx` gained the RNS ID and Telegram blocks; the 1b wrappers carry them. `packages/ui/src/creator/` now exists (RNS ID card, first follow sheet); `CreatorPage` joins it. `framer-motion`, `tsparticles-slim` and `@lottiefiles/dotlottie-react` are still unused in the client; their removal is a one command follow up (`pnpm --filter @repo/client remove framer-motion tsparticles-slim @lottiefiles/dotlottie-react`) so the 1a PR leaves `pnpm-lock.yaml` untouched. Built in 1a, with four corrections to 3.3: (1) v1 offers five font sizes (14, 16, 18, 20 and 24 px), so `FONT_SIZES` gains `xxl` instead of folding two sizes together; (2) container 6 and 8 and particles 6 (Matrix) keep retired registry entries with their current classes and presets instead of remapping to other looks, so no existing page changes (Rob, 7 Oct); (3) image and video bases keep the v1 `background.id` as `presetId` so the editor can still highlight the picked tile; (4) buttons have no none entry, so `LAYER_DEFAULTS` names `button.soft` as the button fallback, matching v1. `packages/constants` tests run in 1a on the client's Vitest (no new dependency, so no lockfile change); `packages/ui` gets its Vitest config in 1b with the first renderer tests. Rings.ampedtheme is new (it was never committed): the Rings video with the Ellipse styles, its closest sibling in the cyber collection.
 - 2026-10-10 (plan recheck): `development` unchanged at 29db7cb. The motion layer merged (#290, #291) as raw WebGL with an inline watchdog, so phase 1b now extracts the watchdog, `lowPower()` and `motionState.ts` into `packages/ui/src/motion/`, and the showcase engine is decision 13 (raw WebGL helper recommended, OGL the alternative; registry engine renamed `webgl`). Flags renamed to the `SHOW_` convention. Tests moved to Vitest (open #304) and Cypress; phase 1a lands after #304 and adds Vitest to `packages/constants` and `packages/ui`; phase 4 updates #304's `EditorContext.test.tsx`. Motion tokens are `MOTION` and `PRISM_EASE` from `@repo/ui`.
 - 2026-10-10: First spec. Boards 01 to 06 reviewed and fixed, boards 07 to 12 added, all twelve passed the gate. Rob answered the three card decisions with the recommendation; the spec carries them as settled.

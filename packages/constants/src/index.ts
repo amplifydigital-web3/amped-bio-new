@@ -7,6 +7,7 @@ export * from "./handle";
 export * from "./reservedHandles";
 export * from "./platforms";
 export * from "./theme";
+export * from "./effects";
 export * from "./collections";
 export * from "./errors";
 export * from "./blocks";
