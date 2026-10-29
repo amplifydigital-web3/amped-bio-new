@@ -18,6 +18,7 @@
     "typecheck": "tsc --noEmit",
     "email:check": "tsx -r dotenv/config scripts/email-check.ts",
     "usdc:records": "tsx -r dotenv/config scripts/usdc-records.ts",
+    "handles:reserved-audit": "tsx -r dotenv/config scripts/handles-reserved-audit.ts",
     "email:dev": "email dev --dir src/utils/email",
     "test": "vitest run",
     "test:unit": "vitest run --exclude src/__tests__/oauth-endpoints.test.ts --exclude src/__tests__/oauth-e2e.test.ts",
