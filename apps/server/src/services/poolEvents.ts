@@ -1,3 +1,4 @@
+import { refreshPoolStatsQuietly } from "./poolStats";
 import { prisma } from "@repo/database";
 import { createPublicClient, type AbiEvent, type Address, type Log, type PublicClient } from "viem";
 import { CREATOR_POOL_ABI, getChainConfig, getRpcTransport } from "@repo/web3";
@@ -69,6 +70,8 @@ export async function recordCreateEvent(poolId: number): Promise<void> {
     ],
     skipDuplicates: true,
   });
+  // The launch stake seeds the creator stake on the pool's first stats write (D7 PL1)
+  await refreshPoolStatsQuietly(poolId);
 }
 
 async function readLogs(
