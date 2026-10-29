@@ -32,6 +32,19 @@ Build Board D7, Paginate and index the pools list. Spec: `docs/features/pools-li
 - A confirm sent twice for the same transaction used to add the stake twice to `StakedPool`. It now adds it once.
 - The profile card Fans number excludes the creator and is current, not as of the last admin sync.
 
+## Before merge: apply the patch
+
+Two files are too large for the GitHub connector to push: `apps/server/src/trpc/pools/fan.ts` (72 KB) and `packages/database/prisma/schema.prisma` (62 KB). Their changes are in `docs/fixes/pools-stats-columns.patch`. On this branch:
+
+```bash
+git apply docs/fixes/pools-stats-columns.patch
+git rm docs/fixes/pools-stats-columns.patch
+git commit -am "feat(pools): PL1 fan router and schema changes"
+pnpm run --filter server run prisma:generate
+```
+
+Until the patch is applied the server typecheck fails on the new columns. The patch was checked with `git apply --check` against `development` at 9ed4a4e.
+
 ## Steps after merge
 
 1. Apply the migration by hand on staging.
