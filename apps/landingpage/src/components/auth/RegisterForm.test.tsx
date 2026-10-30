@@ -67,6 +67,8 @@ vi.mock("@/lib/trpc", () => ({
   trpc: { referral: { getReferrerInfo: { queryOptions: mocks.getReferrerInfoOptions } } },
 }));
 vi.mock("@/lib/panel", () => ({
+  authSwitchHref: (path: string, _params: URLSearchParams, email?: string) =>
+    email ? `${path}?email=${encodeURIComponent(email)}` : path,
   getPostAuthDestination: mocks.getPostAuthDestination,
   goTo: mocks.goTo,
   toAbsoluteUrl: (url: string) => url,
