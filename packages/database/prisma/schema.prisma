@@ -72,6 +72,8 @@ model User {
   broadcastReports        BroadcastReport[]
   notificationPreferences NotificationPreference[]
   rnsExpiryNotices        RnsExpiryNotice[]
+  identityChecks          IdentityCheck[]
+  identityReviewCases     IdentityReviewCase[]
   telegramAccount         TelegramAccount?
   telegramLinkEvents      TelegramLinkEvent[]
   messagingSettings       CreatorMessagingSettings?
@@ -1661,4 +1663,54 @@ model RnsExpiryNotice {
   @@unique([userId, label, expiry, stage])
   @@index([sentAt])
   @@map("rns_expiry_notices")
+}
+
+// ===== Identity checks (Build Board #47, docs/features/identity-checks.md) =====
+
+// The latest Authbase check per account and kind (age_over_18 | seller). Holds
+// the outcome, reason and dates only: never a name, birth date, document or
+// attribute value. Overwritten on each check; an "unavailable" result is never
+// written. A row for a different wallet than the account's is ignored.
+model IdentityCheck {
+  id            Bytes     @id @db.Binary(16)
+  userId        Int       @map("user_id")
+  kind          String    @db.VarChar(16)
+  walletAddress String    @map("wallet_address") @db.VarChar(42)
+  pass          Boolean
+  reason        String?   @db.VarChar(16)
+  tier          String?   @db.VarChar(16)
+  validUntil    DateTime? @map("valid_until")
+  checkedAt     DateTime  @default(now()) @map("checked_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, kind])
+  @@map("identity_checks")
+}
+
+// One open case per account when an Over 18 check returns under 18 (spec 4.5,
+// decision IQ1). A person reviews it: a safety lead closes the account or clears
+// a wrong read. Kept 5 years (counsel confirms the period).
+model IdentityReviewCase {
+  id           Bytes     @id @db.Binary(16)
+  userId       Int       @map("user_id")
+  // open | cleared | closed
+  status       String    @default("open") @db.VarChar(16)
+  // under_18 (the only kind today)
+  kind         String    @default("under_18") @db.VarChar(16)
+  openedAt     DateTime  @default(now()) @map("opened_at")
+  lastResultAt DateTime  @default(now()) @map("last_result_at")
+  // Results seen while the case was open, including the first
+  results      Int       @default(1)
+  // When support was alerted by email (null until sent)
+  alertedAt    DateTime? @map("alerted_at")
+  decidedAt    DateTime? @map("decided_at")
+  decidedBy    Int?      @map("decided_by")
+  note         String?   @db.VarChar(500)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@index([status, openedAt])
+  @@map("identity_review_cases")
 }
