@@ -33,3 +33,4 @@ export * from "./content";
 export * from "./mediaToken";
 export * from "./contentJob";
 export * from "./identity";
+export * from "./access";
