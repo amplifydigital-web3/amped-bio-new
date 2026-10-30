@@ -8,6 +8,9 @@
  * Telegram verifies anyone. The bot may name Revolution Network and a creator pool.
  */
 
+import { TESTNET_NOTICE } from "./testnet";
+import type { BlockType } from "./blocks";
+
 /** Community link in the footer and Help menu (predates the messaging feature). */
 export const TELEGRAM_LINK = "https://t.me/the_revolution_network/1";
 export const TELEGRAM_COLOR = "#229ED9";
@@ -83,9 +86,12 @@ export const DM_RULE_HELPERS: Record<DmRuleKind, string> = {
   STAKE_MIN: "Fans below the amount cannot write to you.",
 };
 
-/** Verbatim wherever tREVO appears. Exempt from the copy check by exact match. */
-export const TESTNET_LINE =
-  "Testnet only. Pool rewards are set by the creator, vary, and are not guaranteed.";
+/**
+ * Verbatim wherever tREVO appears. Exempt from the copy check by exact match. Since
+ * Full QA (29 Oct, F5) this is the platform line, TESTNET_NOTICE, not a Telegram copy.
+ * @deprecated import TESTNET_NOTICE
+ */
+export const TESTNET_LINE = TESTNET_NOTICE;
 
 /** Badge beside a fan's handle in the thread list. */
 export const FAN_RELATION_LABELS = {
@@ -94,8 +100,107 @@ export const FAN_RELATION_LABELS = {
   poolFan: "Pool fan",
 } as const;
 
-/** Block kinds the Mini App never renders (TON safe mode, spec decision 6). */
-export const TELEGRAM_HIDDEN_BLOCK_KINDS = ["pool", "referral"] as const;
+// ----------------------------------------------------------------------------
+// Mini App allow list (spec r3 3.7, decisions tg-miniapp-allowlist, tg-miniapp-gated-join,
+// tg-miniapp-adult). Telegram binds Mini Apps with crypto to TON, and digital goods
+// sold inside Telegram to Stars. The Mini App renders only the kinds below; every
+// other kind, and every kind added later, is skipped until it is added here.
+// ----------------------------------------------------------------------------
+
+/** Link and media platforms that carry crypto. Never rendered inside the Mini App. */
+export const CRYPTO_PLATFORMS = [
+  "token-price",
+  "nft-collection",
+  "uniswap",
+  "opensea",
+  "creator-pool",
+] as const;
+
+/** Block types the Mini App may render. Link and media also pass the platform check. */
+export const TELEGRAM_MINIAPP_BLOCK_KINDS = [
+  "text",
+  "link",
+  "media",
+  "follow",
+  "followers",
+  "telegram_message",
+  "telegram_group",
+] as const;
+
+/** Group rules whose Join button may show in the Mini App to any viewer. */
+export const TELEGRAM_MINIAPP_OPEN_GROUP_RULES = ["ANYONE", "FOLLOWER"] as const;
+
+type MiniAppBlockLike = Pick<BlockType, "type" | "config"> & { adult?: boolean | null };
+
+/**
+ * True when the Mini App may render this block. 18+ blocks never render. Group
+ * blocks pass here; the renderer still hides Join group unless the group's rule is
+ * in TELEGRAM_MINIAPP_OPEN_GROUP_RULES or the viewer already qualifies.
+ */
+export function isMiniAppSafeBlock(block: MiniAppBlockLike): boolean {
+  if (block.adult) return false;
+  if (!(TELEGRAM_MINIAPP_BLOCK_KINDS as readonly string[]).includes(block.type)) return false;
+  if (block.type === "link" || block.type === "media") {
+    const platform = (block.config as { platform?: string } | null)?.platform ?? "";
+    return !(CRYPTO_PLATFORMS as readonly string[]).includes(platform);
+  }
+  return true;
+}
+
+// ----------------------------------------------------------------------------
+// Deep link payloads (spec r3 3.5, decision tg-deeplink-payload, Full QA F6).
+// Telegram allows 64 characters from A-Z a-z 0-9 _ -. Handles can be 64 characters,
+// so payloads carry a creator's short link code instead. dm_{handle} stays readable
+// for buttons already on published pages.
+// ----------------------------------------------------------------------------
+
+export const TELEGRAM_LINK_CODE_LENGTH = 10;
+export const TELEGRAM_LINK_CODE_REGEX = /^[a-z0-9]{10}$/;
+
+export const telegramPayload = {
+  /** Message me on Telegram: the bot opens with the creator selected */
+  message: (code: string) => `m_${code}`,
+  /** Join group: the bot checks the rule and sends the invite */
+  join: (code: string) => `j_${code}`,
+  /** Mini App page, with the sharer's own link code for attribution */
+  page: (code: string, sharerCode?: string | null) =>
+    sharerCode ? `p_${code}_${sharerCode}` : `p_${code}`,
+} as const;
+
+export type TelegramStartPayload =
+  | { kind: "message"; code: string }
+  | { kind: "join"; code: string }
+  | { kind: "page"; code: string; sharerCode: string | null }
+  | { kind: "legacy_dm"; handle: string }
+  | { kind: "none" };
+
+/** Reads a /start or startapp payload. Anything unknown reads as none. */
+export function parseTelegramStartPayload(raw: string | null | undefined): TelegramStartPayload {
+  const payload = (raw ?? "").trim();
+  if (!payload || payload.length > 64) return { kind: "none" };
+  const code = (value: string | undefined) =>
+    value && TELEGRAM_LINK_CODE_REGEX.test(value) ? value : null;
+  if (payload.startsWith("m_")) {
+    const c = code(payload.slice(2));
+    return c ? { kind: "message", code: c } : { kind: "none" };
+  }
+  if (payload.startsWith("j_")) {
+    const c = code(payload.slice(2));
+    return c ? { kind: "join", code: c } : { kind: "none" };
+  }
+  if (payload.startsWith("p_")) {
+    const [first, second, ...rest] = payload.slice(2).split("_");
+    const c = code(first);
+    if (!c || rest.length > 0) return { kind: "none" };
+    return { kind: "page", code: c, sharerCode: code(second) };
+  }
+  if (payload.startsWith("dm_")) {
+    // Older handles may carry capitals; the bot's handle lookup also tries lowercase
+    const handle = payload.slice(3);
+    return /^[A-Za-z0-9_-]{1,61}$/.test(handle) ? { kind: "legacy_dm", handle } : { kind: "none" };
+  }
+  return { kind: "none" };
+}
 
 // ----------------------------------------------------------------------------
 // In app strings (spec 3.11b). Keys name the surface.

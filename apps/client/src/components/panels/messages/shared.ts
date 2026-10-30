@@ -1,5 +1,5 @@
 import { useSearchParams } from "react-router";
-import { TELEGRAM_APP_STRINGS, type DmRuleKind } from "@repo/constants";
+import { TELEGRAM_APP_STRINGS, telegramPayload, type DmRuleKind } from "@repo/constants";
 
 // Messaging on Telegram (Build Board #2), phase 1 client (PR 4). Behind
 // VITE_SHOW_TELEGRAM, like the Account row (row 112) and the composer (row 117).
@@ -20,9 +20,12 @@ export function useOpenTelegramWizard() {
     });
 }
 
-/** The bot deep link that opens Telegram with this creator selected (spec 3.5). */
-export function telegramDmLink(botUsername: string, handle: string) {
-  return `https://t.me/${botUsername}?start=dm_${handle}`;
+/**
+ * The bot deep link that opens Telegram with this creator selected. The payload carries
+ * the creator's short code, never the handle (spec r3 3.5).
+ */
+export function telegramDmLink(botUsername: string, linkCode: string) {
+  return `https://t.me/${botUsername}?start=${telegramPayload.message(linkCode)}`;
 }
 
 /** One key per send attempt, reused when the same text is retried (spec 3.4). */

@@ -15,6 +15,7 @@ import {
 import { isOidcConfigured, startTelegramLink } from "../../services/telegram/oidc";
 import { getBotUsername } from "../../services/telegram/client";
 import { enqueueOutbox } from "../../services/telegram/loop";
+import { getOrCreateLinkCode } from "../../services/telegram/linkCodes";
 
 /** Where the browser lands after Telegram (PR 4). The handle must name a published page. */
 const returnToSchema = z
@@ -41,11 +42,19 @@ export const telegramLinkRouter = router({
       env.TELEGRAM_ENABLED ? getBotUsername() : Promise.resolve(null),
     ]);
     if (!account) {
-      return { available, botUsername, linked: false as const, telegramBroadcasts: false };
+      return {
+        available,
+        botUsername,
+        linkCode: null,
+        linked: false as const,
+        telegramBroadcasts: false,
+      };
     }
     return {
       available,
       botUsername,
+      // The caller's own code for their Message me link (spec r3 3.5)
+      linkCode: botUsername ? await getOrCreateLinkCode(userId) : null,
       linked: true as const,
       telegramBroadcasts: await getGlobalTelegramDelivery(userId),
       ...ownLinkView(account),
