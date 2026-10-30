@@ -108,7 +108,13 @@ export const FAN_RELATION_LABELS = {
 // ----------------------------------------------------------------------------
 
 /** Link and media platforms that carry crypto. Never rendered inside the Mini App. */
-export const CRYPTO_PLATFORMS = ["token-price", "nft-collection", "uniswap", "opensea"] as const;
+export const CRYPTO_PLATFORMS = [
+  "token-price",
+  "nft-collection",
+  "uniswap",
+  "opensea",
+  "creator-pool",
+] as const;
 
 /** Block types the Mini App may render. Link and media also pass the platform check. */
 export const TELEGRAM_MINIAPP_BLOCK_KINDS = [
@@ -189,8 +195,9 @@ export function parseTelegramStartPayload(raw: string | null | undefined): Teleg
     return { kind: "page", code: c, sharerCode: code(second) };
   }
   if (payload.startsWith("dm_")) {
+    // Older handles may carry capitals; the bot's handle lookup also tries lowercase
     const handle = payload.slice(3);
-    return /^[a-z0-9_-]{1,61}$/.test(handle) ? { kind: "legacy_dm", handle } : { kind: "none" };
+    return /^[A-Za-z0-9_-]{1,61}$/.test(handle) ? { kind: "legacy_dm", handle } : { kind: "none" };
   }
   return { kind: "none" };
 }
