@@ -58,8 +58,7 @@
     "prepare": "git config core.hooksPath .githooks || exit 0"
   },
   "devDependencies": {
-    "eslint-plugin-unused-imports": "^4.1.4",
-    "globals": "^15.9.0",
+    "oxlint": "1.90.0",
     "prettier": "^3.2.5",
     "tsx": "^4.19.3",
     "turbo": "latest"

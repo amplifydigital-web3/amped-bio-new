@@ -7,16 +7,19 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "build:client-only": "tsc --noEmit && vite build --mode client-only",
-    "lint": "eslint .",
-    "lint:fix": "eslint . --fix --exit-on-fatal-error",
+    "lint": "oxlint",
+    "lint:fix": "oxlint --fix",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf .turbo && rm -rf node_modules && rm -rf dist"
   },
   "dependencies": {
+    "@hookform/resolvers": "^3.9.1",
     "@repo/constants": "workspace:*",
     "@repo/ui": "workspace:*",
+    "@repo/web3": "workspace:*",
     "@tanstack/react-query": "5.85.4",
+    "@trpc/client": "11.1.2",
     "lucide-react": "^0.474.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
@@ -26,10 +29,7 @@
     "sonner": "^2.0.7",
     "viem": "2.34.0",
     "wagmi": "2.14.8",
-    "zod": "^3.25.64",
-    "@hookform/resolvers": "^3.9.1",
-    "@repo/web3": "workspace:*",
-    "@trpc/client": "11.1.2"
+    "zod": "^3.25.64"
   },
   "devDependencies": {
     "@types/react": "^18.3.5",
@@ -38,7 +38,7 @@
     "autoprefixer": "^10.4.18",
     "postcss": "^8.4.35",
     "tailwindcss": "^3.4.1",
-    "typescript": "5.9.2",
+    "typescript": "catalog:",
     "vite": "^5.4.2"
   }
 }

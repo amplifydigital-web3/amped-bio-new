@@ -10,16 +10,16 @@
     "dist/**"
   ],
   "scripts": {
-    "build": "tsup src/index.ts --format esm,cjs --dts --external viem",
-    "dev": "tsup src/index.ts --format esm,cjs --watch --dts --external viem",
-    "lint": "eslint .",
-    "lint:fix": "eslint . --fix --exit-on-fatal-error",
+    "build": "tsup src/index.ts --format esm,cjs --external viem && tsc --emitDeclarationOnly",
+    "dev": "tsup src/index.ts --format esm,cjs --watch --external viem --onSuccess \"tsc --emitDeclarationOnly\"",
+    "lint": "oxlint",
+    "lint:fix": "oxlint --fix",
     "clean": "rm -rf .turbo && rm -rf node_modules && rm -rf dist && rm -rf coverage",
     "prepare": "pnpm run build"
   },
   "devDependencies": {
     "@repo/typescript-config": "workspace:*",
-    "typescript": "5.9.2"
+    "typescript": "catalog:"
   },
   "dependencies": {
     "tsup": "^8.0.0",
