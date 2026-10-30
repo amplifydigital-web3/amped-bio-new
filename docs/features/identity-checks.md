@@ -1,9 +1,9 @@
 # Identity checks: Over 18 and verified sellers
 
-Status: revision 2, 27 Oct 2026, for approval. Revision 1 (23 Oct, PR #354) is in this file's history. Revision 2 applies Rob's choices on the six decisions: A1, A2, A3 (implied by S2), S2 and S3 as recommended; **S1 alternative (an active RNS name bound to the wallet is required to sell)** and **S4 alternative (creator only)**. Changed sections: 3 (seller result), 5, 6, 7, 8, 9. Build Board: card "Identity checks (Authbase)", with edits to #28 Adult content, #20 Content and store, #25 Memberships, #15 Payments to creators, #21 Gating engine.
+Status: revision 3, 30 Oct 2026, build ready for I1. Revision 3 applies the Full QA of 30 Oct (project doc claude/amped-identity-gating-full-qa-2026-10-30.md) and Rob's answer on IQ1 (section 4.5); see the revision log. Revision 1 (23 Oct, PR #354) is in this file's history. Revision 2 applied Rob's choices on the six decisions: A1, A2, A3 (implied by S2), S2 and S3 as recommended; **S1 alternative (an active RNS name bound to the wallet is required to sell)** and **S4 alternative (creator only)**. Changed sections: 3 (seller result), 5, 6, 7, 8, 9. Build Board: card "Identity checks (Authbase)", with edits to #28 Adult content, #20 Content and store, #25 Memberships, #15 Payments to creators, #21 Gating engine.
 Owner: Rob Frasca. Drafted by Claude.
-Baseline: `development` at a3ce333 (revision 1 used 48ca154), plus open PR #348 (content public pages).
-Design: Verified seller screens, https://claude.ai/artifact/LUnttKDFQVAgSjenbQu8FM. The fan Over 18 sheet is drawn on #28 (ar1 to ar7) and is not redrawn here.
+Baseline: `development` at f8bd0bb (revision 2 used a3ce333, revision 1 used 48ca154), plus open PR #348 (content public pages).
+Design: Verified seller screens, https://claude.ai/artifact/LUnttKDFQVAgSjenbQu8FM. The fan Over 18 sheet is drawn on #28 (ar1 to ar7) and is not redrawn here. The Under 18 review case is board ad8 on the same #28 page, https://claude.ai/artifact/LHQbtepDpgxEmLqoZzVVc7#ad8.
 
 ## 1. Rob's direction (23 Oct)
 
@@ -55,8 +55,11 @@ Rules:
 - The wallet is always the session user's `UserWallet.address`. No endpoint takes an address from the client.
 - `age_over_18` passes on status VERIFIED or VERIFIED_WITH_BADGE and `attributes.age_over_18 === "true"`.
 - `seller` passes on status VERIFIED or VERIFIED_WITH_BADGE, either tier (S2), **and** `checkRnsBinding(user.revo_name, wallet).ok` (S1 alternative). The name must be active, owned by the wallet and resolve to it. `validUntil` for a seller pass is the earlier of the Authbase `valid_until` and the name's expiry.
-- A pass is cached until the earlier of `valid_until` and 24 hours after the check. A fail is cached 5 minutes. `fresh: true` skips the cache. The client calls it with fresh after the user returns from Authbase or the Names tab.
+- Seller reasons from `checkRnsBinding` (`services/rns.ts`): `revo_name` null, `invalid` or `not_found` map to `no_name`; `expired` to `name_expired`; `not_owner` or `addr_elsewhere` to `name_not_bound`; a thrown chain read to `unavailable`. Authbase reasons are checked first.
+- A pass is cached until the earlier of `valid_until` and 24 hours after the check. A fail is cached 5 minutes, except `unavailable`, which is never cached or written to `identity_checks`, so Try again reaches Authbase. `fresh: true` skips the cache. The client calls it with fresh after the user returns from Authbase or the Names tab.
 - `unavailable` never passes. No grace on outage.
+- A stored row whose `walletAddress` differs from the session wallet is ignored and replaced on the next check.
+- `identity.recheck` is rate limited to 6 a minute per user through `hitRateLimit` (`utils/rateLimit.ts`). Authbase answers 429 under load.
 
 Storage, new table (UUIDv7 per AGENTS.md):
 
@@ -77,9 +80,16 @@ model IdentityCheck {
 }
 ```
 
-One row per user and kind, overwritten on each check. It holds the outcome and dates only. No name, birth date, document or attribute value is stored. Authbase keeps the identity record. This keeps Amped inside the data retention limits some state laws set (Ohio, West Virginia, Missouri) and inside `docs/legal/privacy-parameters.md`. The privacy notice gains one line: Amped records whether an Authbase check passed and when it expires.
+One row per user and kind, overwritten on each check. It holds the outcome, reason and dates only. No name, birth date, document or attribute value is stored. Authbase keeps the identity record. This keeps Amped inside the data retention limits some state laws set (Ohio, West Virginia, Missouri) and inside `docs/legal/privacy-parameters.md`.
 
-Wallet change: linking a different wallet deletes the user's rows.
+Privacy work that ships in I1 (AGENTS.md, privacy and consent):
+
+- Notice, section 3 after the Authbase paragraph: "When we check your age or your seller status with Authbase, we keep the result of the check and when it ends. We never receive your birth date or ID."
+- Notice, section 12 Children: "If an age check shows that someone on an account is under 18, a person on our team reviews it and we close the account."
+- Parameters, retention list: identity check results until the account closes; under 18 review cases 5 years (counsel confirms).
+- Bump `CONSENT_POLICY_VERSION` (now 2026-10f) with the notice change.
+
+Wallet change: `UserWallet` is one to one and `wallet.ts` refuses a different address, so no flow changes a linked wallet today. The row check above covers a change if one is added later.
 
 Swap to ZK facets: `checkIdentity` is the only reader. When the facet proof API ships, `age_over_18` reads a `facet:age_over_18` proof instead of the attribute. Callers do not change.
 
@@ -100,7 +110,7 @@ One sheet, "Over 18 check", opened from a locked 18+ card:
 | not_linked or not_verified | Verify your age with Authbase. It takes a few minutes and you do it once. | Verify with Authbase (`AUTHBASE_VERIFY_URL`) |
 | not_shared | You are verified. Share Over 18 with Amped.Bio to open adult items. | Share in Authbase (`AUTHBASE_CONSENT_URL`) |
 | Returned from Authbase | Checking | Fresh check, then open the item |
-| under_18 | This item is for adults only. | Close. No retry prompt. |
+| under_18 | This item is for adults only. | Close. No retry prompt. Opens an Under 18 review case (4.5). |
 | unavailable | We could not check your age right now. Try again in a minute. | Try again |
 
 The sheet carries `returnTo` with the item, so the fan lands back on it. The Authbase SSO links live in `apps/client`; the landing app opens the sheet at `app.amped.bio/age-check?returnTo=...`, the same host the 23 Oct review moves checkout to.
@@ -117,6 +127,16 @@ PR #348 refuses every 18+ item. PR A1 opens them to viewers who pass, with no en
 - A signed in client call `content.listAdultForBio` and `content.getAdult` return 18+ cards and items to a viewer with a pass. `getReadUrl` and `getPreview` check the pass before signing a gateway token.
 - The landing app shows one placeholder card "Adult items" on a bio that has any, which opens the sheet. No title, cover or count before a pass.
 - When the gating engine ships, its age precondition calls `checkIdentity(userId, "age_over_18")` and these paths move under it without behavior change.
+
+### 4.5 Under 18 result (IQ1, Rob 30 Oct)
+
+The privacy notice (section 12) says accounts are for people 18 and over and that Amped deletes an account it learns belongs to someone under 18. An `under_18` result is that knowledge, so it always reaches a person.
+
+1. The item is refused as in 4.2. The fan sees the same refusal; nothing on the fan side changes.
+2. `checkIdentity` stores the result and opens one Under 18 review case per account (later results attach to the open case). While it is open, every 18+ item stays closed to the account. Nothing else changes.
+3. Before the Safety queue ships (#28 R1 and R2), I1 sends support an alert email with the case id, handle and time, through the existing transactional email (SMTP2GO, `utils/email`), moving to the single recipient type when #4 PR M1 ships. It names no attribute value. When R2 ships, the case moves into the queue as type Age result, beside Take It Down at the top.
+4. Board ad8: the case view shows account facts and the check, no media. A moderator can run a fresh check. Clear, for a wrong read, needs a note. Confirm and close account is safety lead only, needs a note, and starts account closing as an account deletion (#13, 30 days). The account holder gets the closing email on ad8, which allows a reply within 30 days.
+5. Storage: `IdentityReviewCase` (UUIDv7) with userId, status (open, cleared, closed), openedAt, decidedAt, decidedBy, note. Kept 5 years, like screening denies; counsel confirms the period.
 
 ## 5. Verified sellers
 
@@ -166,6 +186,7 @@ At expiry new sales stop: the store shows "Not taking payments right now", paid 
 | S2 | Authbase tier | Recommended: either tier |
 | S3 | Renewals after seller expiry | Recommended: pause, members keep access to period end |
 | S4 | Which payees must pass | **Alternative: the creator only** |
+| IQ1 | What happens on an under_18 result | Recommended (30 Oct): refuse, store, open a review case; a safety lead closes the account or clears it |
 
 New decision raised by S1:
 
@@ -175,9 +196,9 @@ New decision raised by S1:
 
 | PR | Branch | Scope | Depends | Size |
 | --- | --- | --- | --- | --- |
-| I1 | `feat/identity-checks` | `IdentityCheck` model and migration, `services/identity/checks.ts`, `identity.myChecks` and `identity.recheck` procedures, cache, wallet change cleanup, privacy notice line, tests | none | 1.5 days |
+| I1 | `feat/identity-checks` | `IdentityCheck` and `IdentityReviewCase` models and one migration, `services/identity/checks.ts`, `identity.myChecks` and `identity.recheck` (rate limited), cache rules in 3, under 18 case and support alert (4.5), privacy notice, parameters and `CONSENT_POLICY_VERSION` (3), tests | none | 2 days |
 | A1 | `feat/content-adult-access` | Over 18 sheet (app host), content adult paths in 4.4, creator 18+ label requires A2 | I1, PR #348 | 2.5 days |
-| S1 | with store PR 9 and memberships | Get paid card (two rows), activation checks, split signer check (creator), renewal check, expiry emails for both dates | I1, #46 PR #351 | 2 days spread across those PRs |
+| S1 | with store PR 9 and memberships | Get paid card (two rows), activation checks, split signer check (creator), renewal check, expiry emails for both dates | I1 (#46 PR #351 merged 30 Oct) | 2 days spread across those PRs |
 
 Order with Rob's sequence: G0 (stake unit fix) before messaging goes live. I1 and A1 with content. S1 rides with the first USDC selling PR. The gating engine follows and reuses I1.
 
@@ -191,9 +212,11 @@ Order with Rob's sequence: G0 (stake unit fix) before messaging goes live. I1 an
 6. A split with a promoter or agency payee who is not Authbase verified still signs when the creator passes.
 7. A creator whose Authbase verification or RNS name expires stops taking new sales at the earlier date. Existing access is unchanged. Renewing the name or verifying again restores sales on the next check.
 8. `identity_checks` holds no attribute value, name or birth date. A test asserts the row shape.
-9. Changing the linked wallet removes both rows.
+9. A row stored for a different wallet than the session wallet is never used.
 10. Server HTML, sitemaps, `llms.txt` and share tags contain no 18+ item for any viewer.
 11. Typecheck, build and tests pass. Copy has no em or en dashes.
+12. Authbase down returns `unavailable`, writes no row, and the next Try again calls Authbase.
+13. An `under_18` result opens one review case and sends the support alert. A second result attaches to the same case. Only a safety lead can close the account.
 
 ## 9. Open questions
 
@@ -205,3 +228,9 @@ Order with Rob's sequence: G0 (stake unit fix) before messaging goes live. I1 an
 | Is Authbase verification enough for a creator's 2257 record, or does #28 still need its own ID capture? | Counsel | A2 |
 | RNS runs on Libertas testnet today (`RNS_CHAIN = libertasTestnet`; `AVAILABLE_CHAINS` has no mainnet entry). With S1 required, no creator can sell on mainnet until RNS mainnet ships. Is RNS mainnet on the same date as USDC selling, or does selling launch on testnet names? | Rob, Revolution team | First mainnet sale |
 | Should a name in its one day grace period (`RNS_GRACE_PERIOD_SECONDS`) still pass? `isRnsNameActive` (packages/web3/src/rns.ts) does not count grace, so sales stop on the expiry date | Rob | No |
+
+## Revision log
+
+- 2026-10-30 (revision 3): Full QA of I1 against `development` f8bd0bb. Seller reason mapping from `checkRnsBinding`; `unavailable` never cached; rows for another wallet ignored (no wallet change flow exists); `identity.recheck` rate limit; privacy notice lines, retention and `CONSENT_POLICY_VERSION` bump spelled out; new 4.5 Under 18 result (IQ1, Rob 30 Oct) with board ad8; `IdentityReviewCase` added to I1; S1 no longer waits on #351. Acceptance 9 replaced, 12 and 13 added.
+- 2026-10-27 (revision 2): S1 and S4 alternatives, S5 raised.
+- 2026-10-23 (revision 1): first spec, PR #354.
