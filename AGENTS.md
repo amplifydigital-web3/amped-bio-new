@@ -51,6 +51,17 @@ gh label create migration --color 7C3AED --description "PR includes a Prisma dat
 
 ALWAYS run typecheck and build commands to validate your modifications before claiming completion. NO EXCEPTIONS. Failure to do so will result in immediate rejection of your work.
 
+Validate ONLY the workspaces your branch touches (plus the ones that depend on them), never the whole monorepo:
+
+```bash
+git fetch origin development
+pnpm run typecheck:affected
+pnpm run build:affected
+pnpm run test:affected
+```
+
+These run Turborepo's `--affected` against `origin/development` (override with `TURBO_SCM_BASE=<ref>`), so a server-only branch checks only `@repo/server`, while a change in `packages/constants` also checks every app that imports it. `test:affected` runs the server's `test:unit` (no staging/OAuth integration files). Do NOT run `pnpm run typecheck` / `pnpm run build` across all workspaces or hand-pick `--filter` lists for validation, and never run several of these heavy validations in parallel on the same machine — run them one after another.
+
 # CORE MANDATES
 
 - **CONVENTION COMPLIANCE**: You MUST strictly adhere to existing project conventions (naming, formatting, structure, architectural patterns). Analyze surrounding code, tests, and configuration first. Deviation is not acceptable.
