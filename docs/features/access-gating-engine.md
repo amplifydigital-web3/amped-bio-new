@@ -1,12 +1,12 @@
 # Access Gating Engine v2: build spec
 
-Status: spec for approval, 2026-10-24. Build Board #21.
+Status: build ready for G1, revised 2026-10-30 after Full QA (project doc claude/amped-identity-gating-full-qa-2026-10-30.md) and Rob's answers on GQ1 and GQ2. Build Board #21.
 Owner: Rob Frasca. Drafted by Claude.
 Supersedes: v1 spec (CosimoRob/amped-bio-new, branch docs/wave1-specs, docs/features/access-gating-engine.md, 2026-09-26, revised 10 Oct) and the amendments in Memberships (#25, section 3.3), Live streaming (#27, section 3.4) and Content system (#20, sections 3.6 and 3.13). Where this document is silent, v1 still applies.
 Overview: claude/amped-gating-engine-overview-2026-10-23.md.
-Companion: claude/amped-identity-checks-spec-2026-10-23.md (Over 18 and verified sellers through Authbase; ships before this engine).
+Companion: `docs/features/identity-checks.md` (Over 18 and verified sellers through Authbase; I1 ships before this engine).
 Sequence (Rob, 23 Oct): messaging and the content system go live before the gating engine.
-Baseline: `development` at 48ca154 (23 Oct 2026).
+Baseline: `development` at 48ca154 (23 Oct 2026), rechecked at f8bd0bb (30 Oct 2026).
 
 ## 1. Problem
 
@@ -73,6 +73,7 @@ request(viewer, resource, intent)
        resource missing or not public state          -> not_found
        owner or delegate                             -> allow owner
        creator suspended or page unpublished         -> not_found
+       viewer suspended (User.block not "no")         -> not_found
        viewer blocked by creator (FollowBlock)       -> blocked
        adult and no passed age check                 -> age_check_required
        ruleId null                                   -> allow public
@@ -111,7 +112,16 @@ Pools. A rule names `poolId` (the `CreatorPool` row) instead of v1's `chainId` p
 - **Owner or delegate.** The owner always passes. When Agency System (#38) ships, an agency manager with an active link to the creator passes as `owner` for preview. No delegate passes for paid delivery to themselves outside preview.
 - **Creator state.** Suspended creators and unpublished pages return `not_found`, matching `canMessage` today.
 - **Blocked.** A `FollowBlock` from the creator refuses every kind, including paid. A paid item that a blocked fan bought stays refundable by the creator.
-- **Age.** A resolver that returns `adult: true` triggers the age check before the rule. Reason `age_check_required`, hint `verify_age`. The check is the Authbase Over 18 attribute through `checkIdentity(userId, "age_over_18")` from the identity checks spec (Rob, 23 Oct). It ships before this engine with content PR A1; the engine calls it and adds nothing. When Authbase facet proofs ship, `checkIdentity` reads the ZK facet and the engine does not change. Signed out viewers get the hint too. 18+ items are never in server HTML, sitemaps, `llms.txt` or share tags (content spec 3.6), whatever the rule.
+- **Age.** A resolver that returns `adult: true` triggers the age check before the rule. Reason `age_check_required`, hint `verify_age`. The check is the Authbase Over 18 attribute through `checkIdentity(userId, "age_over_18")` from the identity checks spec (Rob, 23 Oct). It ships before this engine with content PR A1; the engine calls it and adds nothing. When Authbase facet proofs ship, `checkIdentity` reads the ZK facet and the engine does not change. Signed out viewers get the hint too. The engine maps `checkIdentity` results this way:
+
+  | `checkIdentity` result | Reason | Hint |
+  | --- | --- | --- |
+  | signed out | `age_check_required` | `sign_in` |
+  | `no_wallet`, `not_linked`, `not_verified`, `not_shared` | `age_check_required` | `verify_age` |
+  | `under_18` | `age_check_required` | `none` (no retry; the identity checks spec 4.5 opens a review case) |
+  | `unavailable` | `identity_unavailable` | `unavailable` (Try again) |
+
+  18+ items are never in server HTML, sitemaps, `llms.txt` or share tags (content spec 3.6), whatever the rule.
 - **Seller verified.** `paid` and `member` refuse with `kind_unavailable` and hint `unavailable` when the seller's `seller` identity check no longer passes (identity checks spec 5.3). Buyers and members with current access keep it.
 - **Early access.** A rule may carry `opensToAllAt`. After that instant the resource is public. Before it, the rule applies. Patreon early access, at no extra kind cost.
 
@@ -120,7 +130,7 @@ Pools. A rule names `poolId` (the `CreatorPool` row) instead of v1's `chainId` p
 ```ts
 export const ACCESS_RULE_KINDS = ["follower", "pool_member", "stake_min", "paid", "member",
   "any", "all", "reward_points", "rns_verified"] as const;
-export const LIVE_ACCESS_RULE_KINDS = ["follower", "pool_member", "stake_min", "any", "all"] as const; // grows with G5, G6
+export const LIVE_ACCESS_RULE_KINDS = ["follower", "pool_member", "stake_min", "any", "all"] as const; // paid joins in G4, member in G5
 
 export const ACCESS_RESOURCE_TYPES = ["block", "content", "broadcast", "live_event",
   "dm", "telegram_group"] as const;
@@ -130,7 +140,7 @@ export const ACCESS_REASONS = ["ok", "owner", "public", "not_found", "blocked",
   "age_check_required", "not_signed_in", "no_wallet", "not_follower", "follow_pending",
   "not_pool_member", "stake_below_min", "not_purchased", "purchase_pending",
   "not_member", "membership_past_due", "membership_ended", "insufficient_points",
-  "kind_unavailable", "chain_unavailable"] as const;
+  "kind_unavailable", "chain_unavailable", "identity_unavailable"] as const;
 
 export type UnlockHint =
   | { action: "none" } | { action: "sign_in" } | { action: "verify_age" }
@@ -162,7 +172,7 @@ model AccessRule {
   version       Int       @default(1)               // bumps on any edit; voids open decisions
   createdAt     DateTime  @default(now()) @map("created_at")
   updatedAt     DateTime  @updatedAt @map("updated_at")
-  owner  User  @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+  owner  User  @relation(fields: [ownerUserId], references: [id], onDelete: NoAction) // GQ2, see below
   @@index([ownerUserId])
   @@map("access_rules")
 }
@@ -182,10 +192,14 @@ model AccessEvent {
 }
 ```
 
-- `Block` gains `accessRuleId Bytes? @db.Binary(16)` with an index. Gatable block types: link, media, text, telegram_group. Pool, referral, follow, followers and rnsid are never gated.
-- `ContentItem.accessRuleId` gets its foreign key to `AccessRule` (`onDelete: Restrict`). `baseAccessRuleId` stays as the content spec defines it.
+- One migration in G1 (GQ1, Rob 30 Oct) adds `AccessRule`, `AccessEvent`, `Block.accessRuleId` and the content foreign key. G3 adds no schema.
+- `Block` gains `accessRuleId Bytes? @db.Binary(16)` with an index and a foreign key to `AccessRule` (`onDelete: Restrict`). Gatable block types: link, media, text, telegram_group. Pool, referral, follow, followers and rnsid are never gated.
+- `ContentItem.accessRuleId` gets its foreign key to `AccessRule` (`onDelete: Restrict`). No code writes the column today, so no row breaks the key. `baseAccessRuleId` stays as the content spec defines it.
+- Delete behavior (GQ2, Rob 30 Oct): `AccessRule.owner` uses `onDelete: NoAction`, not Cascade. A user delete then cannot remove a rule an item still points to. The account deletion job (#13 AD2) deletes content items and blocks, then the user's rules, then the user. `SetNull` is never used on a rule reference: it would make a gated item public.
+- `params` has a zod schema per kind in `@repo/constants/src/access.ts`, checked on create, update and read. A row that fails to parse refuses (default deny).
 - `Broadcast` gains `accessRuleId` when Broadcast phase 2 needs it, not before.
-- `CreatorMessagingSettings` keeps `ruleKind` and `stakeMin` in G2. They map onto engine kinds at read time. A later migration may replace them with `accessRuleId`; nothing in this build depends on it.
+- `CreatorMessagingSettings` and `TelegramGroup` (#383) keep `ruleKind` and `stakeMin` (whole tREVO) in G2. Both map onto engine kinds at read time, with `wholeTokensToWei` for the minimum. A later migration may replace them with `accessRuleId`; nothing in this build depends on it.
+- Privacy (AGENTS.md): `AccessEvent.viewerKey` for signed out viewers is the daily salted hash used by visit counting, never reversible or cross creator, and never the IP. G1 adds access events to the retention list in `docs/legal/privacy-parameters.md` (25 months, like visit events) and one line to the notice, section 4: "When you open or try to open a locked item, we record that it happened so the creator can see how their locks perform." Bump `CONSENT_POLICY_VERSION` with it.
 - A rule in use cannot be deleted (`CONFLICT` with the count). `kind` is immutable. Owner of rule must equal owner of resource on attach.
 
 ### 3.7 Server API (`apps/server/src/services/access/`)
@@ -232,6 +246,8 @@ Rate limits: 30 a minute per viewer key on check and open; 60 a minute on `/go`.
 | Age check | `identity_checks` row, cached to `valid_until` or 24 h | Same | `identity.recheck`, wallet change |
 | Decision | Redis 60 s keyed by `viewerVersion` | Not cached | `bumpViewer` |
 
+Without Redis (`utils/cache.ts` falls back to per process memory), decisions are not cached: a bump on one server instance cannot reach another. Rule and stake caches may still use the fallback.
+
 `bumpViewer` is the "at least as fresh" step: a viewer who just paid, staked, followed or passed age check always gets a fresh decision on the next call. Chain failure at open refuses with `chain_unavailable` (fail closed). The stream exception from v1 3.1.4 stands: a Stream token covers its play session, up to 4 hours, and live tokens refresh every 30 minutes through `open`.
 
 ### 3.9 Public page rules
@@ -252,6 +268,7 @@ The four Prism 2.2 gating screens (rule picker, locked bio, unlock sheet, rules 
 3. New state: purchase pending (soft unlock) with "Confirming payment" and access already open.
 4. Rule picker: Early access date row ("Open to everyone on").
 5. Locked content card with price and duration, matching R11 (sticky buy bar).
+6. Rule picker (30 Oct QA): Followers is live in G1, not Later; stake labels read "Pool fans" and "Fans with a minimum stake" (3.5), not "Pool members" and "Members with a minimum stake". The boards are redrawn with deltas 1 to 6 before G3.
 
 ### 3.11 Compliance
 
@@ -277,7 +294,7 @@ v1 section 3.9 stands. Additions:
 
 1. `paid` with `UsdcPaymentVerifier` and soft unlock (with store PR 10).
 2. `member` (with Memberships phase C).
-3. Age precondition calls `checkIdentity` (built in A1).
+3. Age precondition calls `checkIdentity` (built in I1).
 4. Rules and stats page, nightly leak scan, analytics events.
 5. Early access date.
 
@@ -301,6 +318,9 @@ v1 section 3.9 stands. Additions:
 12. `open` never calls the reveal function on a refusal (unit test with a spy).
 13. Messaging and Telegram suites pass unchanged after G2, plus the new unit tests.
 14. Typecheck, build and tests pass for server, client, landing app and constants. Copy check passes.
+15. Authbase down on an 18+ item refuses with `identity_unavailable` and hint `unavailable`; an `under_18` result refuses with hint `none`.
+16. Deleting a rule that a block or item uses fails at the database. Deleting a user through the account deletion job removes items, blocks and rules in that order, and no gated item is ever served as public in between.
+17. A rule row whose `params` fail the kind's zod schema refuses.
 
 ## 6. Build plan
 
@@ -309,10 +329,10 @@ Each PR is one branch into `development`, labeled by type, with a handoff doc fo
 | PR | Branch | Scope | Depends | Size |
 | --- | --- | --- | --- | --- |
 | G0 | `fix/stake-min-units` (PR #357) | `wholeTokensToWei` in constants; STAKE_MIN converts the stored whole tREVO `stakeMin` to wei at comparison time, so no data migration and no settings change; follower rule uses `trustedEmailWhere`; tests with real units | none | 0.5 day |
-| G1 | `feat/access-core` | Constants contract, Prisma models and migration, engine, resolvers for `block` and `content`, kinds follower, pool_member, stake_min, any, all, caching, `bumpViewer` hooks in follow, block and stake confirm, rules router behind flag. No UI. | G0 | 4 days |
-| G2 | `refactor/access-adopt` | `rules.ts`, `messaging/access.ts`, Telegram group sweep and broadcast audience call the engine. Resolvers `dm` and `telegram_group`. | G1 | 1.5 days |
-| G3 | `feat/access-blocks` | `Block.accessRuleId`, locked DTO, `checkPage`, `/go`, `openBlock`, rule picker on the block row, unlock sheet in landing app, leak test, copy check | G1 | 4 days |
-| Content PR 8 | `feat/content-gating` | Content resolver, `getReadUrl` through `open`, locked cards, item editor picker | G1 | content plan |
+| G1 | `feat/access-core` | Constants contract and zod params, one Prisma migration (`AccessRule`, `AccessEvent`, `Block.accessRuleId`, content foreign key, delete rules in 3.6), engine, resolver for `block`, kinds follower, pool_member, stake_min, any, all, identity mapping (3.4), caching, `bumpViewer` hooks in follow, block, stake confirm and `identity.recheck`, rules router behind flag, privacy entries (3.6). No UI. Label `migration`. | G0 (#357), I1 | 4 days |
+| G2 | `refactor/access-adopt` | `rules.ts`, `messaging/access.ts`, Telegram group sweep and broadcast audience call the engine. Resolvers `dm` and `telegram_group`, reading both `CreatorMessagingSettings` and `TelegramGroup` rules. | G1, #383 | 1.5 days |
+| G3 | `feat/access-blocks` | Locked DTO, `checkPage`, `/go`, `openBlock`, `blocks.setAccessRule`, rule picker on the block row, unlock sheet in landing app, leak test, copy check. No schema (in G1). Needs the gating boards redrawn first (3.10). | G1 | 4 days |
+| Content PR 8 | `feat/content-gating` | Content resolver built on `services/content/access.ts` from #348, `getReadUrl` through `open`, locked cards, item editor picker | G1, #348 | content plan |
 | G4 | `feat/access-paid` | `UsdcPaymentVerifier`, `paid` live, soft unlock, `purchase_pending` | Content PR 10 | 1.5 days |
 | G5 | `feat/access-member` | Membership reader, `member` live | Memberships phase C | 1 day |
 | G6 | `feat/access-insights` | Rules and stats page, events, nightly leak scan, early access date | G3 | 2 days |
@@ -328,7 +348,7 @@ The age precondition needs no PR of its own: G1 calls `checkIdentity` from I1.
 
 While messaging runs before G2, its evaluator (`telegram/rules.ts`) stays in place with the G0 fix. G2 moves it onto the engine with no behavior change.
 
-Critical path to the first paid unlock: G0, G1, content PR 8, store PR 9 with S1, store PR 10, G4.
+Critical path to the first paid unlock: G0 (done), I1, G1, content PR 8, store PR 9 with S1, store PR 10, G4.
 
 Flags: `ACCESS_GATING_ENABLED` (server), `VITE_ACCESS_GATING` (client and landing), `ACCESS_STAKE_KINDS_ALLOWLIST` (creator ids for pool kinds while counsel reviews).
 
@@ -373,6 +393,7 @@ Lagging (90 days after paid goes live): share of creators with any paid or membe
 
 ## Revision log
 
+- 2026-10-30: Full QA against `development` f8bd0bb. GQ1: all gating schema in one G1 migration, `block` resolver in G1, `content` resolver moves to content PR 8 (needs #348). GQ2: rule references `Restrict`, `AccessRule.owner` `NoAction`, deletion order in AD2, never `SetNull`. Identity result mapping and new reason `identity_unavailable`. Suspended viewers refuse. zod params per kind. No decision cache without Redis. `TelegramGroup` rules (#383) in G2. AccessEvent privacy entries. G1 depends on G0 and I1.
 - 2026-10-28: G0 row and units paragraph matched to PR #357: convert at comparison time with `wholeTokensToWei`, no data migration. G1 stores wei in `AccessRule`; G2 maps `stakeMin` through `wholeTokensToWei`.
 - 2026-10-24: Rob: staking is tREVO or REVO only, never USDC. Deployed staking contracts are not changed; gating reads stakes and compares them to the amount the creator sets. The admin minimum stays in the contracts (`_minStake`). v1's 1 REVO app floor removed; `pool_member` is any stake. Acceptance 1 added.
 - 2026-10-23 (later): Rob's direction applied. Age precondition uses the Authbase Over 18 attribute through the shared identity check (G7 removed). Seller verification precondition on paid and member. Sequence: messaging and content live before the engine; G0 before messaging launch.
