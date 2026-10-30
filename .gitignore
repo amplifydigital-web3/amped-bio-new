@@ -67,3 +67,7 @@ packages/database/src/generated/
 
 # TypeScript incremental build info
 *.tsbuildinfo
+
+# Local read-only production CLI for AI agents and its credentials (never commit)
+/prod-cli/
+/read_only_db_credentials.cfg

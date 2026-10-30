@@ -30,6 +30,7 @@ Operator: Oneiro N.A., Inc., dba Amplify Digital, Boston, Massachusetts. Contact
 - No new tracker, pixel, SDK or third party recipient without adding it to the policy (sections 8 and 9) first. The X (Twitter) pixel is not in use.
 - Nothing is written to cookies or browser storage on public pages before a choice, except what the policy's storage table lists.
 - Never send visitor level data to AI providers. Creator summaries send page totals only.
+- Production read-only CLI (`prod-cli/`, local and gitignored): staff AI assistants (Anthropic) may read account, page, wallet and transaction records to investigate support requests and service problems, as the policy lists in sections 7 and 8. Never use it to read visitor level analytics (`analytics_events`), message text or secrets (password hashes, sessions, OAuth tokens, the encrypted Coinbase token), and never paste its output into commits, PRs or issues.
 - Minimum account age is 18.
 - Authbase attributes (`AUTHBASE_ATTRIBUTE_KEYS`: name on ID, over 18, gender, country) are private to the owner. One reaches a visitor only when the owner is Verified, `RNS_PUBLIC_ATTRIBUTES` is on, and its switch is on in the owner's RNS ID block, applied on the server. Never show the date of birth.
 - Link the policy from new public surfaces and emails: `/privacy` on amped.bio, `new URL("/privacy", env.LANDINGPAGE_URL)` in server emails (so staging links to staging), `https://amped.bio/privacy` elsewhere.

@@ -1,6 +1,6 @@
 # Amped.Bio Privacy Policy
 
-Last updated: October 23, 2026
+Last updated: October 30, 2026
 
 This policy explains what personal information Amped.Bio collects, why, who receives it, and the choices you have. It applies to creators, fans and anyone who visits an Amped.Bio page.
 
@@ -127,6 +127,7 @@ We do not sell your personal information. We do not use it for our own advertisi
 | Buy USDC through Coinbase | Wallet address, IP address, amount, region, random reference, Coinbase's order record, the encrypted Coinbase token | Contract |
 | Screen addresses against sanctions and risk lists | Wallet addresses, the vendor's result | Legal obligation and legitimate interests |
 | Written summaries for creators | Page totals, top sources, devices, visitor counts and up to 10 link names | Legitimate interests |
+| Investigate support requests and problems with the service, including with AI assistants | The account, page, wallet and transaction records involved | Legitimate interests |
 | Meet legal duties and handle disputes | Any of the above as needed | Legal obligation, legitimate interests |
 
 ## 8. Who we share information with
@@ -138,7 +139,7 @@ We do not sell your personal information. We do not use it for our own advertisi
 | SMTP2GO | Your email address and the message, including your RNS name and its expiry date when we send a name expiry reminder | Send account emails from noreply@amped.bio |
 | Web3Auth | Sign in details needed for your wallet key | Create and secure your wallet |
 | Google | Sign in with Google data; Google Analytics measurements, and cookies with permission | Sign in; site measurement |
-| Anthropic | Page totals, top sources, devices, visitor counts and up to 10 link names | Write creator summaries |
+| Anthropic | Page totals, top sources, devices, visitor counts and up to 10 link names. When our staff use AI assistants to investigate a support request or a problem with the service: the account, page, wallet and transaction records involved, such as your email address, name, handle and wallet address | Write creator summaries; help staff investigate problems |
 | Authbase | Your verification request | Identity badge, if you choose it |
 | Creator tools (Google Analytics, Meta, TikTok) | Visit events, IP address and device, with permission per creator | The creator's own analytics and ads |
 | Apps you connect with Sign in with Amped.Bio | What you allow on the consent screen | Sign you in to that app |
