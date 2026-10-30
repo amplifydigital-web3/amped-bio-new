@@ -74,6 +74,7 @@ model User {
   rnsExpiryNotices        RnsExpiryNotice[]
   identityChecks          IdentityCheck[]
   identityReviewCases     IdentityReviewCase[]
+  accessRules             AccessRule[]
   telegramAccount         TelegramAccount?
   telegramLinkEvents      TelegramLinkEvent[]
   messagingSettings       CreatorMessagingSettings?
@@ -197,10 +198,15 @@ model Block {
   config     Json?
   created_at DateTime  @default(now())
   updated_at DateTime? @updatedAt
+  // Gating engine (#21, G1): the rule that locks this block; null = public.
+  // Restrict: a rule in use cannot be deleted, so a gated block never turns public.
+  accessRuleId Bytes?  @map("access_rule_id") @db.Binary(16)
 
   user            User             @relation(fields: [user_id], references: [id], onDelete: Cascade)
   analyticsEvents AnalyticsEvent[]
+  accessRule      AccessRule?      @relation(fields: [accessRuleId], references: [id], onDelete: Restrict)
 
+  @@index([accessRuleId])
   @@map("blocks")
 }
 
@@ -1392,6 +1398,9 @@ model ContentItem {
   user    User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   assets  ContentAsset[]
   reports ContentReport[]
+  // Gating engine (#21, G1): Restrict, so a rule in use cannot be deleted and a
+  // gated item never turns public. Never SetNull.
+  accessRule AccessRule? @relation(fields: [accessRuleId], references: [id], onDelete: Restrict)
 
   @@index([userId, status])
   @@index([userId, publishState, publishedAt])
@@ -1713,4 +1722,51 @@ model IdentityReviewCase {
   @@index([userId, status])
   @@index([status, openedAt])
   @@map("identity_review_cases")
+}
+
+// ===== Access gating engine (Build Board #21, docs/features/access-gating-engine.md) =====
+
+// One rule a creator attaches to blocks and content items. kind is immutable;
+// params are checked against the kind's zod schema on every write and read.
+// owner uses NoAction, not Cascade (GQ2): the account deletion job removes the
+// user's items and blocks, then their rules, then the user.
+model AccessRule {
+  id           Bytes     @id @db.Binary(16)
+  ownerUserId  Int       @map("owner_user_id")
+  // null for rules made inline in the picker
+  name         String?   @db.VarChar(80)
+  kind         String    @db.VarChar(24)
+  params       Json
+  opensToAllAt DateTime? @map("opens_to_all_at")
+  // bumps on any edit; voids cached decisions
+  version      Int       @default(1)
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  owner        User          @relation(fields: [ownerUserId], references: [id], onDelete: NoAction)
+  blocks       Block[]
+  contentItems ContentItem[]
+
+  @@index([ownerUserId])
+  @@map("access_rules")
+}
+
+// Locked views, checks, refusals and reveals, for the creator's rules and stats
+// page (G6). viewerKey is u:{id}, or for a signed out viewer the daily salted
+// visitor hash (never the IP, never linkable across days or creators). Kept 25 months.
+model AccessEvent {
+  id          Bytes    @id @db.Binary(16)
+  ruleId      Bytes?   @map("rule_id") @db.Binary(16)
+  ownerUserId Int      @map("owner_user_id")
+  // "block:123", "content:abc123"
+  resource    String   @db.VarChar(80)
+  viewerKey   String   @map("viewer_key") @db.VarChar(24)
+  // locked_view | check | denied | unlocked | revealed
+  type        String   @db.VarChar(24)
+  reason      String?  @db.VarChar(32)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([ownerUserId, createdAt])
+  @@index([ruleId, createdAt])
+  @@map("access_events")
 }
