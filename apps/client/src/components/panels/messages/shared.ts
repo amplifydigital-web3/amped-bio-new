@@ -53,3 +53,8 @@ export function stakeMinError(value: RuleValue): string | null {
     ? null
     : TELEGRAM_APP_STRINGS.messagingSettingsErrors.stakeMin;
 }
+
+/** The bot's chat in Telegram, where pressing Start lets the bot write to the user (spec 3.5). */
+export function telegramBotLink(botUsername: string) {
+  return `https://t.me/${botUsername}`;
+}
