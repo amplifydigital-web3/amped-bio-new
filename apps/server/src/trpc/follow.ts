@@ -2,6 +2,7 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import type { Prisma } from "@repo/database";
 import { privateProcedure, publicProcedure, router } from "./trpc";
+import { bumpViewer } from "../services/access";
 import { prisma } from "../services/DB";
 import { enforceRateLimits } from "../utils/rateLimit";
 import { hasEmailTrust, trustedEmailWhere } from "../utils/verificationGrace";
@@ -310,6 +311,8 @@ export const followRouter = router({
           data: { follow_disclosure_seen_at: new Date() },
         });
       }
+      // Gating (#21): the viewer's next access check is fresh
+      await bumpViewer(viewerId, "follow");
       const viewer = await prisma.user.findUnique({
         where: { id: viewerId },
         select: { email_verified: true, created_at: true },
@@ -335,6 +338,7 @@ export const followRouter = router({
       if (!row) return { following: false, restoreToken: null };
       await prisma.follow.delete({ where: { id: row.id } });
       await invalidateBlockData(creator.id);
+      await bumpViewer(viewerId, "unfollow");
       // A follow undone within 10 minutes is not counted as someone leaving
       let removalId: number | undefined;
       if (Date.now() - row.created_at.getTime() > UNDO_WINDOW_MS) {
@@ -596,6 +600,7 @@ export const followRouter = router({
         prisma.followRemoval.create({ data: { creator_id: creatorId, reason: "removed" } }),
       ]);
       await invalidateBlockData(creatorId);
+      await bumpViewer(input.userId, "unfollow");
       const token = restoreTokenFor(row, { r: removal.id });
       return { restoreToken: token };
     }),
@@ -631,6 +636,7 @@ export const followRouter = router({
         update: {},
         create: { creator_id: creatorId, user_id: input.userId },
       });
+      await bumpViewer(input.userId, "block");
       if (deleted.count > 0) {
         await prisma.followRemoval.create({ data: { creator_id: creatorId, reason: "blocked" } });
         await invalidateBlockData(creatorId);
@@ -644,6 +650,7 @@ export const followRouter = router({
       await prisma.followBlock.deleteMany({
         where: { creator_id: ctx.user!.sub, user_id: input.userId },
       });
+      await bumpViewer(input.userId, "block");
       return { ok: true };
     }),
 
