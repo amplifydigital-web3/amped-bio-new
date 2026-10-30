@@ -176,6 +176,9 @@ const envSchema = z.object({
 
   // URL for the RNS subgraph to validate name ownership and expiry
   SUBGRAPH_URL: z.string().default(""),
+  // RNS name expiry emails (30, 7 and 1 day before expiry, and on grace). The
+  // hourly sweep reads SUBGRAPH_URL; off when false or when the subgraph is unset.
+  RNS_EXPIRY_EMAILS: boolSchema(true),
 
   // Authbase identity verification API (wallet KYC status lookups)
   AUTHBASE_BASE_URL: z.string().default(""),
