@@ -12,7 +12,8 @@ import { uuidv7 } from "../utils/uuid-v7";
  *
  * POST /webhooks/telegram
  *
- * Telegram calls this for every update once setWebhook points here. The request
+ * Telegram calls this for every update. registerTelegramWebhook (services/telegram/
+ * client.ts) points the bot here on startup, from API_HOST. The request
  * does three things and nothing else: check the secret header, drop duplicates,
  * write the raw update to telegram_inbox. The sender loop (services/telegram/loop.ts)
  * does the work. Answering fast matters: Telegram retries slow webhooks and queues
