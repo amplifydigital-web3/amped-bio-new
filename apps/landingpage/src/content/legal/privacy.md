@@ -1,6 +1,6 @@
 # Amped.Bio Privacy Policy
 
-Last updated: October 23, 2026
+Last updated: October 30, 2026
 
 This policy explains what personal information Amped.Bio collects, why, who receives it, and the choices you have. It applies to creators, fans and anyone who visits an Amped.Bio page.
 
@@ -34,6 +34,8 @@ When you create an account and build your page, we collect:
 - **Messages to us:** what you send to support.
 
 If you verify your identity with Authbase, we receive your verification status and badge, and only the attributes you choose to share with Amped.Bio: your name as checked on your ID, whether you are over 18, your gender and your country. We never receive your date of birth. Only you can see those shared attributes unless you choose to show one. You can show each attribute on your own, while you are verified, by turning it on in your page's RNS ID block. Anyone who views your page or your RNS name can then see it. Others see only your verification status, and only where you choose to show it, plus the attributes you turned on.
+
+When we check your age or your seller status with Authbase, we keep the result of the check and when it ends. We never receive your birth date or ID.
 
 ## 3. Wallets, tREVO and on chain activity
 
@@ -186,6 +188,8 @@ Creator pages and the public site set nothing in your browser until you choose, 
 | Messages between fans and creators | 12 months after the last message in the conversation |
 | Support messages | 2 years |
 | RNS name expiry reminders (your name, its expiry date, the reminder stage, the time of the reminder and how many sends failed) | While your account is open, then deleted within 30 days of closing it |
+| Authbase age and seller check results (pass or fail, the reason and when the check ends) | While your account is open, then deleted within 30 days of closing it |
+| Under 18 reviews (that an age check showed under 18, and how we decided) | 5 years |
 
 On chain records on the Revolution Network and Base are permanent. We cannot delete them.
 
@@ -212,6 +216,6 @@ We cannot change or delete records on the blockchain, including your wallet addr
 
 **Security.** Passwords are stored as one way hashes. Creator Meta and TikTok tokens and Coinbase sign in tokens are encrypted at rest and never sent to any browser. Access to personal information is limited to staff who need it. No system is perfectly secure.
 
-**Children.** You must be 18 or older to create an Amped.Bio account, because accounts include a wallet and tokens. We do not knowingly collect information from anyone under 18. If you believe someone under 18 has an account, write to us and we will delete it.
+**Children.** You must be 18 or older to create an Amped.Bio account, because accounts include a wallet and tokens. We do not knowingly collect information from anyone under 18. If you believe someone under 18 has an account, write to us and we will delete it. If an age check shows that someone on an account is under 18, a person on our team reviews it and we close the account.
 
 **Changes.** We will post changes here and update the date at the top. For material changes to how visitors are measured, the consent card asks every visitor again.
