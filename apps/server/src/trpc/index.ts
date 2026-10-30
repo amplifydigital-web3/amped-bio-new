@@ -28,6 +28,7 @@ import { onrampRouter } from "./onramp";
 import { contentRouter } from "./content";
 import { notificationsRouter } from "./notifications";
 import { identityRouter } from "./identity";
+import { accessRouter } from "./access";
 import { inferRouterOutputs } from "@trpc/server";
 
 // Merge all routers
@@ -66,6 +67,8 @@ const mergedRouter = router({
   notifications: notificationsRouter,
   // Identity checks through Authbase: Over 18 and verified seller (Build Board #47)
   identity: identityRouter,
+  // Access gating engine core (Build Board #21), behind ACCESS_GATING_ENABLED
+  access: accessRouter,
 });
 
 export type AppRouter = typeof mergedRouter;
