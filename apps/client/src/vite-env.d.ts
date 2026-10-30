@@ -25,6 +25,8 @@ interface ImportMetaEnv {
   readonly VITE_FAN_GRAPH?: string;
   /** Content destination, Library tab (Build Board #20, content system PR 5) */
   readonly VITE_CONTENT?: string;
+  /** Mobile checkout (Build Board #49): the resume bar and, from CK-2, the pay page */
+  readonly VITE_CHECKOUT?: string;
   /** Explore NFTs tab (Screen Review 044, D07). Off until NFT data exists. */
   readonly VITE_SHOW_NFTS?: string;
   /** Creator Pool Broadcast (Build Board #1): My Pool Broadcasts tab and the Inbox */
