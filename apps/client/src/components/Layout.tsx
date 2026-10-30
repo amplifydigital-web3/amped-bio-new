@@ -22,6 +22,7 @@ import { AccountPanel } from "./panels/account/AccountPanel";
 import { Rail } from "./shell/Rail";
 import { MobileDock } from "./shell/MobileDock";
 import { MobileTopBar, TopBar } from "./shell/TopBar";
+import { CheckoutResumeBar } from "./shell/CheckoutResumeBar";
 import { ShellNavigationProvider } from "./shell/ShellNavigation";
 import { useSupportWidget } from "./shell/useSupportWidget";
 import { useLayoutEffect } from "react";
@@ -135,6 +136,8 @@ export function Layout({ bannerData, bannerLoading }: LayoutProps) {
           {/* Context field */}
           <div className="flex min-w-0 flex-1 flex-col gap-[13px] md:gap-[13px]">
             <TopBar />
+            {/* Mobile checkout (#49, CK-1): Finish buying, when an intent is open */}
+            <CheckoutResumeBar />
             {!bannerLoading && bannerData && (
               <Banner
                 message={bannerData.message || "Notice"}
