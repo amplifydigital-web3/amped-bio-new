@@ -73,6 +73,10 @@ If you allow Return visits, we also save a random Amped.Bio ID in your browser s
 
 If your browser sends a Global Privacy Control signal, we treat it as a refusal of creator tags.
 
+### Locked items
+
+When you open or try to open a locked item, we record that it happened so the creator can see how their locks perform. If you are signed in, we record your account; otherwise we use the same daily one way code as visit counting. Creators see totals and the handles of fans who unlocked, never your stake.
+
 ### Summaries for creators
 
 A creator can ask for a written summary of their page statistics. To write it, we send Anthropic, our AI provider, that page's totals for the period and the period before, top sources, devices, visitor counts and up to 10 link names. No visitor level data is sent.
@@ -188,6 +192,7 @@ Creator pages and the public site set nothing in your browser until you choose, 
 | Messages between fans and creators | 12 months after the last message in the conversation |
 | Support messages | 2 years |
 | RNS name expiry reminders (your name, its expiry date, the reminder stage, the time of the reminder and how many sends failed) | While your account is open, then deleted within 30 days of closing it |
+| Locked item views and unlocks | 25 months |
 | Authbase age and seller check results (pass or fail, the reason and when the check ends) | While your account is open, then deleted within 30 days of closing it |
 | Under 18 reviews (that an age check showed under 18, and how we decided) | 5 years |
 
