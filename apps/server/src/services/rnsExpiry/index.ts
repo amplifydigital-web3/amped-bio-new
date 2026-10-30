@@ -106,7 +106,8 @@ type Recipient = { userId: number; email: string; name: string };
 
 /**
  * Wallet owners who get reminders: a linked Amped.Bio wallet, a verified
- * email (Rob, 23 Oct: verified addresses only) and reminders not turned off.
+ * email (Rob, 23 Oct: verified addresses only), an account that is not
+ * blocked, and reminders not turned off.
  */
 async function recipientsFor(owners: string[]): Promise<Map<string, Recipient>> {
   const map = new Map<string, Recipient>();
@@ -121,6 +122,7 @@ async function recipientsFor(owners: string[]): Promise<Map<string, Recipient>> 
           email: true,
           email_verified: true,
           name: true,
+          block: true,
           notificationPreferences: {
             where: { creatorUserId: 0 },
             select: { rnsRemindersEnabled: true },
@@ -132,6 +134,8 @@ async function recipientsFor(owners: string[]): Promise<Map<string, Recipient>> 
   for (const wallet of wallets) {
     const { user } = wallet;
     if (!user.email || !user.email_verified) continue;
+    // A blocked account cannot sign in to extend the name
+    if (user.block !== "no") continue;
     if (user.notificationPreferences[0]?.rnsRemindersEnabled === false) continue;
     map.set(wallet.address.toLowerCase(), { userId: user.id, email: user.email, name: user.name });
   }

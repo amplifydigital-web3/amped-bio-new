@@ -58,7 +58,9 @@ function subgraphReply(rows: { labelName: string; owner: string; expiry: number 
   } as unknown as Response;
 }
 
-function wallet(overrides: Partial<{ verified: boolean; reminders: boolean | null }> = {}) {
+function wallet(
+  overrides: Partial<{ verified: boolean; reminders: boolean | null; block: string }> = {}
+) {
   return {
     address: OWNER.toUpperCase().replace("0X", "0x"),
     user: {
@@ -66,6 +68,7 @@ function wallet(overrides: Partial<{ verified: boolean; reminders: boolean | nul
       email: "rob@example.com",
       email_verified: overrides.verified ?? true,
       name: "Rob Frasca",
+      block: overrides.block ?? "no",
       notificationPreferences:
         overrides.reminders === undefined ? [] : [{ rnsRemindersEnabled: overrides.reminders }],
     },
@@ -204,6 +207,14 @@ describe("sweepRnsExpiry", () => {
 
     db.userWallet.findMany.mockResolvedValue([wallet({ reminders: false })]);
     expect(await sweepRnsExpiry(NOW)).toBe(0);
+    expect(transport.deliverEmail).not.toHaveBeenCalled();
+  });
+
+  it("skips blocked accounts", async () => {
+    stubSubgraph([{ labelName: "robfrasca", owner: OWNER, expiry: NOW + 5 * DAY }]);
+    db.userWallet.findMany.mockResolvedValue([wallet({ block: "yes" })]);
+    expect(await sweepRnsExpiry(NOW)).toBe(0);
+    expect(db.rnsExpiryNotice.create).not.toHaveBeenCalled();
     expect(transport.deliverEmail).not.toHaveBeenCalled();
   });
 
