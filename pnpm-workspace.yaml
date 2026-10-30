@@ -3,6 +3,7 @@ packages:
   - "packages/*"
 
 catalog:
+  typescript: 7.0.2
   better-auth: 1.7.5
   "@better-auth/cli": 1.4.21
   "@better-auth/cimd": 1.7.5

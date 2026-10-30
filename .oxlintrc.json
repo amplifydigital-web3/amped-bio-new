@@ -1,0 +1,47 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["eslint", "typescript", "react", "oxc"],
+  "categories": {
+    "correctness": "error"
+  },
+  "env": {
+    "browser": true,
+    "es2022": true
+  },
+  "ignorePatterns": [
+    "**/dist/**",
+    "**/src/lib/prisma/**",
+    "**/.next/**",
+    "**/worker-configuration.d.ts",
+    "**/.wrangler/**"
+  ],
+  "rules": {
+    "react/rules-of-hooks": "error",
+    "react/exhaustive-deps": "warn",
+    "react/only-export-components": ["warn", { "allowConstantExport": true }],
+    "react/set-state-in-effect": "off",
+    "react/refs": "off",
+    "react/purity": "off",
+    "react/static-components": "off",
+    "react/immutability": "off",
+    "react/preserve-manual-memoization": "off",
+    "react/use-memo": "off",
+    "react/no-did-update-set-state": "off",
+    "react/incompatible-library": "off",
+    "react/globals": "off",
+    "no-unused-vars": [
+      "warn",
+      {
+        "vars": "all",
+        "varsIgnorePattern": "^_|React",
+        "args": "after-used",
+        "argsIgnorePattern": "^_|req|res|next|err|e"
+      }
+    ],
+    "typescript/no-explicit-any": "off",
+    "typescript/no-namespace": "off",
+    "typescript/ban-ts-comment": "warn",
+    "typescript/no-require-imports": "warn",
+    "typescript/no-empty-object-type": "warn"
+  }
+}

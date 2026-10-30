@@ -34,7 +34,7 @@
       "request": "launch",
       "program": "${workspaceFolder}/apps/server/src/index.ts",
       "outFiles": ["${workspaceFolder}/apps/server/dist/**/*.js"],
-      "runtimeArgs": ["--loader", "ts-node/esm"],
+      "runtimeArgs": ["--import", "tsx"],
       "env": {
         "NODE_ENV": "development",
         "VITE_DEMO_MODE": "true"
