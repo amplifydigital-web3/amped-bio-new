@@ -12,10 +12,10 @@
     "start-local": "node dist/local.js",
     "dev": "tsx watch -r dotenv/config src/local.ts",
     "prebuild": "node ./scripts/log-better-auth-secret.mjs",
-    "build": "tsc && ts-add-js-extension --dir=dist",
+    "build": "node ./node_modules/typescript-7/bin/tsc && ts-add-js-extension --dir=dist",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix --exit-on-fatal-error",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "node ./node_modules/typescript-7/bin/tsc --noEmit",
     "email:check": "tsx -r dotenv/config scripts/email-check.ts",
     "usdc:records": "tsx -r dotenv/config scripts/usdc-records.ts",
     "blocks:unsafe-urls": "tsx -r dotenv/config scripts/unsafe-block-urls.ts",
@@ -98,6 +98,7 @@
     "ts-add-js-extension": "^1.6.6",
     "tsx": "^4.19.4",
     "typescript": "5.9.2",
+    "typescript-7": "npm:typescript@7.0.2",
     "vitest": "^3.1.0"
   }
 }

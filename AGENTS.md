@@ -65,6 +65,7 @@ ALWAYS run typecheck and build commands to validate your modifications before cl
 - **Styling**: Use Tailwind CSS exclusively for all styling. Creating or modifying separate CSS files is prohibited.
 - **Icons**: Prefer `lucide-react` for icons. Only use `react-icons` as a fallback if the specific icon is unavailable in `lucide-react`.
 - **Schema Validation**: Implement `zod` for all schema definitions and data validations. No other validation libraries.
+- **TypeScript Compiler**: Typecheck and build scripts run TypeScript 7 (the native compiler), installed per workspace as the `typescript-7` alias and called as `node ./node_modules/typescript-7/bin/tsc`. The `typescript` package stays on 5.9 only because typescript-eslint, tsup `--dts`, Next.js and ts-node need its JavaScript API, which TypeScript 7 no longer ships. Do not call a bare `tsc` in scripts and do not remove or upgrade `typescript` until those tools support TypeScript 7. TypeScript 7 no longer loads every `@types/*` package by default, so list global types in `compilerOptions.types` (e.g. `["node"]`) and import test helpers from `vitest` explicitly.
 - **Alerts & Warnings**: When implementing alerts or warnings, style them using Tailwind CSS classes and include an appropriate icon from `lucide-react`.
 - **Browser Automation**: When viewing or interacting with websites in the browser, use the `agent-browser` MCP exclusively. Do NOT use `playwright` or any other browser automation tool.
 

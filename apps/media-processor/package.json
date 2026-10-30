@@ -10,7 +10,7 @@
     "deploy:production": "wrangler deploy --env production",
     "lint": "wrangler types >/dev/null && eslint .",
     "lint:fix": "eslint . --fix --exit-on-fatal-error",
-    "typecheck": "wrangler types >/dev/null && tsc --noEmit && tsc --noEmit -p test",
+    "typecheck": "wrangler types >/dev/null && node ./node_modules/typescript-7/bin/tsc --noEmit && node ./node_modules/typescript-7/bin/tsc --noEmit -p test",
     "test": "wrangler types >/dev/null && vitest run",
     "test:toolbox": "cd container && npm ci && npm test",
     "test:watch": "vitest",
@@ -24,6 +24,7 @@
     "@cloudflare/vitest-plugin": "^1.4.4",
     "@repo/typescript-config": "workspace:*",
     "typescript": "5.9.2",
+    "typescript-7": "npm:typescript@7.0.2",
     "vitest": "^5.0.4",
     "wrangler": "^4.151.1"
   }

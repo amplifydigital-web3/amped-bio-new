@@ -11,8 +11,8 @@
     "prisma:migrate:dev": "prisma migrate dev --schema=./prisma/schema.prisma",
     "prisma:studio": "prisma studio --schema=./prisma/schema.prisma",
     "postinstall": "prisma generate --schema=./prisma/schema.prisma",
-    "build": "tsc",
-    "typecheck": "tsc --noEmit"
+    "build": "node ./node_modules/typescript-7/bin/tsc",
+    "typecheck": "node ./node_modules/typescript-7/bin/tsc --noEmit"
   },
   "dependencies": {
     "@prisma/client": "6.7.0"
@@ -21,6 +21,7 @@
     "@repo/typescript-config": "workspace:*",
     "@types/node": "^26.6.4",
     "prisma": "6.7.0",
-    "typescript": "5.9.2"
+    "typescript": "5.9.2",
+    "typescript-7": "npm:typescript@7.0.2"
   }
 }
