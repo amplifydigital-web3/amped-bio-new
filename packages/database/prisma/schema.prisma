@@ -72,6 +72,8 @@ model User {
   broadcastReports        BroadcastReport[]
   notificationPreferences NotificationPreference[]
   rnsExpiryNotices        RnsExpiryNotice[]
+  checkoutIntents         CheckoutIntent[] @relation("CheckoutIntentFan")
+  checkoutIntentsSold     CheckoutIntent[] @relation("CheckoutIntentCreator")
   telegramAccount         TelegramAccount?
   telegramLinkEvents      TelegramLinkEvent[]
   messagingSettings       CreatorMessagingSettings?
@@ -1661,4 +1663,41 @@ model RnsExpiryNotice {
   @@unique([userId, label, expiry, stage])
   @@index([sentAt])
   @@map("rns_expiry_notices")
+}
+
+// ===== Mobile checkout (Build Board #49, PR CK-1; mobile first review R1) =====
+
+// One server side intent per Buy, Join, Renew or Tip. It carries the purchase
+// across sign up, the Wallet Buy USDC handoff, a browser switch and an app
+// reload; every later step carries ?ci={id}. Lives 24 hours. userId is null
+// until a signed in fan first reads it (claim); after that only that fan can.
+model CheckoutIntent {
+  id            Bytes     @id @db.Binary(16)
+  // purchase | membership | tip | ticket
+  kind          String    @db.VarChar(16)
+  // content (offers and plans replace it with store PR 9)
+  targetType    String    @map("target_type") @db.VarChar(16)
+  targetId      String    @map("target_id") @db.VarChar(64)
+  creatorUserId Int       @map("creator_user_id")
+  userId        Int?      @map("user_id")
+  // open | awaiting_funds | signing | submitted | paid | expired
+  status        String    @default("open") @db.VarChar(16)
+  // Memberships only: month | year
+  interval      String?   @db.VarChar(8)
+  // Promoter code from ?via= (the cookie is the fallback)
+  via           String?   @db.VarChar(32)
+  // Where the fan tapped Buy, for the phone funnel
+  source        String    @db.VarChar(16)
+  expiresAt     DateTime  @map("expires_at")
+  claimedAt     DateTime? @map("claimed_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  creator User  @relation("CheckoutIntentCreator", fields: [creatorUserId], references: [id], onDelete: Cascade)
+  user    User? @relation("CheckoutIntentFan", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status, expiresAt])
+  @@index([creatorUserId, createdAt])
+  @@index([expiresAt])
+  @@map("checkout_intents")
 }
