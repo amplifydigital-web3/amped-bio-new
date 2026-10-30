@@ -31,7 +31,7 @@ import { cleanHandleInput } from "@/lib/handle";
 import { useCaptcha } from "@/hooks/useCaptcha";
 import { useReferralHandler } from "@/hooks/useReferralHandler";
 import { useHandleAvailability } from "@/hooks/useHandleAvailability";
-import { getPostAuthDestination, goTo, toAbsoluteUrl } from "@/lib/panel";
+import { authSwitchHref, getPostAuthDestination, goTo, toAbsoluteUrl } from "@/lib/panel";
 import {
   SIGN_UP_UNCONFIRMED_BODY,
   SIGN_UP_UNCONFIRMED_TITLE,
@@ -262,9 +262,7 @@ export function RegisterForm() {
             text="Already have an account?"
             action={
               <Button variant="ghost" asChild data-testid="switch-to-login">
-                <Link href={`/login${email ? `?email=${encodeURIComponent(email)}` : ""}`}>
-                  Sign in
-                </Link>
+                <Link href={authSwitchHref("/login", params, email)}>Sign in</Link>
               </Button>
             }
           />

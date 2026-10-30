@@ -26,7 +26,13 @@ import {
 import { authClient } from "@/lib/auth-client";
 import { useCaptcha } from "@/hooks/useCaptcha";
 import { useReferralHandler } from "@/hooks/useReferralHandler";
-import { getPostAuthDestination, getSafeRedirect, goTo, toAbsoluteUrl } from "@/lib/panel";
+import {
+  authSwitchHref,
+  getPostAuthDestination,
+  getSafeRedirect,
+  goTo,
+  toAbsoluteUrl,
+} from "@/lib/panel";
 import { trackGAEvent } from "@/utils/ga";
 import { PRIVACY_POLICY_URL } from "@/components/layout/PublicFooter";
 
@@ -191,9 +197,7 @@ export function SignInForm() {
             text="New to Amped.Bio?"
             action={
               <Button variant="ghost" asChild data-testid="switch-to-register">
-                <Link href={`/register${email ? `?email=${encodeURIComponent(email)}` : ""}`}>
-                  Create account
-                </Link>
+                <Link href={authSwitchHref("/register", params, email)}>Create account</Link>
               </Button>
             }
           />

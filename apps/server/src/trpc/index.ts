@@ -27,6 +27,7 @@ import { usdcRouter } from "./usdc";
 import { onrampRouter } from "./onramp";
 import { contentRouter } from "./content";
 import { notificationsRouter } from "./notifications";
+import { checkoutRouter } from "./checkout";
 import { inferRouterOutputs } from "@trpc/server";
 
 // Merge all routers
@@ -63,6 +64,8 @@ const mergedRouter = router({
   content: contentRouter,
   // Account notification settings (RNS name reminders)
   notifications: notificationsRouter,
+  // Mobile checkout intents (Build Board #49), behind CHECKOUT_ENABLED
+  checkout: checkoutRouter,
 });
 
 export type AppRouter = typeof mergedRouter;

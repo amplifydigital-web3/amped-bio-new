@@ -8,6 +8,7 @@ import { startUsdcIndexer } from "./services/usdc";
 import { startContentSweeper } from "./services/content/state";
 import { startOnrampTokenPurge } from "./services/onramp/sessions";
 import { startRnsExpirySweeper } from "./services/rnsExpiry";
+import { startCheckoutIntentPurge } from "./services/checkout/intents";
 import { getGeoIpReader } from "./services/analytics/geoipDatabase";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -34,6 +35,8 @@ startContentSweeper();
 startOnrampTokenPurge();
 // RNS name expiry emails: an hourly sweep, one email per name and stage
 startRnsExpirySweeper();
+// Mobile checkout (Build Board #49): delete checkout intents 30 days after they end
+startCheckoutIntentPurge();
 
 // Analytics location: open (or download) GeoLite2 City at boot so the first
 // visits are located and a missing license key shows in the startup log.

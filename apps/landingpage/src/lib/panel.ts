@@ -84,3 +84,23 @@ export function toAbsoluteUrl(url: string): string {
 export function goTo(url: string) {
   window.location.href = url;
 }
+
+/**
+ * The link between Sign in and Create account. It keeps a safe returnTo (or the
+ * legacy redirect), so a checkout intent in the pay URL survives sign up
+ * (mobile checkout CK-1), and the email when there is one.
+ */
+export function authSwitchHref(
+  path: "/login" | "/register",
+  params: URLSearchParams,
+  email?: string
+): string {
+  const next = new URLSearchParams();
+  if (email) next.set("email", email);
+  const returnTo = getSafeRedirect(params.get("returnTo"));
+  const redirect = getSafeRedirect(params.get("redirect"));
+  if (returnTo) next.set("returnTo", returnTo);
+  else if (redirect) next.set("redirect", redirect);
+  const query = next.toString();
+  return query ? `${path}?${query}` : path;
+}
