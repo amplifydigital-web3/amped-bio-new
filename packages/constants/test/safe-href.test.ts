@@ -31,6 +31,24 @@ const UNSAFE = [
   "example.com",
   "https:evil.example",
   "",
+  // Encodings and lookalikes a browser never reads as http(s)
+  "java%73cript:alert(1)",
+  "&#106;avascript:alert(1)",
+  "javascript&colon;alert(1)",
+  "javascript://%0aalert(1)",
+  "javascript://example.com/%0aalert(1)",
+  "\r\njavascript:alert(1)",
+  " \u0008\u001fjavascript:alert(1)",
+  "\u007fjavascript:alert(1)",
+  "javascript:alert(1)\u0000",
+  " javascript:alert(1)",
+  "java​script:alert(1)",
+  "ｊavascript:alert(1)",
+  "javаscript:alert(1)",
+  "vBsCrIpT:msgbox(1)",
+  "\tdata:text/html,<script>alert(1)</script>",
+  "https:///evil.example",
+  "https:\\\\evil.example",
 ];
 
 const SAFE_LINKS = [
