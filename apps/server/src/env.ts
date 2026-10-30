@@ -219,7 +219,8 @@ const envSchema = z.object({
   // API getMe() (services/telegram/client.ts), so it always matches the token in
   // use; set this only in tests or a split environment the token cannot reach.
   TELEGRAM_BOT_USERNAME: z.string().default(""),
-  // Value passed as secret_token to setWebhook; the webhook route rejects requests without it
+  // Value passed as secret_token to setWebhook; the webhook route rejects requests without it.
+  // The server registers https://API_HOST/webhooks/telegram with it on startup.
   TELEGRAM_WEBHOOK_SECRET: z.string().default(""),
   // Log In with Telegram (OIDC) client credentials from BotFather, Login Widget
   TELEGRAM_OIDC_CLIENT_ID: z.string().default(""),
