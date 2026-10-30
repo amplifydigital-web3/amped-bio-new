@@ -16,7 +16,7 @@ import { FollowersBlock } from "./blocks/FollowersBlock";
 import { RnsIdBlock } from "./blocks/RnsIdBlock";
 import { TelegramMessagePreview } from "./blocks/TelegramMessageBlock";
 import { isHTML } from "@/utils/htmlutils";
-import { type BlockType, DEFAULT_RNSID_CONFIG, sanitizeRichHtml } from "@repo/constants";
+import { type BlockType, DEFAULT_RNSID_CONFIG, safeHref, sanitizeRichHtml } from "@repo/constants";
 import { Theme, UserProfile } from "@/types/editor";
 import { trpcClient } from "@repo/ui";
 import {
@@ -190,7 +190,9 @@ export function Preview({
       return (
         <ErrorBoundary key={block.id.toString()} fallback={fallback}>
           <a
-            href={block.config.url}
+            // D57: an unsafe stored link renders with no href, so a click in the
+            // editor never runs script in the app with the creator signed in
+            href={safeHref(block.config.url)}
             target="_blank"
             rel="noopener noreferrer"
             onClick={() => handleLinkClick(block)}
