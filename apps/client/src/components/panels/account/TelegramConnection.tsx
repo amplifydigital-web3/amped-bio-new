@@ -19,6 +19,7 @@ import {
   trpcClient,
 } from "@repo/ui";
 import { toast } from "@/components/ui/toast";
+import { TelegramBotStartNotice } from "../messages/TelegramBotStartNotice";
 
 // Messaging on Telegram (Build Board #2), Screen Review row 112, board tg1.
 // The Telegram link sits at the top of Account, Connected apps. Not linked: one
@@ -177,7 +178,9 @@ export function TelegramConnection() {
         </Button>
       </div>
 
-      {data.blocked && <Notice variant="warning">{S.accountBlockedNotice}</Notice>}
+      {(data.blocked || !data.botAccess) && (
+        <TelegramBotStartNotice botUsername={data.botUsername} blocked={data.blocked} />
+      )}
       {error && (
         <Notice variant="error" role="alert">
           {error}

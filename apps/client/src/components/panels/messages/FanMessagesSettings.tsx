@@ -8,7 +8,7 @@ import { AUTOSAVE_DELAY_MS } from "@/contexts/EditorContext";
 import { FieldError } from "../page/blocks/LinkFields";
 import { wellClass } from "../page/blocks/linkValue";
 import { RuleTiles, type RuleValue } from "./RuleTiles";
-import { errorMessage, stakeMinError } from "./shared";
+import { errorMessage, stakeMinError, telegramBotLink } from "./shared";
 
 type Draft = RuleValue & { enabled: boolean; cap: string; replyFromTelegram: boolean };
 
@@ -39,6 +39,8 @@ export function FanMessagesSettings() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const settings = useQuery(trpc.messaging.creator.getSettings.queryOptions());
+  // The bot's handle, for the Open the bot button when Start was never pressed
+  const link = useQuery(trpc.telegram.link.status.queryOptions());
   const [draft, setDraft] = useState<Draft | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -107,8 +109,12 @@ export function FanMessagesSettings() {
 
   const data = settings.data;
   const req = data.requirements;
+  // The server asks for a reachable bot only when replies go through Telegram
+  const needsBotStart = req.telegramLinked && draft.replyFromTelegram && !req.telegramReachable;
+  const botUsername = link.data?.botUsername ?? null;
   const missing: string[] = [
-    !req.telegramLinked || !req.telegramReachable ? S.requirementLink : null,
+    !req.telegramLinked ? S.requirementLink : null,
+    needsBotStart ? S.requirementStartBot : null,
     !req.emailVerified ? S.requirementEmail : null,
     !req.published ? S.requirementPublish : null,
   ].filter((line): line is NonNullable<typeof line> => !!line);
@@ -135,7 +141,14 @@ export function FanMessagesSettings() {
               <li key={line}>{line}</li>
             ))}
           </ul>
-          {(!req.telegramLinked || !req.telegramReachable) && (
+          {needsBotStart && botUsername && (
+            <Button variant="ghost" className="mt-2" asChild>
+              <a href={telegramBotLink(botUsername)} target="_blank" rel="noopener noreferrer">
+                {S.openBotButton}
+              </a>
+            </Button>
+          )}
+          {!req.telegramLinked && (
             <Button
               variant="ghost"
               className="mt-2"

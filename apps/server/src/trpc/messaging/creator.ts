@@ -119,9 +119,9 @@ export const messagingCreatorRouter = router({
       if (input.enabled) {
         if (user?.page_status !== "PUBLISHED") throw precondition(E.notPublished);
         if (!user?.email_verified) throw precondition(E.emailNotVerified);
-        if (!account || (replyFromTelegram && !isReachable(account))) {
-          throw precondition(E.notLinked);
-        }
+        if (!account) throw precondition(E.notLinked);
+        // Linked, but Start was never pressed in the bot or the bot is blocked
+        if (replyFromTelegram && !isReachable(account)) throw precondition(E.botNotStarted);
         if (env.MESSAGING_INVITE_ONLY && !settings?.invitedAt) throw precondition(E.notInvited);
         if (settings?.pausedAt) throw precondition(E.paused);
       }
