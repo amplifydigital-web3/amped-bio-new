@@ -67,3 +67,4 @@ packages/database/src/generated/
 
 # TypeScript incremental build info
 *.tsbuildinfo
+prod-cli/
