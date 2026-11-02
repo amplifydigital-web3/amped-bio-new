@@ -42,7 +42,8 @@
         "TELEGRAM_OIDC_CLIENT_SECRET",
         "TELEGRAM_SECRET_BOX_KEY",
         "MESSAGING_INVITE_ONLY",
-        "TELEGRAM_GROUPS"
+        "TELEGRAM_GROUPS",
+        "TELEGRAM_MINIAPP"
       ]
     },
     "lint": {},

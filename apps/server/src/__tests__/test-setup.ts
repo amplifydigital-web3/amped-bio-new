@@ -39,6 +39,7 @@ process.env.TELEGRAM_OIDC_CLIENT_SECRET = "";
 process.env.TELEGRAM_SECRET_BOX_KEY = "test-telegram-secret-box-key";
 process.env.MESSAGING_INVITE_ONLY = "true";
 process.env.TELEGRAM_GROUPS = "false";
+process.env.TELEGRAM_MINIAPP = "false";
 
 // Database connection for tests that import auth.ts (which creates Prisma client)
 process.env.DATABASE_URL = "mysql://amped_user:amped_password@localhost:23306/amped_bio";

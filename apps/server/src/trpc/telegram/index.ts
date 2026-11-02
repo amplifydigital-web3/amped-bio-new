@@ -17,6 +17,7 @@ import { getBotUsername } from "../../services/telegram/client";
 import { enqueueOutbox } from "../../services/telegram/loop";
 import { getOrCreateLinkCode } from "../../services/telegram/linkCodes";
 import { telegramGroupsRouter } from "./groups";
+import { telegramMiniAppRouter } from "./miniapp";
 
 /** Where the browser lands after Telegram (PR 4). The handle must name a published page. */
 const returnToSchema = z
@@ -144,4 +145,5 @@ export const telegramLinkRouter = router({
 export const telegramRouter = router({
   link: telegramLinkRouter,
   groups: telegramGroupsRouter,
+  miniapp: telegramMiniAppRouter,
 });

@@ -53,6 +53,7 @@ const COMPOSITE: Record<string, string[]> = {
   creator_id_user_id: ["creator_id", "user_id"],
   userId_creatorUserId: ["userId", "creatorUserId"],
   groupId_telegramUserId: ["groupId", "telegramUserId"],
+  follower_id_creator_id: ["follower_id", "creator_id"],
 };
 
 const DEFAULTS: Record<string, () => Row> = {
