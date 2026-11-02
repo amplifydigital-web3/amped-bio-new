@@ -13,6 +13,7 @@ import { oauthAppsAdminRouter } from "./oauthApps";
 import { broadcastsAdminRouter } from "./broadcasts";
 import { telegramAdminRouter } from "./telegram";
 import { moneyAdminRouter } from "./money";
+import { paymentsAdminRouter } from "./payments";
 
 export const adminRouter = router({
   // User Management
@@ -56,4 +57,7 @@ export const adminRouter = router({
 
   // USDC relayer, gas ledger, funding, screening and the send pause (Build Board #29)
   money: moneyAdminRouter,
+
+  // AmpedPay settings, two person changes and the change log (Build Board #50)
+  payments: paymentsAdminRouter,
 });
