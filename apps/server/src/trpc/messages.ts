@@ -9,6 +9,7 @@ import {
 } from "@repo/constants";
 import { privateProcedure, router } from "./trpc";
 import { afterChange, afterRead, afterSend, afterUnsend } from "../services/realtime/messageEvents";
+import { scheduleMessageNotifications } from "../services/notifications/jobs";
 import { enforceRateLimits } from "../utils/rateLimit";
 import { hexToId, idToHex } from "../services/analytics/ids";
 import {
@@ -206,6 +207,14 @@ export const messagesRouter = router({
           recipientId,
           conversationId: sent.conversationId,
           messageId: sent.messageId,
+        });
+        await scheduleMessageNotifications({
+          senderId,
+          recipientId,
+          conversationId: sent.conversationId,
+          messageId: sent.messageId,
+          notificationId: sent.notificationId,
+          muted: sent.muted,
         });
       }
       return {

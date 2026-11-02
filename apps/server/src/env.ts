@@ -247,6 +247,12 @@ const envSchema = z.object({
   // Encrypts direct message bodies and report snapshots. Falls back to BETTER_AUTH_SECRET.
   // Set once per environment: rotating it makes stored messages unreadable.
   MESSAGES_SECRET_BOX_KEY: z.string().default(""),
+  // Web Push for Amped Messages (PR M4, spec 7.4). Generate once per environment with
+  // `npx web-push generate-vapid-keys`. Empty keys turn push off; the bell and email work.
+  VAPID_PUBLIC_KEY: z.string().default(""),
+  VAPID_PRIVATE_KEY: z.string().default(""),
+  // A mailto: or https: contact the push services can reach about abuse
+  VAPID_SUBJECT: z.string().default("mailto:support@amped.bio"),
 
   // USDC in the wallet (Build Board #29), spec docs/features/usdc-wallet-onramp.md 3.3 and 3.4.
   // Master switch for gasless sends and the indexer. Off until the CDP relayer account exists.

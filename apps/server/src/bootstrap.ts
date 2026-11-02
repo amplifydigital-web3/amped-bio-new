@@ -2,6 +2,7 @@ import { instrumentCaptchaVerification } from "./utils/captcha-observability";
 import { verifySmtpTransport } from "./utils/email/email";
 import { startBroadcastSweeper } from "./services/broadcast";
 import { startTelegramLoop } from "./services/telegram/loop";
+import { startNotificationLoop } from "./services/notifications/jobs";
 import { registerTelegramOutboxHandlers } from "./services/telegram/broadcast";
 import { registerMessagingOutboxHandlers } from "./services/messaging/delivery";
 import { registerGroupOutboxHandlers, startGroupChecks } from "./services/telegram/groups";
@@ -29,6 +30,8 @@ registerTelegramOutboxHandlers();
 registerMessagingOutboxHandlers();
 registerGroupOutboxHandlers();
 startTelegramLoop();
+// Amped Messages (#2 r4, M4): push and email reminder jobs, one polling instance via a Redis lock.
+startNotificationLoop();
 // Phase 2: hourly group checks. No-op until TELEGRAM_GROUPS.
 startGroupChecks();
 

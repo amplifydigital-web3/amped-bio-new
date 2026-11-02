@@ -7,6 +7,7 @@ import cookieParser from "cookie-parser";
 import { trpcMiddleware } from "../trpc/router";
 import wellKnownRouter from "../routes/well-known";
 import blocksSchemasRouter from "../routes/blocks-schemas";
+import messageEmailRouter from "../routes/messageEmail";
 import healthRouter from "../routes/health";
 import analyticsRouter from "../routes/analytics";
 import telegramRouter from "../routes/telegram";
@@ -82,6 +83,10 @@ const apiCors = cors({
     }
   },
 });
+
+// Amped Messages (#2 r4, M4): turn off message reminder emails from the footer link. Mounted
+// before CORS: its form posts from the API host itself, which is not an app origin.
+app.use("/email", express.urlencoded({ extended: false, limit: "4kb" }), messageEmailRouter);
 
 app.use(apiCors);
 
