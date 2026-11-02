@@ -758,6 +758,35 @@ describe("admin event indexer (spec 3.6 step 5, acceptance 7)", () => {
     expect(await supersedeStaleProposals(NOW)).toBe(0);
     expect(store.changes[0]!.status).toBe("proposed");
   });
+
+  it("applies a proposal superseded before the Safe service reported it executed", async () => {
+    const draft = await draftFloor();
+    await approveChange({ userId: ROB, changeId: draft.id, now: NOW });
+    safeNonce = 5;
+    serviceTx = {
+      confirmations: 1,
+      required: 1,
+      executed: false,
+      successful: null,
+      transactionHash: null,
+      nonce: 4,
+    };
+    expect(await supersedeStaleProposals(NOW)).toBe(1);
+    const changed = await recordAdminEvent(
+      {
+        key: "feeFloorBps",
+        oldValue: "500",
+        newValue: "450",
+        txHash: TX(12),
+        blockNumber: 3n,
+        logIndex: 0,
+      },
+      NOW
+    );
+    expect(changed).toBe(true);
+    expect(store.changes).toHaveLength(1);
+    expect(store.changes[0]).toMatchObject({ status: "applied", txHash: TX(12) });
+  });
 });
 
 describe("settings read live from the contract (spec 3.8 a2, acceptance 8)", () => {

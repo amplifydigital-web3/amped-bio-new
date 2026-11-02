@@ -156,11 +156,33 @@ export async function recordAdminEvent(event: AdminEvent, at: Date): Promise<boo
     },
     orderBy: { createdAt: "asc" },
   });
-  const match = waiting.find(change => sameValue(event.key, change.newValue, event.newValue));
+  let match = waiting.find(change => sameValue(event.key, change.newValue, event.newValue));
+  if (!match) {
+    // supersedeStaleProposals reads the Safe nonce at the chain head, while the Safe service
+    // can report a just executed transaction as not executed for a while. A proposal closed
+    // that way still owns its event, so it becomes Applied instead of an outside change.
+    const superseded = await prisma.adminChange.findMany({
+      where: {
+        area: "payments",
+        target: "contract",
+        key: event.key,
+        status: "superseded",
+        safeTxHash: { not: null },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+    match = superseded.find(change => sameValue(event.key, change.newValue, event.newValue));
+  }
   if (match) {
     const claimed = await prisma.adminChange.updateMany({
       where: { id: match.id, status: match.status },
-      data: { status: "applied", txHash: event.txHash, appliedAt: at, chainId: paymentChain.id },
+      data: {
+        status: "applied",
+        txHash: event.txHash,
+        appliedAt: at,
+        chainId: paymentChain.id,
+        ...(match.status === "superseded" ? { decisionNote: "Executed by the Safe." } : {}),
+      },
     });
     return claimed.count > 0;
   }
