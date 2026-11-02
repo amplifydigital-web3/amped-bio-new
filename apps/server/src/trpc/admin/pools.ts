@@ -2,6 +2,12 @@ import { adminProcedure, router } from "../trpc";
 import { z } from "zod";
 import { TRPCError, tracked } from "@trpc/server";
 import { prisma } from "@repo/database";
+import {
+  applyStakeDelta,
+  bumpPoolsListVersion,
+  lockPoolForStats,
+  recomputePoolStats,
+} from "../../services/poolStats";
 import { createPublicClient, decodeEventLog, type Address, type Log } from "viem";
 import {
   getChainConfig,
@@ -699,6 +705,9 @@ export const adminPoolsRouter = router({
 
           try {
             await prisma.$transaction(async (tx) => {
+              // Pool row first, like every stats writer (D7 PL1)
+              await lockPoolForStats(tx, pool.id);
+
               // Delete all stake events for this pool
               // Only stake and unstake rows are rebuilt; create and claim rows stay (rows 067 to 069)
               await tx.stakeEvent.deleteMany({
@@ -739,6 +748,9 @@ export const adminPoolsRouter = router({
                   data: stakedPoolRows,
                 });
               }
+
+              // Pool list stats in the same transaction (D7 PL1)
+              await recomputePoolStats(tx, pool.id);
             });
           } catch (error) {
             console.error("[syncPool] Database transaction failed:", error);
@@ -757,8 +769,10 @@ export const adminPoolsRouter = router({
 
           try {
             await prisma.$transaction(async (tx) => {
+              await lockPoolForStats(tx, pool.id);
               await tx.stakeEvent.deleteMany({ where: { poolId: pool.id, eventType: { in: ["stake", "unstake"] } } });
               await tx.stakedPool.deleteMany({ where: { poolId: pool.id } });
+              await recomputePoolStats(tx, pool.id);
             });
           } catch (error) {
             console.error("[syncPool] Database cleanup failed:", error);
@@ -777,8 +791,10 @@ export const adminPoolsRouter = router({
         // No on-chain events found — clean up existing data to stay consistent
         try {
           await prisma.$transaction(async (tx) => {
+            await lockPoolForStats(tx, pool.id);
             await tx.stakeEvent.deleteMany({ where: { poolId: pool.id, eventType: { in: ["stake", "unstake"] } } });
             await tx.stakedPool.deleteMany({ where: { poolId: pool.id } });
+            await recomputePoolStats(tx, pool.id);
           });
         } catch (error) {
           console.error("[syncPool] Database cleanup failed:", error);
@@ -805,6 +821,7 @@ export const adminPoolsRouter = router({
             fans: fansCount,
           },
         });
+        await bumpPoolsListVersion(pool.chainId);
       } catch (error) {
         console.error("[syncPool] Failed to update pool totals:", error);
         yield tracked(`sync-${poolId}-error`, failEvent(error));
@@ -1090,58 +1107,21 @@ export const adminPoolsRouter = router({
           }
           console.log("Event not processed yet - safe to proceed");
 
-          console.log("Fetching existing stake...");
-          const existingStake = await prisma.stakedPool.findUnique({
-            where: {
-              userWalletId_poolId: {
-                userWalletId: userWallet.id,
-                poolId: pool.id,
-              },
-            },
-            select: {
-              stakeAmount: true,
-            },
+          // One transaction: event, locked row update, pool stats (D7 PL1)
+          const applied = await applyStakeDelta({
+            userWalletId: userWallet.id,
+            poolId: pool.id,
+            amount: stake.amount,
+            eventType: "stake",
+            transactionHash: input.hash,
           });
-
-          const existingAmount = BigInt(existingStake?.stakeAmount || "0");
-          const newStakeAmount = (existingAmount + stake.amount).toString();
-          console.log("Stake calculation:", {
-            existingAmount: existingAmount.toString(),
-            stakeAmount: stake.amount.toString(),
-            newStakeAmount,
-          });
-
-          console.log("Upserting stakedPool...");
-          await prisma.stakedPool.upsert({
-            where: {
-              userWalletId_poolId: {
-                userWalletId: userWallet.id,
-                poolId: pool.id,
-              },
-            },
-            update: {
-              stakeAmount: newStakeAmount,
-              updatedAt: new Date(),
-            },
-            create: {
-              userWalletId: userWallet.id,
-              poolId: pool.id,
-              stakeAmount: stake.amount.toString(),
-            },
-          });
-          console.log("StakedPool upserted successfully");
-
-          console.log("Creating stakeEvent...");
-          await prisma.stakeEvent.create({
-            data: {
-              userWalletId: userWallet.id,
-              poolId: pool.id,
-              amount: stake.amount.toString(),
-              eventType: "stake",
-              transactionHash: input.hash,
-            },
-          });
-          console.log("StakeEvent created successfully");
+          if (!applied.applied) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: `Transaction ${input.hash} already processed for userWalletId ${userWallet.id} and poolId ${pool.id}.`,
+            });
+          }
+          console.log("StakedPool and StakeEvent written:", applied.stakeAmount.toString());
 
           console.log(
             `=== STAKE event processed successfully === for user ${userWallet.userId} in pool ${pool.id}, amount: ${stake.amount.toString()}`
@@ -1204,67 +1184,21 @@ export const adminPoolsRouter = router({
           }
           console.log("Event not processed yet - safe to proceed");
 
-          console.log("Fetching existing stake...");
-          const existingStake = await prisma.stakedPool.findUnique({
-            where: {
-              userWalletId_poolId: {
-                userWalletId: userWallet.id,
-                poolId: pool.id,
-              },
-            },
-            select: {
-              stakeAmount: true,
-            },
+          // One transaction: event, locked row update, pool stats (D7 PL1)
+          const applied = await applyStakeDelta({
+            userWalletId: userWallet.id,
+            poolId: pool.id,
+            amount: unstake.amount,
+            eventType: "unstake",
+            transactionHash: input.hash,
           });
-
-          const existingAmount = BigInt(existingStake?.stakeAmount || "0");
-          console.log("Existing stake:", existingAmount.toString());
-
-          if (existingAmount < unstake.amount) {
+          if (!applied.applied) {
             throw new TRPCError({
               code: "BAD_REQUEST",
-              message: `Unstake amount exceeds current stake. Current stake: ${existingAmount}, Requested unstake: ${unstake.amount}`,
+              message: `Transaction ${input.hash} already processed for userWalletId ${userWallet.id} and poolId ${pool.id}.`,
             });
           }
-
-          const newStakeAmount = (existingAmount - unstake.amount).toString();
-          console.log("Unstake calculation:", {
-            existingAmount: existingAmount.toString(),
-            unstakeAmount: unstake.amount.toString(),
-            newStakeAmount,
-          });
-
-          console.log("Upserting stakedPool...");
-          await prisma.stakedPool.upsert({
-            where: {
-              userWalletId_poolId: {
-                userWalletId: userWallet.id,
-                poolId: pool.id,
-              },
-            },
-            update: {
-              stakeAmount: newStakeAmount,
-              updatedAt: new Date(),
-            },
-            create: {
-              userWalletId: userWallet.id,
-              poolId: pool.id,
-              stakeAmount: (-unstake.amount).toString(),
-            },
-          });
-          console.log("StakedPool upserted successfully");
-
-          console.log("Creating stakeEvent...");
-          await prisma.stakeEvent.create({
-            data: {
-              userWalletId: userWallet.id,
-              poolId: pool.id,
-              amount: unstake.amount.toString(),
-              eventType: "unstake",
-              transactionHash: input.hash,
-            },
-          });
-          console.log("StakeEvent created successfully");
+          console.log("StakedPool and StakeEvent written:", applied.stakeAmount.toString());
 
           console.log(
             `=== UNSTAKE event processed successfully === for user ${userWallet.userId} in pool ${pool.id}, amount: ${unstake.amount.toString()}`

@@ -23,6 +23,11 @@ vi.mock("@repo/ui", async () => ({
   queryClient: { setQueryData: vi.fn() },
 }));
 vi.mock("./lib/uploads", () => ({ refreshContent: vi.fn() }));
+// Preview and captions have their own tests (ItemMedia.test.tsx)
+vi.mock("./ItemMedia", () => ({ ItemPreview: () => null, CaptionsSection: () => null }));
+// Publishing and retry have their own tests (PublishCard.test.tsx, RetryProcessing.test.tsx)
+vi.mock("./PublishCard", () => ({ PublishCard: () => null }));
+vi.mock("./RetryProcessing", () => ({ RetryProcessing: () => null }));
 
 const ID = "abcdefgh12345678";
 
