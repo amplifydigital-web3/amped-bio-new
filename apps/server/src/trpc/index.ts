@@ -29,6 +29,7 @@ import { contentRouter } from "./content";
 import { notificationsRouter } from "./notifications";
 import { progressRouter } from "./progress";
 import { checkoutRouter } from "./checkout";
+import { identityRouter } from "./identity";
 import { inferRouterOutputs } from "@trpc/server";
 
 // Merge all routers
@@ -69,6 +70,8 @@ const mergedRouter = router({
   progress: progressRouter,
   // Mobile checkout intents (Build Board #49), behind CHECKOUT_ENABLED
   checkout: checkoutRouter,
+  // Identity checks through Authbase: Over 18 and verified seller (Build Board #47)
+  identity: identityRouter,
 });
 
 export type AppRouter = typeof mergedRouter;

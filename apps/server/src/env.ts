@@ -180,6 +180,9 @@ const envSchema = z.object({
   // hourly sweep reads SUBGRAPH_URL; off when false or when the subgraph is unset.
   RNS_EXPIRY_EMAILS: boolSchema(true),
 
+  // Identity checks (Build Board #47): where an under 18 review case alert goes
+  // until the Safety queue ships (identity checks spec 4.5). Empty logs a warning.
+  SAFETY_ALERT_EMAIL: z.string().default(""),
   // Mobile checkout (Build Board #49, CK-1): the checkout router answers only when true
   CHECKOUT_ENABLED: boolSchema(false),
 
