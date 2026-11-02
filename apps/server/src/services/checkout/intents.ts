@@ -22,9 +22,9 @@ import { TRPCError } from "@trpc/server";
 import { uuidv7 } from "../../utils/uuid-v7";
 
 export const intentIdToHex = (id: Buffer | Uint8Array) => Buffer.from(id).toString("hex");
-const hexToIntentId = (hex: string) => Buffer.from(hex, "hex");
+export const hexToIntentId = (hex: string) => Buffer.from(hex, "hex");
 
-const notFound = () =>
+export const notFound = () =>
   new TRPCError({
     code: "NOT_FOUND",
     message: "This checkout has ended. Start again from the page.",
@@ -32,25 +32,47 @@ const notFound = () =>
 
 export type CheckoutItem = { title: string; creatorHandle: string; creatorName: string };
 
+/** What the pay sheet adds (CK-2). Never returned by the public get. */
+export type CheckoutSheetExtra = {
+  publicId: string;
+  kind: string;
+  creatorImage: string | null;
+  creatorImageFileId: number | null;
+  creatorThemeId: string | null;
+};
+
 /**
  * What can be bought today: a ready, published, cleared content item on a
  * published page whose account is not suspended. 18+ items wait for the Over 18
  * check before Pay (identity checks A1 and the CK-0 board c6).
  */
-async function resolveTarget(
+export async function resolveTarget(
   target: CheckoutStartInput["target"]
-): Promise<{ creatorUserId: number; item: CheckoutItem } | null> {
+): Promise<{ creatorUserId: number; item: CheckoutItem; extra: CheckoutSheetExtra } | null> {
   if (target.type !== "content") return null;
   const item = await prisma.contentItem.findUnique({
     where: { publicId: target.id },
     select: {
       title: true,
+      publicId: true,
+      kind: true,
       status: true,
       publishState: true,
       moderationState: true,
       adult: true,
       deletedAt: true,
-      user: { select: { id: true, handle: true, name: true, block: true, page_status: true } },
+      user: {
+        select: {
+          id: true,
+          handle: true,
+          name: true,
+          block: true,
+          page_status: true,
+          image: true,
+          image_file_id: true,
+          theme: true,
+        },
+      },
     },
   });
   if (
@@ -69,6 +91,13 @@ async function resolveTarget(
   return {
     creatorUserId: item.user.id,
     item: { title: item.title, creatorHandle: item.user.handle, creatorName: item.user.name },
+    extra: {
+      publicId: item.publicId ?? target.id,
+      kind: String(item.kind ?? "file"),
+      creatorImage: item.user.image ?? null,
+      creatorImageFileId: item.user.image_file_id ?? null,
+      creatorThemeId: item.user.theme ?? null,
+    },
   };
 }
 
