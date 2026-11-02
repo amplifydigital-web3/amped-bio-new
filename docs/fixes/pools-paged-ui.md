@@ -2,17 +2,9 @@
 
 Build Board D7, PR 3 of 4. Spec: `docs/features/pools-list-paging.md` revision 3, section 5 (docs PR #384). Stacked on PL2 (#389), which is stacked on PL1 (#387).
 
-## Before merge: apply the patch
+## Fan router patch
 
-`apps/server/src/trpc/pools/fan.ts` is 72 KB, too large for the GitHub connector. Its change ships as `docs/fixes/pools-paged-ui.patch`. Apply it after PL1's patch:
-
-```sh
-git apply docs/fixes/pools-stats-columns.patch   # PL1, if not already applied
-git apply docs/fixes/pools-paged-ui.patch
-git rm docs/fixes/pools-paged-ui.patch
-```
-
-The patch deletes `fan.searchPoolsForBlockEditor` (no caller since Screen Review 038) and its now unused `PoolSearchResult` import. It was checked to apply cleanly on this branch after PL1's patch, with the result byte for byte equal to the tested build.
+`apps/server/src/trpc/pools/fan.ts` is 72 KB, too large for the GitHub connector, so its change first shipped as `docs/fixes/pools-paged-ui.patch`. The patch is now applied on this branch (after PL1's patch) in commit "refactor(pools): remove fan.searchPoolsForBlockEditor", and the patch file is removed. It deletes `fan.searchPoolsForBlockEditor` (no caller since Screen Review 038) and its now unused `PoolSearchResult` import.
 
 ## What changes
 
@@ -46,7 +38,7 @@ Behavior notes for review:
 - `apps/server/src/trpc/pools/list.ts` (live total refresh)
 - `apps/server/src/trpc/pools/blockEditor.ts`
 - `apps/server/src/__tests__/pool-list.test.ts` (3 new tests)
-- `docs/fixes/pools-paged-ui.patch` (`fan.ts`)
+- `apps/server/src/trpc/pools/fan.ts` (removes `searchPoolsForBlockEditor`)
 
 No migration.
 
@@ -60,4 +52,4 @@ No migration.
 
 ## Merge order
 
-Merge #387 with its patch, run the backfill on staging, merge #389, then this PR with its patch. PL4 waits one release after this ships. Label: `feature`.
+Merge #387, run the backfill on staging, merge #389, then this PR. PL4 waits one release after this ships. Label: `feature`.
