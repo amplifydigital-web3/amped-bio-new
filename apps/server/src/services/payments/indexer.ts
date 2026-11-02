@@ -137,8 +137,9 @@ function sameValue(key: string, a: string, b: string): boolean {
 
 /**
  * Records one event: the oldest waiting change with the same key and value becomes Applied,
- * or a new applied row is written when nothing matches. A transaction already logged (the
- * pause the portal sent) is skipped. Returns true when a row changed.
+ * then a superseded Safe proposal with the same key and value, or a new applied row is
+ * written when nothing matches. A transaction already logged (the pause the portal sent) is
+ * skipped. Returns true when a row changed.
  */
 export async function recordAdminEvent(event: AdminEvent, at: Date): Promise<boolean> {
   const logged = await prisma.adminChange.findFirst({

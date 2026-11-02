@@ -719,12 +719,18 @@ export async function changeSafeDetails(changeId: Buffer, now = new Date()) {
   const safe = safeAddressOrNull();
   const chainId = change.chainId ?? paymentChain.id;
   let call: { to: string; data: string; method: string } | null = null;
-  if (contract && change.key !== "contract_paused") {
-    call = encodeContractCall(contract, change.key, change.newValue);
-  } else if (contract && change.newValue === "false") {
-    call = encodeContractCall(contract, "contract_paused", "false");
-  } else if (contract) {
-    call = encodePauseCall(contract);
+  try {
+    if (contract && change.key !== "contract_paused") {
+      call = encodeContractCall(contract, change.key, change.newValue);
+    } else if (contract && change.newValue === "false") {
+      call = encodeContractCall(contract, "contract_paused", "false");
+    } else if (contract) {
+      call = encodePauseCall(contract);
+    }
+  } catch (error) {
+    // A row the indexer logged from an event the catalog does not know has no call to rebuild
+    console.warn("[payments] Safe call could not be rebuilt for change", change.key, error);
+    call = null;
   }
   const status =
     change.status === "proposed" && change.safeTxHash
