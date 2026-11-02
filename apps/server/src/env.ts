@@ -180,6 +180,9 @@ const envSchema = z.object({
   // hourly sweep reads SUBGRAPH_URL; off when false or when the subgraph is unset.
   RNS_EXPIRY_EMAILS: boolSchema(true),
 
+  // Mobile checkout (Build Board #49, CK-1): the checkout router answers only when true
+  CHECKOUT_ENABLED: boolSchema(false),
+
   // Authbase identity verification API (wallet KYC status lookups)
   AUTHBASE_BASE_URL: z.string().default(""),
   // Authbase API key (Basic auth username)

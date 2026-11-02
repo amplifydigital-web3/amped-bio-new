@@ -1,6 +1,6 @@
 # Amped.Bio Privacy Policy
 
-Last updated: October 23, 2026
+Last updated: October 30, 2026
 
 This policy explains what personal information Amped.Bio collects, why, who receives it, and the choices you have. It applies to creators, fans and anyone who visits an Amped.Bio page.
 
@@ -185,6 +185,7 @@ Creator pages and the public site set nothing in your browser until you choose, 
 | Telegram link and delivery choice history (no IP address) | 5 years |
 | Messages between fans and creators | 12 months after the last message in the conversation |
 | Support messages | 2 years |
+| Checkouts you started (the item, the creator, where you tapped Buy, any promoter code, and the status) | 30 days after the checkout ends, unless it became a purchase |
 | RNS name expiry reminders (your name, its expiry date, the reminder stage, the time of the reminder and how many sends failed) | While your account is open, then deleted within 30 days of closing it |
 
 On chain records on the Revolution Network and Base are permanent. We cannot delete them.
