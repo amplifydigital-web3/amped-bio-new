@@ -52,10 +52,7 @@ export function MiniPlayer({
         <span className="block h-full bg-white" style={{ width: `${played}%` }} />
       </span>
       <span className="h-[43px] w-[43px] shrink-0 overflow-hidden rounded-[8px] bg-white/10">
-        {item.artwork && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={item.artwork} alt="" className="h-full w-full object-cover" />
-        )}
+        {item.artwork && <img src={item.artwork} alt="" className="h-full w-full object-cover" />}
       </span>
       {onExpand ? (
         <button

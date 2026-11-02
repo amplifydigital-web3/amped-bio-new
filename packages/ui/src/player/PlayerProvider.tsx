@@ -21,7 +21,14 @@ import {
   contentPlayCompleted,
 } from "@repo/constants";
 import { attachSource, type Attachment } from "./attach";
-import { clampSeek, nextCaptionIndex, nextSpeed, progressWriteDue, refreshDelayMs } from "./format";
+import {
+  clampSeek,
+  matchCaption,
+  nextCaptionIndex,
+  nextSpeed,
+  progressWriteDue,
+  refreshDelayMs,
+} from "./format";
 import {
   INITIAL_PLAYER_STATE,
   type PlayerCaption,
@@ -149,6 +156,14 @@ export function PlayerProvider({
     return item.kind === "video" ? videoRef.current : audioRef.current;
   }, []);
 
+  // ---------------------------------------------------------------- refresh
+
+  /** Drops the pending URL refresh, if any. */
+  const clearRefresh = React.useCallback(() => {
+    if (refreshTimer.current) clearTimeout(refreshTimer.current);
+    refreshTimer.current = null;
+  }, []);
+
   // ---------------------------------------------------------------- progress
 
   const writeProgress = React.useCallback(
@@ -191,6 +206,14 @@ export function PlayerProvider({
       const captions = currentRef.current?.source?.captions ?? [];
       if (!media) return;
       const wanted = index >= 0 ? captions[index] : undefined;
+      const control = attachmentRef.current?.captions;
+      if (control) {
+        // hls.js keeps the video's captions in the manifest and draws them itself
+        const match = wanted ? matchCaption(control.tracks(), wanted) : -1;
+        control.select(match);
+        setState({ captionIndex: wanted ? index : -1, cueText: "" });
+        return;
+      }
       const tracks = Array.from(media.textTracks ?? []);
       let showing: TextTrack | null = null;
       for (const track of tracks) {
@@ -343,16 +366,19 @@ export function PlayerProvider({
     video.addEventListener("webkitplaybacktargetavailabilitychanged", onAirplay);
 
     return () => {
+      // A pending refresh would sign new URLs and swap a detached element
+      clearRefresh();
       events.forEach(name => {
         video.removeEventListener(name, videoHandler);
         audio.removeEventListener(name, audioHandler);
       });
       video.removeEventListener("webkitplaybacktargetavailabilitychanged", onAirplay);
       attachmentRef.current?.detach();
+      attachmentRef.current = null;
       video.remove();
       audio.remove();
     };
-  }, [active, applyCaptions, setState, writeProgress]);
+  }, [active, applyCaptions, clearRefresh, setState, writeProgress]);
 
   // Save on hide and on leave, while the page can still send
   React.useEffect(() => {
@@ -369,11 +395,6 @@ export function PlayerProvider({
   }, [writeProgress]);
 
   // ---------------------------------------------------------------- source
-
-  const clearRefresh = () => {
-    if (refreshTimer.current) clearTimeout(refreshTimer.current);
-    refreshTimer.current = null;
-  };
 
   const scheduleRefresh = React.useCallback(
     (expiresAt: number, token: number) => {
@@ -394,7 +415,7 @@ export function PlayerProvider({
         }
       }, refreshDelayMs(expiresAt));
     },
-    [setState]
+    [clearRefresh, setState]
   );
 
   const placeVideo = React.useCallback(() => {
@@ -419,7 +440,7 @@ export function PlayerProvider({
     media?.pause();
     attachmentRef.current?.detach();
     attachmentRef.current = null;
-  }, [active, writeProgress]);
+  }, [active, clearRefresh, writeProgress]);
 
   const load = React.useCallback(
     async (item: PlayerItem, resolve: SourceResolver, options: LoadOptions = {}) => {
@@ -461,10 +482,26 @@ export function PlayerProvider({
       setCurrent(currentRef.current);
       if (source.kind === "video" && source.poster) media.setAttribute("poster", source.poster);
       else media.removeAttribute("poster");
-      attachmentRef.current = await attachSource(media, source, () =>
-        setState({ error: "load", loading: false, playing: false })
+      const attachment = await attachSource(
+        media,
+        source,
+        () => {
+          if (loadToken.current === token) {
+            setState({ error: "load", loading: false, playing: false });
+          }
+        },
+        () => loadToken.current === token
       );
-      if (loadToken.current !== token) return;
+      // A newer load or close took over while hls.js was loading: keep its attachment
+      if (loadToken.current !== token) {
+        attachment.detach();
+        return;
+      }
+      attachmentRef.current = attachment;
+      // hls.js offers the manifest's subtitle tracks after the metadata lands
+      attachmentRef.current?.captions?.subscribe(() => {
+        applyCaptions(stateRef.current.captionIndex);
+      });
       media.playbackRate = stateRef.current.rate;
       media.volume = stateRef.current.volume;
       media.muted = stateRef.current.muted;
@@ -482,7 +519,7 @@ export function PlayerProvider({
         setState({ loading: false });
       }
     },
-    [placeVideo, scheduleRefresh, setState, teardown]
+    [applyCaptions, placeVideo, scheduleRefresh, setState, teardown]
   );
 
   // ---------------------------------------------------------------- controls
@@ -511,7 +548,9 @@ export function PlayerProvider({
       const target = clampSeek(ms, duration);
       media.currentTime = target / 1000;
       setState({ currentMs: target });
-      writeProgress(true);
+      // Not forced: dragging the slider seeks on every input event. Pause, hide,
+      // leave and switching items still force the write.
+      writeProgress(false);
     },
     [active, setState, writeProgress]
   );

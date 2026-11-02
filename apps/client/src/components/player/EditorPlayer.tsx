@@ -3,6 +3,7 @@ import { useNavigate } from "react-router";
 import {
   MiniPlayer,
   PlayerProvider,
+  sendTrpcBeacon,
   trpcClient,
   useOptionalPlayer,
   type ProgressAdapter,
@@ -17,8 +18,11 @@ export function EditorPlayerProvider({ children }: { children: ReactNode }) {
   const progress = useMemo<ProgressAdapter>(
     () => ({
       load: publicId => trpcClient.progress.get.query({ publicId }),
-      save: (publicId, snapshot) => {
-        void trpcClient.progress.set.mutate({ publicId, ...snapshot }).catch(() => {});
+      save: (publicId, snapshot, options) => {
+        const input = { publicId, ...snapshot };
+        // The page is going away: a beacon outlives it, an ordinary call does not
+        if (options.keepalive && sendTrpcBeacon("progress.set", input)) return;
+        void trpcClient.progress.set.mutate(input).catch(() => {});
       },
     }),
     []
