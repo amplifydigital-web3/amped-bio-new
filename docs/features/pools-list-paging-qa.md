@@ -30,10 +30,10 @@ Revision 3 applies every fix below. One reviewer ran this QA against the code; t
 ## Majors fixed in the spec
 
 - **Lost stakes on concurrent confirms.** `confirmStake` and `confirmUnstake` read the row, add in JavaScript and upsert, outside any transaction. Two confirms at once lose one. Now one transaction with an atomic add or a row lock. Acceptance 8.
-- **`syncPool` writes totals outside its transaction.** The rebuild is transactional, the totals update at line 801 is not. Now inside.
+- **`syncPool` writes totals outside its transaction.** The rebuild is transactional, the totals update at line 801 is not. Now the stats columns are written inside it; the legacy `revoStaked` and `fans` update stays outside until PL4 drops those columns.
 - **`createdAt` backfill by "id order" is not a date.** `newest` now stays on `id`, which is creation order. `createdAt` is kept for display and D8 only.
 - **Search and cursor disagreed.** Revision 2 ranked search by match tier but keyed the cursor on the sort value. Paging a search would repeat or skip pools. The tier is now the first cursor key. Decision P5 confirms the order.
-- **The 60 s first page cache broke acceptance 3.** A stake would not move a pool for up to 60 s. Now a version key that `recomputePoolStats` bumps.
+- **The 60 s first page cache broke acceptance 3.** A stake would not move a pool for up to 60 s. Now a version key that every stats write bumps after it commits.
 - **APY refresh had no mechanism.** The server has no job queue. Now `setImmediate` with a per pool Redis lock, the pattern broadcast and wallet already use.
 - **Suspended creators are not excluded today.** Revision 2 implied they were. Now explicit: `wallet.user.block = "no"`.
 - **Wrong block editor procedure.** The client calls `pools.blockEditor.search`, which already searches name and handle. `fan.searchPoolsForBlockEditor` is dead code. PL3 now targets the live one and deletes the dead one.
@@ -42,7 +42,7 @@ Revision 3 applies every fix below. One reviewer ran this QA against the code; t
 
 ## Minors fixed in the spec
 
-- Cursor length capped at 256; a bad or mismatched cursor returns `BAD_REQUEST` (acceptance 10).
+- Cursor length capped (2048 as built: a name sort cursor carries a name up to 255 characters, so 256 was too small); a bad or mismatched cursor returns `BAD_REQUEST` (acceptance 10).
 - Partial address `contains` dropped from text search; exact address match stays.
 - FULLTEXT term escaped of boolean operators, with a trailing `*`, minimum 3 characters to match InnoDB's default token size.
 - Public rate limit on `listPools`, tighter with `search`.

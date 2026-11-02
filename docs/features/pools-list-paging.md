@@ -74,10 +74,10 @@ model CreatorPool {
 
 `services/poolStats.ts` exports `recomputePoolStats(tx, poolId, { creatorStaked? })`. It reads `StakedPool` for the pool inside `tx`, computes the four values and writes them with `statsUpdatedAt`. Every path in the writer table above calls it:
 
-- `confirmStake` and `confirmUnstake` move the `StakedPool` upsert, the `StakeEvent` upsert and `recomputePoolStats` into one `prisma.$transaction`. The new stake row is computed with an atomic update (`UPDATE ... SET stake_amount = CAST(stake_amount AS DECIMAL(65,0)) + ?` through `$executeRaw`) or a `SELECT ... FOR UPDATE` on the row, so two confirms at once cannot lose a stake. Today's read then upsert can.
-- `syncPool` calls it inside the existing rebuild transaction, and drops its separate totals update at line 801.
+- `confirmStake` and `confirmUnstake` move the `StakedPool` upsert, the `StakeEvent` upsert and `recomputePoolStats` into one `prisma.$transaction`. The new stake row is computed with an atomic update (`UPDATE ... SET stake_amount = CAST(stake_amount AS DECIMAL(65,0)) + ?` through `$executeRaw`) or a `SELECT ... FOR UPDATE` on the row, so two confirms at once cannot lose a stake. Today's read then upsert can. Built (PL1, `applyStakeDelta`): the transaction first locks the pool row (`lockPoolForStats`, `SELECT ... FOR UPDATE` on `creator_pools`), then writes the event once per hash, then locks the wallet's row. Locking the pool row first serializes stats writers per pool and avoids a deadlock on the shared foreign key lock that inserting child rows takes on the pool row. A stake or unstake by the creator's own wallet moves the stored creator stake until the next chain read.
+- `syncPool` calls it inside the existing rebuild transaction (which also locks the pool row first). Its separate `revoStaked` and `fans` update stays until PL4 drops those columns, followed by a list version bump.
 - `syncTransaction` and `getPoolDetailsForModal` call it after their upsert.
-- The four read paths that write `revoStaked` or `name` keep writing `name` and pass `creatorStaked` to `recomputePoolStats` instead of writing `revoStaked`.
+- Of the four read paths that write `revoStaked` or `name`, `getPools` and `getPoolDetailsForModal` pass the `creatorStaked` they read to `recomputePoolStats`. All four keep writing `revoStaked` until PL4 drops it; `getPoolByAddress` and `getUserStakedPools` write no `StakedPool` row and do not call the recompute.
 - D8 (chain indexer) becomes the second source: it writes `StakedPool` from chain events and calls the same function, so stakes made outside Amped count.
 
 ### 3.2 Migration and backfill
@@ -106,7 +106,7 @@ z.object({
   filter: z.enum(["all", "no-fans", "more-than-10-fans", "more-than-10k-stake"]).default("all"),
   sort: z.enum(["newest", "name-asc", "name-desc", "most-fans", "most-staked"]).default("newest"),
   limit: z.number().int().min(1).max(48).default(24),
-  cursor: z.string().max(256).optional(), // opaque: base64url of JSON [sort, tier, sortValue, id]
+  cursor: z.string().max(2048).optional(), // opaque: base64url of JSON [sort, tier, sortValue, id]; a name cursor carries a name up to 255 characters
 })
 ```
 
@@ -121,7 +121,7 @@ Rules:
 - Search order (decision P5): tier 1 is a prefix match on name or handle, tier 2 is contains on name, handle or creator name, tier 3 is a description match. Within a tier the chosen sort applies, then `id`. The cursor carries the tier after the sort name. This runs as `$queryRaw` with a computed tier column; the description term uses `MATCH (description) AGAINST (? IN BOOLEAN MODE)` with the term escaped of boolean operators and a trailing `*`, for terms of 3 or more characters (InnoDB's `innodb_ft_min_token_size` is 3); shorter terms skip the description.
 - Chain reads happen only for the pools on the page, and only on a cache miss. The page renders from the database columns; live values replace them when the per pool cache has them (P3). A cold cache costs at most `limit` pools of reads. Since `getPools` was the only writer of that cache, `listPools` refreshes it in the background with the APY refresh (same lock): one multicall of `creatorStaked` and `totalFanStaked`, and a `recomputePoolStats` only when the chain total differs from `totalStakeWei`.
 - APY: read from cache for the page. A miss returns `apy: undefined` and schedules one refresh with `setImmediate`, guarded by a Redis `SET NX` lock per pool (60 s), so many requests do not start the same refresh. The request never waits on `calculatePoolAPY`.
-- Response cache: the first page of each `(chainId, filter, sort)` with no search is cached 60 s in Redis under a version key `pools:list:v{n}:{chainId}:...`. `recomputePoolStats` increments the chain's version after a write, so acceptance 3 holds inside the 60 s. With Redis down the procedure runs uncached.
+- Response cache: the first page of each `(chainId, filter, sort)` with no search is cached 60 s in Redis under a version key `pools:list:v{n}:{chainId}:...`. Every stats write bumps the chain's version after it commits (`applyStakeDelta`, `refreshPoolStats`, `syncPool` and the backfill call `bumpPoolsListVersion`; `recomputePoolStats` itself runs inside the caller's transaction), so acceptance 3 holds inside the 60 s. With Redis down the procedure runs uncached.
 - Rate limit: the public read limit from the rate limiting spec (D4) applies to `listPools`, with a tighter bucket for requests that carry `search`.
 
 ## 5. Clients (PL3)
@@ -158,7 +158,7 @@ No visual change beyond the Show more button, which already exists in the Prism 
 
 PL1 grows from 1 to 1.5 days: five writers and four read paths instead of three, plus the transaction and the race fix.
 
-Build status (29 Oct): PL1 #387, PL2 #389, PL3 #391 open against `development`, stacked in that order. PL4 #392 is a draft until PL3 has been live one release. Changes to `fan.ts`, `schema.prisma` and other files too large for the GitHub connector ship as patches under `docs/fixes/`, applied in order before merge.
+Build status (29 Oct): PL1 #387, PL2 #389, PL3 #391 open against `development`, stacked in that order. PL4 #392 is a draft until PL3 has been live one release. Changes to `fan.ts`, `schema.prisma` and other files too large for the GitHub connector first shipped as patches under `docs/fixes/`; the PL1 and PL3 patches are now applied on their branches and the patch files removed.
 
 SQL check: the PL2 and PL3 SQL ran against MariaDB 10.11 with all migrations, including PL4's, and 5,000 seeded pools. Every sort and filter pages to the end with each listed pool once and a count equal to `total`; the first page returns in under 300 ms and uses the `(chainId, hidden, totalStakeWei)` index; handle search with and without `@`, search tiers, description only matches, typed wildcards, exact address and the sitemap behave as above.
 
