@@ -266,12 +266,14 @@ One transaction: re check `canMessage`, upsert the conversation by `pairKey`, in
 
 ### 7.3 Realtime (`services/realtime/*`)
 
-1. Bus: Redis pub/sub channel `rt:u:{userId}`. Publish is best effort; the database is the record.
-2. Stream: `realtime.events` tRPC subscription over SSE at `/trpc`. Auth by the session cookie, the same as every private procedure. The server pings every 25 s and sets `X-Accel-Buffering: no`. The client reconnects after 40 s of silence.
-3. Events: `message.new`, `message.unsent`, `conversation.read` (for receipts), `conversation.updated` (accept, block, mute), `typing`, `notification.new`, `unread.changed`. Each is `tracked(id)` with a UUID v7.
-4. Resume: on reconnect the client sends `lastEventId`. The server subscribes first, then replays `direct_messages` addressed to the user with `id > lastEventId` (at most 200, then tells the client to refetch the list) and the current unread totals.
-5. Typing: a mutation `realtime.typing({ conversationId })`, limited to one every 3 s, published only, never stored.
-6. Cloudflare: a Cache Rule bypasses caching on `/trpc/realtime.*`; compression is off on that route.
+1. Bus: Redis pub/sub channel `rt:u:{userId}` (`services/realtime/bus.ts`). Publish is best effort; the database is the record. Signals carry ids only, never message text: the stream that receives a signal loads and decrypts what its own user may see (`services/realtime/stream.ts`), so plaintext never crosses Redis. Each instance keeps one subscriber connection and subscribes to a user's channel while that user has a stream open there. Without Redis the bus runs in process.
+2. Stream: `realtime.events` tRPC subscription over SSE at `/trpc`. Auth by the session cookie, the same as every private procedure. Pings use the shared tRPC `sse` config (every 3 s, client reconnects after 10 s of silence), which is tighter than the 25 s first planned and keeps Cloudflare's idle timeout far away. An Express middleware sets `X-Accel-Buffering: no` and `Cache-Control: no-cache, no-transform` on `/trpc/realtime.events`.
+3. Events: `message.new`, `message.unsent`, `conversation.read` (for receipts), `conversation.updated` (accepted, deleted, read, cleared, muted, unmuted, archived, unarchived, blocked, unblocked), `typing`, `notification.new`, `unread.changed`, and `resync`. Each is `tracked(id)` with a UUID v7; a message event's id is the message id.
+4. Resume: on reconnect the client sends `lastEventId`. The server subscribes first, then replays `direct_messages` in the user's conversations after `lastEventId` (at most 200; beyond that it sends `resync` and the client refetches) and the current unread totals. A message replayed and also received live is sent once.
+5. Typing: a mutation `realtime.typing({ conversationId })`, one every 3 s per conversation (extra calls are dropped quietly), published only, never stored. Only between members who both accepted: a stranger in Requests never sees typing.
+6. Who hears what: a new message goes to both sides (the sender's other tabs too); unsend to both; a read reaches the other side only when both keep receipts on and the reader accepted; accept reaches both; delete request, clear, mute, archive and block reach only the caller's own tabs. A blocked person is never told.
+7. Presence: each open stream refreshes `rt:on:{userId}` (60 s TTL) every 25 s. M4 reads `isLive(userId)` to skip a push while the app is open.
+8. Cloudflare: a Cache Rule bypasses caching on `/trpc/realtime.*`; compression is off on that route.
 
 ### 7.4 Notifications (`services/notifications/*`)
 

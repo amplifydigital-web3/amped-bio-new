@@ -8,6 +8,7 @@ import {
   type MessageRefusalReason,
 } from "@repo/constants";
 import { privateProcedure, router } from "./trpc";
+import { afterChange, afterRead, afterSend, afterUnsend } from "../services/realtime/messageEvents";
 import { enforceRateLimits } from "../utils/rateLimit";
 import { hexToId, idToHex } from "../services/analytics/ids";
 import {
@@ -34,7 +35,8 @@ import {
 /**
  * messages.* (Build Board #2 r4, PR M2, spec 7.5). Amped Messages for every signed in
  * account. Ids reach clients as 32 character hex (UUID v7). Message bodies are never
- * logged. Realtime events (M3) and push and email (M4) hook in after each mutation.
+ * logged. Each mutation publishes realtime signals after it commits (M3, services/realtime);
+ * push and email (M4) hook in the same way.
  */
 
 const idSchema = z
@@ -198,6 +200,14 @@ export const messagesRouter = router({
           }),
         recipientId
       );
+      if (!sent.repeat) {
+        await afterSend({
+          senderId,
+          recipientId,
+          conversationId: sent.conversationId,
+          messageId: sent.messageId,
+        });
+      }
       return {
         messageId: idToHex(sent.messageId),
         conversationId: idToHex(sent.conversationId),
@@ -208,31 +218,36 @@ export const messagesRouter = router({
       };
     }),
 
-  accept: privateProcedure
-    .input(conversationInput)
-    .mutation(({ ctx, input }) => guard(() => acceptRequest(ctx.user!.sub, input.conversationId))),
+  accept: privateProcedure.input(conversationInput).mutation(async ({ ctx, input }) => {
+    await guard(() => acceptRequest(ctx.user!.sub, input.conversationId));
+    await afterChange(ctx.user!.sub, input.conversationId, "accepted");
+  }),
 
-  deleteRequest: privateProcedure
-    .input(conversationInput)
-    .mutation(({ ctx, input }) => guard(() => deleteRequest(ctx.user!.sub, input.conversationId))),
+  deleteRequest: privateProcedure.input(conversationInput).mutation(async ({ ctx, input }) => {
+    await guard(() => deleteRequest(ctx.user!.sub, input.conversationId));
+    await afterChange(ctx.user!.sub, input.conversationId, "deleted");
+  }),
 
   read: privateProcedure
     .input(z.object({ conversationId: idSchema, messageId: idSchema.nullish() }))
-    .mutation(({ ctx, input }) =>
-      guard(() => markRead(ctx.user!.sub, input.conversationId, input.messageId ?? null))
-    ),
+    .mutation(async ({ ctx, input }) => {
+      await guard(() => markRead(ctx.user!.sub, input.conversationId, input.messageId ?? null));
+      await afterRead(ctx.user!.sub, input.conversationId, input.messageId ?? null);
+    }),
 
   unsend: privateProcedure
     .input(z.object({ messageId: idSchema }))
     .mutation(async ({ ctx, input }) => {
       const result = await guard(() => unsend(ctx.user!.sub, input.messageId));
+      await afterUnsend(ctx.user!.sub, result.conversationId, input.messageId);
       return { conversationId: idToHex(result.conversationId) };
     }),
 
   /** Delete for me: hides the history up to now for the caller only. */
-  clear: privateProcedure
-    .input(conversationInput)
-    .mutation(({ ctx, input }) => guard(() => clearForMe(ctx.user!.sub, input.conversationId))),
+  clear: privateProcedure.input(conversationInput).mutation(async ({ ctx, input }) => {
+    await guard(() => clearForMe(ctx.user!.sub, input.conversationId));
+    await afterChange(ctx.user!.sub, input.conversationId, "cleared");
+  }),
 
   mute: privateProcedure
     .input(
@@ -241,32 +256,41 @@ export const messagesRouter = router({
         hours: z.union([z.literal(8), z.literal(168)]).nullable(),
       })
     )
-    .mutation(({ ctx, input }) => {
+    .mutation(async ({ ctx, input }) => {
       // null mutes until unmuted: stored as a far date so one column covers both
       const until =
         input.hours === null
           ? new Date("9999-12-31T00:00:00Z")
           : new Date(Date.now() + input.hours * 3600_000);
-      return guard(() => setMuted(ctx.user!.sub, input.conversationId, until));
+      await guard(() => setMuted(ctx.user!.sub, input.conversationId, until));
+      await afterChange(ctx.user!.sub, input.conversationId, "muted");
     }),
 
-  unmute: privateProcedure
-    .input(conversationInput)
-    .mutation(({ ctx, input }) => guard(() => setMuted(ctx.user!.sub, input.conversationId, null))),
+  unmute: privateProcedure.input(conversationInput).mutation(async ({ ctx, input }) => {
+    await guard(() => setMuted(ctx.user!.sub, input.conversationId, null));
+    await afterChange(ctx.user!.sub, input.conversationId, "unmuted");
+  }),
 
   archive: privateProcedure
     .input(z.object({ conversationId: idSchema, archived: z.boolean() }))
-    .mutation(({ ctx, input }) =>
-      guard(() => setArchived(ctx.user!.sub, input.conversationId, input.archived))
-    ),
+    .mutation(async ({ ctx, input }) => {
+      await guard(() => setArchived(ctx.user!.sub, input.conversationId, input.archived));
+      await afterChange(
+        ctx.user!.sub,
+        input.conversationId,
+        input.archived ? "archived" : "unarchived"
+      );
+    }),
 
   block: privateProcedure.input(conversationInput).mutation(async ({ ctx, input }) => {
     await guard(() => setBlocked(ctx.user!.sub, input.conversationId, true));
+    await afterChange(ctx.user!.sub, input.conversationId, "blocked");
     return { ok: true };
   }),
 
   unblock: privateProcedure.input(conversationInput).mutation(async ({ ctx, input }) => {
     await guard(() => setBlocked(ctx.user!.sub, input.conversationId, false));
+    await afterChange(ctx.user!.sub, input.conversationId, "unblocked");
     return { ok: true };
   }),
 
@@ -286,6 +310,7 @@ export const messagesRouter = router({
         "You have sent the most reports allowed today. Try again tomorrow."
       );
       await guard(() => report({ userId: ctx.user!.sub, ...input }));
+      if (input.alsoBlock) await afterChange(ctx.user!.sub, input.conversationId, "blocked");
       return { ok: true };
     }),
 
