@@ -297,6 +297,38 @@ export const MESSAGE_UI = {
     loadError: "Message settings did not load",
   },
   refusalFollow: "Follow",
+  blockFields: {
+    title: "Message me",
+    pickerLine: "People write to you here. Messages arrive in your Inbox.",
+    label: "Button label",
+    labelHelp: "Visitors see this on the button.",
+    labelRequired: "Add a label for the button.",
+    closed:
+      "Visitors do not see this button while Who can message me is No one or your messages are paused.",
+    openSettings: "Open Messages settings",
+    whoField: "Who can message you",
+    whoNote: "Visitors see this line under the button. The minimum stake amount never shows.",
+    change: "Change",
+  },
+  door: {
+    sheetTitle: (name: string) => `Message ${name}`,
+    fieldLabel: (name: string) => `Your message to ${name}`,
+    signedOutLine: "Sign up or sign in to send. Your message waits here.",
+    signUpLine: (name: string) =>
+      `Sign up to message ${name}. Your message is kept, and you send it when you come back.`,
+    continue: "Continue",
+    send: "Send",
+    sending: "Sending",
+    sentTitle: "Sent",
+    sentBody: (name: string) => `${name} gets it in their Inbox. Replies show up in yours.`,
+    requestBody: (name: string) =>
+      `It waits in ${name}'s Requests until they accept. You can send up to 3 messages until then.`,
+    openInbox: "Open my Inbox",
+    ownerTitle: "This is your Message me button",
+    ownerBody: "Visitors write to you here. Messages arrive in your Inbox.",
+    checking: "Checking",
+    failed: "Your message was not sent. Try again.",
+  },
 } as const;
 
 /** Every Amped Messages string, for `pnpm run check:copy` (spec acceptance 13). */

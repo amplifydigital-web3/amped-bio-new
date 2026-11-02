@@ -30,6 +30,7 @@ import { FollowBlock } from "@/components/blocks/FollowBlock";
 import { FollowersBlock } from "@/components/blocks/FollowersBlock";
 import { RnsIdBlock } from "@/components/blocks/RnsIdBlock";
 import { TelegramMessageBlock } from "@/components/blocks/TelegramMessageBlock";
+import { MessageBlock } from "@/components/blocks/MessageBlock";
 import { TelegramGroupBlock } from "@/components/blocks/TelegramGroupBlock";
 import { ContentBlock } from "@/components/content/ContentBlock";
 import { FollowContext } from "@/components/follow/FollowContext";
@@ -216,6 +217,9 @@ export function ProfileView({
   const followState = useFollow(normalizedHandle, !!authUser, authPending || !followEnabled);
   const showRns = process.env.NEXT_PUBLIC_SHOW_RNS === "true";
   const telegramMarkOn = process.env.NEXT_PUBLIC_SHOW_TELEGRAM === "true";
+  // Amped Messages (#2 r4, M6): the native Message me block; a telegram_message row not
+  // yet migrated renders as one too
+  const messagesOn = process.env.NEXT_PUBLIC_MESSAGES === "true";
   // Theme Engine v2 (#28): the shared CreatorPage shell, staging first
   const themeV2 = process.env.NEXT_PUBLIC_SHOW_THEME_V2 === "true";
 
@@ -451,6 +455,20 @@ export function ProfileView({
             since={profile.since ?? null}
             sendHref={sendHref}
             rnsUrl={process.env.NEXT_PUBLIC_RNS_URL}
+          />
+        )
+      ) : block.type === "message" || (messagesOn && block.type === "telegram_message") ? (
+        messagesOn && (
+          <MessageBlock
+            block={block as { config: { label: string } }}
+            theme={themeConfig}
+            door={profile.messageDoor}
+            handle={normalizedHandle}
+            creatorName={profile.name}
+            creatorAvatar={photo || null}
+            signedIn={!!authUser}
+            authPending={authPending}
+            isOwner={isOwner}
           />
         )
       ) : block.type === "telegram_message" ? (

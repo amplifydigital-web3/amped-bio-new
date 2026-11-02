@@ -333,6 +333,8 @@ Who can message me (rule tiles as today plus No one, with the stake input for th
 
 Block kind `message` replaces `telegram_message`; existing blocks migrate in place and keep their label. Default label "Message me". The rule line stays ("Followers and members"). Tap: signed in opens the composer sheet over the page (calls `messages.canMessage` first and shows the refusal notice in the sheet); signed out opens sign up with `returnTo` and the draft in session storage. Inside in app browsers the sheet works in place; no hand off is needed.
 
+Built in M6: block kind `message` (label only, 40 characters, default "Message me"; `messageBlockConfigSchema`). `getHandle` returns `messageDoor` `{ open, ruleKind }` when the page carries the block: open unless the kill switch is on, the page is unpublished or suspended, the rule is No one, or inbound messages are paused. The door never carries an amount. Migration `20261103020000_message_block` turns `telegram_message` rows into `message` rows in place; a label still at "Message me on Telegram" becomes "Message me". Until it runs, a `telegram_message` row renders and edits as Message me behind the flags (`NEXT_PUBLIC_MESSAGES` on the landing app, `VITE_MESSAGES` in the editor). Signed out, the text waits in session storage under `amped_message_draft` while the fan sign up card opens, and the person returns with `?message=1` to the same sheet with the text kept; they tap Send themselves. The owner's tap shows a short note and Open my Inbox.
+
 ### 8.5 Service worker and manifest
 
 New `apps/client/public/sw.js` for push only (no offline caching in v1) and `manifest.webmanifest` with `display: standalone`, name Amped.Bio, the brand mark icons. Registration after sign in.
