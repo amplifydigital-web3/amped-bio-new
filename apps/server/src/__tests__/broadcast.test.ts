@@ -60,13 +60,9 @@ import {
 } from "../services/broadcast";
 import { broadcastCreatorRouter } from "../trpc/broadcast/creator";
 import { broadcastsAdminRouter } from "../trpc/admin/broadcasts";
-import { env } from "../env";
-
-const envMock = env as { BROADCAST_INVITE_ONLY: boolean };
 
 beforeEach(() => {
   vi.clearAllMocks();
-  envMock.BROADCAST_INVITE_ONLY = true;
   db.$transaction.mockImplementation((arg: unknown) =>
     typeof arg === "function" ? (arg as (tx: typeof db) => unknown)(db) : Promise.all(arg as [])
   );
@@ -300,9 +296,10 @@ describe("send", () => {
     expect(db.broadcast.create).not.toHaveBeenCalled();
   });
 
-  it("refuses an owner without an invite while invite only", async () => {
+  it("sends without an invite: the invite pilot ended in M2", async () => {
     ready({ invited: false });
-    await expect(caller.send(input)).rejects.toThrow("invite only");
+    const res = await caller.send(input);
+    expect(res.status).toBe("QUEUED");
   });
 
   it("holds the first broadcast for review", async () => {

@@ -10,7 +10,7 @@ const db = vi.hoisted(() => {
   const fn = () => vi.fn();
   return {
     block: { findFirst: fn(), create: fn(), findMany: fn(), update: fn(), delete: fn() },
-    creatorMessagingSettings: { findUnique: fn() },
+    messagingSettings: { findUnique: fn() },
     $transaction: fn(),
   };
 });
@@ -42,12 +42,10 @@ const caller = blocksRouter.createCaller({ user: { sub: 42 } } as never);
 function settings(over: Record<string, unknown> = {}) {
   return {
     userId: 42,
-    enabled: true,
     ruleKind: "FOLLOWER",
     stakeMin: null,
     dailyNewThreadCap: 50,
     replyFromTelegram: true,
-    invitedAt: new Date(),
     pausedAt: null,
     pausedReason: null,
     updatedAt: new Date(),
@@ -58,7 +56,7 @@ function settings(over: Record<string, unknown> = {}) {
 beforeEach(() => {
   vi.clearAllMocks();
   bot.username = "AmpedBioStagingBot";
-  Object.assign(env, { TELEGRAM_ENABLED: true, MESSAGING_INVITE_ONLY: true });
+  Object.assign(env, { TELEGRAM_ENABLED: true });
   db.$transaction.mockImplementation((arg: unknown) =>
     typeof arg === "function" ? (arg as (tx: typeof db) => unknown)(db) : Promise.all(arg as [])
   );
@@ -122,7 +120,7 @@ describe("addBlock", () => {
 
 describe("telegramDoor (the public page's view of the block)", () => {
   it("is open with the rule kind and the bot, and never carries an amount or a username", async () => {
-    db.creatorMessagingSettings.findUnique.mockResolvedValue(
+    db.messagingSettings.findUnique.mockResolvedValue(
       settings({ ruleKind: "STAKE_MIN", stakeMin: "250000" })
     );
     const door = await telegramDoor(42);
@@ -135,14 +133,12 @@ describe("telegramDoor (the public page's view of the block)", () => {
     expect(JSON.stringify(door)).not.toContain("250000");
   });
 
-  it("is closed when messages are off, paused, not invited, or Telegram is off", async () => {
-    db.creatorMessagingSettings.findUnique.mockResolvedValue(settings({ enabled: false }));
+  it("is closed when messages are off, paused, or Telegram is off", async () => {
+    db.messagingSettings.findUnique.mockResolvedValue(settings({ ruleKind: "NOBODY" }));
     expect((await telegramDoor(42)).open).toBe(false);
-    db.creatorMessagingSettings.findUnique.mockResolvedValue(settings({ pausedAt: new Date() }));
+    db.messagingSettings.findUnique.mockResolvedValue(settings({ pausedAt: new Date() }));
     expect((await telegramDoor(42)).open).toBe(false);
-    db.creatorMessagingSettings.findUnique.mockResolvedValue(settings({ invitedAt: null }));
-    expect((await telegramDoor(42)).open).toBe(false);
-    db.creatorMessagingSettings.findUnique.mockResolvedValue(settings());
+    db.messagingSettings.findUnique.mockResolvedValue(settings());
     Object.assign(env, { TELEGRAM_ENABLED: false });
     expect(await telegramDoor(42)).toEqual({
       open: false,
@@ -154,7 +150,7 @@ describe("telegramDoor (the public page's view of the block)", () => {
 
   it("is closed while the bot username is unknown, since the button needs a deep link", async () => {
     bot.username = null;
-    db.creatorMessagingSettings.findUnique.mockResolvedValue(settings());
+    db.messagingSettings.findUnique.mockResolvedValue(settings());
     expect((await telegramDoor(42)).open).toBe(false);
   });
 });

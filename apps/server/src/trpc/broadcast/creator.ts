@@ -86,8 +86,8 @@ export const broadcastCreatorRouter = router({
         graceSendsLeft: verification.verified
           ? null
           : Math.max(0, EMAIL_VERIFICATION_GRACE_BROADCASTS - sentTotal),
-        // Pilot gate: the tab shows a waitlist line until an admin invites the owner
-        canSend: !env.BROADCAST_INVITE_ONLY || !!status?.invitedAt,
+        // The invite pilot ended in PR M2 (msg-invite); pauses still stop sending
+        canSend: !status?.pausedAt,
         paused: !!status?.pausedAt,
         telegram,
       };
@@ -156,9 +156,6 @@ export const broadcastCreatorRouter = router({
               ? `You have sent ${EMAIL_VERIFICATION_GRACE_BROADCASTS} broadcasts. Confirm your email to keep sending.`
               : "Confirm your email to send broadcasts.",
         });
-      }
-      if (env.BROADCAST_INVITE_ONLY && !status?.invitedAt) {
-        throw new TRPCError({ code: "FORBIDDEN", message: "Broadcasts are invite only for now." });
       }
       if (status?.pausedAt) {
         throw new TRPCError({

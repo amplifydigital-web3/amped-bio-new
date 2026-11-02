@@ -37,7 +37,6 @@ process.env.TELEGRAM_WEBHOOK_SECRET = "test-telegram-webhook-secret";
 process.env.TELEGRAM_OIDC_CLIENT_ID = "";
 process.env.TELEGRAM_OIDC_CLIENT_SECRET = "";
 process.env.TELEGRAM_SECRET_BOX_KEY = "test-telegram-secret-box-key";
-process.env.MESSAGING_INVITE_ONLY = "true";
 process.env.TELEGRAM_GROUPS = "false";
 process.env.TELEGRAM_MINIAPP = "false";
 

@@ -23,7 +23,6 @@ vi.mock("../services/telegram/client", () => ({
 vi.mock("../utils/fileUrlResolver", () => ({ getFileUrl: async () => null }));
 vi.mock("../utils/rateLimit", () => ({ enforceRateLimits: vi.fn(), hitRateLimit: vi.fn() }));
 
-import { env } from "../env";
 import { idToHex } from "../services/analytics/ids";
 import { sendFanMessage } from "../services/messaging/threads";
 import { messagingCreatorRouter } from "../trpc/messaging/creator";
@@ -49,7 +48,6 @@ beforeEach(async () => {
   follow(fake.db, JORDAN, MAYA);
   linkTelegram(fake.db, MAYA, 777000111);
   linkTelegram(fake.db, JORDAN, 888000222);
-  Object.assign(env, { MESSAGING_INVITE_ONLY: true });
   await sendFanMessage({
     fanUserId: JORDAN,
     creatorUserId: MAYA,

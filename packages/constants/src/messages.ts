@@ -56,3 +56,87 @@ export type MessageCapKey = keyof typeof MESSAGE_CAP_SETTING_KEYS;
 export const MESSAGE_REMOVED_LABEL = "Message removed";
 /** Shown in place of the name of a deleted account */
 export const DELETED_ACCOUNT_LABEL = "Deleted account";
+
+/**
+ * Who can message me (msg-rules). Mirrors the Prisma DmRuleKind enum, which gained
+ * NOBODY in PR M2. Telegram groups keep DM_RULE_KINDS (without NOBODY) until M8.
+ */
+export const MESSAGE_RULE_KINDS = [
+  "ANYONE",
+  "FOLLOWER",
+  "PAID_MEMBER",
+  "POOL_MEMBER",
+  "STAKE_MIN",
+  "NOBODY",
+] as const;
+export type MessageRuleKind = (typeof MESSAGE_RULE_KINDS)[number];
+
+/** Tile labels (board m5). Members means paid, Pool fans means stakers. */
+export const MESSAGE_RULE_LABELS: Record<MessageRuleKind, string> = {
+  ANYONE: "Anyone",
+  FOLLOWER: "Followers and members",
+  PAID_MEMBER: "Members only",
+  POOL_MEMBER: "Pool fans only",
+  STAKE_MIN: "Fans with a minimum stake",
+  NOBODY: "No one",
+};
+
+/** Helper lines under each tile. */
+export const MESSAGE_RULE_HELPERS: Record<MessageRuleKind, string> = {
+  ANYONE: "Every Amped.Bio account",
+  FOLLOWER: "Recommended",
+  PAID_MEMBER: "People with a paid membership",
+  POOL_MEMBER: "People staked in your pool",
+  STAKE_MIN: "You set the tREVO amount",
+  NOBODY: "Only existing conversations",
+};
+
+export const MESSAGE_REFUSAL_REASONS = [
+  "disabled",
+  "closed",
+  "blocked",
+  "not_follower",
+  "not_member",
+  "not_pool_fan",
+  "stake_below",
+  "cap_reached",
+  "sender_cap",
+  "sender_paused",
+  "awaiting_accept",
+] as const;
+export type MessageRefusalReason = (typeof MESSAGE_REFUSAL_REASONS)[number];
+
+/** Refusal copy (spec 9). Names the rule and the next step, never an amount. */
+export const MESSAGE_REFUSALS: Record<MessageRefusalReason, (handle: string) => string> = {
+  disabled: () => "Sending is paused on Amped.Bio right now. You can still read your messages.",
+  closed: h => `@${h} is not taking messages.`,
+  blocked: h => `@${h} is not taking messages.`,
+  not_follower: h => `@${h} takes messages from followers and members. Follow to message them.`,
+  not_member: h => `@${h} takes messages from members only.`,
+  not_pool_fan: h => `@${h} takes messages from pool fans only.`,
+  stake_below: h => `@${h} takes messages from fans with a minimum stake.`,
+  cap_reached: h => `@${h} has reached today's limit for new conversations. Try again tomorrow.`,
+  sender_cap: () => "You have reached today's message limit. Try again tomorrow.",
+  sender_paused: () => "You can't send messages right now.",
+  awaiting_accept: h => `Wait for @${h} to accept your request before sending more.`,
+};
+
+/** Report reasons (board m8). Values match the Prisma MessageReportReason enum. */
+export const MESSAGE_REPORT_REASONS = [
+  { value: "SPAM", label: "Spam" },
+  { value: "HARASSMENT", label: "Harassment" },
+  { value: "FINANCIAL_PROMISE", label: "Financial promise" },
+  { value: "OTHER", label: "Something else" },
+] as const;
+
+/** Every Amped Messages string, for `pnpm run check:copy` (spec acceptance 13). */
+export function collectMessageCopy(): string[] {
+  return [
+    ...Object.values(MESSAGE_RULE_LABELS),
+    ...Object.values(MESSAGE_RULE_HELPERS),
+    ...Object.values(MESSAGE_REFUSALS).map(copy => copy("maya.lin")),
+    ...MESSAGE_REPORT_REASONS.map(r => r.label),
+    MESSAGE_REMOVED_LABEL,
+    DELETED_ACCOUNT_LABEL,
+  ];
+}

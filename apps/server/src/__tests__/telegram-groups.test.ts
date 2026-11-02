@@ -200,7 +200,6 @@ beforeEach(() => {
     TELEGRAM_ENABLED: true,
     TELEGRAM_GROUPS: true,
     TELEGRAM_BOT_TOKEN: "123:test",
-    MESSAGING_INVITE_ONLY: false,
   });
   shared.bot = makeBot();
 });

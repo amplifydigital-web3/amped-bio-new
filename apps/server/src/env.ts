@@ -169,11 +169,6 @@ const envSchema = z.object({
   // Enable TLS connection for Redis (required for Upstash)
   REDIS_TLS: boolSchema(false),
 
-  // Creator Pool Broadcast (Build Board #1). While true, only pool owners an
-  // admin has invited can send. Defaults to true in production for the pilot
-  // and to false everywhere else, so staging can test sends (QA-056, below).
-  BROADCAST_INVITE_ONLY: boolSchema(true),
-
   // URL for the RNS subgraph to validate name ownership and expiry
   SUBGRAPH_URL: z.string().default(""),
   // RNS name expiry emails (30, 7 and 1 day before expiry, and on grace). The
@@ -240,8 +235,9 @@ const envSchema = z.object({
   TELEGRAM_OIDC_CLIENT_SECRET: z.string().default(""),
   // Encrypts username, firstName and photoUrl on telegram_accounts. Falls back to BETTER_AUTH_SECRET.
   TELEGRAM_SECRET_BOX_KEY: z.string().default(""),
-  // While true, only creators an admin has invited can turn on Fan messages (phase 1 pilot)
-  MESSAGING_INVITE_ONLY: boolSchema(true),
+  // Amped Messages kill switch (spec 7.1). False makes every Inbox read only. Admin can
+  // override it at runtime (SiteSettings messaging.enabled, PR M7).
+  MESSAGING_ENABLED: boolSchema(true),
   // Gated creator groups (phase 2)
   TELEGRAM_GROUPS: boolSchema(false),
   // The Mini App page endpoint, follow and share (phase 3). Counsel confirms TON safe mode first.
@@ -351,7 +347,6 @@ const envSchema = z.object({
   // Default per creator quota (spec 3.2, decision 5)
   CONTENT_QUOTA_DEFAULT_MB: numSchema(5120),
   CONTENT_QUOTA_VIDEO_MINUTES: numSchema(300),
-
 });
 
 // ================ parse & export ================
@@ -368,12 +363,6 @@ if (!result.success) {
 }
 
 export const env = result.data;
-
-// QA-056: the pilot gate is on by default in production only. Staging, testing
-// and local runs open Broadcast to every pool owner unless the variable is set.
-if (process.env.BROADCAST_INVITE_ONLY === undefined && env.APP_ENV !== "production") {
-  env.BROADCAST_INVITE_ONLY = false;
-}
 
 // USDC sends fail closed without a screening vendor in production only. Base Sepolia has no
 // Chainalysis oracle, so staging records sends as unscreened unless the variable is set.
