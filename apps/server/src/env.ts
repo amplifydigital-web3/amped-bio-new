@@ -190,6 +190,8 @@ const envSchema = z.object({
   // Identity checks (Build Board #47): where an under 18 review case alert goes
   // until the Safety queue ships (identity checks spec 4.5). Empty logs a warning.
   SAFETY_ALERT_EMAIL: z.string().default(""),
+  // Mobile checkout (Build Board #49, CK-1): the checkout router answers only when true
+  CHECKOUT_ENABLED: boolSchema(false),
 
   // Authbase identity verification API (wallet KYC status lookups)
   AUTHBASE_BASE_URL: z.string().default(""),
@@ -230,7 +232,8 @@ const envSchema = z.object({
   // API getMe() (services/telegram/client.ts), so it always matches the token in
   // use; set this only in tests or a split environment the token cannot reach.
   TELEGRAM_BOT_USERNAME: z.string().default(""),
-  // Value passed as secret_token to setWebhook; the webhook route rejects requests without it
+  // Value passed as secret_token to setWebhook; the webhook route rejects requests without it.
+  // The server registers https://API_HOST/webhooks/telegram with it on startup.
   TELEGRAM_WEBHOOK_SECRET: z.string().default(""),
   // Log In with Telegram (OIDC) client credentials from BotFather, Login Widget
   TELEGRAM_OIDC_CLIENT_ID: z.string().default(""),

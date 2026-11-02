@@ -11,8 +11,9 @@ import { installBotHandlers } from "./bot";
  * per chat, 20 per minute per group) and auto retry on 429 up to 300 seconds, so the
  * rate limits in the spec hold without any caller thinking about them.
  *
- * The bot never polls. Updates arrive through POST /webhooks/telegram and are
- * replayed to `bot.handleUpdate` by the sender loop. Handlers live in ./bot.ts.
+ * The bot never polls. Updates arrive through POST /webhooks/telegram, which
+ * registerTelegramWebhook points the bot at on startup, and are replayed to
+ * `bot.handleUpdate` by the sender loop. Handlers live in ./bot.ts.
  */
 
 let bot: Bot | null = null;
@@ -67,6 +68,53 @@ export async function getBotUsername(): Promise<string | null> {
     return null;
   }
   return cachedMe.username;
+}
+
+/** Update kinds the handlers in ./bot.ts read. Telegram does not send the others. */
+export const TELEGRAM_ALLOWED_UPDATES = ["message", "callback_query", "my_chat_member"] as const;
+
+/**
+ * The webhook URL on this API's public host, or null when API_HOST is local:
+ * Telegram cannot reach it, and registering it would take the bot's single
+ * webhook away from the environment that shares the token.
+ */
+export function telegramWebhookUrl(): string | null {
+  const host = env.API_HOST.replace(/^https?:\/\//, "").replace(/\/+$/, "");
+  if (/^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/.test(host)) return null;
+  return `https://${host}/webhooks/telegram`;
+}
+
+/**
+ * Points the bot's webhook at this API on startup, so no environment depends on a
+ * manual setWebhook call. Telegram never returns the secret, so the call is made
+ * every boot; it is idempotent, which keeps several instances safe. Returns true
+ * when Telegram accepted it. Failures are logged and never stop the server.
+ */
+export async function registerTelegramWebhook(): Promise<boolean> {
+  const bot = getTelegramBot();
+  if (!bot) return false;
+  const url = telegramWebhookUrl();
+  if (!url) {
+    console.log("[telegram] webhook not registered: API_HOST is local");
+    return false;
+  }
+  if (!env.TELEGRAM_WEBHOOK_SECRET) {
+    console.error(
+      "[telegram] webhook not registered: TELEGRAM_WEBHOOK_SECRET is empty, the route would refuse every update"
+    );
+    return false;
+  }
+  try {
+    await bot.api.setWebhook(url, {
+      secret_token: env.TELEGRAM_WEBHOOK_SECRET,
+      allowed_updates: [...TELEGRAM_ALLOWED_UPDATES],
+    });
+    console.log(`[telegram] webhook registered at ${url}`);
+    return true;
+  } catch (error) {
+    console.error("[telegram] setWebhook failed, updates will not arrive:", error);
+    return false;
+  }
 }
 
 /** Test seam: drop the cached client and getMe result so a test can change env between cases. */

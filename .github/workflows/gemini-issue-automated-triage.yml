@@ -1,13 +1,10 @@
 name: '🏷️ Gemini Automated Issue Triage'
 
+# Automatic triggers are disabled: GitHub Actions is blocked on this repository
+# (the account is billing-locked), so every run is reported as failed before
+# the job starts. Keeping only `workflow_dispatch` stops the red runs while the
+# workflow definition stays intact for manual runs once billing is resolved.
 on:
-  issues:
-    types:
-      - 'opened'
-      - 'reopened'
-  issue_comment:
-    types:
-      - 'created'
   workflow_dispatch:
     inputs:
       issue_number:
