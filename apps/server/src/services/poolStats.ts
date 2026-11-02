@@ -84,6 +84,28 @@ export interface RecomputeOptions {
   creatorStaked?: bigint | null;
 }
 
+export interface LockedPool {
+  walletId: number;
+  chainId: string;
+  creatorStakeWei: Prisma.Decimal | string | number | null;
+  statsUpdatedAt: Date | null;
+}
+
+/**
+ * Locks the pool row (SELECT ... FOR UPDATE) inside `tx` and returns what the
+ * stats writer needs. Every transaction that writes stake rows or stats for a
+ * pool takes this lock before anything else, so writers for one pool run one
+ * at a time and each reads the stake rows committed before it. Without it, two
+ * stake transactions both take the shared foreign key lock on the pool row
+ * (inserting a stake_events row) and then deadlock when both update the pool.
+ */
+export async function lockPoolForStats(tx: Tx, poolId: number): Promise<LockedPool | null> {
+  const rows = await tx.$queryRaw<
+    LockedPool[]
+  >`SELECT walletId, chainId, creator_stake_wei AS creatorStakeWei, stats_updated_at AS statsUpdatedAt FROM creator_pools WHERE id = ${poolId} FOR UPDATE`;
+  return rows[0] ?? null;
+}
+
 /**
  * Recomputes and writes the stats columns for one pool inside `tx`.
  *
@@ -96,10 +118,7 @@ export async function recomputePoolStats(
   poolId: number,
   options: RecomputeOptions = {}
 ): Promise<(PoolStats & { chainId: string }) | null> {
-  const pool = await tx.creatorPool.findUnique({
-    where: { id: poolId },
-    select: { walletId: true, chainId: true, creatorStakeWei: true, statsUpdatedAt: true },
-  });
+  const pool = await lockPoolForStats(tx, poolId);
   if (!pool) return null;
 
   const rows = await tx.stakedPool.findMany({
@@ -184,12 +203,20 @@ export interface StakeDeltaInput {
  *
  * A hash already recorded applies nothing and returns applied false, so a
  * replayed confirm never counts twice. Two confirms at the same moment both
- * count, because the row is locked before it is read.
+ * count, because the pool row is locked first and then the wallet's row is
+ * locked before it is read.
  */
 export async function applyStakeDelta(
   input: StakeDeltaInput
 ): Promise<{ applied: boolean; stakeAmount: bigint }> {
   const result = await prisma.$transaction(async tx => {
+    // Pool row first: serializes every stake and stats write for the pool and
+    // avoids the foreign key lock upgrade deadlock (see lockPoolForStats)
+    const pool = await lockPoolForStats(tx, input.poolId);
+    if (!pool) {
+      throw new TRPCError({ code: "NOT_FOUND", message: `Pool ${input.poolId} not found` });
+    }
+
     const inserted = await tx.stakeEvent.createMany({
       data: [
         {
@@ -231,8 +258,22 @@ export async function applyStakeDelta(
       where: { userWalletId_poolId: { userWalletId: input.userWalletId, poolId: input.poolId } },
       data: { stakeAmount: next.toString(), updatedAt: new Date() },
     });
-    const stats = await recomputePoolStats(tx, input.poolId);
-    return { applied: true, stakeAmount: next, chainId: stats?.chainId ?? null };
+    // The creator's own stake moves the creator stake, never the fan stake (P4).
+    // Once stats exist the stored creator stake is kept between chain reads, so
+    // the delta is applied to it here; before the first write the fallback
+    // (launch stake plus this row) already includes it.
+    let creatorStaked: bigint | undefined;
+    if (input.userWalletId === pool.walletId && pool.statsUpdatedAt) {
+      const stored = decimalToWei(pool.creatorStakeWei);
+      if (input.eventType === "stake") {
+        creatorStaked = stored + input.amount;
+      } else {
+        creatorStaked = stored > input.amount ? stored - input.amount : 0n;
+      }
+    }
+
+    const stats = await recomputePoolStats(tx, input.poolId, { creatorStaked });
+    return { applied: true, stakeAmount: next, chainId: stats?.chainId ?? pool.chainId };
   });
 
   if (result.chainId) await bumpPoolsListVersion(result.chainId);

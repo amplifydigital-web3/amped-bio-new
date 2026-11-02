@@ -280,6 +280,15 @@ describe("pools.list.listPools", () => {
     ).rejects.toMatchObject({ code: "BAD_REQUEST" });
   });
 
+  it("accepts a name cursor for the longest pool name", async () => {
+    const longName = "\u{1F30A}".repeat(255);
+    const raw = encodeCursor({ sort: "name-asc", tier: 0, value: longName, id: 5 });
+    expect(raw.length).toBeLessThanOrEqual(2048);
+    await expect(
+      caller().listPools({ chainId: "73863", sort: "name-asc", cursor: raw })
+    ).resolves.toMatchObject({ pools: [], nextCursor: null });
+  });
+
   it("serves the first page from cache until the list version changes", async () => {
     state.pageRows = [row(2), row(1)];
     state.total = 2;

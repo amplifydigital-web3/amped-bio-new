@@ -11,7 +11,7 @@ Build Board D7, Paginate and index the pools list. Spec: `docs/features/pools-li
 
 **One writer:** `apps/server/src/services/poolStats.ts`
 - `recomputePoolStats(tx, poolId, { creatorStaked? })` writes the stats from `StakedPool`. The creator's wallet never counts as a fan (decision P4). The creator stake is the chain value when known; on the first write it is the launch stake plus the creator wallet's own row.
-- `applyStakeDelta` runs one confirmed stake or unstake in one transaction: the `StakeEvent` once per hash, wallet and pool; the wallet's `StakedPool` row locked with `SELECT ... FOR UPDATE`; the new amount; the stats.
+- `applyStakeDelta` runs one confirmed stake or unstake in one transaction: the pool row locked first; the `StakeEvent` once per hash, wallet and pool; the wallet's `StakedPool` row locked with `SELECT ... FOR UPDATE`; the new amount; the stats.
 - `bumpPoolsListVersion(chainId)` marks the pool list cache stale (used by PL2).
 
 **Callers**
@@ -32,18 +32,13 @@ Build Board D7, Paginate and index the pools list. Spec: `docs/features/pools-li
 - A confirm sent twice for the same transaction used to add the stake twice to `StakedPool`. It now adds it once.
 - The profile card Fans number excludes the creator and is current, not as of the last admin sync.
 
-## Before merge: apply the patch
+## Fan router and schema patch
 
-Two files are too large for the GitHub connector to push: `apps/server/src/trpc/pools/fan.ts` (72 KB) and `packages/database/prisma/schema.prisma` (62 KB). Their changes are in `docs/fixes/pools-stats-columns.patch`. On this branch:
+The changes to `apps/server/src/trpc/pools/fan.ts` and `packages/database/prisma/schema.prisma` were first shipped as `docs/fixes/pools-stats-columns.patch` (the connector could not push those files). The patch is now applied on this branch in commit "feat(pools): PL1 fan router and schema changes" and the patch file is removed. Run `pnpm run --filter server run prisma:generate` after checkout.
 
-```bash
-git apply docs/fixes/pools-stats-columns.patch
-git rm docs/fixes/pools-stats-columns.patch
-git commit -am "feat(pools): PL1 fan router and schema changes"
-pnpm run --filter server run prisma:generate
-```
+## Locking
 
-Until the patch is applied the server typecheck fails on the new columns. The patch was checked with `git apply --check` against `development` at 9ed4a4e.
+Every transaction that writes stake rows or stats for a pool locks the pool row first (`lockPoolForStats`, `SELECT ... FOR UPDATE` on `creator_pools`). This serializes writers per pool, so each recompute reads the stake rows committed before it, and avoids the deadlock where two stake transactions hold the shared foreign key lock on the pool row and both wait to update it. A stake or unstake by the creator's own wallet moves the stored creator stake by the same amount until the next chain read replaces it.
 
 ## Steps after merge
 

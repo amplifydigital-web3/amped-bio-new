@@ -205,7 +205,9 @@ const listInput = z.object({
   filter: z.enum(POOL_LIST_FILTERS).default("all"),
   sort: z.enum(POOL_LIST_SORTS).default("newest"),
   limit: z.number().int().min(1).max(48).default(24),
-  cursor: z.string().max(256).optional(),
+  // A name sort cursor carries the pool name (VARCHAR(255), up to 4 bytes per
+  // character), so the base64url text can reach about 1,400 characters
+  cursor: z.string().max(2048).optional(),
 });
 
 export const poolsListRouter = router({

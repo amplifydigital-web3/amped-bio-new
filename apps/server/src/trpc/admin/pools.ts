@@ -5,6 +5,7 @@ import { prisma } from "@repo/database";
 import {
   applyStakeDelta,
   bumpPoolsListVersion,
+  lockPoolForStats,
   recomputePoolStats,
 } from "../../services/poolStats";
 import { createPublicClient, decodeEventLog, type Address, type Log } from "viem";
@@ -704,6 +705,9 @@ export const adminPoolsRouter = router({
 
           try {
             await prisma.$transaction(async (tx) => {
+              // Pool row first, like every stats writer (D7 PL1)
+              await lockPoolForStats(tx, pool.id);
+
               // Delete all stake events for this pool
               // Only stake and unstake rows are rebuilt; create and claim rows stay (rows 067 to 069)
               await tx.stakeEvent.deleteMany({
@@ -765,6 +769,7 @@ export const adminPoolsRouter = router({
 
           try {
             await prisma.$transaction(async (tx) => {
+              await lockPoolForStats(tx, pool.id);
               await tx.stakeEvent.deleteMany({ where: { poolId: pool.id, eventType: { in: ["stake", "unstake"] } } });
               await tx.stakedPool.deleteMany({ where: { poolId: pool.id } });
               await recomputePoolStats(tx, pool.id);
@@ -786,6 +791,7 @@ export const adminPoolsRouter = router({
         // No on-chain events found — clean up existing data to stay consistent
         try {
           await prisma.$transaction(async (tx) => {
+            await lockPoolForStats(tx, pool.id);
             await tx.stakeEvent.deleteMany({ where: { poolId: pool.id, eventType: { in: ["stake", "unstake"] } } });
             await tx.stakedPool.deleteMany({ where: { poolId: pool.id } });
             await recomputePoolStats(tx, pool.id);
