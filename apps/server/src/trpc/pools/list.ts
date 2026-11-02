@@ -4,7 +4,7 @@ import { TRPCError } from "@trpc/server";
 import { prisma } from "@repo/database";
 import type { Address, PublicClient } from "viem";
 import { createPublicClient } from "viem";
-import { calculatePoolAPY, getChainConfig, getRpcTransport } from "@repo/web3";
+import { CREATOR_POOL_ABI, calculatePoolAPY, getChainConfig, getRpcTransport } from "@repo/web3";
 import type { PoolTabRewardPool } from "@repo/constants";
 import { s3Service } from "../../services/S3Service";
 import {
@@ -16,7 +16,7 @@ import {
 } from "../../utils/cache";
 import { enforceRateLimits } from "../../utils/rateLimit";
 import { getVisitorIp } from "../../services/analytics/visitorIp";
-import { poolsListVersionKey } from "../../services/poolStats";
+import { poolsListVersionKey, refreshPoolStatsQuietly } from "../../services/poolStats";
 import {
   POOL_LIST_FILTERS,
   POOL_LIST_SORTS,
@@ -37,7 +37,7 @@ import {
 
 const FIRST_PAGE_TTL_SECONDS = 60;
 const SITEMAP_TTL_SECONDS = 3600;
-const APY_REFRESH_LOCK_SECONDS = 60;
+const REFRESH_LOCK_SECONDS = 60;
 
 export interface PoolListPage {
   pools: PoolTabRewardPool[];
@@ -55,42 +55,99 @@ async function listVersion(chainId: string): Promise<number> {
   return (await cache.get<number>(poolsListVersionKey(chainId))) ?? 0;
 }
 
+/** A card whose cached chain values were missing when the page was built. */
+interface ChainMiss {
+  id: number;
+  address: Address;
+  /** The total_stake_wei column, to tell whether the chain value moved */
+  columnTotal: bigint;
+  activeFans: number;
+  apy: boolean;
+  total: boolean;
+}
+
 /**
- * One APY refresh per pool at a time across instances. The page never waits:
- * a miss returns no APY and the next request after the refresh has it.
+ * Background refresh of the chain values behind the cards: APY, and the live
+ * total (creatorStaked plus totalFanStaked) cached under getPoolsCacheKey,
+ * which pools.fan.getPools wrote before PL4. One refresh per pool at a time
+ * across instances. The page never waits: a miss shows the column values and
+ * the next request after the refresh has the chain values. When the chain
+ * total differs from the column, the stats columns are rewritten with the
+ * chain's creator stake.
  */
-function scheduleApyRefresh(chainId: number, addresses: Address[]) {
-  if (addresses.length === 0) return;
+function scheduleChainRefresh(chainId: number, misses: ChainMiss[]) {
+  if (misses.length === 0) return;
   setImmediate(async () => {
     try {
       const redis = getRedisClient();
-      const mine: Address[] = [];
-      for (const address of addresses) {
-        const key = `pools:apy:lock:${chainId}:${address}`;
+      const mine: ChainMiss[] = [];
+      for (const miss of misses) {
+        const key = `pools:chain:lock:${chainId}:${miss.address}`;
         const locked = redis
-          ? await redis.set(key, "1", "EX", APY_REFRESH_LOCK_SECONDS, "NX").catch(() => "OK")
+          ? await redis.set(key, "1", "EX", REFRESH_LOCK_SECONDS, "NX").catch(() => "OK")
           : "OK";
-        if (locked === "OK") mine.push(address);
+        if (locked === "OK") mine.push(miss);
       }
       if (mine.length === 0) return;
       const chain = getChainConfig(chainId);
       if (!chain) return;
       const client = createPublicClient({ chain, transport: getRpcTransport(chain) });
-      const results = await calculatePoolAPY(mine, chainId, client as PublicClient);
-      for (const [address, apy] of Object.entries(results)) {
-        if (apy !== null) {
-          await cache.set(getAPYCacheKey(chainId, address as Address), apy, CACHE_TTL.APY);
+
+      const needApy = mine.filter(miss => miss.apy).map(miss => miss.address);
+      if (needApy.length) {
+        const results = await calculatePoolAPY(needApy, chainId, client as PublicClient);
+        for (const [address, apy] of Object.entries(results)) {
+          if (apy !== null) {
+            await cache.set(getAPYCacheKey(chainId, address as Address), apy, CACHE_TTL.APY);
+          }
+        }
+      }
+
+      const needTotal = mine.filter(miss => miss.total);
+      if (needTotal.length) {
+        const results = await client.multicall({
+          contracts: needTotal.flatMap(miss => [
+            {
+              address: miss.address,
+              abi: CREATOR_POOL_ABI,
+              functionName: "creatorStaked" as const,
+            },
+            {
+              address: miss.address,
+              abi: CREATOR_POOL_ABI,
+              functionName: "totalFanStaked" as const,
+            },
+          ]),
+        });
+        for (const [index, miss] of needTotal.entries()) {
+          const creator = results[index * 2];
+          const fans = results[index * 2 + 1];
+          if (creator?.status !== "success" || fans?.status !== "success") continue;
+          const creatorStaked = creator.result as bigint;
+          const totalStake = creatorStaked + (fans.result as bigint);
+          await cache.set(
+            getPoolsCacheKey(chainId, miss.address),
+            {
+              creatorStaked: creatorStaked.toString(),
+              totalStake: totalStake.toString(),
+              fans: miss.activeFans,
+            },
+            CACHE_TTL.POOL_DATA
+          );
+          if (totalStake !== miss.columnTotal) {
+            await refreshPoolStatsQuietly(miss.id, { creatorStaked });
+          }
         }
       }
     } catch (error) {
-      console.warn("[pools.list] APY refresh failed", error);
+      console.warn("[pools.list] chain refresh failed", error);
     }
   });
 }
 
 async function toCards(rows: PageRow[], chainId: string): Promise<PoolTabRewardPool[]> {
   const chain = Number(chainId);
-  const missingApy: Address[] = [];
+  const misses: ChainMiss[] = [];
   const cards = await Promise.all(
     rows.map(async row => {
       const address = row.poolAddress as Address;
@@ -98,16 +155,28 @@ async function toCards(rows: PageRow[], chainId: string): Promise<PoolTabRewardP
         cache.get<{ totalStake?: string }>(getPoolsCacheKey(chain, address)),
         cache.get<number>(getAPYCacheKey(chain, address)),
       ]);
-      if (apy === null) missingApy.push(address);
       // Decision P3: database columns, replaced by the live total when cached.
       // Fans always come from the column, so the creator never counts (P4).
-      let stakedAmount = BigInt(row.totalStakeWei.split(".")[0] || "0");
+      const columnTotal = BigInt(row.totalStakeWei.split(".")[0] || "0");
+      let stakedAmount = columnTotal;
+      let liveTotal = false;
       if (live?.totalStake) {
         try {
           stakedAmount = BigInt(live.totalStake);
+          liveTotal = true;
         } catch {
           // keep the column value
         }
+      }
+      if (apy === null || !liveTotal) {
+        misses.push({
+          id: Number(row.id),
+          address,
+          columnTotal,
+          activeFans: Number(row.activeFans),
+          apy: apy === null,
+          total: !liveTotal,
+        });
       }
       const card: PoolTabRewardPool = {
         id: Number(row.id),
@@ -126,7 +195,7 @@ async function toCards(rows: PageRow[], chainId: string): Promise<PoolTabRewardP
       return card;
     })
   );
-  scheduleApyRefresh(chain, missingApy);
+  scheduleChainRefresh(chain, misses);
   return cards;
 }
 
