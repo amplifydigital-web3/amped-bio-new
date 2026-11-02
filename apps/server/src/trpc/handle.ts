@@ -184,7 +184,7 @@ const appRouter = router({
             where: {
               walletId: user.wallet.id,
               poolAddress: { not: null },
-              OR: [{ hidden: false }, { hidden: null }],
+              hidden: false,
             },
             orderBy: { id: "desc" },
             select: { poolAddress: true },
