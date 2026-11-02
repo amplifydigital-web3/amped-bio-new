@@ -221,6 +221,39 @@ describe("the bot finds the group (tg-group-connect)", () => {
     expect(groups()).toHaveLength(0);
   });
 
+  it("re-adding the bot after a disconnect puts the group back on the card as pending", async () => {
+    connectedGroup({ disconnectedAt: new Date(), inviteLink: null });
+    await shared.bot.handleUpdate(botMemberUpdate(MAYA_TG, "administrator"));
+    expect(groups()).toHaveLength(1);
+    expect(groups()[0]).toMatchObject({
+      creatorUserId: MAYA,
+      connectedAt: null,
+      disconnectedAt: null,
+    });
+  });
+
+  it("a group that became a supergroup keeps its row even when the bot saw the new id first", async () => {
+    connectedGroup();
+    groups().push({
+      ...groups()[0],
+      id: Buffer.alloc(16, 8),
+      tgChatId: BigInt(-100777),
+      connectedAt: null,
+    });
+    await shared.bot.handleUpdate({
+      update_id: updateId++,
+      message: {
+        message_id: 1,
+        date: 0,
+        chat: { ...groupChat, type: "group" },
+        from: user(MAYA_TG),
+        migrate_to_chat_id: -100777,
+      },
+    });
+    expect(groups()).toHaveLength(1);
+    expect(groups()[0]).toMatchObject({ id: Buffer.alloc(16, 7), tgChatId: BigInt(-100777) });
+  });
+
   it("the bot added without admin rights asks for them, privately", async () => {
     await shared.bot.handleUpdate(botMemberUpdate(MAYA_TG, "member"));
     expect(groups()[0]).toMatchObject({ botIsAdmin: false });
@@ -301,6 +334,16 @@ describe("join requests (acceptance 12)", () => {
     expect(message.payload.reply_markup.inline_keyboard[0][0].url).toMatch(/\/maya$/);
   });
 
+  it("a follower the creator blocked is declined", async () => {
+    follow(fake.db, JORDAN, MAYA);
+    fake.db
+      .table("followBlock")
+      .push({ creator_id: MAYA, user_id: JORDAN, created_at: new Date() });
+    await shared.bot.handleUpdate(joinRequest(JORDAN_TG));
+    expect(sent("approveChatJoinRequest")).toHaveLength(0);
+    expect(sent("declineChatJoinRequest")).toHaveLength(1);
+  });
+
   it("an unlinked applicant is declined and gets one message with Link Telegram", async () => {
     await shared.bot.handleUpdate(joinRequest(STRANGER_TG));
     expect(sent("declineChatJoinRequest")).toHaveLength(1);
@@ -318,6 +361,8 @@ describe("the hourly check (acceptance 13)", () => {
     member(JORDAN_TG, JORDAN);
     await runGroupCheck(job());
     expect(sent("banChatMember")[0]!.payload.user_id).toBe(JORDAN_TG);
+    // A short ban, so a failed unban never leaves the member banned for good
+    expect(sent("banChatMember")[0]!.payload.until_date).toBeGreaterThan(Date.now() / 1000 + 30);
     expect(sent("unbanChatMember")[0]!.payload).toMatchObject({
       user_id: JORDAN_TG,
       only_if_banned: true,

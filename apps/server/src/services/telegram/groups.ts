@@ -1,4 +1,4 @@
-import { InlineKeyboard, type Api, type Context } from "grammy";
+import { GrammyError, InlineKeyboard, type Api, type Context } from "grammy";
 import { prisma, type TelegramGroup, type TelegramOutbox } from "@repo/database";
 import {
   TELEGRAM_BOT_BUTTONS,
@@ -137,10 +137,26 @@ export async function handleGroupChatMember(ctx: Context) {
   const title = (chat.title ?? "Telegram group").slice(0, 128);
   const adder = await findByTelegramId(update.from.id);
 
-  if (existing) {
+  const live = existing && existing.connectedAt && !existing.disconnectedAt;
+  if (existing && (live || !adder)) {
     await prisma.telegramGroup.update({
       where: { id: existing.id },
       data: { botIsAdmin: canGate, title },
+    });
+  } else if (existing && adder) {
+    // A pending or disconnected row goes back to whoever added the bot this time, so it
+    // shows on their card again (listCreatorGroups skips disconnected rows)
+    await prisma.telegramGroup.update({
+      where: { id: existing.id },
+      data: {
+        creatorUserId: adder.userId,
+        botIsAdmin: canGate,
+        title,
+        addedByTelegramUserId: BigInt(update.from.id),
+        connectedAt: null,
+        disconnectedAt: null,
+        inviteLink: null,
+      },
     });
   } else if (adder) {
     await prisma.telegramGroup.create({
@@ -156,7 +172,7 @@ export async function handleGroupChatMember(ctx: Context) {
   }
 
   // One private note to whoever added the bot, when the bot may write to them
-  if (adder && isReachable(adder) && !existing?.connectedAt) {
+  if (adder && isReachable(adder) && !live) {
     await enqueueOutbox(
       "notice",
       {
@@ -173,10 +189,18 @@ export async function handleGroupChatMember(ctx: Context) {
 export async function handleChatMigration(ctx: Context) {
   const message = ctx.message;
   if (!message?.migrate_to_chat_id) return;
-  await prisma.telegramGroup.updateMany({
-    where: { tgChatId: BigInt(message.chat.id) },
-    data: { tgChatId: BigInt(message.migrate_to_chat_id) },
-  });
+  const oldId = BigInt(message.chat.id);
+  const newId = BigInt(message.migrate_to_chat_id);
+  const old = await prisma.telegramGroup.findUnique({ where: { tgChatId: oldId } });
+  if (!old) return;
+  // Telegram also reports the bot in the new supergroup (my_chat_member), which may
+  // already have created a pending row for the new id; tgChatId is unique
+  const twin = await prisma.telegramGroup.findUnique({ where: { tgChatId: newId } });
+  if (twin) {
+    if (twin.connectedAt && !twin.disconnectedAt) return;
+    await prisma.telegramGroup.delete({ where: { id: twin.id } });
+  }
+  await prisma.telegramGroup.update({ where: { id: old.id }, data: { tgChatId: newId } });
 }
 
 // ----------------------------------------------------------------------------
@@ -216,6 +240,12 @@ async function finishConnect(
     name: "Amped.Bio",
     creates_join_request: true,
   });
+  if (group.inviteLink && group.inviteLink !== invite.invite_link) {
+    // Connecting again replaces the link; the old one must stop working
+    await api
+      .revokeChatInviteLink(Number(group.tgChatId), group.inviteLink)
+      .catch(error => console.error("[telegram] revoke old invite link failed", error));
+  }
   const count = await api.getChatMemberCount(Number(group.tgChatId)).catch(() => 0);
   const connected = await prisma.telegramGroup.update({
     where: { id: group.id },
@@ -276,7 +306,12 @@ export async function connectPublicGroup(
   if (chat.type !== "group" && chat.type !== "supergroup") throw new GroupError("not_found");
   const chatId = BigInt(chat.id);
   const existing = await prisma.telegramGroup.findUnique({ where: { tgChatId: chatId } });
-  if (existing && existing.creatorUserId !== creatorUserId && existing.connectedAt) {
+  if (
+    existing &&
+    existing.creatorUserId !== creatorUserId &&
+    existing.connectedAt &&
+    !existing.disconnectedAt
+  ) {
     throw new GroupError("not_your_group");
   }
   const group =
@@ -316,21 +351,42 @@ async function ownGroup(creatorUserId: number, groupId: Uint8Array) {
   return group;
 }
 
+/**
+ * Of `userIds`, those who pass the group's rule and may sit in it: never an account the
+ * creator blocked, nor a suspended one, whatever the rule says.
+ */
+async function admittedUserIds(
+  creatorUserId: number,
+  ruleKind: DmRuleKind,
+  stakeMin: string | null,
+  userIds: number[]
+): Promise<Set<number>> {
+  const passing = await passingUserIds(
+    ruleKind,
+    { creatorUserId, poolIds: await creatorPoolIds(creatorUserId), stakeMin },
+    userIds
+  );
+  const ids = Array.from(passing);
+  if (ids.length === 0) return passing;
+  const [blocked, active] = await Promise.all([
+    prisma.followBlock.findMany({
+      where: { creator_id: creatorUserId, user_id: { in: ids } },
+      select: { user_id: true },
+    }),
+    prisma.user.findMany({ where: { id: { in: ids }, block: "no" }, select: { id: true } }),
+  ]);
+  const barred = new Set(blocked.map(row => row.user_id));
+  const allowed = new Set(active.map(row => row.id));
+  return new Set(ids.filter(id => allowed.has(id) && !barred.has(id)));
+}
+
 /** Linked members who fail `rule`, of the active members the bot knows. */
 async function failingMembers(group: TelegramGroup, ruleKind: DmRuleKind, stakeMin: string | null) {
   const members = await prisma.telegramGroupMember.findMany({
     where: { groupId: group.id, removedAt: null, userId: { not: null } },
   });
   const ids = members.map(m => m.userId!).filter(id => id !== group.creatorUserId);
-  const passing = await passingUserIds(
-    ruleKind,
-    {
-      creatorUserId: group.creatorUserId,
-      poolIds: await creatorPoolIds(group.creatorUserId),
-      stakeMin,
-    },
-    ids
-  );
+  const passing = await admittedUserIds(group.creatorUserId, ruleKind, stakeMin, ids);
   return members.filter(m => m.userId !== group.creatorUserId && !passing.has(m.userId!));
 }
 
@@ -384,10 +440,15 @@ export async function disconnectGroup(creatorUserId: number, groupId: Uint8Array
       console.error("[telegram] revoke invite link failed", error);
     }
   }
-  return prisma.telegramGroup.update({
-    where: { id: group.id },
-    data: { disconnectedAt: new Date(), inviteLink: null },
-  });
+  // The bot stops checking the group, so it keeps no record of who is in it
+  const [, disconnected] = await prisma.$transaction([
+    prisma.telegramGroupMember.deleteMany({ where: { groupId: group.id } }),
+    prisma.telegramGroup.update({
+      where: { id: group.id },
+      data: { disconnectedAt: new Date(), inviteLink: null },
+    }),
+  ]);
+  return disconnected;
 }
 
 /** Totals for the card: approvals, declines and removals in the past 7 days. */
@@ -439,16 +500,30 @@ function declineText(rule: DmRuleKind, creatorName: string) {
 /** Whether one Amped user may sit in the group under its rule. */
 export async function qualifies(group: TelegramGroup, userId: number) {
   if (userId === group.creatorUserId) return true;
-  const passing = await passingUserIds(
+  const passing = await admittedUserIds(
+    group.creatorUserId,
     group.ruleKind as DmRuleKind,
-    {
-      creatorUserId: group.creatorUserId,
-      poolIds: await creatorPoolIds(group.creatorUserId),
-      stakeMin: group.stakeMin,
-    },
+    group.stakeMin,
     [userId]
   );
   return passing.has(userId);
+}
+
+/**
+ * Approve or decline one join request. False when Telegram refuses, which means the
+ * request is no longer pending (an admin decided it, or it expired): there is nothing
+ * left to record, and throwing would only make the loop replay the update.
+ */
+async function decide(action: () => Promise<unknown>) {
+  try {
+    await action();
+    return true;
+  } catch (error) {
+    // A network failure is thrown again so the loop retries the update
+    if (!(error instanceof GrammyError) || error.error_code !== 400) throw error;
+    console.error("[telegram] join request no longer pending", error.description);
+    return false;
+  }
 }
 
 /** chat_join_request on the approval only link (acceptance 12). */
@@ -469,7 +544,9 @@ export async function handleJoinRequest(ctx: Context) {
   const account = await findByTelegramId(request.from.id);
 
   if (!account) {
-    await api.declineChatJoinRequest(request.chat.id, request.from.id);
+    if (!(await decide(() => api.declineChatJoinRequest(request.chat.id, request.from.id)))) {
+      return;
+    }
     await upsertMember(group.id, applicant, { declinedAt: new Date() });
     emitTelegramEvent("group_join_decided", { decision: "declined", reason: "not_linked" });
     await api
@@ -481,7 +558,9 @@ export async function handleJoinRequest(ctx: Context) {
   }
 
   if (await qualifies(group, account.userId)) {
-    await api.approveChatJoinRequest(request.chat.id, request.from.id);
+    if (!(await decide(() => api.approveChatJoinRequest(request.chat.id, request.from.id)))) {
+      return;
+    }
     await upsertMember(group.id, applicant, {
       userId: account.userId,
       approvedAt: new Date(),
@@ -494,7 +573,9 @@ export async function handleJoinRequest(ctx: Context) {
     return;
   }
 
-  await api.declineChatJoinRequest(request.chat.id, request.from.id);
+  if (!(await decide(() => api.declineChatJoinRequest(request.chat.id, request.from.id)))) {
+    return;
+  }
   await upsertMember(group.id, applicant, { userId: account.userId, declinedAt: new Date() });
   emitTelegramEvent("group_join_decided", { decision: "declined", reason: "rule_failed" });
   const keyboard = creator.handle
@@ -583,6 +664,9 @@ export async function queueDueGroupChecks(now = new Date()) {
   return queued;
 }
 
+/** Above Telegram's 30 second floor, under which a ban is permanent. */
+const BAN_SECONDS = 60;
+
 async function remove(
   api: Api,
   group: TelegramGroup,
@@ -591,7 +675,11 @@ async function remove(
   memberId: Uint8Array,
   creatorName: string
 ) {
-  await api.banChatMember(Number(group.tgChatId), Number(telegramUserId));
+  // A short ban, not a permanent one: if the unban below fails, Telegram lifts it by
+  // itself and the member can still rejoin once they qualify
+  await api.banChatMember(Number(group.tgChatId), Number(telegramUserId), {
+    until_date: Math.floor(Date.now() / 1000) + BAN_SECONDS,
+  });
   await api.unbanChatMember(Number(group.tgChatId), Number(telegramUserId), {
     only_if_banned: true,
   });
@@ -652,13 +740,10 @@ export async function runGroupCheck(job: TelegramOutbox) {
   });
   const byTelegram = new Map(accounts.map(a => [BigInt(a.telegramUserId), a.userId]));
   const linkedIds = Array.from(new Set(accounts.map(a => a.userId)));
-  const passing = await passingUserIds(
+  const passing = await admittedUserIds(
+    group.creatorUserId,
     group.ruleKind as DmRuleKind,
-    {
-      creatorUserId: group.creatorUserId,
-      poolIds: await creatorPoolIds(group.creatorUserId),
-      stakeMin: group.stakeMin,
-    },
+    group.stakeMin,
     linkedIds
   );
 

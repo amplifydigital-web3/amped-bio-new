@@ -53,6 +53,10 @@ describe("deep link payloads", () => {
       kind: "legacy_dm",
       handle: "maya_ref",
     });
+    expect(parseTelegramStartPayload("dm_MayaLin")).toEqual({
+      kind: "legacy_dm",
+      handle: "MayaLin",
+    });
   });
 
   it("read anything malformed as none", () => {
@@ -106,6 +110,7 @@ describe("Mini App allow list", () => {
   });
 
   it("skips link and media blocks on crypto platforms", () => {
+    expect(CRYPTO_PLATFORMS).toContain("creator-pool");
     for (const platform of CRYPTO_PLATFORMS) {
       expect(isMiniAppSafeBlock({ type: "media", config: { platform } } as never)).toBe(false);
       expect(isMiniAppSafeBlock({ type: "link", config: { platform } } as never)).toBe(false);
