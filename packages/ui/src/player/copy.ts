@@ -1,0 +1,38 @@
+/**
+ * Every viewer facing string in the shared player. Kept together so the copy
+ * tests hold it to the rules: no dashes, no banned money words.
+ */
+export const PLAYER_COPY = {
+  play: "Play",
+  pause: "Pause",
+  playTitle: (title: string) => `Play ${title}`,
+  resumeAt: (clock: string) => `Resume at ${clock}`,
+  startOver: "Start over",
+  seek: "Seek",
+  seekValue: (current: string, total: string) => `${current} of ${total}`,
+  back: (seconds: number) => `Back ${seconds} seconds`,
+  forward: (seconds: number) => `Forward ${seconds} seconds`,
+  mute: "Mute",
+  unmute: "Unmute",
+  volume: "Volume",
+  captionsOff: "Turn on captions",
+  captionsOn: (label: string) => `Captions: ${label}. Change captions`,
+  speed: (label: string) => `Playback speed ${label}`,
+  pip: "Picture in picture",
+  pipExit: "Exit picture in picture",
+  airplay: "AirPlay",
+  fullscreen: "Full screen",
+  fullscreenExit: "Exit full screen",
+  loading: "Loading",
+  videoPlayer: (title: string) => `Video player: ${title}`,
+  audioPlayer: (title: string) => `Audio player: ${title}`,
+  errorTitle: "This can not play right now",
+  errorBody: "Check your connection and try again.",
+  retry: "Try again",
+  chapters: "Chapters",
+  chapterAt: (clock: string, title: string) => `Play from ${clock}, ${title}`,
+  nowPlaying: "Now playing",
+  expand: (title: string) => `Open ${title}`,
+  close: "Close player",
+  miniPlayer: "Mini player",
+} as const;
