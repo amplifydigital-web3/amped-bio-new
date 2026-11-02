@@ -493,7 +493,7 @@ export function TelegramWizard() {
         <h3 className="text-prism-card-title text-prism-ink">{G.wizardTitle}</h3>
         <p className="text-prism-meta text-prism-ink-2">{G.wizardOptional}</p>
         <ConnectSteps found={!!found} botUsername={status.data?.botUsername} showBar={false} />
-        <DetectedGroup group={found} line={G.wizardRuleFromStep2(ruleLabel)} />
+        <DetectedGroup group={found} line={G.wizardRuleFromMessages(ruleLabel)} />
         {actionError && <Notice variant="error">{actionError}</Notice>}
       </div>
     );

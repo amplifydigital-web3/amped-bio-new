@@ -666,13 +666,13 @@ export const TELEGRAM_GROUP_STRINGS = {
   kitCopyLink: "Copy button link",
   kitCopied: "Welcome message copied.",
   kitLinkCopied: "Button link copied.",
-  // Wizard step 4 and Done (board tg10)
+  // Wizard step 5 (group) and Done (board tg10)
   wizardStep: "Group",
   wizardTitle: "Connect your Telegram group.",
-  wizardOptional: "Step 4 of 4. Optional.",
-  wizardStepOf: (step: number) => `Step ${step} of 4`,
-  wizardRuleFromStep2: (rule: string) =>
-    `Rule from step 2: ${rule}. Change it in My Pool any time.`,
+  wizardOptional: "Step 5 of 5. Optional.",
+  wizardStepOf: (step: number) => `Step ${step} of 5`,
+  wizardRuleFromMessages: (rule: string) =>
+    `Rule from the Messages step: ${rule}. Change it in My Pool any time.`,
   wizardSkip: "Skip for now",
   doneInline: (handle: string) => `Type @AmpedBioBot ${handle} in any chat to drop your card.`,
   doneCopyLink: "Copy my Telegram link",
