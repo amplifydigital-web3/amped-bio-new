@@ -161,6 +161,34 @@ export function clearPaymentSettingsCache() {
   cache = null;
 }
 
+type SettingsClient = Pick<typeof prisma, "siteSettings">;
+
+/** site_settings row whose lock serializes every payments settings write. Holds no value. */
+const CHANGE_LOCK_KEY = "payments_change_lock";
+
+/**
+ * Serializes every payments settings decision (draft, approval, pause, scheduled apply)
+ * across admins and servers. Call it first inside the transaction: the upsert takes an
+ * exclusive lock on one site_settings row until the transaction ends, so the reads that
+ * follow see every change committed before, and the cross value rules (fee plus promoter
+ * maximum, unlock after and final after, the gas lines) cannot be broken by two approvals
+ * running at the same time.
+ */
+export async function lockPaymentChanges(tx: Pick<typeof prisma, "$executeRaw">): Promise<void> {
+  await tx.$executeRaw`INSERT INTO site_settings (setting_key, setting_value, value_type) VALUES (${CHANGE_LOCK_KEY}, '', 'STRING') ON DUPLICATE KEY UPDATE setting_key = setting_key`;
+}
+
+/** Writes one item value to its site_settings rows. */
+export async function writeItemValue(tx: SettingsClient, item: PaymentItem, value: string) {
+  for (const row of itemRows(item, value)) {
+    await tx.siteSettings.upsert({
+      where: { setting_key: row.key },
+      create: { setting_key: row.key, setting_value: row.value, value_type: valueType(item) },
+      update: { setting_value: row.value, value_type: valueType(item) },
+    });
+  }
+}
+
 /**
  * Applies approved server changes whose effective date has passed (decision 4: a fee
  * change carries a date and quotes keep the old value until then). The status update is
@@ -176,18 +204,13 @@ export async function applyDueChanges(now = new Date()): Promise<number> {
     const item = PAYMENT_ITEM_BY_ID[change.key];
     if (!item) continue;
     const done = await prisma.$transaction(async tx => {
+      await lockPaymentChanges(tx);
       const claimed = await tx.adminChange.updateMany({
         where: { id: change.id, status: "approved" },
         data: { status: "applied", appliedAt: now },
       });
       if (claimed.count === 0) return false;
-      for (const row of itemRows(item, change.newValue)) {
-        await tx.siteSettings.upsert({
-          where: { setting_key: row.key },
-          create: { setting_key: row.key, setting_value: row.value, value_type: valueType(item) },
-          update: { setting_value: row.value, value_type: valueType(item) },
-        });
-      }
+      await writeItemValue(tx, item, change.newValue);
       return true;
     });
     if (done) applied += 1;
@@ -196,18 +219,27 @@ export async function applyDueChanges(now = new Date()): Promise<number> {
   return applied;
 }
 
-async function readKeys(): Promise<Record<string, string>> {
-  const rows = await prisma.siteSettings.findMany({
+async function readKeys(db: SettingsClient = prisma): Promise<Record<string, string>> {
+  const rows = await db.siteSettings.findMany({
     where: { setting_key: { in: PAYMENT_SETTING_KEYS } },
   });
   return Object.fromEntries(rows.map(row => [row.setting_key, row.setting_value]));
+}
+
+/**
+ * Reads the stored values straight from the database through the given client, without
+ * the cache and without applying due changes. Decisions call it inside their transaction,
+ * after lockPaymentChanges, so they check against the values that are really in force.
+ */
+export async function readPaymentSettings(db: SettingsClient = prisma): Promise<PaymentSettings> {
+  return parseSettings(await readKeys(db));
 }
 
 /** Every AmpedPay server value, typed, with defaults. Cached 30 seconds (spec 3.3). */
 export async function paymentSettings(now = Date.now()): Promise<PaymentSettings> {
   if (cache && now - cache.at < CACHE_MS) return cache.value;
   await applyDueChanges(new Date(now));
-  const value = parseSettings(await readKeys());
+  const value = await readPaymentSettings();
   cache = { value, at: now };
   return value;
 }

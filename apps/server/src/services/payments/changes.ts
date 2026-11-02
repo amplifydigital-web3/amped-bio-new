@@ -10,14 +10,16 @@ import {
 import { uuidv7 } from "../../utils/uuid-v7";
 import {
   PaymentSettingError,
+  applyDueChanges,
   checkEffectiveAt,
   clearPaymentSettingsCache,
   contractLimits,
   contractValues,
-  itemRows,
+  lockPaymentChanges,
   paymentSettings,
+  readPaymentSettings,
   validateServerValue,
-  valueType,
+  writeItemValue,
 } from "./settings";
 
 /**
@@ -26,6 +28,10 @@ import {
  * apply. Pause applies at once by one payments_admin with a reason; Resume follows the rule.
  * Drafts expire after 7 days. Every row is the change log: never deleted, never edited
  * after it applies.
+ *
+ * Every decision runs in one transaction that starts with lockPaymentChanges, so drafts,
+ * approvals, pauses and scheduled applies happen one at a time and always check against
+ * the values really in force.
  *
  * On chain values change through the Safe (spec 3.6). PAY-A1 shows them read only; PAY-A2
  * adds the Safe delegate proposal.
@@ -43,6 +49,8 @@ const FILTER_STATUSES: Record<Exclude<ChangeFilter, "all">, AdminChangeStatus[]>
   applied: ["applied"],
   closed: ["rejected", "expired", "superseded"],
 };
+
+type ChangeClient = Pick<typeof prisma, "adminChange">;
 
 /** Drafts older than 7 days read Expired (spec 3.5). Runs before every list and decision. */
 export async function expireStaleDrafts(now = new Date()): Promise<number> {
@@ -84,6 +92,58 @@ function requireServerItem(itemId: string): PaymentItem {
   return item;
 }
 
+/** Runs a settings check and turns its error into an AdminChangeError for the admin. */
+function asChangeError<T>(check: () => T, suffix = ""): T {
+  try {
+    return check();
+  } catch (error) {
+    if (error instanceof PaymentSettingError) {
+      throw new AdminChangeError(suffix ? `${error.message} ${suffix}` : error.message);
+    }
+    throw error;
+  }
+}
+
+/**
+ * Checks a value against the values in force and, when approved changes are waiting for
+ * their date, against the values as they will be once those apply. Without the second
+ * check a promoter maximum could pass today and break the creator minimum the day a
+ * scheduled fee increase lands. Returns the canonical encoding.
+ */
+async function checkValue(
+  db: ChangeClient,
+  item: PaymentItem,
+  raw: string,
+  values: Record<string, string>,
+  handles: Set<string> | undefined,
+  now: Date
+): Promise<string> {
+  const scheduled = await db.adminChange.findMany({
+    where: { area: AREA, target: "server", status: "approved" },
+    select: { key: true, newValue: true },
+  });
+  const contexts = [values];
+  const ahead = scheduled.filter(change => change.key !== item.id);
+  if (ahead.length > 0) {
+    contexts.push({
+      ...values,
+      ...Object.fromEntries(ahead.map(change => [change.key, change.newValue])),
+    });
+  }
+  let canonical = "";
+  for (const context of contexts) {
+    canonical = asChangeError(() =>
+      validateServerValue(item.id, raw, {
+        values: context,
+        limits: contractLimits(),
+        knownHandles: handles,
+        now,
+      })
+    );
+  }
+  return canonical;
+}
+
 export interface DraftInput {
   userId: number;
   itemId: string;
@@ -104,72 +164,55 @@ export async function draftChange(input: DraftInput) {
   if (reason.length < 3) throw new AdminChangeError("Give a reason the second admin can check.");
 
   await expireStaleDrafts(now);
-  const waiting = await prisma.adminChange.findFirst({
-    where: { area: AREA, key: item.id, status: { in: OPEN } },
-    select: { id: true },
-  });
-  if (waiting) {
-    throw new AdminChangeError(
-      "A change to this value is already waiting. Approve, reject or let it expire first."
+  await applyDueChanges(now);
+  const handles = item.kind === "handles" ? await knownHandles(input.newValue) : undefined;
+
+  // The lock keeps "one open change per value" true when two admins draft at once
+  return prisma.$transaction(async tx => {
+    await lockPaymentChanges(tx);
+    const waiting = await tx.adminChange.findFirst({
+      where: { area: AREA, key: item.id, status: { in: OPEN } },
+      select: { id: true },
+    });
+    if (waiting) {
+      throw new AdminChangeError(
+        "A change to this value is already waiting. Approve, reject or let it expire first."
+      );
+    }
+
+    const settings = await readPaymentSettings(tx);
+    const oldValue = settings.values[item.id] ?? "";
+    const newValue = await checkValue(tx, item, input.newValue, settings.values, handles, now);
+    const effectiveAt = asChangeError(() =>
+      checkEffectiveAt(item.id, oldValue, newValue, input.effectiveAt ?? null, now)
     );
-  }
+    if (newValue === oldValue)
+      throw new AdminChangeError("The new value is the same as the current one.");
 
-  clearPaymentSettingsCache();
-  const settings = await paymentSettings(now.getTime());
-  const oldValue = settings.values[item.id] ?? "";
-  let newValue: string;
-  let effectiveAt: Date | null;
-  try {
-    newValue = validateServerValue(item.id, input.newValue, {
-      values: settings.values,
-      limits: contractLimits(),
-      knownHandles: item.kind === "handles" ? await knownHandles(input.newValue) : undefined,
-      now,
+    return tx.adminChange.create({
+      data: {
+        id: uuidv7(),
+        area: AREA,
+        target: "server",
+        key: item.id,
+        oldValue,
+        newValue,
+        effectiveAt,
+        reason,
+        status: "draft",
+        draftedById: input.userId,
+        createdAt: now,
+      },
     });
-    effectiveAt = checkEffectiveAt(item.id, oldValue, newValue, input.effectiveAt ?? null, now);
-  } catch (error) {
-    if (error instanceof PaymentSettingError) throw new AdminChangeError(error.message);
-    throw error;
-  }
-  if (newValue === oldValue)
-    throw new AdminChangeError("The new value is the same as the current one.");
-
-  return prisma.adminChange.create({
-    data: {
-      id: uuidv7(),
-      area: AREA,
-      target: "server",
-      key: item.id,
-      oldValue,
-      newValue,
-      effectiveAt,
-      reason,
-      status: "draft",
-      draftedById: input.userId,
-      createdAt: now,
-    },
   });
-}
-
-async function writeItem(
-  tx: Pick<typeof prisma, "siteSettings">,
-  item: PaymentItem,
-  value: string
-) {
-  for (const row of itemRows(item, value)) {
-    await tx.siteSettings.upsert({
-      where: { setting_key: row.key },
-      create: { setting_key: row.key, setting_value: row.value, value_type: valueType(item) },
-      update: { setting_value: row.value, value_type: valueType(item) },
-    });
-  }
 }
 
 /**
  * The second payments_admin approves (spec 3.5, acceptance 4). The drafter is refused. The
  * value is checked again against today's settings; if it changed since the draft, the
- * draft is superseded. A fee with a future date is held as approved and applied on that
- * date; everything else applies in the same transaction as the status change.
+ * draft is superseded. A fee increase must still give 30 days notice on the day it is
+ * approved. A fee with a future date is held as approved and applied on that date;
+ * everything else applies in the same transaction as the status change.
  */
 export async function approveChange({
   userId,
@@ -181,6 +224,7 @@ export async function approveChange({
   now?: Date;
 }) {
   await expireStaleDrafts(now);
+  await applyDueChanges(now);
   const change = await prisma.adminChange.findUnique({ where: { id: changeId } });
   if (!change || change.area !== AREA) throw new AdminChangeError("That change does not exist.");
   if (change.status !== "draft") {
@@ -190,49 +234,57 @@ export async function approveChange({
     throw new AdminChangeError("You drafted this change. A different payments admin approves it.");
   }
   const item = requireServerItem(change.key);
+  const handles = item.kind === "handles" ? await knownHandles(change.newValue) : undefined;
 
-  clearPaymentSettingsCache();
-  const settings = await paymentSettings(now.getTime());
-  const current = settings.values[item.id] ?? "";
-  if (current !== change.oldValue) {
-    await prisma.adminChange.updateMany({
-      where: { id: changeId, status: "draft" },
-      data: { status: "superseded", decidedAt: now },
-    });
-    throw new AdminChangeError(
-      "This value changed since the draft. Draft it again from the current value."
+  const outcome = await prisma.$transaction(async tx => {
+    await lockPaymentChanges(tx);
+    // Read again under the lock: another admin may have decided it meanwhile
+    const fresh = await tx.adminChange.findUnique({ where: { id: changeId } });
+    if (!fresh || fresh.status !== "draft") return "taken" as const;
+
+    const settings = await readPaymentSettings(tx);
+    const current = settings.values[item.id] ?? "";
+    if (current !== fresh.oldValue) {
+      await tx.adminChange.updateMany({
+        where: { id: changeId, status: "draft" },
+        data: { status: "superseded", decidedAt: now },
+      });
+      return "superseded" as const;
+    }
+    await checkValue(tx, item, fresh.newValue, settings.values, handles, now);
+    const effectiveAt = asChangeError(
+      () => checkEffectiveAt(item.id, fresh.oldValue, fresh.newValue, fresh.effectiveAt, now),
+      "Reject this draft and draft it again."
     );
-  }
-  try {
-    validateServerValue(item.id, change.newValue, {
-      values: settings.values,
-      limits: contractLimits(),
-      knownHandles: item.kind === "handles" ? await knownHandles(change.newValue) : undefined,
-      now,
-    });
-  } catch (error) {
-    if (error instanceof PaymentSettingError) throw new AdminChangeError(error.message);
-    throw error;
-  }
 
-  const scheduled = change.effectiveAt !== null && change.effectiveAt.getTime() > now.getTime();
-  const result = await prisma.$transaction(async tx => {
+    const scheduled = effectiveAt !== null && effectiveAt.getTime() > now.getTime();
     const claimed = await tx.adminChange.updateMany({
       where: { id: changeId, status: "draft" },
       data: scheduled
         ? { status: "approved", approvedById: userId, decidedAt: now }
         : { status: "applied", approvedById: userId, decidedAt: now, appliedAt: now },
     });
-    if (claimed.count === 0) return false;
-    if (!scheduled) await writeItem(tx, item, change.newValue);
-    return true;
+    if (claimed.count === 0) return "taken" as const;
+    if (!scheduled) await writeItemValue(tx, item, fresh.newValue);
+    return scheduled ? ("approved" as const) : ("applied" as const);
   });
-  if (!result) throw new AdminChangeError("Another admin decided this change first.");
+
+  if (outcome === "taken") throw new AdminChangeError("Another admin decided this change first.");
+  if (outcome === "superseded") {
+    throw new AdminChangeError(
+      "This value changed since the draft. Draft it again from the current value."
+    );
+  }
   clearPaymentSettingsCache();
-  return { status: scheduled ? ("approved" as const) : ("applied" as const) };
+  return { status: outcome };
 }
 
-/** Rejects a waiting draft with a note. Any payments_admin, including the drafter withdrawing it. */
+/**
+ * Rejects a waiting draft with a note, or cancels an approved change before its date. Any
+ * payments_admin, including the drafter withdrawing it. The rejecting admin has a column
+ * of their own, so the log never shows them as the approver and a cancelled scheduled
+ * change keeps the admin who approved it.
+ */
 export async function rejectChange({
   userId,
   changeId,
@@ -247,9 +299,11 @@ export async function rejectChange({
   const text = note.trim();
   if (text.length < 3) throw new AdminChangeError("Say why, so the drafter knows what to fix.");
   await expireStaleDrafts(now);
+  // A scheduled change already due applies first, so it cannot be cancelled after the fact
+  await applyDueChanges(now);
   const result = await prisma.adminChange.updateMany({
     where: { id: changeId, area: AREA, status: { in: ["draft", "approved"] } },
-    data: { status: "rejected", approvedById: userId, decisionNote: text, decidedAt: now },
+    data: { status: "rejected", rejectedById: userId, decisionNote: text, decidedAt: now },
   });
   if (result.count === 0) throw new AdminChangeError("This change is no longer waiting.");
   return { status: "rejected" as const };
@@ -272,11 +326,12 @@ export async function pausePayments({
   const text = reason.trim();
   if (text.length < 3) throw new AdminChangeError("Give a reason for the pause.");
   const item = PAYMENT_ITEM_BY_ID["payments_paused"]!;
-  clearPaymentSettingsCache();
-  const settings = await paymentSettings(now.getTime());
-  if (settings.paymentsPaused) throw new AdminChangeError("Payments are already paused.");
 
-  await prisma.$transaction(async tx => {
+  const paused = await prisma.$transaction(async tx => {
+    await lockPaymentChanges(tx);
+    // Read under the lock, so two admins pausing at once log one pause
+    const settings = await readPaymentSettings(tx);
+    if (settings.paymentsPaused) return false;
     await tx.adminChange.create({
       data: {
         id: uuidv7(),
@@ -294,8 +349,10 @@ export async function pausePayments({
         appliedAt: now,
       },
     });
-    await writeItem(tx, item, "true");
+    await writeItemValue(tx, item, "true");
+    return true;
   });
+  if (!paused) throw new AdminChangeError("Payments are already paused.");
   clearPaymentSettingsCache();
   return { paused: true };
 }
@@ -337,6 +394,8 @@ function present(change: ChangeRow, handles: Map<number, string | null>, now: Da
     draftedBy: handles.get(change.draftedById) ?? null,
     approvedById: change.approvedById,
     approvedBy: change.approvedById ? (handles.get(change.approvedById) ?? null) : null,
+    rejectedById: change.rejectedById,
+    rejectedBy: change.rejectedById ? (handles.get(change.rejectedById) ?? null) : null,
     decisionNote: change.decisionNote,
     safeTxHash: change.safeTxHash,
     txHash: change.txHash,
@@ -378,7 +437,11 @@ export async function listChanges({
   });
   const page = rows.slice(0, limit);
   const handles = await handlesFor(
-    page.flatMap(row => [row.draftedById, ...(row.approvedById ? [row.approvedById] : [])])
+    page.flatMap(row => [
+      row.draftedById,
+      ...(row.approvedById ? [row.approvedById] : []),
+      ...(row.rejectedById ? [row.rejectedById] : []),
+    ])
   );
   return {
     items: page.map(row => present(row, handles, now)),
@@ -405,7 +468,11 @@ export async function settingsView(now = new Date()) {
     take: 500,
   });
   const handles = await handlesFor(
-    latest.flatMap(row => [row.draftedById, ...(row.approvedById ? [row.approvedById] : [])])
+    latest.flatMap(row => [
+      row.draftedById,
+      ...(row.approvedById ? [row.approvedById] : []),
+      ...(row.rejectedById ? [row.rejectedById] : []),
+    ])
   );
   const lastApplied = new Map<string, PresentedChange>();
   const waiting = new Map<string, PresentedChange>();

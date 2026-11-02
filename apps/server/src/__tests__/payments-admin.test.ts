@@ -54,6 +54,7 @@ const db = vi.hoisted(() => {
         const row = {
           effectiveAt: null,
           approvedById: null,
+          rejectedById: null,
           decisionNote: null,
           safeTxHash: null,
           txHash: null,
@@ -100,6 +101,8 @@ const db = vi.hoisted(() => {
       findUnique: vi.fn(async ({ where }: Row) => store.twoFactor.get(where.userId) ?? null),
     },
   };
+  // Tagged template: the lock key arrives as the first interpolated value
+  api.$executeRaw = vi.fn(async () => 1);
   api.$transaction = vi.fn(async (fn: (tx: Row) => unknown) => fn(api));
   return api;
 });
@@ -468,6 +471,8 @@ describe("two person rule (acceptance 4)", () => {
     expect(store.changes[0]).toMatchObject({
       status: "rejected",
       decisionNote: "Keep 30% until counsel reviews",
+      rejectedById: ROB,
+      approvedById: null,
     });
     await expect(rob().changes.approve({ id: draft!.id, code: "123456" })).rejects.toThrow(
       /rejected/
@@ -481,6 +486,91 @@ describe("two person rule (acceptance 4)", () => {
     });
     await rejectChange({ userId: JOHN, changeId: second.id, note: "Withdrawn", now: NOW });
     expect(store.changes[1]!.status).toBe("rejected");
+  });
+
+  it("takes the payments change lock in every decision", async () => {
+    const lockCalls = () =>
+      db.$executeRaw.mock.calls.filter((call: unknown[]) => call[1] === "payments_change_lock")
+        .length;
+    const draft = await draftChange({
+      userId: JOHN,
+      itemId: "refund_window_days",
+      newValue: "14",
+      reason: "Seller terms",
+      now: NOW,
+    });
+    expect(lockCalls()).toBe(1);
+    await approveChange({ userId: ROB, changeId: draft.id, now: NOW });
+    expect(lockCalls()).toBe(2);
+    await pausePayments({ userId: JOHN, reason: "Incident", now: NOW });
+    expect(lockCalls()).toBe(3);
+  });
+
+  it("refuses a fee increase that no longer gives 30 days notice on approval", async () => {
+    const effectiveAt = new Date(NOW.getTime() + 31 * DAY);
+    const draft = await draftChange({
+      userId: JOHN,
+      itemId: "platform_fee_bps",
+      newValue: "600",
+      reason: "New pricing",
+      effectiveAt,
+      now: NOW,
+    });
+    await expect(
+      approveChange({ userId: ROB, changeId: draft.id, now: new Date(NOW.getTime() + 5 * DAY) })
+    ).rejects.toThrow(/30 days.*draft it again/);
+    expect(store.changes[0]!.status).toBe("draft");
+    expect(store.settings.has("platform_fee_bps")).toBe(false);
+  });
+
+  it("checks other values against a scheduled fee before it applies", async () => {
+    const fee = await draftChange({
+      userId: JOHN,
+      itemId: "platform_fee_bps",
+      newValue: "600",
+      reason: "New pricing",
+      effectiveAt: new Date(NOW.getTime() + 31 * DAY),
+      now: NOW,
+    });
+    await approveChange({ userId: ROB, changeId: fee.id, now: NOW });
+
+    // 5% today plus 45% passes, but 6% from the fee date plus 45% breaks the creator minimum
+    await expect(
+      draftChange({
+        userId: JOHN,
+        itemId: "promoter_share",
+        newValue: "100,4500",
+        reason: "Partner request",
+        now: NOW,
+      })
+    ).rejects.toThrow(/creator minimum/);
+    const promoter = await draftChange({
+      userId: JOHN,
+      itemId: "promoter_share",
+      newValue: "100,4400",
+      reason: "Partner request",
+      now: NOW,
+    });
+    expect(promoter.status).toBe("draft");
+  });
+
+  it("keeps the approver when a scheduled change is cancelled", async () => {
+    const fee = await draftChange({
+      userId: JOHN,
+      itemId: "platform_fee_bps",
+      newValue: "600",
+      reason: "New pricing",
+      effectiveAt: new Date(NOW.getTime() + 31 * DAY),
+      now: NOW,
+    });
+    await approveChange({ userId: ROB, changeId: fee.id, now: NOW });
+    await rejectChange({ userId: JOHN, changeId: fee.id, note: "Pricing on hold", now: NOW });
+    expect(store.changes[0]).toMatchObject({
+      status: "rejected",
+      approvedById: ROB,
+      rejectedById: JOHN,
+    });
+    expect(await applyDueChanges(new Date(NOW.getTime() + 32 * DAY))).toBe(0);
   });
 
   it("expires drafts after 7 days", async () => {

@@ -1218,6 +1218,8 @@ model AdminChange {
   status       String    @db.VarChar(16)
   draftedById  Int       @map("drafted_by_id")
   approvedById Int?      @map("approved_by_id")
+  // Who rejected the draft or cancelled the scheduled change (never stored as the approver)
+  rejectedById Int?      @map("rejected_by_id")
   // Why the second admin rejected it, or why a pause needed no approval
   decisionNote String?   @map("decision_note") @db.VarChar(500)
   safeTxHash   String?   @map("safe_tx_hash") @db.VarChar(66)
