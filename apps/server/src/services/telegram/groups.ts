@@ -137,7 +137,7 @@ export async function handleGroupChatMember(ctx: Context) {
   const title = (chat.title ?? "Telegram group").slice(0, 128);
   const adder = await findByTelegramId(update.from.id);
 
-  const live = existing && existing.connectedAt && !existing.disconnectedAt;
+  const live = !!existing?.connectedAt && !existing?.disconnectedAt;
   if (existing && (live || !adder)) {
     await prisma.telegramGroup.update({
       where: { id: existing.id },
