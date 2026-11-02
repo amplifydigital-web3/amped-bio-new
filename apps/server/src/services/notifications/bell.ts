@@ -3,6 +3,7 @@ import { prisma } from "@repo/database";
 import { MESSAGE_LIMITS } from "@repo/constants";
 import { env } from "../../env";
 import { idToHex } from "../analytics/ids";
+import { personOut, type Person } from "../messaging/direct";
 
 /**
  * The bell (Build Board #2 r4, PR M4, spec 7.4 item 1). One row per thing to see;
@@ -19,7 +20,7 @@ export type BellItem = {
   conversationId: string | null;
   /** broadcast id for BROADCAST */
   broadcastId: number | null;
-  actor: { id: number; name: string; handle: string | null } | null;
+  actor: Person | null;
   at: Date;
 };
 
@@ -36,10 +37,12 @@ export async function listBell(
   const actors = actorIds.length
     ? await prisma.user.findMany({
         where: { id: { in: actorIds } },
-        select: { id: true, name: true, handle: true },
+        select: { id: true, name: true, handle: true, image: true, image_file_id: true },
       })
     : [];
-  const byId = new Map(actors.map(a => [a.id, a]));
+  const byId = new Map(
+    (await Promise.all(actors.map(a => personOut(a)))).map(person => [person.id, person])
+  );
   return rows.map(row => {
     const broadcast = row.groupKey.startsWith("broadcast:")
       ? Number(row.groupKey.slice("broadcast:".length))

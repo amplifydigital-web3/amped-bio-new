@@ -323,6 +323,8 @@ Roles: admin and moderator (both exist). safety_lead joins when Adult Content Re
 7. Refusals as inline notices: "@maya takes messages from followers and members. Follow to message her." with Follow. "You have reached today's limit. Try again tomorrow." "@maya is not taking messages."
 8. Broadcast tab, the third tab. See 8.6.
 
+9. Built in M5: the open conversation lives in `?c=`; `/inbox/{conversationId}` (push and email links) redirects there. `?to={handle}` opens New message for that handle. The Broadcast tab shows the existing broadcast inbox until M9 rebuilds it. Message text search runs in the client over the loaded rows (bodies are encrypted at rest); people search runs on the server. Touch screens show a message's actions after a tap on the bubble.
+
 ### 8.3 Settings (Account, Messages)
 
 Who can message me (rule tiles as today plus No one, with the stake input for the stake rule), Requests explainer, Read receipts switch, Notifications (Push on this device with Turn on, Email reminders), Blocked accounts list with Unblock. The iPhone install hint shows only on iOS Safari when not installed: "To get alerts on iPhone, add Amped.Bio to your Home Screen, then open it from there."

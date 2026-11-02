@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { BrowserRouter, Routes, Route } from "react-router";
+import { BrowserRouter, Navigate, Routes, Route, useLocation, useParams } from "react-router";
 import { Editor } from "./pages/Editor";
 
 import { ProtectedRoute } from "./components/ProtectedRoute";
@@ -48,6 +48,9 @@ function AppRouter() {
           }
         />
 
+        {/* Amped Messages (#2 r4, M5): push and email links open /inbox/{conversationId} */}
+        <Route path="/inbox/:conversationId" element={<InboxDeepLink />} />
+
         {/* The client only serves the dashboard of the logged-in user; the panel
           (home, gallery, wallet, ...) is the route */}
         <Route
@@ -65,6 +68,16 @@ function AppRouter() {
       </Routes>
     </>
   );
+}
+
+/** /inbox/{id} becomes /inbox?c={id}, keeping any other query (the Editor owns /:panel). */
+function InboxDeepLink() {
+  const { conversationId } = useParams();
+  const location = useLocation();
+  const params = new URLSearchParams(location.search);
+  if (conversationId && /^[0-9a-f]{32}$/.test(conversationId)) params.set("c", conversationId);
+  const query = params.toString();
+  return <Navigate replace to={`/inbox${query ? `?${query}` : ""}`} />;
 }
 
 // 081 I04, I05: any other path belongs to the public site. While the session

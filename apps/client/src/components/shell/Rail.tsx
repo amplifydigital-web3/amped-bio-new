@@ -10,6 +10,7 @@ import {
 } from "./destinations";
 import { NavItemLink } from "./NavItemLink";
 import { BrandMark } from "./BrandMark";
+import { InboxBadge } from "./InboxBadge";
 
 // Screen Review 001. The desktop rail: a vertical G1 navigate dock capsule at
 // x 21, 89 wide, full height minus 21 top and bottom, padding 13. Seven
@@ -143,6 +144,7 @@ function RailItem({ item, current }: { item: Destination; current: boolean }) {
       >
         {item.label}
       </span>
+      {item.id === "inbox" && <InboxBadge />}
     </NavItemLink>
   );
 }

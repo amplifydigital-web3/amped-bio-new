@@ -8,6 +8,7 @@ import {
   type MessageRefusalReason,
 } from "@repo/constants";
 import { privateProcedure, router } from "./trpc";
+import { creatorPoolIds } from "../services/messaging/rules";
 import { afterChange, afterRead, afterSend, afterUnsend } from "../services/realtime/messageEvents";
 import { scheduleMessageNotifications } from "../services/notifications/jobs";
 import { enforceRateLimits } from "../utils/rateLimit";
@@ -23,6 +24,7 @@ import {
   directSettings,
   listConversations,
   markRead,
+  personOut,
   report,
   searchPeople,
   sendDirect,
@@ -119,13 +121,20 @@ export const messagesRouter = router({
 
   /** One page of a conversation, newest first. */
   get: privateProcedure
-    .input(z.object({ conversationId: idSchema, before: idSchema.nullish() }))
+    // `cursor` is the infinite query page param (React Query); `before` is the same thing
+    .input(
+      z.object({
+        conversationId: idSchema,
+        before: idSchema.nullish(),
+        cursor: idSchema.nullish(),
+      })
+    )
     .query(({ ctx, input }) =>
       guard(() =>
         conversationPage({
           userId: ctx.user!.sub,
           conversationId: input.conversationId,
-          before: input.before ?? null,
+          before: input.cursor ?? input.before ?? null,
         })
       )
     ),
@@ -335,7 +344,11 @@ export const messagesRouter = router({
     }),
 
   settings: router({
-    get: privateProcedure.query(({ ctx }) => directSettings(ctx.user!.sub)),
+    get: privateProcedure.query(async ({ ctx }) => ({
+      ...(await directSettings(ctx.user!.sub)),
+      // The pool tiles need a pool (M5 settings)
+      hasPool: (await creatorPoolIds(ctx.user!.sub)).length > 0,
+    })),
     set: privateProcedure
       .input(
         z.object({
@@ -343,9 +356,10 @@ export const messagesRouter = router({
           ruleKind: z
             .enum(MESSAGE_RULE_KINDS)
             .refine(k => k !== "PAID_MEMBER", "Memberships are not live yet."),
+          // A whole number of tREVO, as services/messaging/rules.ts reads it
           stakeMin: z
             .string()
-            .regex(/^\d+(\.\d{1,18})?$/)
+            .regex(/^0*[1-9]\d{0,29}$/, "Enter a whole number of tREVO above zero.")
             .nullish(),
           dailyNewThreadCap: z
             .number()
@@ -361,9 +375,15 @@ export const messagesRouter = router({
         if (input.ruleKind === "STAKE_MIN" && !input.stakeMin) {
           throw new TRPCError({ code: "BAD_REQUEST", message: "Set a minimum stake." });
         }
+        if (
+          (input.ruleKind === "POOL_MEMBER" || input.ruleKind === "STAKE_MIN") &&
+          (await creatorPoolIds(userId)).length === 0
+        ) {
+          throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Create your pool first." });
+        }
         const data = {
           ruleKind: input.ruleKind,
-          stakeMin: input.ruleKind === "STAKE_MIN" ? input.stakeMin! : null,
+          stakeMin: input.ruleKind === "STAKE_MIN" ? input.stakeMin!.replace(/^0+/, "") : null,
           ...(input.dailyNewThreadCap !== undefined
             ? { dailyNewThreadCap: input.dailyNewThreadCap }
             : {}),
@@ -376,5 +396,34 @@ export const messagesRouter = router({
         });
         return directSettings(userId);
       }),
+  }),
+
+  /** People this account blocked, for Account, Messages (M5). */
+  blocked: privateProcedure.query(async ({ ctx }) => {
+    const userId = ctx.user!.sub;
+    const rows = await prisma.conversationMember.findMany({
+      where: { userId, state: "BLOCKED" },
+      select: {
+        conversationId: true,
+        conversation: {
+          select: {
+            members: {
+              where: { userId: { not: userId } },
+              select: {
+                user: {
+                  select: { id: true, name: true, handle: true, image: true, image_file_id: true },
+                },
+              },
+            },
+          },
+        },
+      },
+      take: 200,
+    });
+    const found = rows.flatMap(r => {
+      const person = r.conversation.members[0]?.user;
+      return person ? [{ conversationId: idToHex(r.conversationId), person }] : [];
+    });
+    return Promise.all(found.map(async r => ({ ...r, person: await personOut(r.person) })));
   }),
 });
