@@ -183,7 +183,7 @@ model AccessEvent {
   ownerUserId  Int      @map("owner_user_id")
   resource     String   @db.VarChar(80)             // "content:abc123"
   viewerKey    String   @map("viewer_key") @db.VarChar(24) // u:{id} or hashed ip+daily salt
-  type         String   @db.VarChar(24)             // locked_view, check, denied, unlocked, revealed
+  type         String   @db.VarChar(24)             // locked_view, denied, unlocked, revealed
   reason       String?  @db.VarChar(32)
   createdAt    DateTime @default(now()) @map("created_at")
   @@index([ownerUserId, createdAt])
@@ -239,9 +239,9 @@ Rate limits: 30 a minute per viewer key on check and open; 60 a minute on `/go`.
 
 | Fact | Source at render | Source at open | Purged by |
 | --- | --- | --- | --- |
-| Rule | Redis 5 min | Same, version checked | edit, delete |
+| Rule | Redis 5 min | Database (fresh) | edit, delete |
 | Follow | DB | DB | follow, unfollow, block |
-| Stake | Mirror, Redis 60 s | Chain read `fanStakes` no older than 60 s; falls back to mirror only to refuse, never to pass | `confirmStake`, `confirmUnstake` |
+| Stake | Mirror (not cached) | Chain read `fanStakes` on every open; a chain failure refuses with `chain_unavailable`, the mirror never passes | Nothing to purge (stake decisions are never cached) |
 | Purchase, membership | DB | DB, `fresh` | payment indexer, refund, renewal job |
 | Age check | `identity_checks` row, cached to `valid_until` or 24 h | Same | `identity.recheck`, wallet change |
 | Decision | Redis 60 s keyed by `viewerVersion` | Not cached | `bumpViewer` |
@@ -329,7 +329,7 @@ Each PR is one branch into `development`, labeled by type, with a handoff doc fo
 | PR | Branch | Scope | Depends | Size |
 | --- | --- | --- | --- | --- |
 | G0 | `fix/stake-min-units` (PR #357) | `wholeTokensToWei` in constants; STAKE_MIN converts the stored whole tREVO `stakeMin` to wei at comparison time, so no data migration and no settings change; follower rule uses `trustedEmailWhere`; tests with real units | none | 0.5 day |
-| G1 | `feat/access-core` | Constants contract and zod params, one Prisma migration (`AccessRule`, `AccessEvent`, `Block.accessRuleId`, content foreign key, delete rules in 3.6), engine, resolver for `block`, kinds follower, pool_member, stake_min, any, all, identity mapping (3.4), caching, `bumpViewer` hooks in follow, block, stake confirm and `identity.recheck`, rules router behind flag, privacy entries (3.6). No UI. Label `migration`. | G0 (#357), I1 | 4 days |
+| G1 | `feat/access-core` | Constants contract and zod params, one Prisma migration (`AccessRule`, `AccessEvent`, `Block.accessRuleId`, content foreign key, delete rules in 3.6), engine, resolver for `block`, kinds follower, pool_member, stake_min, any, all, identity mapping (3.4), caching, `bumpViewer` hooks in follow, unfollow, remove, block, unblock and `identity.recheck` (stake decisions are never cached, so stake confirm needs no hook), rules router behind flag, privacy entries (3.6). No UI. Label `migration`. | G0 (#357), I1 | 4 days |
 | G2 | `refactor/access-adopt` | `rules.ts`, `messaging/access.ts`, Telegram group sweep and broadcast audience call the engine. Resolvers `dm` and `telegram_group`, reading both `CreatorMessagingSettings` and `TelegramGroup` rules. | G1, #383 | 1.5 days |
 | G3 | `feat/access-blocks` | Locked DTO, `checkPage`, `/go`, `openBlock`, `blocks.setAccessRule`, rule picker on the block row, unlock sheet in landing app, leak test, copy check. No schema (in G1). Needs the gating boards redrawn first (3.10). | G1 | 4 days |
 | Content PR 8 | `feat/content-gating` | Content resolver built on `services/content/access.ts` from #348, `getReadUrl` through `open`, locked cards, item editor picker | G1, #348 | content plan |

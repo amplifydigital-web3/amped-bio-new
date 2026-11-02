@@ -84,7 +84,7 @@ One row per user and kind, overwritten on each check. It holds the outcome, reas
 
 Privacy work that ships in I1 (AGENTS.md, privacy and consent):
 
-- Notice, section 3 after the Authbase paragraph: "When we check your age or your seller status with Authbase, we keep the result of the check and when it ends. We never receive your birth date or ID."
+- Notice, section 2 after the Authbase paragraph: "When we check your age or your seller status with Authbase, we keep the result of the check and when it ends. We never receive your birth date or ID."
 - Notice, section 12 Children: "If an age check shows that someone on an account is under 18, a person on our team reviews it and we close the account."
 - Parameters, retention list: identity check results until the account closes; under 18 review cases 5 years (counsel confirms).
 - Bump `CONSENT_POLICY_VERSION` (now 2026-10f) with the notice change.
@@ -136,7 +136,7 @@ The privacy notice (section 12) says accounts are for people 18 and over and tha
 2. `checkIdentity` stores the result and opens one Under 18 review case per account (later results attach to the open case). While it is open, every 18+ item stays closed to the account. Nothing else changes.
 3. Before the Safety queue ships (#28 R1 and R2), I1 sends support an alert email with the case id, handle and time, through the existing transactional email (SMTP2GO, `utils/email`), moving to the single recipient type when #4 PR M1 ships. It names no attribute value. When R2 ships, the case moves into the queue as type Age result, beside Take It Down at the top.
 4. Board ad8: the case view shows account facts and the check, no media. A moderator can run a fresh check. Clear, for a wrong read, needs a note. Confirm and close account is safety lead only, needs a note, and starts account closing as an account deletion (#13, 30 days). The account holder gets the closing email on ad8, which allows a reply within 30 days.
-5. Storage: `IdentityReviewCase` (UUIDv7) with userId, status (open, cleared, closed), openedAt, decidedAt, decidedBy, note. Kept 5 years, like screening denies; counsel confirms the period.
+5. Storage: `IdentityReviewCase` (UUIDv7) with userId, status (open, cleared, closed), openedAt, lastResultAt, results, alertedAt, decidedAt, decidedBy, note. Kept 5 years, like screening denies; counsel confirms the period. The case outlives the account it is about: `user_id` is nullable with `onDelete: SetNull`, so closing the account (an account deletion) keeps the case and its decision.
 
 ## 5. Verified sellers
 
