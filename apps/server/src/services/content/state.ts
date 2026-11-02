@@ -126,7 +126,7 @@ export type ProcessorCallbackResult = "not_found" | "ignored" | "applied" | "blo
 const ASSET_KEY_PREFIXES = ["originals", "audio", "derived"];
 
 /** Deterministic asset row id, so concurrent callbacks upsert instead of duplicating. */
-function assetRowId(
+export function assetRowId(
   contentItemId: Uint8Array,
   role: string,
   variant: string | null,

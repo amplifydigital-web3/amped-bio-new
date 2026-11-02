@@ -25,6 +25,7 @@ import { normalizeApiError } from "./lib/browserDeps";
 import { refreshContent } from "./lib/uploads";
 import { useAutosave, type AutosaveStatus } from "./lib/useAutosave";
 import { takeDeferred } from "./lib/deferredSaves";
+import { CaptionsSection, ItemPreview } from "./ItemMedia";
 
 type Patch = {
   title?: string;
@@ -50,6 +51,7 @@ interface EditorItem {
   durationMs: number | null;
   pageCount: number | null;
   totalBytes: number;
+  assets?: Array<{ role: string; lang: string | null }>;
 }
 
 const e = CONTENT_COPY.editor;
@@ -303,6 +305,8 @@ export function ItemEditor({ publicId, onBack }: { publicId: string; onBack: () 
           </Notice>
         )}
 
+        <ItemPreview item={data} />
+
         <Input
           label={e.title}
           labelAction={
@@ -429,6 +433,8 @@ export function ItemEditor({ publicId, onBack }: { publicId: string; onBack: () 
             )}
           </section>
         )}
+
+        <CaptionsSection item={data} />
 
         <div className="divide-y divide-prism-line overflow-hidden rounded-prism-13 border border-prism-line bg-white/60">
           <div className="px-[13px] py-[8px]">

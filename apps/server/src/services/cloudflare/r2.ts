@@ -14,6 +14,7 @@ import {
   CompleteMultipartUploadCommand,
   CreateMultipartUploadCommand,
   DeleteObjectCommand,
+  PutObjectCommand,
   S3Client,
   UploadPartCommand,
 } from "@aws-sdk/client-s3";
@@ -141,6 +142,16 @@ export async function abortR2Multipart(key: string, uploadId: string): Promise<v
 
 export async function deleteR2Object(key: string): Promise<void> {
   await getR2Client().send(new DeleteObjectCommand({ Bucket: env.R2_BUCKET, Key: key }));
+}
+
+/**
+ * Writes a small object the API made itself, such as a caption file the creator
+ * sent as text (fan library spec 3.5). Uploads from browsers never come here.
+ */
+export async function putR2Object(key: string, body: string, contentType: string): Promise<void> {
+  await getR2Client().send(
+    new PutObjectCommand({ Bucket: env.R2_BUCKET, Key: key, Body: body, ContentType: contentType })
+  );
 }
 
 /** HeadObject size check plus the 4 KB magic byte check (spec 3.5 step 2). */

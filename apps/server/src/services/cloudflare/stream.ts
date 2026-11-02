@@ -195,6 +195,38 @@ export function createStreamClip(
   });
 }
 
+/**
+ * Uploads a WebVTT caption track for one language (fan library spec 3.5). Stream
+ * adds it to the HLS and DASH manifests, so the player needs no separate URL.
+ * PUT /accounts/{account}/stream/{uid}/captions/{language} with a multipart file.
+ * Docs (checked 23 Oct 2026): https://developers.cloudflare.com/stream/edit-videos/adding-captions/
+ */
+export async function putStreamCaptions(uid: string, lang: string, vtt: string): Promise<void> {
+  const form = new FormData();
+  form.append("file", new Blob([vtt], { type: "text/vtt" }), `${lang}.vtt`);
+  const response = await fetch(accountUrl(`/${uid}/captions/${encodeURIComponent(lang)}`), {
+    method: "PUT",
+    headers: authHeaders(),
+    body: form,
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+  });
+  if (!response.ok) {
+    throw new StreamApiError(`Stream captions PUT failed: ${response.status}`, response.status);
+  }
+}
+
+export async function deleteStreamCaptions(uid: string, lang: string): Promise<void> {
+  const response = await fetch(accountUrl(`/${uid}/captions/${encodeURIComponent(lang)}`), {
+    method: "DELETE",
+    headers: authHeaders(),
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+  });
+  // 404 means it is already gone, which is the goal
+  if (!response.ok && response.status !== 404) {
+    throw new StreamApiError(`Stream captions DELETE failed: ${response.status}`, response.status);
+  }
+}
+
 /** Turns on the MP4 download, only for videos with downloads allowed (called at READY, PR 4). */
 export function enableStreamDownloads(uid: string): Promise<unknown> {
   return streamJson<unknown>(`/${uid}/downloads`, { method: "POST" });
