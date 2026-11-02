@@ -30,6 +30,7 @@ import { notificationsRouter } from "./notifications";
 import { progressRouter } from "./progress";
 import { checkoutRouter } from "./checkout";
 import { identityRouter } from "./identity";
+import { accessRouter } from "./access";
 import { inferRouterOutputs } from "@trpc/server";
 
 // Merge all routers
@@ -72,6 +73,8 @@ const mergedRouter = router({
   checkout: checkoutRouter,
   // Identity checks through Authbase: Over 18 and verified seller (Build Board #47)
   identity: identityRouter,
+  // Access gating engine core (Build Board #21), behind ACCESS_GATING_ENABLED
+  access: accessRouter,
 });
 
 export type AppRouter = typeof mergedRouter;

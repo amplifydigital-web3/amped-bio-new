@@ -7,6 +7,7 @@ import {
 import { privateProcedure, router } from "./trpc";
 import { checkIdentity, myIdentityChecks } from "../services/identity/checks";
 import { enforceRateLimits } from "../utils/rateLimit";
+import { bumpViewer } from "../services/access";
 
 /** The client sees dates as ISO strings; nothing else about the check. */
 function toClient(result: IdentityCheckResult) {
@@ -38,6 +39,9 @@ export const identityRouter = router({
         ],
         "Too many checks. Try again in a minute."
       );
-      return toClient(await checkIdentity(ctx.user!.sub, input.kind, { fresh: true }));
+      const result = await checkIdentity(ctx.user!.sub, input.kind, { fresh: true });
+      // Gating (#21): an age check result changes what the viewer can open
+      await bumpViewer(ctx.user!.sub, "age_check");
+      return toClient(result);
     }),
 });

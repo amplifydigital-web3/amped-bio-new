@@ -35,4 +35,5 @@ export * from "./contentPublic";
 export * from "./mediaToken";
 export * from "./contentJob";
 export * from "./identity";
+export * from "./access";
 export * from "./checkout";

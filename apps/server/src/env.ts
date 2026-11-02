@@ -180,6 +180,13 @@ const envSchema = z.object({
   // hourly sweep reads SUBGRAPH_URL; off when false or when the subgraph is unset.
   RNS_EXPIRY_EMAILS: boolSchema(true),
 
+  // Access gating engine (Build Board #21, G1). The access router answers only
+  // when true. The engine itself stays callable by server code.
+  ACCESS_GATING_ENABLED: boolSchema(false),
+  // Creator user ids (comma separated) whose stake rules (Pool fans, Fans with a
+  // minimum stake) are live while securities counsel reviews. Empty: none.
+  ACCESS_STAKE_KINDS_ALLOWLIST: z.string().default(""),
+
   // Identity checks (Build Board #47): where an under 18 review case alert goes
   // until the Safety queue ships (identity checks spec 4.5). Empty logs a warning.
   SAFETY_ALERT_EMAIL: z.string().default(""),
