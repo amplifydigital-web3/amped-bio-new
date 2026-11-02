@@ -4,7 +4,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Copy, Loader2, Send } from "lucide-react";
 import {
   DEFAULT_TELEGRAM_MESSAGE_LABEL,
+  DM_RULE_LABELS,
   TELEGRAM_APP_STRINGS as S,
+  TELEGRAM_GROUP_STRINGS as G,
   TELEGRAM_BLOCK_LABEL_MAX,
   type BlockType,
   type DmRuleKind,
@@ -31,6 +33,8 @@ import { TelegramMessageBlock } from "@/components/blocks/TelegramMessageBlock";
 import { FieldError } from "../page/blocks/LinkFields";
 import { wellClass } from "../page/blocks/linkValue";
 import { RuleTiles, type RuleValue } from "./RuleTiles";
+import { ConnectSteps, DetectedGroup } from "./TelegramGroups";
+import { pendingGroup, useTelegramGroups } from "./telegramGroupsData";
 import {
   WIZARD_PARAM,
   WIZARD_VALUE,
@@ -47,7 +51,9 @@ const STEPS = [
   S.creatorWizard.steps.messages,
   S.creatorWizard.steps.page,
 ];
-const STEP = { link: 0, bot: 1, messages: 2, page: 3, done: 4 } as const;
+const STEPS_WITH_GROUP = [...STEPS, G.wizardStep];
+/** Step indexes. Done is steps.length: 4 without the group step, 5 with it. */
+const STEP = { link: 0, bot: 1, messages: 2, page: 3, group: 4 } as const;
 const LINK_ERRORS: Record<string, string> = {
   conflict: S.errors.alreadyLinked,
   declined: S.errors.declined,
@@ -69,10 +75,12 @@ function placeBlock(blocks: BlockType[], created: BlockType, position: Position)
  * with a step bar and one primary per step: Link Telegram, Open the bot, Turn on
  * messages, Add to my page. The bot step exists because the bot can only write to
  * someone who pressed Start in it. It resumes from live data (linked, bot started,
- * Fan messages on, block on the page), so leaving at any step is safe. The group
- * step and the share card wait
- * on groups and the Mini App; Done shows the Message link only. Opened by
- * ?wizard=telegram on any editor route; Telegram returns here with ?telegram=.
+ * Fan messages on, block on the page), so leaving at any step is safe. With
+ * Telegram groups on (board tg10) the bar has a fifth, optional step: the bot finds
+ * the group and the creator connects it with the rule from the Messages step, or
+ * skips. Done hands over the Message link, the inline command and the welcome
+ * message. The Mini App share card waits on PR 6. Opened by ?wizard=telegram on
+ * any editor route; Telegram returns here with ?telegram=.
  */
 export function TelegramWizard() {
   const [params, setParams] = useSearchParams();
@@ -94,6 +102,7 @@ export function TelegramWizard() {
     enabled: open,
   });
   const [step, setStep] = useState<number | null>(null);
+  const groups = useTelegramGroups({ listen: open && step === STEP.group });
   const [linkError, setLinkError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [rule, setRule] = useState<RuleValue | null>(null);
@@ -106,6 +115,14 @@ export function TelegramWizard() {
   // The bot can write to the creator only after Start was pressed in Telegram
   const reachable = !!status.data?.linked && status.data.botAccess && !status.data.blocked;
   const enabled = !!settings.data?.enabled;
+  const groupsOn = !!groups.data?.enabled;
+  const groupList = groups.data?.enabled ? groups.data.groups : [];
+  const hasGroup = groupList.some(group => group.state === "connected");
+  const found = pendingGroup(groupList);
+  const steps = groupsOn ? STEPS_WITH_GROUP : STEPS;
+  const DONE = steps.length;
+  // After the page step: the group step while no group is connected, else Done
+  const afterPage = groupsOn && !hasGroup ? STEP.group : DONE;
 
   // The result Telegram sent back with, once
   const result = params.get("telegram");
@@ -138,6 +155,7 @@ export function TelegramWizard() {
       return;
     }
     if (step !== null || !status.data || !settings.data) return;
+    if (!groups.data && !groups.isError) return;
     setStep(
       !linked
         ? STEP.link
@@ -147,9 +165,21 @@ export function TelegramWizard() {
             ? STEP.messages
             : !hasBlock
               ? STEP.page
-              : STEP.done
+              : afterPage
     );
-  }, [open, step, status.data, settings.data, linked, reachable, enabled, hasBlock]);
+  }, [
+    open,
+    step,
+    status.data,
+    settings.data,
+    groups.data,
+    groups.isError,
+    linked,
+    reachable,
+    enabled,
+    hasBlock,
+    afterPage,
+  ]);
   useEffect(() => {
     if (rule || !settings.data) return;
     setRule({
@@ -186,9 +216,25 @@ export function TelegramWizard() {
       await queryClient.invalidateQueries({
         queryKey: trpc.messaging.creator.getSettings.queryKey(),
       });
-      setStep(hasBlock ? STEP.done : STEP.page);
+      setStep(hasBlock ? afterPage : STEP.page);
     },
     onError: error => setActionError(errorMessage(error, S.settingsFailed)),
+  });
+
+  const connectGroup = useMutation({
+    mutationFn: () =>
+      trpcClient.telegram.groups.connect.mutate({
+        groupId: found!.id,
+        ruleKind: settings.data!.ruleKind as DmRuleKind,
+        stakeMin: settings.data!.ruleKind === "STAKE_MIN" ? settings.data!.stakeMin : null,
+      }),
+    onSuccess: async () => {
+      setActionError(null);
+      toast.add({ type: "success", title: G.connected });
+      await queryClient.invalidateQueries({ queryKey: trpc.telegram.groups.list.queryKey() });
+      setStep(DONE);
+    },
+    onError: error => setActionError(errorMessage(error, G.failed)),
   });
 
   const markSetup = () =>
@@ -216,7 +262,7 @@ export function TelegramWizard() {
       } catch {
         toast.add({ type: "success", title: S.creatorWizard.pageOnPage });
       }
-      setStep(STEP.done);
+      setStep(afterPage);
     },
     onError: error => setActionError(errorMessage(error, S.settingsFailed)),
   });
@@ -225,15 +271,17 @@ export function TelegramWizard() {
     status.data?.botUsername && status.data.linkCode
       ? telegramDmLink(status.data.botUsername, status.data.linkCode)
       : null;
-  const copyDmLink = async () => {
-    if (!dmLink) return;
+  const copy = async (text: string | null, done: string) => {
+    if (!text) return;
     try {
-      await navigator.clipboard.writeText(dmLink);
-      toast.add({ type: "success", title: S.creatorWizard.doneCopied });
+      await navigator.clipboard.writeText(text);
+      toast.add({ type: "success", title: done });
     } catch {
       toast.add({ type: "error", title: S.copyFailed });
     }
   };
+  const copyDmLink = () => copy(dmLink, S.creatorWizard.doneCopied);
+  const pageHandle = profile.handle ?? "";
 
   const W = S.creatorWizard;
   const labelError = label.trim() ? null : S.blockLabelRequired;
@@ -343,7 +391,7 @@ export function TelegramWizard() {
       </div>
     );
     footer = enabled ? (
-      <Button size="lg" onClick={() => setStep(hasBlock ? STEP.done : STEP.page)}>
+      <Button size="lg" onClick={() => setStep(hasBlock ? afterPage : STEP.page)}>
         {W.next}
       </Button>
     ) : (
@@ -420,7 +468,7 @@ export function TelegramWizard() {
         size="lg"
         onClick={() => {
           void markSetup();
-          setStep(STEP.done);
+          setStep(afterPage);
         }}
       >
         {W.next}
@@ -436,6 +484,87 @@ export function TelegramWizard() {
           <Loader2 aria-hidden className="animate-spin motion-reduce:animate-none" />
         )}
         {W.pageButton}
+      </Button>
+    );
+  } else if (step === STEP.group && groupsOn) {
+    const ruleLabel = DM_RULE_LABELS[(settings.data?.ruleKind ?? "FOLLOWER") as DmRuleKind];
+    body = (
+      <div className="space-y-[13px]">
+        <h3 className="text-prism-card-title text-prism-ink">{G.wizardTitle}</h3>
+        <p className="text-prism-meta text-prism-ink-2">{G.wizardOptional}</p>
+        <ConnectSteps found={!!found} botUsername={status.data?.botUsername} showBar={false} />
+        <DetectedGroup group={found} line={G.wizardRuleFromMessages(ruleLabel)} />
+        {actionError && <Notice variant="error">{actionError}</Notice>}
+      </div>
+    );
+    footer = (
+      <>
+        <Button variant="ghost" onClick={() => setStep(DONE)}>
+          {G.wizardSkip}
+        </Button>
+        <Button
+          size="lg"
+          onClick={() => connectGroup.mutate()}
+          disabled={!found?.botIsAdmin || connectGroup.isPending}
+          aria-busy={connectGroup.isPending}
+        >
+          {connectGroup.isPending && (
+            <Loader2 aria-hidden className="animate-spin motion-reduce:animate-none" />
+          )}
+          {G.connect}
+        </Button>
+      </>
+    );
+  } else if (groupsOn) {
+    // Done with groups on (board tg10, before the Mini App): the link, the inline
+    // command and the welcome message
+    body = (
+      <div className="space-y-[13px]">
+        <h3 className="text-prism-card-title text-prism-ink">{W.doneTitle}</h3>
+        {dmLink && (
+          <>
+            <p className="text-prism-body text-prism-ink-2">{W.doneLine}</p>
+            <div className="prism-well flex min-h-touch items-center gap-2 rounded-prism-13 pl-[13px] pr-1">
+              <span className="min-w-0 flex-1 truncate text-prism-label text-prism-ink">
+                {dmLink.replace(/^https:\/\//, "")}
+              </span>
+              <button
+                type="button"
+                aria-label={W.doneCopy}
+                onClick={() => void copyDmLink()}
+                className="prism-icon-btn prism-focus shrink-0"
+              >
+                <Copy
+                  aria-hidden
+                  className="h-[18px] w-[18px] text-prism-ink-2"
+                  strokeWidth={1.5}
+                />
+              </button>
+            </div>
+          </>
+        )}
+        {pageHandle && (
+          <p className="text-prism-meta text-prism-ink-2">{G.doneInline(pageHandle)}</p>
+        )}
+      </div>
+    );
+    footer = dmLink ? (
+      <>
+        {pageHandle && (
+          <Button
+            variant="secondary"
+            onClick={() => void copy(G.kitText(dmLink, pageHandle), G.kitCopied)}
+          >
+            {G.kitCopy}
+          </Button>
+        )}
+        <Button size="lg" onClick={() => void copyDmLink()}>
+          {G.doneCopyLink}
+        </Button>
+      </>
+    ) : (
+      <Button size="lg" onClick={close}>
+        {W.doneClose}
       </Button>
     );
   } else {
@@ -471,11 +600,15 @@ export function TelegramWizard() {
         <DialogHeader>
           <DialogTitle>{W.title}</DialogTitle>
           <DialogDescription className="sr-only">
-            {step !== null && step < STEP.done ? W.stepOf(step + 1) : W.doneTitle}
+            {step === null || step >= DONE
+              ? W.doneTitle
+              : groupsOn
+                ? G.wizardStepOf(step + 1)
+                : W.stepOf(step + 1)}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-[21px] font-prism">
-          {step !== null && <StepBar steps={STEPS} current={Math.min(step, STEPS.length)} />}
+          {step !== null && <StepBar steps={steps} current={Math.min(step, steps.length)} />}
           {body}
         </div>
         {footer && <DialogFooter>{footer}</DialogFooter>}

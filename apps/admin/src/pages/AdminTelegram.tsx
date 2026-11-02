@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { DM_RULE_LABELS, TELEGRAM_GROUP_STRINGS as G } from "@repo/constants";
 import {
   Badge,
   Button,
@@ -20,7 +21,7 @@ import {
 } from "@repo/ui";
 
 type Report = RouterOutputs["admin"]["telegram"]["listReports"][number];
-type Tab = "reports" | "paused" | "pilot" | "health";
+type Tab = "reports" | "paused" | "pilot" | "groups" | "health";
 type Person = { id: number; name: string; handle: string | null; email: string };
 
 const who = (p: Person) => `${p.name || p.id}${p.handle ? ` (@${p.handle})` : ""}`;
@@ -70,8 +71,8 @@ function ReportedThread({ report }: { report: Report }) {
 /**
  * Admin, Telegram (Build Board #2, Screen Review 120, board tg9). Reports with the
  * reported conversation (admins read a thread only after a report), paused fans
- * and creators, the MESSAGING_INVITE_ONLY pilot, and bot health. The Groups tab
- * arrives with Telegram groups (PR 5).
+ * and creators, the MESSAGING_INVITE_ONLY pilot, connected groups (board tg9: names,
+ * counts and rules only, with a logged re-check) and bot health.
  */
 export function AdminTelegram() {
   const queryClient = useQueryClient();
@@ -94,6 +95,10 @@ export function AdminTelegram() {
   const invited = useQuery({
     ...trpc.admin.telegram.listInvited.queryOptions(),
     enabled: tab === "pilot",
+  });
+  const groups = useQuery({
+    ...trpc.admin.telegram.listGroups.queryOptions(),
+    enabled: tab === "groups",
   });
   const health = useQuery({
     ...trpc.admin.telegram.botHealth.queryOptions(),
@@ -131,6 +136,11 @@ export function AdminTelegram() {
     },
     onError,
   });
+  const recheck = useMutation({
+    ...trpc.admin.telegram.recheckGroup.mutationOptions(),
+    onSuccess: refresh,
+    onError,
+  });
   const uninvite = useMutation({
     ...trpc.admin.telegram.uninvite.mutationOptions(),
     onSuccess: refresh,
@@ -141,6 +151,7 @@ export function AdminTelegram() {
     { id: "reports", label: "Reports" },
     { id: "paused", label: "Paused senders" },
     { id: "pilot", label: "Pilot creators" },
+    { id: "groups", label: G.adminTab },
     { id: "health", label: "Bot health" },
   ];
 
@@ -367,6 +378,89 @@ export function AdminTelegram() {
           </CardContent>
         </Card>
       )}
+
+      {tab === "groups" &&
+        (groups.isError ? (
+          <LoadError what="groups" onRetry={() => void groups.refetch()} />
+        ) : !groups.data ? (
+          <p className="text-sm text-gray-500">Loading…</p>
+        ) : (
+          <div className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {[
+                { label: G.adminGroupsConnected, value: groups.data.groups.length },
+                {
+                  label: G.adminMembers,
+                  value: groups.data.groups
+                    .reduce((sum, g) => sum + g.memberCount, 0)
+                    .toLocaleString(),
+                },
+                {
+                  label: G.adminNoRights,
+                  value: groups.data.groups.filter(g => !g.botIsAdmin).length,
+                },
+                { label: G.adminRemovedToday, value: groups.data.removedToday },
+              ].map(item => (
+                <Card key={item.label}>
+                  <CardHeader>
+                    <p className="text-sm text-gray-600">{item.label}</p>
+                    <CardTitle className="text-2xl tabular-nums">{item.value}</CardTitle>
+                  </CardHeader>
+                </Card>
+              ))}
+            </div>
+            {groups.data.groups.length === 0 ? (
+              <p className="text-sm text-gray-600">{G.adminEmpty}</p>
+            ) : (
+              <div className="overflow-x-auto rounded-md border">
+                <table className="w-full min-w-[720px] text-left text-sm">
+                  <thead className="bg-gray-50 text-xs uppercase text-gray-600">
+                    <tr>
+                      <th className="px-3 py-2">{G.adminColumns.group}</th>
+                      <th className="px-3 py-2">{G.adminColumns.creator}</th>
+                      <th className="px-3 py-2">{G.adminColumns.rule}</th>
+                      <th className="px-3 py-2 text-right">{G.adminColumns.members}</th>
+                      <th className="px-3 py-2">{G.adminColumns.lastCheck}</th>
+                      <th className="px-3 py-2">{G.adminColumns.bot}</th>
+                      <th className="px-3 py-2">{G.adminColumns.action}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {groups.data.groups.map(g => (
+                      <tr key={g.id} className="border-t">
+                        <td className="px-3 py-2 font-semibold">{g.title}</td>
+                        <td className="px-3 py-2">{who(g.creator)}</td>
+                        <td className="px-3 py-2">{DM_RULE_LABELS[g.ruleKind]}</td>
+                        <td className="px-3 py-2 text-right tabular-nums">
+                          {g.memberCount.toLocaleString()}
+                        </td>
+                        <td className="px-3 py-2">{when(g.lastCheckedAt)}</td>
+                        <td className="px-3 py-2">
+                          {g.botIsAdmin ? (
+                            <Badge variant="secondary">{G.adminBotAdmin}</Badge>
+                          ) : (
+                            <Badge variant="destructive">{G.rightsMissing}</Badge>
+                          )}
+                        </td>
+                        <td className="px-3 py-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => recheck.mutate({ id: g.id })}
+                            disabled={recheck.isPending}
+                          >
+                            {G.adminRecheck}
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            <p className="text-sm text-gray-600">{G.adminLine}</p>
+          </div>
+        ))}
 
       {tab === "health" &&
         (health.isError ? (
