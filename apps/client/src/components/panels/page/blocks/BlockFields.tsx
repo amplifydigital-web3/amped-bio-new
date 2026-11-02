@@ -8,6 +8,7 @@ import { linkConfig, linkValueFromConfig, wellClass } from "./linkValue";
 import { mediaHelp, mediaName, mediaUrlError, stripTags } from "./blockInfo";
 import { FollowBlockFields, FollowersBlockFields } from "./FollowBlockFields";
 import { RnsIdBlockFields } from "./RnsIdBlockFields";
+import { ContentBlockFields } from "./ContentBlockFields";
 import { TelegramBlockFields } from "./TelegramBlockFields";
 
 // Screen Review 037. The fields an open block row needs, one column on the G2
@@ -229,6 +230,8 @@ export function BlockFields({ block, onValid }: { block: BlockType; onValid: Con
       return <FollowersBlockFields key={key} block={block} onValid={onValid} />;
     case "rnsid":
       return <RnsIdBlockFields key={key} block={block} onValid={onValid} />;
+    case "content":
+      return <ContentBlockFields key={key} config={block.config} onValid={onValid} />;
     case "telegram_message":
     case "telegram_group":
       return <TelegramBlockFields key={key} block={block} onValid={onValid} />;

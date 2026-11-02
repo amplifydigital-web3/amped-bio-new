@@ -27,6 +27,7 @@ import { usdcRouter } from "./usdc";
 import { onrampRouter } from "./onramp";
 import { contentRouter } from "./content";
 import { notificationsRouter } from "./notifications";
+import { progressRouter } from "./progress";
 import { checkoutRouter } from "./checkout";
 import { inferRouterOutputs } from "@trpc/server";
 
@@ -64,6 +65,8 @@ const mergedRouter = router({
   content: contentRouter,
   // Account notification settings (RNS name reminders)
   notifications: notificationsRouter,
+  // Fan Library (#26) phase A: playback position per account
+  progress: progressRouter,
   // Mobile checkout intents (Build Board #49), behind CHECKOUT_ENABLED
   checkout: checkoutRouter,
 });
