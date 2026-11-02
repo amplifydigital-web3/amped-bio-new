@@ -1,8 +1,12 @@
 import {
+  DEFAULT_CONTENT_BLOCK_CONFIG,
+  contentBlockConfigSchema,
   DEFAULT_TELEGRAM_GROUP_CONFIG,
   DEFAULT_TELEGRAM_MESSAGE_CONFIG,
   followConfigSchema,
   followersConfigSchema,
+  isSafeHref,
+  isSafeWebUrl,
   rnsIdConfigSchema,
   sanitizeRichText,
   telegramGroupConfigSchema,
@@ -23,6 +27,13 @@ import {
  * fields: a label and the hidden flag. Anything else a client sent, such as a
  * username or a rule, is dropped, and a label the schema refuses falls back to
  * the default (spec 3.8: the page never carries a Telegram username).
+ *
+ * Link and media blocks (Build Board D57) keep their URL only when it is a safe
+ * link: http, https, mailto or tel for links, http or https for embeds. Any other
+ * URL (javascript:, data:, vbscript:) is emptied, so the block needs a link and
+ * does not render. This runs on public reads too, so rows stored before the fix
+ * never reach a page. A legacy Telegram text block keeps its channel URL only
+ * when it is https, the rule its renderer already applies.
  */
 export function sanitizeBlockConfig<T>(type: string, config: T): T {
   if (!config || typeof config !== "object") return config;
@@ -48,8 +59,27 @@ export function sanitizeBlockConfig<T>(type: string, config: T): T {
     const hidden = (config as { hidden?: unknown }).hidden === true;
     return { ...fallback, ...(hidden ? { hidden } : {}) } as T;
   }
+  if (type === "content") {
+    // Ids only (spec 3.7): label, layout and up to 12 unique ids. Anything else a
+    // client sent is dropped; whether each id may show is decided at render.
+    const parsed = contentBlockConfigSchema.safeParse(config);
+    if (parsed.success) return parsed.data as T;
+    const hidden = (config as { hidden?: unknown }).hidden === true;
+    return { ...DEFAULT_CONTENT_BLOCK_CONFIG, ...(hidden ? { hidden } : {}) } as T;
+  }
+  if (type === "link" || type === "media") {
+    const url = (config as { url?: unknown }).url;
+    if (typeof url !== "string" || url === "") return config;
+    const safe = type === "link" ? isSafeHref(url) : isSafeWebUrl(url);
+    return safe ? config : ({ ...config, url: "" } as T);
+  }
   if (type !== "text") return config;
   const content = (config as { content?: unknown }).content;
   if (typeof content !== "string") return config;
+  if ((config as { platform?: unknown }).platform === "telegram") {
+    return isSafeWebUrl(content) && /^https:/i.test(content.trim())
+      ? config
+      : ({ ...config, content: "" } as T);
+  }
   return { ...config, content: sanitizeRichText(content) };
 }

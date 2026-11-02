@@ -2,7 +2,7 @@ import { SITE_NAME, SITE_URL } from "@/lib/seo";
 
 export const revalidate = 86400;
 
-const REVIEWED_ON = "2026-09-26";
+const REVIEWED_ON = "2026-10-23";
 
 /** llms.txt index for AI agents. See https://llmstxt.org */
 export function GET() {
@@ -11,6 +11,8 @@ export function GET() {
 > ${SITE_NAME} is a link-in-bio platform. Each creator has one public profile page with their links, media, and an optional creator pool on Revolution Network.
 
 Every public profile lives at ${SITE_URL}/@{handle}. Profile pages are server-rendered HTML and include schema.org ProfilePage data with the creator's name, bio, photo and social accounts.
+
+Creators can publish videos, audio, images and documents. A creator's public items are listed at ${SITE_URL}/{handle}/content, and each item has its own page at ${SITE_URL}/{handle}/c/{id} with schema.org VideoObject, AudioObject, ImageObject or DigitalDocument data. Media plays through a protected player; item pages never carry direct media links.
 
 Creator pools let fans stake REVO with a creator. Each pool has a public page with its creator, description and staking totals.
 
@@ -23,7 +25,7 @@ Creator pools let fans stake REVO with a creator. Each pool has a public page wi
 
 ## Discovery
 
-- [Sitemap index](${SITE_URL}/sitemap-index.xml): Every indexable profile, pool and blog post.
+- [Sitemap index](${SITE_URL}/sitemap-index.xml): Every indexable profile, public content item, pool and blog post.
 
 Last reviewed: ${REVIEWED_ON}
 `;
