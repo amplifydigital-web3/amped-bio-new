@@ -178,6 +178,15 @@ describe("evaluateIdentity", () => {
     });
   });
 
+  it("a past or unparseable valid until is not verified", () => {
+    for (const validUntil of [new Date(Date.now() - 1000), new Date("not a date")]) {
+      expect(evaluateIdentity("age_over_18", { ...facts, validUntil }, null)).toEqual({
+        pass: false,
+        reason: "not_verified",
+      });
+    }
+  });
+
   it("age: absent is not shared, false is under 18", () => {
     expect(evaluateIdentity("age_over_18", { ...facts, ageOver18: null }, null)).toEqual({
       pass: false,
