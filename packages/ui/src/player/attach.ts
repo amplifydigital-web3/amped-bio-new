@@ -90,10 +90,19 @@ function keepPlace(media: HTMLMediaElement, atSeconds: number, resume: boolean) 
   else media.addEventListener("loadedmetadata", restore, { once: true });
 }
 
+/** An attachment that touches nothing: the load it was made for was superseded. */
+const NO_ATTACHMENT: Attachment = { async swap() {}, detach() {} };
+
+/**
+ * Points `media` at `source`. `stillWanted` is asked after hls.js finishes
+ * loading: when a newer load took over the element in the meantime, nothing is
+ * attached, so two hls.js instances never drive the same element.
+ */
 export async function attachSource(
   media: HTMLMediaElement,
   source: PlayerSource,
-  onFatal: () => void
+  onFatal: () => void,
+  stillWanted: () => boolean = () => true
 ): Promise<Attachment> {
   if (source.kind === "audio") {
     media.crossOrigin = "anonymous";
@@ -134,9 +143,10 @@ export async function attachSource(
   }
 
   const Hls = await loadHls();
+  if (!stillWanted()) return NO_ATTACHMENT;
   if (!Hls || !Hls.isSupported()) {
     onFatal();
-    return { async swap() {}, detach() {} };
+    return NO_ATTACHMENT;
   }
   let hls = new Hls({ enableWorker: true, lowLatencyMode: false, capLevelToPlayerSize: true });
   const listeners = new Set<() => void>();

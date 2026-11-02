@@ -534,4 +534,62 @@ describe("PlayerProvider", () => {
     expect(hls.subtitleTrack).toBe(0);
     expect(hls.subtitleDisplay).toBe(true);
   });
+  it("does not save on every seek while the slider is dragged", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    const save = vi.fn();
+    const resolve = vi.fn(async () => ({
+      kind: "audio" as const,
+      src: "https://m/1",
+      expiresAt: Date.now() + 3_600_000,
+    }));
+    let api!: PlayerApi;
+    render(
+      <PlayerProvider progress={{ load: async () => null, save }}>
+        <Probe onApi={value => (api = value)} />
+      </PlayerProvider>
+    );
+    await act(async () => {
+      await api.load(audioItem, resolve, { autoplay: true });
+    });
+    await act(async () => {
+      for (let ms = 1_000; ms <= 30_000; ms += 1_000) api.seek(ms);
+    });
+    expect(save).not.toHaveBeenCalled();
+    // Pause still saves straight away
+    await act(async () => api.pause());
+    expect(save).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps a newer load when an older one finishes attaching hls.js after it", async () => {
+    const videoItem = (id: string): PlayerItem => ({
+      id,
+      kind: "video",
+      title: `Video ${id}`,
+      durationMs: 60_000,
+    });
+    const source = (id: string) => ({
+      kind: "video" as const,
+      hls: `https://stream.example/${id}/manifest/video.m3u8`,
+      expiresAt: Date.now() + 3_600_000,
+    });
+    let api!: PlayerApi;
+    render(
+      <PlayerProvider>
+        <Probe onApi={value => (api = value)} />
+      </PlayerProvider>
+    );
+    const before = hlsMock.instances.length;
+    await act(async () => {
+      const first = api.load(videoItem("aaaaaaaaaaaaaaaa"), async () => source("a"), {});
+      // The first load has its URLs and is waiting for hls.js when the second starts
+      for (let tick = 0; tick < 3; tick += 1) await Promise.resolve();
+      const second = api.load(videoItem("bbbbbbbbbbbbbbbb"), async () => source("b"), {});
+      await Promise.all([first, second]);
+    });
+    const created = hlsMock.instances.slice(before);
+    // Only the newer load drives the element
+    expect(created.filter(instance => !instance.destroyed)).toHaveLength(1);
+    expect(api.item?.id).toBe("bbbbbbbbbbbbbbbb");
+    expect(api.state.error).toBeNull();
+  });
 });

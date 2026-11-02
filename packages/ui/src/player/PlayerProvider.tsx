@@ -482,10 +482,22 @@ export function PlayerProvider({
       setCurrent(currentRef.current);
       if (source.kind === "video" && source.poster) media.setAttribute("poster", source.poster);
       else media.removeAttribute("poster");
-      attachmentRef.current = await attachSource(media, source, () =>
-        setState({ error: "load", loading: false, playing: false })
+      const attachment = await attachSource(
+        media,
+        source,
+        () => {
+          if (loadToken.current === token) {
+            setState({ error: "load", loading: false, playing: false });
+          }
+        },
+        () => loadToken.current === token
       );
-      if (loadToken.current !== token) return;
+      // A newer load or close took over while hls.js was loading: keep its attachment
+      if (loadToken.current !== token) {
+        attachment.detach();
+        return;
+      }
+      attachmentRef.current = attachment;
       // hls.js offers the manifest's subtitle tracks after the metadata lands
       attachmentRef.current?.captions?.subscribe(() => {
         applyCaptions(stateRef.current.captionIndex);
@@ -536,7 +548,9 @@ export function PlayerProvider({
       const target = clampSeek(ms, duration);
       media.currentTime = target / 1000;
       setState({ currentMs: target });
-      writeProgress(true);
+      // Not forced: dragging the slider seeks on every input event. Pause, hide,
+      // leave and switching items still force the write.
+      writeProgress(false);
     },
     [active, setState, writeProgress]
   );
