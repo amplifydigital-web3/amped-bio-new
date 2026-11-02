@@ -110,6 +110,7 @@ import {
   ageDecision,
   check,
   clearResolvers,
+  eligibleUserIds,
   open,
   registerResolver,
   stakeKindsAllowed,
@@ -273,6 +274,17 @@ describe("stake kinds (acceptance 1, 2, 7, 8)", () => {
     expect((await check(fan, resource)).reason).toBe("kind_unavailable");
     expect(stakeKindsAllowed(10, " 3, 10 ,11")).toBe(true);
     expect(stakeKindsAllowed(10, "100")).toBe(false);
+  });
+
+  it("eligibleUserIds returns no stake audience outside the pilot allowlist", async () => {
+    state.allowlist = "";
+    for (const kind of ["pool_member", "stake_min"] as const) {
+      const params = kind === "stake_min" ? { poolId: POOL, minWei: "1" } : { poolId: POOL };
+      expect(await eligibleUserIds({ kind, params }, OWNER)).toEqual({
+        userIds: [],
+        nextCursor: null,
+      });
+    }
   });
 
   it("only the owner's own pool counts", async () => {
