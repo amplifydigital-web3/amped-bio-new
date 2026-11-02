@@ -21,7 +21,7 @@ CREATE TABLE `identity_checks` (
 -- CreateTable
 CREATE TABLE `identity_review_cases` (
     `id` BINARY(16) NOT NULL,
-    `user_id` INTEGER NOT NULL,
+    `user_id` INTEGER NULL,
     `status` VARCHAR(16) NOT NULL DEFAULT 'open',
     `kind` VARCHAR(16) NOT NULL DEFAULT 'under_18',
     `opened_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
@@ -41,4 +41,4 @@ CREATE TABLE `identity_review_cases` (
 ALTER TABLE `identity_checks` ADD CONSTRAINT `identity_checks_user_id_fkey` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE `identity_review_cases` ADD CONSTRAINT `identity_review_cases_user_id_fkey` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE `identity_review_cases` ADD CONSTRAINT `identity_review_cases_user_id_fkey` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;

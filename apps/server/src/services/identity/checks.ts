@@ -62,11 +62,17 @@ export function sellerReasonFromBinding(binding: RnsBindingResult): IdentityFail
 export function evaluateIdentity(
   kind: IdentityCheckKind,
   facts: AuthbaseFacts,
-  binding: RnsBindingResult | null
+  binding: RnsBindingResult | null,
+  now: Date = new Date()
 ): IdentityCheckResult {
   if (facts.status === "NOT_LINKED") return { pass: false, reason: "not_linked" };
   if (facts.status === "NOT_VERIFIED") return { pass: false, reason: "not_verified" };
   if (!facts.tier || !facts.validUntil) return { pass: false, reason: "not_verified" };
+  // An unparseable or past valid_until never passes (and never reaches the store
+  // or the client as an Invalid Date)
+  if (Number.isNaN(facts.validUntil.getTime()) || facts.validUntil <= now) {
+    return { pass: false, reason: "not_verified" };
+  }
 
   if (kind === "age_over_18") {
     if (facts.ageOver18 === null) return { pass: false, reason: "not_shared" };
@@ -216,7 +222,7 @@ export async function checkIdentity(
       binding = read;
     }
 
-    const result = evaluateIdentity(kind, facts, binding);
+    const result = evaluateIdentity(kind, facts, binding, now);
     await store(userId, kind, wallet, result);
     if (!result.pass && result.reason === "under_18") await recordUnder18Result(userId);
     return result;
