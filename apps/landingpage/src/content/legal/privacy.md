@@ -187,6 +187,7 @@ Creator pages and the public site set nothing in your browser until you choose, 
 | Telegram link and delivery choice history (no IP address) | 5 years |
 | Messages between fans and creators | 12 months after the last message in the conversation |
 | Support messages | 2 years |
+| Checkouts you started (the item, the creator, where you tapped Buy, any promoter code, and the status) | 30 days after the checkout ends, unless it became a purchase |
 | RNS name expiry reminders (your name, its expiry date, the reminder stage, the time of the reminder and how many sends failed) | While your account is open, then deleted within 30 days of closing it |
 | Authbase age and seller check results (pass or fail, the reason and when the check ends) | While your account is open, then deleted within 30 days of closing it |
 | Under 18 reviews (that an age check showed under 18, and how we decided) | 5 years |
