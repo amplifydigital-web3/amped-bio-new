@@ -1,14 +1,15 @@
 import { privateProcedure, publicProcedure, router } from "./trpc";
-import { z } from "zod";
 import { prisma } from "@repo/database";
 import { TRPCError } from "@trpc/server";
 import {
   SINGLETON_BLOCK_TYPES,
   addBlockSchema,
   blockIdParamSchema,
+  blockSchema,
   editBlocksSchema,
 } from "@repo/constants";
 import { sanitizeBlockConfig } from "../utils/sanitizeBlockConfig";
+import { keepOwnedContentIds } from "../services/content/blockConfig";
 
 export const blocksRouter = router({
   // Get all blocks for the user
@@ -65,44 +66,29 @@ export const blocksRouter = router({
   }),
 
   // Edit a single block
-  editBlock: privateProcedure
-    .input(
-      z.object({
-        id: z.number(),
-        type: z.string(),
-        order: z.number(),
-        config: z.any(),
-      })
-    )
-    .mutation(async ({ ctx, input }) => {
-      const userId = ctx.user!.sub;
-      const { id, type, order } = input;
-      const config = sanitizeBlockConfig(type, input.config);
+  // D57: the config is checked with its type's schema, like editBlocks and
+  // addBlock. It used to take any config, so a link could store javascript:.
+  editBlock: privateProcedure.input(blockSchema).mutation(async ({ ctx, input }) => {
+    const userId = ctx.user!.sub;
+    const { id, type, order } = input;
+    const config = await keepOwnedContentIds(
+      userId,
+      type,
+      sanitizeBlockConfig(type, input.config)
+    );
 
-      try {
-        const block = await prisma.block.findUnique({
-          where: {
-            id: id,
-            user_id: userId,
-          },
-        });
+    try {
+      const block = await prisma.block.findUnique({
+        where: {
+          id: id,
+          user_id: userId,
+        },
+      });
 
-        if (block === null) {
-          const result = await prisma.block.create({
-            data: {
-              user_id: userId,
-              type,
-              order,
-              config,
-            },
-          });
-
-          return { result };
-        }
-
-        const result = await prisma.block.update({
-          where: { id: id },
+      if (block === null) {
+        const result = await prisma.block.create({
           data: {
+            user_id: userId,
             type,
             order,
             config,
@@ -110,14 +96,26 @@ export const blocksRouter = router({
         });
 
         return { result };
-      } catch (error) {
-        console.error(`error editing block ${id}`, error);
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Server error",
-        });
       }
-    }),
+
+      const result = await prisma.block.update({
+        where: { id: id },
+        data: {
+          type,
+          order,
+          config,
+        },
+      });
+
+      return { result };
+    } catch (error) {
+      console.error(`error editing block ${id}`, error);
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Server error",
+      });
+    }
+  }),
 
   editBlocks: privateProcedure.input(editBlocksSchema).mutation(async ({ ctx, input }) => {
     const userId = ctx.user!.sub;
@@ -126,7 +124,11 @@ export const blocksRouter = router({
     try {
       for (let idx = 0; idx < blocks.length; idx++) {
         const { id, type } = blocks[idx];
-        const config = sanitizeBlockConfig(type, blocks[idx].config);
+        const config = await keepOwnedContentIds(
+          userId,
+          type,
+          sanitizeBlockConfig(type, blocks[idx].config)
+        );
 
         const block = await prisma.block.findUnique({
           where: {
@@ -168,7 +170,7 @@ export const blocksRouter = router({
   addBlock: privateProcedure.input(addBlockSchema).mutation(async ({ ctx, input }) => {
     const userId = ctx.user!.sub;
     const { type } = input;
-    const config = sanitizeBlockConfig(type, input.config);
+    const config = await keepOwnedContentIds(userId, type, sanitizeBlockConfig(type, input.config));
 
     try {
       const result = await prisma.$transaction(async tx => {
