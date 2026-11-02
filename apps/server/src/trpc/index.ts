@@ -27,6 +27,10 @@ import { usdcRouter } from "./usdc";
 import { onrampRouter } from "./onramp";
 import { contentRouter } from "./content";
 import { notificationsRouter } from "./notifications";
+import { progressRouter } from "./progress";
+import { checkoutRouter } from "./checkout";
+import { identityRouter } from "./identity";
+import { accessRouter } from "./access";
 import { inferRouterOutputs } from "@trpc/server";
 
 // Merge all routers
@@ -63,6 +67,14 @@ const mergedRouter = router({
   content: contentRouter,
   // Account notification settings (RNS name reminders)
   notifications: notificationsRouter,
+  // Fan Library (#26) phase A: playback position per account
+  progress: progressRouter,
+  // Mobile checkout intents (Build Board #49), behind CHECKOUT_ENABLED
+  checkout: checkoutRouter,
+  // Identity checks through Authbase: Over 18 and verified seller (Build Board #47)
+  identity: identityRouter,
+  // Access gating engine core (Build Board #21), behind ACCESS_GATING_ENABLED
+  access: accessRouter,
 });
 
 export type AppRouter = typeof mergedRouter;

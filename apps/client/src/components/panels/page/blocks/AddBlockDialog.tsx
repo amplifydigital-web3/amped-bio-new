@@ -4,6 +4,7 @@ import {
   Coins,
   FileText,
   IdCard,
+  Library,
   Link2,
   Loader2,
   Plus,
@@ -48,6 +49,7 @@ export type NewBlockKind =
   | { type: "follow" }
   | { type: "followers" }
   | { type: "rnsid" }
+  | { type: "content" }
   | { type: "telegram_message" };
 
 type SingletonType = (typeof SINGLETON_BLOCK_TYPES)[number];
@@ -58,6 +60,8 @@ function isSingleton(type: string): type is SingletonType {
 
 const fanGraphOn = import.meta.env.VITE_FAN_GRAPH === "true";
 const rnsOn = import.meta.env.VITE_SHOW_RNS === "true";
+// Content system (Build Board #20, spec 3.7): items from the creator's library
+const contentOn = import.meta.env.VITE_CONTENT === "true";
 // Messaging on Telegram (Build Board #2, row 115): Message me on Telegram in Utility
 const telegramOn = import.meta.env.VITE_SHOW_TELEGRAM === "true";
 
@@ -70,6 +74,21 @@ type Tile = {
 };
 
 const SECTIONS: { eyebrow: string; tiles: Tile[] }[] = [
+  ...(contentOn
+    ? [
+        {
+          eyebrow: "Content",
+          tiles: [
+            {
+              label: "Content",
+              icon: Library,
+              kind: { type: "content" as const },
+              description: "Videos, tracks and files from your library",
+            },
+          ],
+        },
+      ]
+    : []),
   {
     eyebrow: "Media",
     tiles: [

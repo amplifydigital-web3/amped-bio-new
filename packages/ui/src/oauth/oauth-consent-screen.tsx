@@ -108,7 +108,6 @@ export function OAuthConsentScreen() {
     <div className="space-y-5">
       <div className="flex items-start gap-3 rounded-md border border-gray-200 p-3">
         {client?.logo_uri ? (
-          // eslint-disable-next-line @next/next/no-img-element
           <img src={client.logo_uri} alt="" className="h-10 w-10 rounded" />
         ) : (
           <div className="flex h-10 w-10 items-center justify-center rounded bg-gray-100 text-sm font-semibold text-gray-600">
