@@ -246,6 +246,40 @@ describe("applyStakeDelta", () => {
     });
     expect(stats(20)).toMatchObject({ fans: 0, fan: 0n, creator: 7n * E, total: 7n * E });
   });
+
+  it("a creator stake or unstake after the first write moves the stored creator stake", async () => {
+    await recomputePoolStats(db.current.client, 20, { creatorStaked: 50n * E });
+    await applyStakeDelta({
+      userWalletId: CREATOR,
+      poolId: 20,
+      amount: 5n * E,
+      eventType: "stake",
+      transactionHash: "0x4",
+    });
+    expect(stats(20)).toMatchObject({ creator: 55n * E, total: 55n * E, fans: 0 });
+
+    await applyStakeDelta({
+      userWalletId: CREATOR,
+      poolId: 20,
+      amount: 3n * E,
+      eventType: "unstake",
+      transactionHash: "0x5",
+    });
+    expect(stats(20)).toMatchObject({ creator: 52n * E, total: 52n * E });
+  });
+
+  it("refuses a missing pool", async () => {
+    await expect(
+      applyStakeDelta({
+        userWalletId: FAN_A,
+        poolId: 999,
+        amount: 1n * E,
+        eventType: "stake",
+        transactionHash: "0x6",
+      })
+    ).rejects.toMatchObject({ code: "NOT_FOUND" });
+    expect(db.current.events).toHaveLength(0);
+  });
 });
 
 describe("backfillPoolStats", () => {
@@ -315,5 +349,21 @@ describe("backfillPoolStats", () => {
     });
     // launch 10 plus the creator's own row 1
     expect(stats(30)).toMatchObject({ creator: 11n * E, total: 13n * E });
+  });
+
+  it("a later run with a failed chain read keeps the creator stake already written", async () => {
+    await backfillPoolStats({ apply: true, log: () => undefined, ...reads });
+    expect(stats(30).creator).toBe(10n * E);
+
+    const rows = await backfillPoolStats({
+      apply: true,
+      log: () => undefined,
+      readCreatorStakes: async () => {
+        throw new Error("rpc down");
+      },
+      readPoolName: async () => null,
+    });
+    expect(stats(30)).toMatchObject({ creator: 10n * E, total: 12n * E });
+    expect(rows[0].newTotal).toBe((12n * E).toString());
   });
 });

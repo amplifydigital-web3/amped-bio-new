@@ -290,10 +290,24 @@ model CreatorPool {
   poolImage     UploadedFile? @relation("CreatorPoolImage", fields: [image_file_id], references: [id], onDelete: SetNull)
   stakedPools   StakedPool[]
   stakeEvents   StakeEvent[]
-  hidden        Boolean?      @default(false)
+  hidden        Boolean       @default(false)
   broadcasts    Broadcast[]
 
+  // Pool list paging (Build Board D7, docs/features/pools-list-paging.md), PL1.
+  // Written only by services/poolStats.ts recomputePoolStats.
+  creatorStakeWei Decimal   @default(0) @map("creator_stake_wei") @db.Decimal(65, 0)
+  fanStakeWei     Decimal   @default(0) @map("fan_stake_wei") @db.Decimal(65, 0)
+  totalStakeWei   Decimal   @default(0) @map("total_stake_wei") @db.Decimal(65, 0)
+  // Wallets with a stake above zero, excluding the creator's wallet (decision P4)
+  activeFans      Int       @default(0) @map("active_fans")
+  statsUpdatedAt  DateTime? @map("stats_updated_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+
   @@unique([walletId, chainId])
+  @@index([chainId, hidden, totalStakeWei])
+  @@index([chainId, hidden, activeFans])
+  @@index([chainId, hidden, name])
+  @@fulltext([description])
   @@map("creator_pools")
 }
 
