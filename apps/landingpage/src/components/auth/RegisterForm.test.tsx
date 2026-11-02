@@ -28,6 +28,7 @@ const mocks = vi.hoisted(() => ({
     | "Checking"
     | "Available"
     | "Unavailable"
+    | "Reserved"
     | "Error",
   goTo: vi.fn(),
   getPostAuthDestination: vi.fn(() => "/"),
@@ -66,6 +67,8 @@ vi.mock("@/lib/trpc", () => ({
   trpc: { referral: { getReferrerInfo: { queryOptions: mocks.getReferrerInfoOptions } } },
 }));
 vi.mock("@/lib/panel", () => ({
+  authSwitchHref: (path: string, _params: URLSearchParams, email?: string) =>
+    email ? `${path}?email=${encodeURIComponent(email)}` : path,
   getPostAuthDestination: mocks.getPostAuthDestination,
   goTo: mocks.goTo,
   toAbsoluteUrl: (url: string) => url,
@@ -183,6 +186,32 @@ describe("RegisterForm", () => {
     await waitFor(() =>
       expect(screen.getByText("amped.bio/ada is taken. Pick another.")).toBeInTheDocument()
     );
+  });
+
+  it("names a reserved handle the server refuses at sign up (Build Board D2)", async () => {
+    mocks.signUpEmail.mockResolvedValue({
+      error: { status: 400, code: "INVALID_HANDLE", message: "This handle is reserved" },
+    });
+    renderForm();
+    fillHandle("northlight");
+    fillEmail("ada@example.com");
+    fillPassword("S3cure-pass!");
+    submit();
+
+    await waitFor(() =>
+      expect(
+        screen.getByText("amped.bio/northlight is reserved. Pick another.")
+      ).toBeInTheDocument()
+    );
+  });
+
+  it("shows the reserved line while the handle is reserved (Build Board D2)", () => {
+    mocks.urlStatus = "Reserved";
+    renderForm();
+    fillHandle("pools");
+
+    expect(screen.getByText("amped.bio/pools is reserved. Pick another.")).toBeInTheDocument();
+    mocks.urlStatus = "Available";
   });
 
   it("shows the captcha error when the browser check did not finish", async () => {

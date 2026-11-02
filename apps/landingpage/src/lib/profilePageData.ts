@@ -1,4 +1,4 @@
-import type { BlockType, PublicTrackingPixels, ThemeConfig } from "@repo/constants";
+import type { BlockType, ContentCard, PublicTrackingPixels, ThemeConfig } from "@repo/constants";
 import type { RouterOutputs } from "../../../server/src/trpc";
 
 // Inferred directly from the tRPC router so the SSR page data can never drift
@@ -41,6 +41,8 @@ export interface ProfilePageData {
   trackingPixels: PublicTrackingPixels | null;
   /** Whether search engines may index this profile */
   indexable: boolean;
+  /** Content blocks (#20): cards for public items only, keyed by publicId */
+  contentCards: Record<string, ContentCard>;
 }
 
 export const DEFAULT_HANDLE = "landingpage";
@@ -86,6 +88,7 @@ export const DEFAULT_PROFILE_DATA: ProfilePageData = {
   creatorPoolAddress: null,
   trackingPixels: null,
   indexable: false,
+  contentCards: {},
 };
 
 /**
@@ -102,6 +105,7 @@ export function mapGetHandleData(result: HandleOutput, handle: string): ProfileP
     creatorPoolAddress,
     trackingPixels,
     indexable,
+    contentCards,
   } = result;
   return {
     profile: {
@@ -123,5 +127,6 @@ export function mapGetHandleData(result: HandleOutput, handle: string): ProfileP
     creatorPoolAddress: creatorPoolAddress ?? null,
     trackingPixels: trackingPixels ?? null,
     indexable,
+    contentCards: contentCards ?? {},
   };
 }

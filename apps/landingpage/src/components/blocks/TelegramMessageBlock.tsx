@@ -11,6 +11,7 @@ import {
   type DmRuleKind,
   type TelegramMessageBlock as TelegramMessageBlockType,
   type ThemeConfig,
+  telegramPayload,
 } from "@repo/constants";
 import {
   Button,
@@ -25,7 +26,13 @@ import {
 import { trpc, trpcClient } from "@/lib/trpc";
 import { CreatorButton } from "./frame";
 
-export type TelegramDoor = { open: boolean; ruleKind: DmRuleKind; botUsername: string | null };
+export type TelegramDoor = {
+  open: boolean;
+  ruleKind: DmRuleKind;
+  botUsername: string | null;
+  /** Creator's short code for the deep link (spec r3 3.5). Older servers omit it. */
+  linkCode?: string | null;
+};
 
 const PREFS_KEY = "amped_tg_link_prefs";
 const INTENT_KEY = "amped_message_intent";
@@ -134,7 +141,9 @@ export function TelegramMessageBlock({
   const label = block.config.label?.trim() || DEFAULT_TELEGRAM_MESSAGE_LABEL;
   const hint = door && door.ruleKind !== "ANYONE" ? DM_RULE_LABELS[door.ruleKind] : null;
   const dmLink = door?.botUsername
-    ? `https://t.me/${door.botUsername}?start=dm_${encodeURIComponent(handle)}`
+    ? `https://t.me/${door.botUsername}?start=${
+        door.linkCode ? telegramPayload.message(door.linkCode) : `dm_${encodeURIComponent(handle)}`
+      }`
     : null;
 
   // Back from Telegram (?telegram=) or from sign up (?message=1), once

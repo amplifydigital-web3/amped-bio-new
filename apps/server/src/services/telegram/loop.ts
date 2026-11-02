@@ -2,7 +2,7 @@ import { Prisma, prisma, type TelegramInbox, type TelegramOutbox } from "@repo/d
 import { GrammyError } from "grammy";
 import { TELEGRAM_LIMITS } from "@repo/constants";
 import { uuidv7 } from "../../utils/uuid-v7";
-import { getTelegramBot, isTelegramConfigured } from "./client";
+import { getTelegramBot, isTelegramConfigured, registerTelegramWebhook } from "./client";
 
 /**
  * Messaging on Telegram (Build Board #2), spec 3.5 and decision 13.
@@ -322,6 +322,8 @@ export function startTelegramLoop() {
     purger.unref();
   }
   if (!isTelegramConfigured()) return;
+  // Updates only arrive once Telegram knows where to send them
+  void registerTelegramWebhook();
 
   const tick = async () => {
     if (draining) return;

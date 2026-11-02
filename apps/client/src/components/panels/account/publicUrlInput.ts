@@ -25,6 +25,8 @@ export function statusLine(
     case "Unavailable":
     case "Taken":
       return { tone: "error", text: "That URL is taken. Pick another." };
+    case "Reserved":
+      return { tone: "error", text: `${urlPrefix()}${handle} is reserved. Pick another.` };
     case "TooShort":
       return { tone: "error", text: "Use at least 2 characters" };
     case "Invalid":

@@ -204,6 +204,8 @@ export const contentListSchema = z.object({
   kind: z.enum(CONTENT_KINDS).optional(),
   status: z.enum(["uploading", "processing", "ready", "failed", "blocked"]).optional(),
   publishState: z.enum(["draft", "published", "archived"]).optional(),
+  /** Recently removed: deleted items that can still be restored (PR 6) */
+  removed: z.boolean().optional(),
   /** publicId of the last item on the previous page */
   cursor: contentPublicIdSchema.optional(),
   limit: z.number().int().min(1).max(100).default(30),

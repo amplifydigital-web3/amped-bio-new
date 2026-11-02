@@ -110,15 +110,16 @@ function UrlEditor() {
   const { url, urlStatus, isCurrentUrl, recheck } = field;
   const [claiming, setClaiming] = useState(false);
   const [claimFailed, setClaimFailed] = useState(false);
-  const [takenOnClaim, setTakenOnClaim] = useState(false);
+  // The server refused the handle on save: taken, or reserved (Build Board D2)
+  const [refusedOnClaim, setRefusedOnClaim] = useState<"Unavailable" | "Reserved" | null>(null);
 
-  const status: URLStatus = takenOnClaim ? "Unavailable" : urlStatus;
+  const status: URLStatus = refusedOnClaim ?? urlStatus;
   const differs = url !== "" && !isCurrentUrl;
 
   const onInput = (raw: string) => {
     field.onInput(raw);
     setClaimFailed(false);
-    setTakenOnClaim(false);
+    setRefusedOnClaim(null);
   };
 
   const claim = async () => {
@@ -140,7 +141,8 @@ function UrlEditor() {
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : "";
-      if (/taken/i.test(message)) setTakenOnClaim(true);
+      if (/reserved/i.test(message)) setRefusedOnClaim("Reserved");
+      else if (/taken/i.test(message)) setRefusedOnClaim("Unavailable");
       else setClaimFailed(true);
     } finally {
       setClaiming(false);

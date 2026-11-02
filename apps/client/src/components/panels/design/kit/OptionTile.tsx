@@ -69,6 +69,8 @@ export function OptionTile({
   art,
   artClassName = "aspect-video",
   accessibleDescription,
+  tier,
+  cost,
 }: {
   label: string;
   /** Second label line (Particles descriptions) */
@@ -84,17 +86,29 @@ export function OptionTile({
   art: ReactNode;
   artClassName?: string;
   accessibleDescription?: string;
+  /** Theme Engine v2 editor chrome (spec 3.10): Plus or Showcase badge at top left. */
+  tier?: "core" | "plus" | "showcase";
+  /** Cost dot before the label, with the word for screen readers (Light or Heavy). */
+  cost?: "still" | "light" | "heavy";
 }) {
   const activate = () => {
     if (!disabled) onSelect();
   };
+  // The badge and the dot carry text for screen readers (spec 3.11)
+  const spoken = [
+    label,
+    tier === "plus" ? "Plus" : tier === "showcase" ? "Showcase" : null,
+    cost === "heavy" ? "Heavy" : cost === "light" ? "Light" : null,
+  ]
+    .filter(Boolean)
+    .join(", ");
 
   return (
     <div
       role="radio"
       aria-checked={selected}
       aria-disabled={disabled || undefined}
-      aria-label={label}
+      aria-label={spoken}
       aria-description={accessibleDescription}
       tabIndex={focusable ? 0 : -1}
       onClick={activate}
@@ -131,6 +145,17 @@ export function OptionTile({
             className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.36)_0%,rgba(255,255,255,0)_40%)] opacity-0 transition-opacity duration-prism-hover group-hover:opacity-100 group-active:duration-prism-micro"
           />
         )}
+        {tier && tier !== "core" && (
+          <span
+            aria-hidden
+            className={cn(
+              "absolute left-2 top-2 rounded-full px-1.5 py-0.5 text-[10px] font-semibold leading-[13px] tracking-[0.04em]",
+              tier === "showcase" ? "bg-[#5b2f70] text-white" : "bg-white/90 text-prism-nav-pressed"
+            )}
+          >
+            {tier === "showcase" ? "Showcase" : "Plus"}
+          </span>
+        )}
         {selected && (
           <span
             aria-hidden
@@ -147,6 +172,15 @@ export function OptionTile({
           description && "font-semibold text-prism-ink"
         )}
       >
+        {cost && cost !== "still" && (
+          <span
+            aria-hidden
+            className={cn(
+              "mr-1.5 inline-block h-2 w-2 rounded-full align-[1px]",
+              cost === "heavy" ? "bg-[#7a4f00]" : "bg-[#17693f]"
+            )}
+          />
+        )}
         {label}
       </p>
       {description && <p className="text-prism-meta text-prism-ink-2">{description}</p>}

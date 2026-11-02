@@ -4,6 +4,7 @@
  * rule names (Followers, Members, Paid) arrive with gated content in PR 8.
  */
 import { CONTENT_COPY } from "../copy";
+import { format } from "date-fns";
 
 export interface ItemStatusInput {
   status: "uploading" | "processing" | "ready" | "failed" | "blocked" | "deleted";
@@ -16,7 +17,15 @@ export interface ItemStatusInput {
 export type StatusTone = "public" | "draft" | "progress" | "review" | "danger";
 
 export interface ItemStatus {
-  key: "uploading" | "processing" | "review" | "failed" | "blocked" | "draft" | "public";
+  key:
+    | "uploading"
+    | "processing"
+    | "review"
+    | "failed"
+    | "blocked"
+    | "draft"
+    | "public"
+    | "removed";
   label: string;
   tone: StatusTone;
   /** The line under the title on the card */
@@ -55,8 +64,20 @@ export function failureLine(reason: string | null): string {
   return FAILURE_LINES[reason] ?? CONTENT_COPY.errors.processing;
 }
 
-export function itemStatus(item: ItemStatusInput): ItemStatus {
+export function itemStatus(
+  item: ItemStatusInput & { restorableUntil?: string | Date | null }
+): ItemStatus {
   const c = CONTENT_COPY.card;
+  // Recently removed (PR 6): restorable until the purge date
+  if (item.status === "deleted") {
+    const until = item.restorableUntil ? format(new Date(item.restorableUntil), "MMM d") : "";
+    return {
+      key: "removed",
+      label: c.removedLabel,
+      tone: "draft",
+      line: until ? c.removedLine(until) : "",
+    };
+  }
   if (item.status === "blocked" || item.moderationState === "blocked") {
     return { key: "blocked", label: c.blocked, tone: "danger", line: c.blockedLine };
   }
