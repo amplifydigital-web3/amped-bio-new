@@ -14,6 +14,9 @@ const db = vi.hoisted(() => {
     $transaction: fn(),
   };
 });
+vi.mock("../services/telegram/linkCodes", () => ({
+  getOrCreateLinkCode: async () => "k7q2lm9x4a",
+}));
 vi.mock("@repo/database", () => ({ prisma: db }));
 vi.mock("../utils/auth", () => ({ auth: { api: {} } }));
 const bot = vi.hoisted(() => ({ username: "AmpedBioStagingBot" as string | null }));
@@ -127,6 +130,7 @@ describe("telegramDoor (the public page's view of the block)", () => {
       open: true,
       ruleKind: "STAKE_MIN",
       botUsername: "AmpedBioStagingBot",
+      linkCode: "k7q2lm9x4a",
     });
     expect(JSON.stringify(door)).not.toContain("250000");
   });
@@ -144,6 +148,7 @@ describe("telegramDoor (the public page's view of the block)", () => {
       open: false,
       ruleKind: "FOLLOWER",
       botUsername: null,
+      linkCode: null,
     });
   });
 

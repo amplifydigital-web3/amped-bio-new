@@ -10,10 +10,10 @@
     "dist/**"
   ],
   "scripts": {
-    "build": "tsup src/index.ts --format esm,cjs --dts --external zod",
-    "dev": "tsup src/index.ts --format esm,cjs --watch --dts",
-    "lint": "eslint .",
-    "lint:fix": "eslint . --fix --exit-on-fatal-error",
+    "build": "tsup src/index.ts --format esm,cjs --external zod && tsc --emitDeclarationOnly",
+    "dev": "tsup src/index.ts --format esm,cjs --watch --onSuccess \"tsc --emitDeclarationOnly\"",
+    "lint": "oxlint",
+    "lint:fix": "oxlint --fix",
     "test": "pnpm --filter @repo/client exec vitest run --root ../../packages/constants",
     "clean": "rm -rf .turbo && rm -rf node_modules && rm -rf dist && rm -rf coverage",
     "prepare": "pnpm run build"
@@ -24,7 +24,7 @@
   "devDependencies": {
     "@repo/typescript-config": "workspace:*",
     "tsup": "^8.4.0",
-    "typescript": "5.9.2"
+    "typescript": "catalog:"
   },
   "dependencies": {
     "zod": "3.25.64",

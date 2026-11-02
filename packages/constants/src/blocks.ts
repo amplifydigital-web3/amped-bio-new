@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { allowedPlatforms, mediaPlataforms, PlatformId } from "./platforms";
+import { safeLinkUrlSchema, safeWebUrlSchema } from "./safeHref";
 
 // TypeScript type definitions for block types
 type BaseBlockType =
@@ -12,7 +13,8 @@ type BaseBlockType =
   | "followers"
   | "rnsid"
   | "telegram_message"
-  | "telegram_group";
+  | "telegram_group"
+  | "content";
 
 export type BaseBlock<type extends BaseBlockType = any, T = any> = {
   id: number;
@@ -207,6 +209,29 @@ export const DEFAULT_TELEGRAM_GROUP_CONFIG: TelegramGroupBlockConfig = {
   label: DEFAULT_TELEGRAM_GROUP_LABEL,
 };
 
+// Content block (Build Board #20, spec 3.7, board cs4): items from the
+// creator's library on the page. Featured plays the first item inline; grid and
+// list show cards that open the item page. The config holds ids only: titles,
+// covers and whether an item may show come from the server at render, so an
+// unpublished, deleted or 18+ item never reaches a visitor.
+export type ContentBlockLayout = "featured" | "grid" | "list";
+export type ContentBlockConfig = {
+  /** Heading over the block, 0 to 40 characters. Empty shows no heading. */
+  label: string;
+  layout: ContentBlockLayout;
+  /** Content publicIds in display order, 1 to 12 */
+  publicIds: string[];
+};
+export type ContentBlock = BaseBlock<"content", ContentBlockConfig>;
+
+export const CONTENT_BLOCK_LABEL_MAX = 40;
+export const CONTENT_BLOCK_ITEMS_MAX = 12;
+export const DEFAULT_CONTENT_BLOCK_CONFIG: ContentBlockConfig = {
+  label: "Latest",
+  layout: "featured",
+  publicIds: [],
+};
+
 export const FOLLOW_LABEL_MAX = 24;
 export const FOLLOWERS_TITLE_MAX = 40;
 
@@ -231,7 +256,8 @@ export type BlockType =
   | FollowersBlock
   | RnsIdBlock
   | TelegramMessageBlock
-  | TelegramGroupBlock;
+  | TelegramGroupBlock
+  | ContentBlock;
 
 /** Block types a page holds at most once. The Add block dialog opens the existing row. */
 export const SINGLETON_BLOCK_TYPES = [
@@ -257,14 +283,16 @@ export function blockCarriesFollow(block: BlockType): boolean {
 // Define configuration schemas for each block type
 export const linkConfigSchema = z.object({
   platform: z.enum(allowedPlatforms),
-  url: z.string().url("Must be a valid URL"),
+  // D57: http, https, mailto or tel only. z.string().url() alone accepts javascript:
+  url: safeLinkUrlSchema,
   label: z.string().min(1, "Label is required"),
   hidden: z.boolean().optional(),
 });
 
 export const mediaConfigSchema = z.object({
   platform: z.enum(mediaPlataforms),
-  url: z.string().url("Must be a valid URL"),
+  // D57: embeds take http or https only
+  url: safeWebUrlSchema,
   label: z.string(),
   content: z.string().optional(),
   hidden: z.boolean().optional(),
@@ -388,6 +416,18 @@ export const telegramGroupConfigSchema = z.object({
   hidden: z.boolean().optional(),
 });
 
+export const contentBlockConfigSchema = z.object({
+  label: z.string().trim().max(CONTENT_BLOCK_LABEL_MAX).default("Latest"),
+  layout: z.enum(["featured", "grid", "list"]).default("featured"),
+  publicIds: z
+    .array(z.string().regex(/^[a-z0-9]{16}$/, "Invalid content id"))
+    .max(CONTENT_BLOCK_ITEMS_MAX)
+    // Keep the first of any repeat, in the creator's order
+    .transform(ids => [...new Set(ids)])
+    .default([]),
+  hidden: z.boolean().optional(),
+});
+
 /** The config schema for a block type. Unknown types fall back to the union. */
 const CONFIG_SCHEMAS: Record<string, z.ZodTypeAny> = {
   link: linkConfigSchema,
@@ -400,6 +440,7 @@ const CONFIG_SCHEMAS: Record<string, z.ZodTypeAny> = {
   rnsid: rnsIdConfigSchema,
   telegram_message: telegramMessageConfigSchema,
   telegram_group: telegramGroupConfigSchema,
+  content: contentBlockConfigSchema,
 };
 
 // The referral schema accepts any object, so it stays last in the fallback

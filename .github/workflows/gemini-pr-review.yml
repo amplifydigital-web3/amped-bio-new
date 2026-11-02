@@ -1,19 +1,10 @@
 name: '🧐 Gemini Pull Request Review'
 
+# Automatic triggers are disabled: GitHub Actions is blocked on this repository
+# (the account is billing-locked), so every run is reported as failed before
+# the job starts. Keeping only `workflow_dispatch` stops the red runs while the
+# workflow definition stays intact for manual runs once billing is resolved.
 on:
-  pull_request:
-    types:
-      - 'opened'
-      - 'reopened'
-  issue_comment:
-    types:
-      - 'created'
-  pull_request_review_comment:
-    types:
-      - 'created'
-  pull_request_review:
-    types:
-      - 'submitted'
   workflow_dispatch:
     inputs:
       pr_number:
