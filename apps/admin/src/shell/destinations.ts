@@ -6,8 +6,8 @@ import {
   Landmark,
   LayoutDashboard,
   Megaphone,
+  MessageCircle,
   Palette,
-  Send,
   Users,
   type LucideIcon,
 } from "lucide-react";
@@ -36,7 +36,11 @@ export interface AdminDestination {
   shortcut?: string;
   // In the mobile dock; the rest go to the More sheet
   dock: boolean;
+  /** Roles that see it. Admin only when left out. Moderators see Messaging (M7). */
+  roles?: AdminRole[];
 }
+
+export type AdminRole = "admin" | "moderator";
 
 export const GROUP_LABELS: Record<AdminGroup, string | null> = {
   start: null,
@@ -97,14 +101,18 @@ export const ADMIN_DESTINATIONS: AdminDestination[] = [
     group: "content",
     dock: false,
   },
+  // Amped Messages (Build Board #2 r4, M7, board m6): replaces Telegram in the rail. It
+  // moves under Safety when Adult Content Review ships. /telegram stays reachable (no rail
+  // item) for bot health and groups until M8 removes Telegram.
   {
-    id: "telegram",
-    path: "/telegram",
-    label: "Telegram",
-    title: "Telegram",
-    icon: Send,
+    id: "messaging",
+    path: "/messaging",
+    label: "Messaging",
+    title: "Messaging",
+    icon: MessageCircle,
     group: "content",
     dock: false,
+    roles: ["admin", "moderator"],
   },
   {
     id: "pools",
@@ -146,6 +154,26 @@ export const ADMIN_DESTINATIONS: AdminDestination[] = [
     dock: false,
   },
 ];
+
+/** The account's roles from the comma separated session role ("admin,moderator"). */
+export function rolesOf(role: string | null | undefined): AdminRole[] {
+  return (role ?? "")
+    .split(",")
+    .map(r => r.trim())
+    .filter((r): r is AdminRole => r === "admin" || r === "moderator");
+}
+
+/** Destinations this account may open, in rail order. */
+export function destinationsFor(role: string | null | undefined): AdminDestination[] {
+  const roles = rolesOf(role);
+  return ADMIN_DESTINATIONS.filter(item => (item.roles ?? ["admin"]).some(r => roles.includes(r)));
+}
+
+/** True for an account that holds moderator but not admin. */
+export function isModeratorOnly(role: string | null | undefined) {
+  const roles = rolesOf(role);
+  return roles.includes("moderator") && !roles.includes("admin");
+}
 
 /** The destination for a path; nested paths (/themes/new) belong to their parent. */
 export function destinationForPath(pathname: string): AdminDestination | undefined {
