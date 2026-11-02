@@ -3,6 +3,7 @@
 import type { CSSProperties, PointerEvent, ReactNode } from "react";
 import { ChevronRight } from "lucide-react";
 import type { AnyThemeConfig, EffectEntry, ThemeColors } from "@repo/constants";
+import { safeRenderHref } from "@repo/constants";
 import { cn } from "../utils";
 import { effectClassName, hoverSpeedMs, lookFor } from "./look";
 import { buttonSurfaceClass } from "./surface";
@@ -83,6 +84,9 @@ export function CreatorButton({
   onClick?: () => void;
   newTab?: boolean;
 }) {
+  // D57: a stored link that is not http, https, mailto, tel or a site path
+  // renders as a plain button with no href, so it can never run script
+  const link = safeRenderHref(href);
   const look = lookFor(theme);
   // Phase 2 Buttons row (board 07): Label is the v1 anatomy; Icon slot sets
   // the label beside the icon; Split adds a chevron at the right
@@ -123,7 +127,7 @@ export function CreatorButton({
         style={{ fontSize: clampedFontSize(theme), lineHeight: "20px" }}
       >
         {label}
-        {href && newTab && <span className="sr-only"> (opens in a new tab)</span>}
+        {link && newTab && <span className="sr-only"> (opens in a new tab)</span>}
       </span>
       {layout === "split" ? (
         <ChevronRight aria-hidden className="h-[21px] w-[21px] shrink-0 opacity-70" />
@@ -132,10 +136,10 @@ export function CreatorButton({
       ) : null}
     </>
   );
-  if (href) {
+  if (link) {
     return (
       <a
-        href={href}
+        href={link}
         target={newTab ? "_blank" : undefined}
         rel={newTab ? "noopener noreferrer" : undefined}
         onClick={onClick}

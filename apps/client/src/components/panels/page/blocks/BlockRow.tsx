@@ -19,7 +19,7 @@ import {
   UserPlus,
   UsersRound,
 } from "lucide-react";
-import type { BlockType } from "@repo/constants";
+import { type BlockType, safeHref } from "@repo/constants";
 import {
   Menu,
   MenuContent,
@@ -209,9 +209,10 @@ export function BlockRow({
               <MoreHorizontal aria-hidden className="h-[21px] w-[21px] text-prism-ink-2" />
             </MenuTrigger>
             <MenuContent align="end">
-              {block.type === "link" && block.config.url && (
+              {/* D57: only a safe link (http, https, mailto, tel) is offered to open */}
+              {block.type === "link" && safeHref(block.config.url) && (
                 <MenuItem asChild>
-                  <a href={block.config.url} target="_blank" rel="noopener noreferrer">
+                  <a href={safeHref(block.config.url)} target="_blank" rel="noopener noreferrer">
                     <ExternalLink aria-hidden />
                     Open link
                   </a>
