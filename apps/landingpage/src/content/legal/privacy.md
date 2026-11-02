@@ -1,6 +1,6 @@
 # Amped.Bio Privacy Policy
 
-Last updated: October 17, 2026
+Last updated: October 23, 2026
 
 This policy explains what personal information Amped.Bio collects, why, who receives it, and the choices you have. It applies to creators, fans and anyone who visits an Amped.Bio page.
 
@@ -114,6 +114,7 @@ We do not sell your personal information. We do not use it for our own advertisi
 | Provide your account, page, wallet and pools | Account, page, wallet and transaction data | Contract |
 | Keep accounts secure and stop abuse | Sessions, IP address, browser check, two factor | Legitimate interests |
 | Send account emails (verify, reset, security notices) | Email address | Contract |
+| Send RNS name expiry reminders | Email address, your RNS name and its expiry date | Contract |
 | Count visits for creators and measure the site | Cookieless visit data, Google Analytics in Consent Mode | Legitimate interests |
 | Show returning visitors | Random ID, Google Analytics cookies | Consent |
 | Creator tags and server side events | IP address, device, page events | Consent |
@@ -134,7 +135,7 @@ We do not sell your personal information. We do not use it for our own advertisi
 | --- | --- | --- |
 | netcup (Germany) | All service data: servers, MariaDB database and Redis cache | Host Amped.Bio |
 | Amazon Web Services (AWS S3) | Uploaded images and files | Store uploads |
-| SMTP2GO | Your email address and the message | Send account emails from noreply@amped.bio |
+| SMTP2GO | Your email address and the message, including your RNS name and its expiry date when we send a name expiry reminder | Send account emails from noreply@amped.bio |
 | Web3Auth | Sign in details needed for your wallet key | Create and secure your wallet |
 | Google | Sign in with Google data; Google Analytics measurements, and cookies with permission | Sign in; site measurement |
 | Anthropic | Page totals, top sources, devices, visitor counts and up to 10 link names | Write creator summaries |
@@ -184,6 +185,7 @@ Creator pages and the public site set nothing in your browser until you choose, 
 | Telegram link and delivery choice history (no IP address) | 5 years |
 | Messages between fans and creators | 12 months after the last message in the conversation |
 | Support messages | 2 years |
+| RNS name expiry reminders (your name, its expiry date, the reminder stage, the time of the reminder and how many sends failed) | While your account is open, then deleted within 30 days of closing it |
 
 On chain records on the Revolution Network and Base are permanent. We cannot delete them.
 
@@ -194,6 +196,7 @@ On chain records on the Revolution Network and Base are permanent. We cannot del
 - Change your privacy choices on any creator page from Privacy choices. Reject all is as easy as Accept all.
 - Edit or remove your page content and uploads in the editor.
 - Remove connected apps in Account settings, under Connected apps.
+- Turn off name expiry reminders in Account settings, under Name reminders.
 - Turn on two factor sign in.
 - Close your account by writing to privacy@amped.bio from the email on your account.
 
