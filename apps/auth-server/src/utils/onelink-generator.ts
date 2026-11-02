@@ -1,4 +1,6 @@
 import { prisma } from "../services/DB";
+import { HANDLE_MAX_LENGTH, HANDLE_MIN_LENGTH, generatedHandleBase } from "@repo/constants";
+import { loadAdminRows, matchReserved } from "./reservedHandles";
 
 /**
  * Extracts handle from email: part before "@", removes alias (before "+"), and removes dots
@@ -33,13 +35,26 @@ export async function isHandleAvailable(handle: string): Promise<boolean> {
 }
 
 /**
+ * Reserved handles (Build Board D2, spec 4.6): a generated handle must be free
+ * and must not be reserved. The final handle is checked, not the base.
+ */
+async function isHandleUsable(handle: string): Promise<boolean> {
+  if ((await matchReserved(handle)).reserved) return false;
+  return isHandleAvailable(handle);
+}
+
+/**
  * Generates a unique handle by appending random numbers if needed
  */
-export async function generateUniqueHandle(baseHandle: string): Promise<string> {
+export async function generateUniqueHandle(rawBase: string): Promise<string> {
+  const baseHandle = generatedHandleBase(rawBase, await loadAdminRows(), {
+    minLength: HANDLE_MIN_LENGTH,
+    maxLength: HANDLE_MAX_LENGTH,
+  });
   let handle = baseHandle;
   let attempts = 0;
 
-  while (!(await isHandleAvailable(handle))) {
+  while (!(await isHandleUsable(handle))) {
     attempts++;
     if (attempts > 10) {
       // Fallback: use a random 6-digit number

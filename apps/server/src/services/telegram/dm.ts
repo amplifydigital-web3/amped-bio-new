@@ -17,7 +17,8 @@ import { emitTelegramEvent } from "./events";
  * Messaging on Telegram (Build Board #2), phase 1, spec 3.5. The bot side of fan to
  * creator messages:
  *
- * - `/start dm_{handle}` picks the creator, checks the door and says so.
+ * - `/start m_{code}` (or the older `dm_{handle}`) picks the creator, checks the door
+ *   and says so.
  * - A text message is routed by reply context first (a creator answering a forwarded
  *   fan message, or a fan answering a creator's reply), then by the active creator
  *   in the session, then by a picker. A text sent before picking is kept for 10
@@ -127,6 +128,14 @@ async function creatorByHandle(handle: string) {
   });
 }
 
+/** A published creator by user id (the `m_{code}` payload resolves to one). */
+async function publishedCreatorById(userId: number) {
+  return prisma.user.findFirst({
+    where: { id: userId, page_status: "PUBLISHED", block: "no" },
+    select: { id: true, name: true, handle: true },
+  });
+}
+
 async function react(ctx: Context) {
   try {
     await ctx.react("👍");
@@ -208,12 +217,19 @@ function pickerKeyboard(creators: Array<{ id: number; name: string }>) {
 }
 
 /**
- * `/start dm_{handle}` from the Message me button. Called by handleStart after it has
- * granted bot access. Returns false when the payload names the caller's own page, so
- * the caller answers as a plain /start.
+ * `/start m_{code}` (or the older `dm_{handle}`) from the Message me button. Called by
+ * handleStart after it has granted bot access. Returns false when the payload names the
+ * caller's own page, so the caller answers as a plain /start.
  */
-export async function handleDmStart(ctx: Context, account: TelegramAccount, handle: string) {
-  const creator = await creatorByHandle(handle);
+export async function handleDmStart(
+  ctx: Context,
+  account: TelegramAccount,
+  target: { handle: string } | { userId: number }
+) {
+  const creator =
+    "handle" in target
+      ? await creatorByHandle(target.handle)
+      : await publishedCreatorById(target.userId);
   if (!creator) {
     await ctx.reply(TELEGRAM_BOT_STRINGS.dmNotFound);
     return true;

@@ -41,15 +41,16 @@ function PublishForm({ onDone }: { onDone: () => void }) {
   const field = usePublicUrlInput(currentHandle);
   const [publishing, setPublishing] = useState(false);
   const [failed, setFailed] = useState(false);
-  const [takenOnPublish, setTakenOnPublish] = useState(false);
+  // The server refused the handle on publish: taken, or reserved (Build Board D2)
+  const [refusedOnPublish, setRefusedOnPublish] = useState<"Unavailable" | "Reserved" | null>(null);
 
-  const status: URLStatus = takenOnPublish ? "Unavailable" : field.urlStatus;
+  const status: URLStatus = refusedOnPublish ?? field.urlStatus;
   const ready = status === "Current" || status === "Available";
 
   const onInput = (raw: string) => {
     field.onInput(raw);
     setFailed(false);
-    setTakenOnPublish(false);
+    setRefusedOnPublish(null);
   };
 
   const publish = async () => {
@@ -70,7 +71,8 @@ function PublishForm({ onDone }: { onDone: () => void }) {
       onDone();
     } catch (error) {
       const message = error instanceof Error ? error.message : "";
-      if (/taken/i.test(message)) setTakenOnPublish(true);
+      if (/reserved/i.test(message)) setRefusedOnPublish("Reserved");
+      else if (/taken/i.test(message)) setRefusedOnPublish("Unavailable");
       else setFailed(true);
     } finally {
       setPublishing(false);

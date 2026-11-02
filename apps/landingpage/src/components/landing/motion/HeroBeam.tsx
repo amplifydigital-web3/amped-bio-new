@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { MOTION, PRISM_EASE } from "@repo/ui";
+import { MOTION, PRISM_EASE, createFrameWatchdog, lowPower } from "@repo/ui";
 import { useMotionOff } from "./motionState";
 
 // Prism room light for the landing hero (Build Board #26, section 3.3).
@@ -30,19 +30,6 @@ void main(){
   col=mix(col,vec3(1.0),uOn*0.30*exp(-d*d*16.0));
   gl_FragColor=vec4(col,1.0);
 }`;
-
-/** Weak devices keep the poster: Save-Data, under 4 cores or under 4 GB memory. */
-function lowPower() {
-  const nav = navigator as Navigator & {
-    connection?: { saveData?: boolean };
-    deviceMemory?: number;
-  };
-  return (
-    Boolean(nav.connection?.saveData) ||
-    (nav.hardwareConcurrency || 8) < 4 ||
-    (nav.deviceMemory || 8) < 4
-  );
-}
 
 function compile(gl: WebGLRenderingContext, type: number, source: string) {
   const shader = gl.createShader(type);
@@ -113,26 +100,15 @@ function startBeam(
   };
 
   // Watchdog: the median of the first 45 visible frames over 28 ms keeps the poster
-  const frames: number[] = [];
-  let last = 0;
+  const watchdog = createFrameWatchdog({ onSlow });
 
   const frame = (now: number) => {
     raf = 0;
     if (!visible || document.hidden) {
-      last = 0;
+      watchdog.pause();
       return;
     }
-    if (frames.length < 45) {
-      if (last) frames.push(now - last);
-      last = now;
-      if (frames.length === 45) {
-        const median = [...frames].sort((a, b) => a - b)[22];
-        if (median > 28) {
-          onSlow();
-          return;
-        }
-      }
-    }
+    if (!watchdog.sample(now)) return;
     const elapsed = (now - start) / 1000;
     if (!finePointer) {
       // Touch: a slow ambient drift, no device tilt (decision 6)

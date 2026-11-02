@@ -51,6 +51,17 @@ gh label create migration --color 7C3AED --description "PR includes a Prisma dat
 
 ALWAYS run typecheck and build commands to validate your modifications before claiming completion. NO EXCEPTIONS. Failure to do so will result in immediate rejection of your work.
 
+Validate ONLY the workspaces your branch touches (plus the ones that depend on them), never the whole monorepo:
+
+```bash
+git fetch origin development
+pnpm run typecheck:affected
+pnpm run build:affected
+pnpm run test:affected
+```
+
+These run Turborepo's `--affected` against `origin/development` (override with `TURBO_SCM_BASE=<ref>`), so a server-only branch checks only `@repo/server`, while a change in `packages/constants` also checks every app that imports it. `test:affected` runs the server's `test:unit` (no staging/OAuth integration files). Do NOT run `pnpm run typecheck` / `pnpm run build` across all workspaces or hand-pick `--filter` lists for validation, and never run several of these heavy validations in parallel on the same machine — run them one after another.
+
 # CORE MANDATES
 
 - **CONVENTION COMPLIANCE**: You MUST strictly adhere to existing project conventions (naming, formatting, structure, architectural patterns). Analyze surrounding code, tests, and configuration first. Deviation is not acceptable.
@@ -65,6 +76,7 @@ ALWAYS run typecheck and build commands to validate your modifications before cl
 - **Styling**: Use Tailwind CSS exclusively for all styling. Creating or modifying separate CSS files is prohibited.
 - **Icons**: Prefer `lucide-react` for icons. Only use `react-icons` as a fallback if the specific icon is unavailable in `lucide-react`.
 - **Schema Validation**: Implement `zod` for all schema definitions and data validations. No other validation libraries.
+- **TypeScript**: The repo uses a single TypeScript, version 7 (the native compiler), pinned once in the pnpm catalog (`pnpm-workspace.yaml`). Every workspace declares it as `"typescript": "catalog:"`; bump the version only in the catalog. TypeScript 7 does not ship the JavaScript compiler API, so never add a tool that needs it (typescript-eslint, ts-node, ts-add-js-extension, tsup `--dts`, ...). Use instead: `oxlint` for linting (root `.oxlintrc.json`), `tsx` to run TypeScript scripts, `tsc-alias --resolve-full-paths` to add `.js` extensions to Node builds, and `tsc --emitDeclarationOnly` for `.d.ts` files. TypeScript 7 no longer loads every `@types/*` package by default, so list global types in `compilerOptions.types` (e.g. `["node"]`) and import test helpers from `vitest` explicitly.
 - **Alerts & Warnings**: When implementing alerts or warnings, style them using Tailwind CSS classes and include an appropriate icon from `lucide-react`.
 - **Browser Automation**: When viewing or interacting with websites in the browser, use the `agent-browser` MCP exclusively. Do NOT use `playwright` or any other browser automation tool.
 

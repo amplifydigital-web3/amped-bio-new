@@ -78,6 +78,7 @@ export function PaymentsLog() {
           "Reason",
           "Drafted by",
           "Approved by",
+          "Rejected by",
           "Status",
           "Note",
           "Applied at",
@@ -94,6 +95,7 @@ export function PaymentsLog() {
           change.reason,
           who(change.draftedBy, change.draftedById),
           who(change.approvedBy, change.approvedById),
+          who(change.rejectedBy, change.rejectedById),
           changeStatus(change).label,
           change.decisionNote,
           change.appliedAt,
@@ -247,6 +249,11 @@ export function PaymentsLog() {
                   </td>
                   <td className={`${tdClass} py-3`}>
                     <StatusBadge change={change} />
+                    {change.rejectedById && (
+                      <span className="mt-1 block text-prism-meta text-prism-ink-2">
+                        by {who(change.rejectedBy, change.rejectedById)}
+                      </span>
+                    )}
                     {change.decisionNote && change.status === "rejected" && (
                       <span className="mt-1 block max-w-[220px] text-prism-meta text-prism-ink-2">
                         {change.decisionNote}

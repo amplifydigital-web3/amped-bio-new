@@ -15,6 +15,7 @@ CREATE TABLE `admin_changes` (
     `status` VARCHAR(16) NOT NULL,
     `drafted_by_id` INTEGER NOT NULL,
     `approved_by_id` INTEGER NULL,
+    `rejected_by_id` INTEGER NULL,
     `decision_note` VARCHAR(500) NULL,
     `safe_tx_hash` VARCHAR(66) NULL,
     `tx_hash` VARCHAR(66) NULL,

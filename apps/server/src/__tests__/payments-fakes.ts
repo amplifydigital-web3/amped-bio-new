@@ -56,6 +56,7 @@ export const db: Row = {
       const row = {
         effectiveAt: null,
         approvedById: null,
+        rejectedById: null,
         decisionNote: null,
         safeTxHash: null,
         txHash: null,
@@ -110,6 +111,8 @@ export const db: Row = {
   },
 };
 db.$transaction = vi.fn(async (fn: (tx: Row) => unknown) => fn(db));
+// Tagged template: the lock key arrives as the first interpolated value
+db.$executeRaw = vi.fn(async () => 1);
 
 export const verifyTOTP = vi.fn();
 

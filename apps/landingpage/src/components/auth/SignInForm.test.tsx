@@ -35,6 +35,8 @@ vi.mock("@/hooks/useReferralHandler", () => ({
   useReferralHandler: () => ({ getReferrerId: () => null }),
 }));
 vi.mock("@/lib/panel", () => ({
+  authSwitchHref: (path: string, _params: URLSearchParams, email?: string) =>
+    email ? `${path}?email=${encodeURIComponent(email)}` : path,
   getSafeRedirect: mocks.getSafeRedirect,
   getPostAuthDestination: mocks.getPostAuthDestination,
   goTo: mocks.goTo,

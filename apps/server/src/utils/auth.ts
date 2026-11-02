@@ -18,6 +18,8 @@ import { JWTPayload, SignJWT } from "jose";
 import type { EnrichedUser } from "../types/auth-helpers";
 import { uuidv7 } from "./uuid-v7";
 import { createOnboardingRecord } from "./onboarding";
+import { checkSignUpHandle, refuseHandleUpdate } from "./handleHooks";
+import { matchReserved } from "../services/reservedHandles";
 
 /**
  * Google sign up from the register card sends the claimed handle and the
@@ -26,9 +28,9 @@ import { createOnboardingRecord } from "./onboarding";
  * validated and checked for availability again; anything else is ignored.
  */
 async function readSocialSignUpState(
- options: { checkAvailable?: boolean } = {}
+  options: { checkAvailable?: boolean } = {}
 ): Promise<{ handle?: string; referrerId?: number; fanSignUp?: boolean }> {
- const { checkAvailable = true } = options;
+  const { checkAvailable = true } = options;
   try {
     const state = await getOAuthState<{
       handle?: unknown;
@@ -39,7 +41,13 @@ async function readSocialSignUpState(
     const result: { handle?: string; referrerId?: number; fanSignUp?: boolean } = {};
     if (state.intent === "follow") result.fanSignUp = true;
     const handle = typeof state.handle === "string" ? state.handle.trim().toLowerCase() : "";
-    if (handle.length >= HANDLE_MIN_LENGTH && HANDLE_REGEX.test(handle)) {
+    // Reserved handles (Build Board D2): a reserved word in the state is dropped,
+    // so the account falls back to a generated handle
+    if (
+      handle.length >= HANDLE_MIN_LENGTH &&
+      HANDLE_REGEX.test(handle) &&
+      !(await matchReserved(handle)).reserved
+    ) {
       // After the account exists the handle is its own, so the after hook skips this
       const taken = checkAvailable
         ? await prisma.user.findFirst({ where: { handle }, select: { id: true } })
@@ -350,8 +358,19 @@ export const auth = betterAuth({
   },
   databaseHooks: {
     user: {
+      // Reserved handles (Build Board D2, spec 4.8): /update-user never sets a handle
+      update: {
+        before: async (data: any) => {
+          refuseHandleUpdate(data);
+        },
+      },
       create: {
         before: async (user: any, context: any) => {
+          // Reserved handles (Build Board D2, spec 4.4): a handle the person
+          // sent passes the same format and reserved rules as Public URL
+          const supplied = await checkSignUpHandle(user.handle);
+          if (supplied) user.handle = supplied;
+
           // Fan Graph (#22): sign up from Follow makes a fan account. Its handle
           // comes from the name, never the email, and it publishes no page.
           const fanSignUp =

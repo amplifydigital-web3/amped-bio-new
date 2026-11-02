@@ -24,6 +24,10 @@ Build Board #50. Spec: `docs/features/ampedpay.md` 3.3 to 3.9 (PR #373, approved
 - Every draft, approval, rejection and pause asks for a fresh authenticator code. better-auth checks the code (`auth.api.verifyTOTP` with the session), so the stored secret never leaves the auth library. 5 wrong codes in 15 minutes lock payments changes for that account for 15 minutes.
 - **Two person rule (decision 1, acceptance 4).** A draft applies only after a different `payments_admin` approves it. The drafter's own approval is refused. The settings write and the status change run in one transaction, and the status update is conditional, so two admins cannot apply one change twice.
 - One open change per value. A second draft for the same value is refused while one waits.
+- Every draft, approval, pause and scheduled apply runs in one transaction that first locks the `payments_change_lock` row in `site_settings`, then reads the values from the database. Two admins acting at once run one after the other, so one open change per value and the rules between values (fee plus promoter maximum, unlock after and final after, the gas lines) hold under concurrency.
+- Values are also checked against approved changes still waiting for their date, so a promoter maximum cannot pass today and break the creator minimum when a scheduled fee increase lands.
+- A fee increase must still give 30 days notice on the day it is approved, not only on the day it was drafted.
+- A rejection or cancellation stores the admin in `rejected_by_id`; `approved_by_id` only ever holds the approver.
 - If the value changed after the draft, approval marks the draft Superseded and asks for a new draft.
 - **Pause** applies at once by one `payments_admin` with a reason, and is logged with "Not needed for pause". **Resume** is drafted and approved like any change (spec 3.5).
 - **Platform fee dates (decision 4).** An increase needs a date at least 30 days out. A decrease applies on approval or on a chosen date. An approved change with a future date reads Scheduled and applies on that date the next time settings are read.

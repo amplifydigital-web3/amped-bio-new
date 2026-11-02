@@ -4,7 +4,12 @@ import { getFileUrl } from "../utils/fileUrlResolver";
 import { ThemeConfig } from "@repo/constants";
 import { prisma } from "@repo/database";
 import { z } from "zod";
-import { HANDLE_MIN_LENGTH, HANDLE_REGEX, sanitizeRichText } from "@repo/constants";
+import {
+  HANDLE_MIN_LENGTH,
+  HANDLE_REGEX,
+  publicReservedReason,
+  sanitizeRichText,
+} from "@repo/constants";
 import { sanitizeBlockConfig } from "../utils/sanitizeBlockConfig";
 import { logger } from "better-auth";
 import { getPublicTrackingPixels } from "./trackingPixels";
@@ -17,7 +22,12 @@ import {
   rnsIdBlockOptions,
   type PublicRnsIdentity,
 } from "../services/rnsIdentity";
-import { assertHandleAvailable, newHandleSchema } from "../services/pageHandle";
+import { changeHandle, newHandleSchema } from "../services/pageHandle";
+import { matchReserved } from "../services/reservedHandles";
+import { enforceRateLimits } from "../utils/rateLimit";
+import { getVisitorIp } from "../services/analytics/visitorIp";
+import { publicCardsFor } from "../services/content/publicView";
+import type { ContentBlockConfig, ContentCard } from "@repo/constants";
 
 export const SITEMAP_MAX_PAGE_SIZE = 10000;
 
@@ -70,26 +80,44 @@ function settledOrFallback<T>(result: PromiseSettledResult<T>, fallback: T, labe
 }
 
 const appRouter = router({
-  // Check if a handle is available for use
-  checkAvailability: publicProcedure.input(handleParamSchema).query(async ({ input }) => {
+  // Check if a handle is available for use. Reserved handles (Build Board D2,
+  // spec 4.3): a reserved word answers reason "reserved", or "taken" for
+  // partner and hold words (A5). The account lookup always runs, so reserved
+  // and free words take the same time. Limited per IP.
+  checkAvailability: publicProcedure.input(handleParamSchema).query(async ({ ctx, input }) => {
     const { handle } = input;
 
+    const ip = getVisitorIp(ctx.req).ip || "unknown";
+    await enforceRateLimits(
+      [{ key: `handle-check:${ip}`, limit: 60, windowSeconds: 60 }],
+      "Too many checks. Try again in a minute."
+    );
+
     try {
-      const count = await prisma.user.count({
-        where: {
-          OR: [
-            { handle: handle },
-            { handle: handle.toLowerCase() },
-            { handle: handle.toUpperCase() },
-          ],
-        },
-      });
+      const [count, match] = await Promise.all([
+        prisma.user.count({
+          where: {
+            OR: [
+              { handle: handle },
+              { handle: handle.toLowerCase() },
+              { handle: handle.toUpperCase() },
+            ],
+          },
+        }),
+        matchReserved(handle),
+      ]);
+
+      const reservedReason = publicReservedReason(match);
+      if (reservedReason) {
+        return { available: false, handle, reason: reservedReason };
+      }
 
       const available = count === 0;
 
       return {
         available,
         handle,
+        reason: available ? null : ("taken" as const),
       };
     } catch (error) {
       throw new TRPCError({
@@ -107,16 +135,7 @@ const appRouter = router({
       const userId = ctx.user!.sub;
 
       try {
-        await assertHandleAvailable(prisma, newHandle);
-
-        await prisma.user.update({
-          where: {
-            id: userId,
-          },
-          data: {
-            handle: newHandle,
-          },
-        });
+        await changeHandle(prisma, userId, newHandle);
 
         return {
           success: true,
@@ -165,7 +184,7 @@ const appRouter = router({
             where: {
               walletId: user.wallet.id,
               poolAddress: { not: null },
-              OR: [{ hidden: false }, { hidden: null }],
+              hidden: false,
             },
             orderBy: { id: "desc" },
             select: { poolAddress: true },
@@ -196,6 +215,11 @@ const appRouter = router({
 
       const blockOptions = rnsIdBlockOptions(blockRows);
       const hasTelegramMessageBlock = blockRows.some(block => block.type === "telegram_message");
+      // Content blocks (#20, spec 3.7): cards for the ids they hold, read once per page
+      const contentIds = blockRows
+        .filter(block => block.type === "content")
+        .flatMap(block => (block.config as Partial<ContentBlockConfig> | null)?.publicIds ?? [])
+        .filter((id): id is string => typeof id === "string");
       const [
         themeResult,
         imageResult,
@@ -203,6 +227,7 @@ const appRouter = router({
         trackingPixelsResult,
         telegramResult,
         doorResult,
+        contentResult,
       ] = await Promise.allSettled([
         getPublicTheme(Number(theme_id)),
         getFileUrl({
@@ -222,6 +247,11 @@ const appRouter = router({
         showsTelegramMark(user_id),
         // Row 115: the Message me block's door, read only when the page carries the block
         hasTelegramMessageBlock ? telegramDoor(user_id) : Promise.resolve(null),
+        // Public items only; drafts, 18+ and deleted ids are left out, and a
+        // suspended page shows none, as getReadUrl would refuse them. Fails closed.
+        contentIds.length && user.page_status === "PUBLISHED" && user.block === "no"
+          ? publicCardsFor(user_id, contentIds)
+          : Promise.resolve({} as Record<string, ContentCard>),
       ]);
 
       // The theme is the profile itself, so its failure is fatal
@@ -270,6 +300,11 @@ const appRouter = router({
         hasCreatorPool,
         creatorPoolAddress,
         trackingPixels: settledOrFallback(trackingPixelsResult, null, "tracking pixels"),
+        contentCards: settledOrFallback(
+          contentResult,
+          {} as Record<string, ContentCard>,
+          "content cards"
+        ),
         indexable: isUserIndexable(user, publicBlocks.length),
       };
 
