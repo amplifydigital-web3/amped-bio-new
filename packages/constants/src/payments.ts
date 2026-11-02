@@ -15,6 +15,7 @@
  *   eth         decimal ETH with at most 6 places, "0.05"
  *   handles     comma separated lowercase handles
  *   address     0x address (contract values only)
+ *   address_list comma separated 0x addresses; a change is "add:0x..." or "remove:0x..."
  */
 
 export const PAYMENTS_ADMIN_ROLE = "payments_admin";
@@ -28,7 +29,8 @@ export type PaymentValueKind =
   | "bps_range"
   | "eth"
   | "handles"
-  | "address";
+  | "address"
+  | "address_list";
 
 export type PaymentTarget = "server" | "contract" | "fixed";
 
@@ -51,7 +53,11 @@ export const PAYMENT_GROUP_ORDER: PaymentGroup[] = [
   "relayer",
 ];
 
-/** Contract constants and deploy defaults (spec 3.2). PAY-A2 reads the live values from Base. */
+/**
+ * Contract constants and deploy defaults (spec 3.2). The server reads the live values from
+ * the contract and falls back to these defaults when the contract is not deployed or the
+ * read fails.
+ */
 export const AMPEDPAY_CONTRACT = {
   BPS: 10_000,
   MAX_FEE_BPS: 1_000,
@@ -116,6 +122,16 @@ export const PAYMENT_ITEMS: PaymentItem[] = [
     kind: "bool",
     defaultValue: "false",
     allowed: "On or off",
+    hidden: true,
+  }),
+  contract({
+    id: "contract_paused",
+    label: "Pause contract",
+    hint: "Stops pay and refund on chain",
+    group: "status",
+    kind: "bool",
+    defaultValue: "false",
+    allowed: "Pause at once; resume through the Safe",
     hidden: true,
   }),
 
@@ -300,9 +316,9 @@ export const PAYMENT_ITEMS: PaymentItem[] = [
     id: "relayers",
     label: "Relayers allowed to submit",
     group: "relayer",
-    kind: "address",
+    kind: "address_list",
     defaultValue: null,
-    allowed: "Add or remove",
+    allowed: "Add or remove one at a time",
   }),
   contract({
     id: "splitSigner",
@@ -416,7 +432,9 @@ export function formatPaymentValue(item: PaymentItem, value: string | null | und
   if (value === null || value === undefined) return "Not set";
   switch (item.kind) {
     case "bool":
-      if (item.id === "payments_paused") return value === "true" ? "Paused" : "Open";
+      if (item.id === "payments_paused" || item.id === "contract_paused") {
+        return value === "true" ? "Paused" : "Open";
+      }
       return value === "true" ? "On" : "Off";
     case "bps":
       return formatBps(value);
@@ -443,5 +461,20 @@ export function formatPaymentValue(item: PaymentItem, value: string | null | und
     }
     case "address":
       return value;
+    case "address_list": {
+      const change = parseAddressListChange(value);
+      if (change) return `${change.action === "add" ? "Add" : "Remove"} ${change.address}`;
+      const addresses = value.split(",").filter(Boolean);
+      return addresses.length === 0 ? "None" : plural(addresses.length, "relayers");
+    }
   }
+}
+
+/** "add:0xabc" or "remove:0xabc" to its parts, or null for a plain list. */
+export function parseAddressListChange(
+  value: string
+): { action: "add" | "remove"; address: string } | null {
+  const match = /^(add|remove):(0x[0-9a-fA-F]{40})$/.exec(value.trim());
+  if (!match) return null;
+  return { action: match[1] as "add" | "remove", address: match[2]! };
 }

@@ -4,7 +4,7 @@ import { ErrorCard, Notice, Skeleton, Button, trpc } from "@repo/ui";
 import { PAYMENT_GROUP_LABELS, PAYMENT_GROUP_ORDER } from "@repo/constants";
 import { SlabTable, rowClass, stickyCell, tdClass, thClass } from "../../kit/Slab";
 import { WordBadge } from "../../kit/WordBadge";
-import { formatDay } from "../../kit/format";
+import { formatDay, formatDayTime, shortHex } from "../../kit/format";
 import { DraftSheet, ReviewSheet } from "./ChangeSheet";
 import {
   PaymentsNav,
@@ -16,11 +16,13 @@ import {
 } from "./shared";
 
 // Board a2, Payments Settings (spec 3.3, 3.4, 3.8). Every AmpedPay value grouped as on
-// the board: current value, allowed range, where it lives, last change. Server values
-// open the change sheet; on chain values change through the Safe (PAY-A2); fixed values
-// never change. Items changed outside Amped.Bio are listed with where they change.
+// the board: current value, allowed range, where it lives, last change. Server and on chain
+// values open the change sheet; on chain values read live from the contract and, once a
+// second admin approves, go to the Safe. Fixed values never change. Items changed outside
+// Amped.Bio are listed with where they change.
 
 function lastChangeText(row: PaymentSettingRow): string {
+  if (row.lastChange?.outsidePortal) return `${formatDay(row.lastChange.appliedAt)}, Safe owners`;
   if (row.lastChange) {
     return `${formatDay(row.lastChange.appliedAt)}, ${who(row.lastChange.approvedBy ?? row.lastChange.draftedBy, row.lastChange.approvedById ?? row.lastChange.draftedById)}`;
   }
@@ -31,16 +33,27 @@ function lastChangeText(row: PaymentSettingRow): string {
 function ActionCell({
   row,
   viewer,
+  contractLive,
   onChange,
   onReview,
 }: {
   row: PaymentSettingRow;
   viewer: PaymentsViewer | undefined;
+  contractLive: boolean;
   onChange: (row: PaymentSettingRow) => void;
   onReview: (change: PaymentChange) => void;
 }) {
   if (row.waiting) {
     const mine = viewer?.userId === row.waiting.draftedById;
+    if (row.waiting.status === "proposed" || row.waiting.status === "approved") {
+      if (row.waiting.target === "contract") {
+        return (
+          <Button variant="secondary" onClick={() => onReview(row.waiting!)}>
+            In the Safe
+          </Button>
+        );
+      }
+    }
     if (!viewer?.canChange || row.waiting.status !== "draft") {
       return (
         <WordBadge tone={row.waiting.scheduled ? "nav" : "warning"}>
@@ -56,12 +69,11 @@ function ActionCell({
       </Button>
     );
   }
-  if (row.target !== "server") {
-    return (
-      <span className="text-prism-meta text-prism-ink-2">
-        {row.target === "fixed" ? "Cannot change" : "Through the Safe"}
-      </span>
-    );
+  if (row.target === "fixed") {
+    return <span className="text-prism-meta text-prism-ink-2">Cannot change</span>;
+  }
+  if (row.target === "contract" && !contractLive) {
+    return <span className="text-prism-meta text-prism-ink-2">Needs a live contract read</span>;
   }
   if (!viewer?.canChange) return null;
   return (
@@ -76,16 +88,44 @@ function ActionCell({
   );
 }
 
+function CurrentValue({ row }: { row: PaymentSettingRow }) {
+  if (row.kind === "address_list") {
+    const addresses = (row.value ?? "").split(",").filter(Boolean);
+    if (row.value === null) return <span className="font-normal text-prism-ink-2">Not read</span>;
+    if (addresses.length === 0) return <>None</>;
+    return (
+      <span className="block space-y-1">
+        {addresses.map(address => (
+          <span key={address} className="block font-mono text-prism-meta" title={address}>
+            {shortHex(address)}
+          </span>
+        ))}
+      </span>
+    );
+  }
+  if (row.kind === "address") {
+    if (!row.value) return <span className="font-normal text-prism-ink-2">Not read</span>;
+    return (
+      <span className="font-mono text-prism-meta" title={row.value}>
+        {shortHex(row.value)}
+      </span>
+    );
+  }
+  return <>{row.valueText}</>;
+}
+
 function GroupTable({
   title,
   rows,
   viewer,
+  contractLive,
   onChange,
   onReview,
 }: {
   title: string;
   rows: PaymentSettingRow[];
   viewer: PaymentsViewer | undefined;
+  contractLive: boolean;
   onChange: (row: PaymentSettingRow) => void;
   onReview: (change: PaymentChange) => void;
 }) {
@@ -130,13 +170,7 @@ function GroupTable({
               <td
                 className={`${tdClass} whitespace-nowrap text-prism-label font-semibold tabular-nums text-prism-ink`}
               >
-                {row.kind === "address" && row.value ? (
-                  <span className="font-mono text-prism-meta">{row.value}</span>
-                ) : row.kind === "address" ? (
-                  <span className="font-normal text-prism-ink-2">Read with the Safe flow</span>
-                ) : (
-                  row.valueText
-                )}
+                <CurrentValue row={row} />
               </td>
               <td className={`${tdClass} text-prism-label text-prism-ink-2`}>{row.allowed}</td>
               <td className={tdClass}>
@@ -146,7 +180,13 @@ function GroupTable({
                 {lastChangeText(row)}
               </td>
               <td className={`${tdClass} py-2 text-right`}>
-                <ActionCell row={row} viewer={viewer} onChange={onChange} onReview={onReview} />
+                <ActionCell
+                  row={row}
+                  viewer={viewer}
+                  contractLive={contractLive}
+                  onChange={onChange}
+                  onReview={onReview}
+                />
               </td>
             </tr>
           ))}
@@ -211,10 +251,22 @@ export function PaymentsSettings() {
           <WhereBadge target="fixed" /> Set in the audited contract, cannot change
         </span>
       </div>
-      {settings.data.contractSource === "deploy" && (
+      {settings.data.contractSource === "deploy" && !settings.data.contractDeployed && (
         <Notice variant="info" title="On chain values show the deploy defaults.">
-          <p>They are read from Base once the contract is deployed and the Safe flow ships.</p>
+          <p>
+            AmpedPay is not deployed in this environment. They are read from Base after the deploy.
+          </p>
         </Notice>
+      )}
+      {settings.data.contractReadFailed && (
+        <Notice variant="warning" title="The contract did not answer.">
+          <p>On chain values show the deploy defaults. On chain changes wait for a live read.</p>
+        </Notice>
+      )}
+      {settings.data.contractSource === "chain" && settings.data.readAt && (
+        <p className="text-prism-meta text-prism-ink-2">
+          On chain values read from Base at {formatDayTime(settings.data.readAt)}.
+        </p>
       )}
       {viewer.data && !viewer.data.canChange && (
         <Notice variant="info" title="You can view payment settings.">
@@ -230,6 +282,7 @@ export function PaymentsSettings() {
             title={PAYMENT_GROUP_LABELS[group]}
             rows={rows}
             viewer={viewer.data}
+            contractLive={settings.data.contractSource === "chain"}
             onChange={setEditing}
             onReview={setReview}
           />
@@ -273,6 +326,7 @@ export function PaymentsSettings() {
       <ReviewSheet
         change={review}
         viewer={viewer.data}
+        explorerUrl={viewer.data?.explorerUrl ?? null}
         open={review !== null}
         onOpenChange={open => !open && setReview(null)}
       />

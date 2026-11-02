@@ -5,9 +5,11 @@ import { adminProcedure, router } from "../trpc";
 import {
   AdminChangeError,
   approveChange,
+  changeSafeDetails,
   draftChange,
   exportChanges,
   listChanges,
+  pauseContract,
   pausePayments,
   rejectChange,
   settingsView,
@@ -23,7 +25,8 @@ import { assertTwoFactorCode } from "../../services/payments/twoFactor";
  * Admin, Payments (Build Board #50, spec docs/features/ampedpay.md 3.5, 3.8, 3.9).
  * Every admin reads every value (acceptance 8). Only a payments_admin changes one, with a
  * fresh two factor code, and a second payments_admin approves it (acceptance 4). Pause
- * applies at once; Resume follows the two person rule.
+ * applies at once; Resume follows the two person rule. On chain changes go to the Safe
+ * after approval (spec 3.6); the contract pause goes through the pauser account.
  */
 
 const paymentsAdminProcedure = adminProcedure.use(({ ctx, next }) => {
@@ -77,6 +80,14 @@ export const paymentsAdminRouter = router({
       ),
 
     export: adminProcedure.query(() => exportChanges()),
+
+    safe: adminProcedure.input(z.object({ id: changeId })).query(async ({ input }) => {
+      try {
+        return await changeSafeDetails(input.id);
+      } catch (error) {
+        asTrpc(error);
+      }
+    }),
 
     draft: paymentsAdminProcedure
       .input(
@@ -137,6 +148,17 @@ export const paymentsAdminRouter = router({
       await assertTwoFactorCode(ctx.user!.sub, input.code, ctx.req.headers);
       try {
         return await pausePayments({ userId: ctx.user!.sub, reason: input.reason });
+      } catch (error) {
+        asTrpc(error);
+      }
+    }),
+
+  pauseContract: paymentsAdminProcedure
+    .input(z.object({ reason, code }))
+    .mutation(async ({ ctx, input }) => {
+      await assertTwoFactorCode(ctx.user!.sub, input.code, ctx.req.headers);
+      try {
+        return await pauseContract({ userId: ctx.user!.sub, reason: input.reason });
       } catch (error) {
         asTrpc(error);
       }

@@ -1,4 +1,4 @@
-import { getAddress, isAddress, parseEther } from "viem";
+import { parseEther } from "viem";
 import { prisma } from "@repo/database";
 import {
   AMPEDPAY_CONTRACT,
@@ -11,6 +11,7 @@ import {
   type PaymentItem,
 } from "@repo/constants";
 import { env } from "../../env";
+import { readContractState, safeAddress, type ContractState } from "./onchain";
 
 /**
  * AmpedPay settings (Build Board #50, spec docs/features/ampedpay.md 3.3). Every server
@@ -29,9 +30,12 @@ export const PAYMENT_SETTING_KEYS: string[] = PAYMENT_ITEMS.filter(
   item => item.target === "server"
 ).flatMap(item => item.keys);
 
-/** Contract values the server bounds depend on (spec 3.2). Deploy defaults until PAY-A2 reads Base. */
+/**
+ * Contract values the server bounds depend on (spec 3.2). Read from the contract when it is
+ * deployed and answers; the deploy defaults otherwise.
+ */
 export interface ContractLimits {
-  source: "deploy";
+  source: "chain" | "deploy";
   feeFloorBps: number;
   minCreatorBps: number;
   maxRecipients: number;
@@ -53,10 +57,35 @@ export function contractLimits(): ContractLimits {
   };
 }
 
-/** Stored value of every contract item, for Settings. Addresses come from the deploy (env). */
-export function contractValues(limits = contractLimits()): Record<string, string | null> {
-  const safe =
-    env.AMPEDPAY_SAFE && isAddress(env.AMPEDPAY_SAFE) ? getAddress(env.AMPEDPAY_SAFE) : null;
+/** The live contract limits, or the deploy defaults when the contract is not readable. */
+export async function liveContractLimits(now = Date.now()): Promise<ContractLimits> {
+  const state = await readContractState(now);
+  if (!state?.ok) return contractLimits();
+  return limitsFromState(state.value);
+}
+
+export function limitsFromState(state: ContractState): ContractLimits {
+  return {
+    source: "chain",
+    feeFloorBps: state.feeFloorBps,
+    minCreatorBps: state.minCreatorBps,
+    maxRecipients: state.maxRecipients,
+    maxSplitValidity: state.maxSplitValidity,
+    minPayment: state.minPayment,
+    maxPayment: state.maxPayment,
+  };
+}
+
+/**
+ * Stored value of every contract item, for Settings. With a live read the addresses and the
+ * pause come from the contract; otherwise from the deploy (env) where known.
+ */
+export function contractValues(
+  limits = contractLimits(),
+  state: ContractState | null = null,
+  relayers: string[] | null = null
+): Record<string, string | null> {
+  const safe = safeAddress() ?? null;
   return {
     feeFloorBps: String(limits.feeFloorBps),
     MAX_FEE_BPS: String(AMPEDPAY_CONTRACT.MAX_FEE_BPS),
@@ -66,10 +95,10 @@ export function contractValues(limits = contractLimits()): Record<string, string
     minPayment: limits.minPayment.toString(),
     maxPayment: limits.maxPayment.toString(),
     // Decision 3: each environment's Safe is also its treasury
-    treasury: safe,
-    // Read from the contract roles in PAY-A2
-    splitSigner: null,
-    relayers: null,
+    treasury: state?.treasury ?? safe,
+    splitSigner: state?.splitSigner ?? null,
+    relayers: relayers ? relayers.join(",") : null,
+    contract_paused: state ? String(state.paused) : null,
   };
 }
 
