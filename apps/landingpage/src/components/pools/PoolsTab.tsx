@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import React, { useEffect, useMemo, useState } from "react";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import { formatEther } from "viem";
 import { useChainId } from "wagmi";
 import Decimal from "decimal.js";
@@ -16,6 +16,7 @@ import PoolSkeleton from "./PoolSkeleton";
 export type PoolFilter = "all" | "no-fans" | "more-than-10-fans" | "more-than-10k-stake";
 export type PoolSort = "newest" | "name-asc" | "name-desc" | "most-fans" | "most-staked";
 
+// Same as POOLS_PAGE_SIZE in lib/getPoolsData (the SSR first page)
 const PAGE_SIZE = 24;
 
 // Total staked as the contract reports it (creator plus fan stake, D28):
@@ -50,8 +51,8 @@ function useDelayed(active: boolean, ms: number) {
 }
 
 // Pools grid (Screen Review 070): section 9 Medium cards where the whole card
-// is the link, 24 per step with Show more, and the empty, no results, loading
-// and error states.
+// is the link, 24 per page with Show more (pools.list.listPools, D7 PL3), and
+// the empty, no results, loading and error states.
 const PoolsTab: React.FC<PoolsTabProps> = ({
   searchQuery,
   poolFilter,
@@ -63,29 +64,37 @@ const PoolsTab: React.FC<PoolsTabProps> = ({
 }) => {
   const chainId = useChainId();
   const isDefaultQuery = !searchQuery && poolFilter === "all" && poolSort === "newest";
-  const [limit, setLimit] = useState(PAGE_SIZE);
 
-  const {
-    data: pools,
-    isFetching,
-    isError,
-    refetch,
-  } = useQuery({
-    ...trpc.pools.fan.getPools.queryOptions({
-      chainId: chainId.toString(),
-      search: searchQuery,
-      filter: poolFilter,
-      sort: poolSort,
-    }),
+  const query = useInfiniteQuery({
+    ...trpc.pools.list.listPools.infiniteQueryOptions(
+      {
+        chainId: chainId.toString(),
+        search: searchQuery,
+        filter: poolFilter,
+        sort: poolSort,
+        limit: PAGE_SIZE,
+      },
+      { getNextPageParam: last => last.nextCursor ?? undefined }
+    ),
     enabled: !!chainId,
-    // The SSR list matches the default query only
-    initialData: isDefaultQuery ? (initialData ?? undefined) : undefined,
+    // The SSR first page matches the default query only
+    initialData:
+      isDefaultQuery && initialData ? { pages: [initialData], pageParams: [null] } : undefined,
   });
+  const { data, isFetching, isError, refetch } = query;
 
-  useEffect(() => setLimit(PAGE_SIZE), [searchQuery, poolFilter, poolSort]);
-
-  const total = pools?.length ?? 0;
-  const shown = Math.min(limit, total);
+  // A pool whose stake moves between two page loads can come back on a later
+  // page. Keep the first copy (spec acceptance 2).
+  const pools = useMemo(() => {
+    if (!data) return undefined;
+    const seen = new Set<number>();
+    return data.pages
+      .flatMap(page => page.pools)
+      .filter(pool => (seen.has(pool.id) ? false : (seen.add(pool.id), true)));
+  }, [data]);
+  // The total comes with the first page only
+  const total = data?.pages[0]?.total ?? 0;
+  const shown = Math.min(pools?.length ?? 0, total);
   useEffect(() => {
     // No count until the list has loaded, so a pending query never reads as 0 pools
     if (pools) onCount?.(shown, total);
@@ -113,7 +122,7 @@ const PoolsTab: React.FC<PoolsTabProps> = ({
     ) : null;
   }
 
-  if (total === 0) {
+  if (pools.length === 0) {
     if (searchQuery) {
       return (
         <EmptyState
@@ -157,7 +166,7 @@ const PoolsTab: React.FC<PoolsTabProps> = ({
   return (
     <div className="space-y-[34px]">
       <ul data-pool-grid className="grid grid-cols-1 gap-[21px] sm:grid-cols-2 lg:grid-cols-4">
-        {pools.slice(0, shown).map(pool => {
+        {pools.map(pool => {
           const symbol = getChainConfig(parseInt(pool.chainId))?.nativeCurrency.symbol || "tREVO";
           const staked = `${formatStaked(pool.stakedAmount ?? 0)} ${symbol}`;
           const fans = `${(pool.fans ?? 0).toLocaleString("en-US")} ${pool.fans === 1 ? "fan" : "fans"}`;
@@ -180,23 +189,36 @@ const PoolsTab: React.FC<PoolsTabProps> = ({
           );
         })}
       </ul>
-      {shown < total && (
-        <div className="flex justify-center">
-          <Button
-            variant="secondary"
-            className="w-full sm:w-auto"
-            onClick={() => {
-              setLimit(value => value + PAGE_SIZE);
-              // Focus moves to the first new card
-              requestAnimationFrame(() => {
-                const cards = document.querySelectorAll<HTMLAnchorElement>("[data-pool-grid] li a");
-                cards[shown]?.focus();
-              });
-            }}
-          >
-            Show more pools
-          </Button>
-        </div>
+      {query.isFetchNextPageError ? (
+        <ErrorCard
+          title="Pools did not load"
+          cause="Check your connection and try again."
+          onRetry={() => void query.fetchNextPage()}
+          retryLabel="Retry"
+        />
+      ) : (
+        query.hasNextPage && (
+          <div className="flex justify-center">
+            <Button
+              variant="secondary"
+              className="w-full sm:w-auto"
+              disabled={query.isFetchingNextPage}
+              onClick={() => {
+                const before = pools.length;
+                void query.fetchNextPage().then(() => {
+                  // Focus moves to the first new card
+                  requestAnimationFrame(() => {
+                    const cards =
+                      document.querySelectorAll<HTMLAnchorElement>("[data-pool-grid] li a");
+                    cards[before]?.focus();
+                  });
+                });
+              }}
+            >
+              {query.isFetchingNextPage ? "Loading" : "Show more pools"}
+            </Button>
+          </div>
+        )
       )}
     </div>
   );

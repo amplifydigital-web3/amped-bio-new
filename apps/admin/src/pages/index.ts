@@ -9,3 +9,6 @@ export { AdminOAuthClients } from "./AdminOAuthClients";
 export { AdminBroadcasts } from "./AdminBroadcasts";
 export { AdminTelegram } from "./AdminTelegram";
 export { AdminMoney } from "./AdminMoney";
+export { PaymentsOverview } from "./payments/PaymentsOverview";
+export { PaymentsSettings } from "./payments/PaymentsSettings";
+export { PaymentsLog } from "./payments/PaymentsLog";

@@ -1,7 +1,7 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useMemo } from "react";
 import PoolSkeleton from "./PoolSkeleton";
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { PoolCardMedium, trpc } from "@repo/ui";
+import { keepPreviousData, useInfiniteQuery } from "@tanstack/react-query";
+import { Button, ErrorCard, PoolCardMedium, trpc } from "@repo/ui";
 import { getChainConfig } from "@repo/web3";
 import { useSearchParams } from "react-router";
 import PoolPanel from "../pool-panel/PoolPanel";
@@ -12,6 +12,9 @@ import { TestnetLine } from "../pool-panel/sections";
 // Define filter and sort types
 type PoolFilter = "all" | "no-fans" | "more-than-10-fans" | "more-than-10k-stake";
 type PoolSort = "newest" | "name-asc" | "name-desc" | "most-fans" | "most-staked";
+
+// pools.list.listPools pages (Build Board D7, PL3)
+const PAGE_SIZE = 24;
 
 interface PoolsTabProps {
   searchQuery: string;
@@ -34,28 +37,39 @@ const PoolsTab: React.FC<PoolsTabProps> = ({
 }) => {
   const chainId = useChainId();
 
-  const {
-    data: pools,
-    isLoading,
-    isFetching,
-    isPlaceholderData,
-    refetch,
-  } = useQuery({
-    ...trpc.pools.fan.getPools.queryOptions({
-      chainId: chainId.toString(),
-      search: searchQuery,
-      filter: poolFilter,
-      sort: poolSort,
-    }),
+  const query = useInfiniteQuery({
+    ...trpc.pools.list.listPools.infiniteQueryOptions(
+      {
+        chainId: chainId.toString(),
+        search: searchQuery,
+        filter: poolFilter,
+        sort: poolSort,
+        limit: PAGE_SIZE,
+      },
+      { getNextPageParam: last => last.nextCursor ?? undefined }
+    ),
     enabled: !!chainId,
     // Keep the current results on screen while a new query loads (045 I10)
     placeholderData: keepPreviousData,
   });
+  const { data, isLoading, isFetching, isPlaceholderData, isError, refetch } = query;
+
+  // A pool whose stake moves between two page loads can come back on a later
+  // page. Keep the first copy (spec acceptance 2).
+  const pools = useMemo(() => {
+    if (!data) return undefined;
+    const seen = new Set<number>();
+    return data.pages
+      .flatMap(page => page.pools)
+      .filter(pool => (seen.has(pool.id) ? false : (seen.add(pool.id), true)));
+  }, [data]);
+  // The total comes with the first page only
+  const total = data?.pages[0]?.total ?? 0;
 
   useEffect(() => {
-    if (!pools) return;
-    onResult?.({ count: pools.length, fetching: isFetching && isPlaceholderData });
-  }, [pools, isFetching, isPlaceholderData, onResult]);
+    if (!data) return;
+    onResult?.({ count: total, fetching: isFetching && isPlaceholderData });
+  }, [data, total, isFetching, isPlaceholderData, onResult]);
 
   // The open pool lives in ?pool=<address> (D27), so the panel survives a
   // reload and the link can be shared. Legacy ?pa= links are rewritten.
@@ -107,7 +121,16 @@ const PoolsTab: React.FC<PoolsTabProps> = ({
       {/* Prism medium pool cards (QA-028), the same card as the public pools
           directory (070). The whole card opens the pool panel. */}
       <ul className="prism-stagger grid grid-cols-1 gap-[21px] sm:grid-cols-2 xl:grid-cols-3">
-        {isLoading ? (
+        {isError && !pools ? (
+          <li className="col-span-full">
+            <ErrorCard
+              title="Pools did not load"
+              cause="Check your connection and retry."
+              retryLabel="Retry"
+              onRetry={() => void refetch()}
+            />
+          </li>
+        ) : isLoading ? (
           Array.from({ length: 6 }).map((_, index) => (
             <li key={index}>
               <PoolSkeleton />
@@ -146,6 +169,35 @@ const PoolsTab: React.FC<PoolsTabProps> = ({
           </li>
         )}
       </ul>
+      {pools && pools.length > 0 && total > 0 && (
+        <div className="flex flex-col items-center gap-[13px]">
+          <p className="text-prism-meta tabular-nums text-prism-ink-2">
+            Showing {Math.min(pools.length, total).toLocaleString("en-US")} of{" "}
+            {total.toLocaleString("en-US")} {total === 1 ? "pool" : "pools"}
+          </p>
+          {query.isFetchNextPageError ? (
+            <ErrorCard
+              title="Pools did not load"
+              cause="Check your connection and retry."
+              retryLabel="Retry"
+              onRetry={() => void query.fetchNextPage()}
+              className="w-full sm:max-w-[610px]"
+            />
+          ) : (
+            query.hasNextPage && (
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={query.isFetchingNextPage}
+                onClick={() => void query.fetchNextPage()}
+                className="max-sm:w-full"
+              >
+                {query.isFetchingNextPage ? "Loading" : "Show more"}
+              </Button>
+            )
+          )}
+        </div>
+      )}
       <div className="hidden sm:block">
         <TestnetLine />
       </div>

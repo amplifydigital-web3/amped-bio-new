@@ -180,6 +180,19 @@ const envSchema = z.object({
   // hourly sweep reads SUBGRAPH_URL; off when false or when the subgraph is unset.
   RNS_EXPIRY_EMAILS: boolSchema(true),
 
+  // Access gating engine (Build Board #21, G1). The access router answers only
+  // when true. The engine itself stays callable by server code.
+  ACCESS_GATING_ENABLED: boolSchema(false),
+  // Creator user ids (comma separated) whose stake rules (Pool fans, Fans with a
+  // minimum stake) are live while securities counsel reviews. Empty: none.
+  ACCESS_STAKE_KINDS_ALLOWLIST: z.string().default(""),
+
+  // Identity checks (Build Board #47): where an under 18 review case alert goes
+  // until the Safety queue ships (identity checks spec 4.5). Empty logs a warning.
+  SAFETY_ALERT_EMAIL: z.string().default(""),
+  // Mobile checkout (Build Board #49, CK-1): the checkout router answers only when true
+  CHECKOUT_ENABLED: boolSchema(false),
+
   // Authbase identity verification API (wallet KYC status lookups)
   AUTHBASE_BASE_URL: z.string().default(""),
   // Authbase API key (Basic auth username)
@@ -273,6 +286,25 @@ const envSchema = z.object({
   ONRAMP_DOMAIN: z.string().default(""),
   // Key for the stored Coinbase userAuthToken (AES-256-GCM). Falls back to BETTER_AUTH_SECRET.
   ONRAMP_DATA_KEY: z.string().default(""),
+  // AmpedPay (Build Board #50), spec docs/features/ampedpay.md 3.3 and 6.1. Master switch for
+  // payments. While false the admin Payments pages still show and change every setting, so
+  // values are ready before launch; fans see nothing.
+  PAYMENTS_ENABLED: boolSchema(false),
+  // AmpedPay proxy and the environment's Safe, from the deploy script output. Empty until the
+  // contract is deployed (PAY-1 on Base Sepolia). The admin shows "Not deployed" until then.
+  AMPEDPAY_ADDRESS: z.string().default(""),
+  AMPEDPAY_SAFE: z.string().default(""),
+  // PAY-A2: Coinbase Server Wallet accounts by name (Build Board #53, B3). The pauser may only
+  // call pause() on AmpedPay; the Safe proposer is a Safe delegate that signs proposals and
+  // nothing else; the split signer is shown on Overview and used by PAY-2.
+  CDP_PAUSER_ACCOUNT: z.string().default(""),
+  CDP_SAFE_PROPOSER_ACCOUNT: z.string().default(""),
+  CDP_SPLIT_SIGNER_ACCOUNT: z.string().default(""),
+  // Safe Transaction Service API key (developer.safe.global). Without it, or without the
+  // proposer, an approved on chain change shows the Safe transaction for an owner to submit.
+  SAFE_API_KEY: z.string().default(""),
+  // Optional override for a self hosted Transaction Service, ending in /api
+  SAFE_TX_SERVICE_URL: z.string().default(""),
   // Content system (Build Board #20), PR 2. Spec 3.17. Secrets never live in committed .env files.
   // Master switch for uploads. Off everywhere until the Cloudflare setup checklist is done.
   // Turning it off during an incident stops new uploads; items already stored keep working.

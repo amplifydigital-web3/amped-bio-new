@@ -3,6 +3,7 @@ import {
   Coins,
   FileText,
   KeyRound,
+  Landmark,
   LayoutDashboard,
   Megaphone,
   Palette,
@@ -17,7 +18,8 @@ import {
 // Blocks is not rendered (088 I09). Broadcasts shipped after the review and
 // sits in Content so its page stays reachable. Telegram (Build Board #2, row
 // 120) sits beside it: reports, paused senders, the pilot and bot health. USDC
-// (Build Board #29, spec 3.8) joins Money after Pools. ndau conversions were
+// (Build Board #29, spec 3.8) joins Money after Pools, and Payments (AmpedPay,
+// Build Board #50, spec docs/features/ampedpay.md 3.8) after USDC. ndau conversions were
 // removed from the admin: they are processed manually through the support
 // portal.
 export type AdminGroup = "start" | "content" | "money" | "access";
@@ -123,6 +125,15 @@ export const ADMIN_DESTINATIONS: AdminDestination[] = [
     group: "money",
     shortcut: "KeyM",
     dock: true,
+  },
+  {
+    id: "payments",
+    path: "/payments",
+    label: "Payments",
+    title: "Payments",
+    icon: Landmark,
+    group: "money",
+    dock: false,
   },
   {
     id: "oauth-clients",

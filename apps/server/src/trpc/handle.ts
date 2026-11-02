@@ -26,6 +26,8 @@ import { changeHandle, newHandleSchema } from "../services/pageHandle";
 import { matchReserved } from "../services/reservedHandles";
 import { enforceRateLimits } from "../utils/rateLimit";
 import { getVisitorIp } from "../services/analytics/visitorIp";
+import { publicCardsFor } from "../services/content/publicView";
+import type { ContentBlockConfig, ContentCard } from "@repo/constants";
 
 export const SITEMAP_MAX_PAGE_SIZE = 10000;
 
@@ -182,7 +184,7 @@ const appRouter = router({
             where: {
               walletId: user.wallet.id,
               poolAddress: { not: null },
-              OR: [{ hidden: false }, { hidden: null }],
+              hidden: false,
             },
             orderBy: { id: "desc" },
             select: { poolAddress: true },
@@ -214,6 +216,11 @@ const appRouter = router({
       const blockOptions = rnsIdBlockOptions(blockRows);
       const hasTelegramMessageBlock = blockRows.some(block => block.type === "telegram_message");
       const hasTelegramGroupBlock = blockRows.some(block => block.type === "telegram_group");
+      // Content blocks (#20, spec 3.7): cards for the ids they hold, read once per page
+      const contentIds = blockRows
+        .filter(block => block.type === "content")
+        .flatMap(block => (block.config as Partial<ContentBlockConfig> | null)?.publicIds ?? [])
+        .filter((id): id is string => typeof id === "string");
       const [
         themeResult,
         imageResult,
@@ -222,6 +229,7 @@ const appRouter = router({
         telegramResult,
         doorResult,
         groupDoorResult,
+        contentResult,
       ] = await Promise.allSettled([
         getPublicTheme(Number(theme_id)),
         getFileUrl({
@@ -243,6 +251,11 @@ const appRouter = router({
         hasTelegramMessageBlock ? telegramDoor(user_id) : Promise.resolve(null),
         // Board tg13: the Join group block's door, read only when the page carries the block
         hasTelegramGroupBlock ? telegramGroupDoor(user_id) : Promise.resolve(null),
+        // Public items only; drafts, 18+ and deleted ids are left out, and a
+        // suspended page shows none, as getReadUrl would refuse them. Fails closed.
+        contentIds.length && user.page_status === "PUBLISHED" && user.block === "no"
+          ? publicCardsFor(user_id, contentIds)
+          : Promise.resolve({} as Record<string, ContentCard>),
       ]);
 
       // The theme is the profile itself, so its failure is fatal
@@ -293,6 +306,11 @@ const appRouter = router({
         hasCreatorPool,
         creatorPoolAddress,
         trackingPixels: settledOrFallback(trackingPixelsResult, null, "tracking pixels"),
+        contentCards: settledOrFallback(
+          contentResult,
+          {} as Record<string, ContentCard>,
+          "content cards"
+        ),
         indexable: isUserIndexable(user, publicBlocks.length),
       };
 
