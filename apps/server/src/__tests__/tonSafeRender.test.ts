@@ -99,6 +99,10 @@ describe("tonSafeRender", () => {
     expect(miniAppBannedWord("Join my pool")).toBe("pool");
     expect(miniAppBannedWord("tREVO drops")).toBe("trevo");
     expect(miniAppBannedWord("Poolside sessions")).toBeNull();
+    // Inflections count too
+    expect(miniAppBannedWord("Back my pools")).toBe("pool");
+    expect(miniAppBannedWord("Fans who staked")).toBe("stake");
+    expect(miniAppBannedWord("Connect wallets")).toBe("wallet");
     expect(miniAppBannedWord("Made with Amped.Bio")).toBeNull();
   });
 

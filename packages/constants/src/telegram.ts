@@ -204,11 +204,15 @@ export const TELEGRAM_MINIAPP_BANNED_WORDS = [
   "wallet",
 ] as const;
 
-/** The first banned word a string contains, as a whole word, or null. */
+/** Plural and verb endings a banned word may carry: pools, staked, stakers, wallets, yielding. */
+const BANNED_WORD_ENDINGS = "(s|es|d|ed|ing|r|rs|er|ers)?";
+
+/** The first banned word a string contains, as a whole word or an inflection of one, or null. */
 export function miniAppBannedWord(text: string): string | null {
   const lower = text.toLowerCase();
   for (const word of TELEGRAM_MINIAPP_BANNED_WORDS) {
-    if (new RegExp(`(^|[^a-z0-9])${word}([^a-z0-9]|$)`).test(lower)) return word;
+    const pattern = new RegExp(`(^|[^a-z0-9])${word}${BANNED_WORD_ENDINGS}([^a-z0-9]|$)`);
+    if (pattern.test(lower)) return word;
   }
   return null;
 }
