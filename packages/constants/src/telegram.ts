@@ -261,8 +261,9 @@ export function parseTelegramStartPayload(raw: string | null | undefined): Teleg
     return { kind: "page", code: c, sharerCode: code(second) };
   }
   if (payload.startsWith("dm_")) {
+    // Older handles may carry capitals; the bot's handle lookup also tries lowercase
     const handle = payload.slice(3);
-    return /^[a-z0-9_-]{1,61}$/.test(handle) ? { kind: "legacy_dm", handle } : { kind: "none" };
+    return /^[A-Za-z0-9_-]{1,61}$/.test(handle) ? { kind: "legacy_dm", handle } : { kind: "none" };
   }
   return { kind: "none" };
 }
@@ -333,6 +334,9 @@ export const TELEGRAM_APP_STRINGS = {
   accountLinkedNoUsername: "Linked. Your Telegram account has no username.",
   accountBlockedNotice:
     "You blocked the Amped.Bio bot in Telegram, so nothing reaches you there. Unblock it in Telegram and send /start.",
+  botStartNotice:
+    "One more step: open the Amped.Bio bot in Telegram and press Start. Until you do, the bot cannot send you anything.",
+  openBotButton: "Open the bot",
   linkButton: "Link Telegram",
   unlinkButton: "Unlink",
   unlinkConfirmTitle: "Unlink Telegram?",
@@ -364,6 +368,7 @@ export const TELEGRAM_APP_STRINGS = {
     notPublished: "Publish your page before turning on messages.",
     emailNotVerified: "Verify your email first.",
     notLinked: "Link Telegram first.",
+    botNotStarted: "Open the Amped.Bio bot in Telegram and press Start, then try again.",
     notInvited: "Fan messages are invite only for now.",
     paused: "Fan messages are paused on your account while Amped reviews reports.",
     needsPool: "Create your pool first. Then you can limit messages to pool fans.",
@@ -439,6 +444,7 @@ export const TELEGRAM_APP_STRINGS = {
   settingsFailed: "Not saved. Check your connection and try again.",
   requirementsTitle: "Before you turn on Fan messages",
   requirementLink: "Link Telegram in Account, Connected apps.",
+  requirementStartBot: "Press Start in the Amped.Bio bot on Telegram.",
   requirementEmail: "Verify your email.",
   requirementPublish: "Publish your page.",
   openAccount: "Open Account",
@@ -455,8 +461,8 @@ export const TELEGRAM_APP_STRINGS = {
   // PR 4: wizard A, creator setup (row 121, tg10). Step 4 and the Done share card wait on groups and the Mini App.
   creatorWizard: {
     title: "Amped.Bio on Telegram",
-    steps: { link: "Link", messages: "Messages", page: "Page" },
-    stepOf: (step: number) => `Step ${step} of 3`,
+    steps: { link: "Link", bot: "Bot", messages: "Messages", page: "Page" },
+    stepOf: (step: number) => `Step ${step} of 4`,
     close: "Close",
     next: "Next",
     linkTitle: "Put your page inside Telegram.",
@@ -467,6 +473,12 @@ export const TELEGRAM_APP_STRINGS = {
     linkGroupLine: "Your Telegram group lets in the people who back you.",
     linkButton: "Link Telegram",
     linkFootnote: "We store your Telegram id and username. Never your phone.",
+    botTitle: "Start the Amped.Bio bot.",
+    botLine:
+      "Open the bot in Telegram and press Start. It brings you fan messages and lets you reply from Telegram.",
+    botStarted: "Bot started.",
+    botKeepChat:
+      "Keep this chat with the bot. If you delete it or stop the bot, fan messages and updates stop reaching you on Telegram until you press Start again.",
     messagesTitle: "Who can message you?",
     messagesButton: "Turn on messages",
     messagesOn: "Fan messages are on.",
@@ -746,13 +758,13 @@ export const TELEGRAM_GROUP_STRINGS = {
   kitCopyLink: "Copy button link",
   kitCopied: "Welcome message copied.",
   kitLinkCopied: "Button link copied.",
-  // Wizard step 4 and Done (board tg10)
+  // Wizard step 5 (group) and Done (board tg10)
   wizardStep: "Group",
   wizardTitle: "Connect your Telegram group.",
-  wizardOptional: "Step 4 of 4. Optional.",
-  wizardStepOf: (step: number) => `Step ${step} of 4`,
-  wizardRuleFromStep2: (rule: string) =>
-    `Rule from step 2: ${rule}. Change it in My Pool any time.`,
+  wizardOptional: "Step 5 of 5. Optional.",
+  wizardStepOf: (step: number) => `Step ${step} of 5`,
+  wizardRuleFromMessages: (rule: string) =>
+    `Rule from the Messages step: ${rule}. Change it in My Pool any time.`,
   wizardSkip: "Skip for now",
   doneInline: (handle: string) => `Type @AmpedBioBot ${handle} in any chat to drop your card.`,
   doneCopyLink: "Copy my Telegram link",

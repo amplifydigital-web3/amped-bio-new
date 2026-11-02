@@ -188,6 +188,13 @@ describe("messaging.creator.setSettings", () => {
       "Link Telegram first."
     );
     linkTelegram(fake.db, MAYA, 9001);
+    fake.db.table("telegramAccount")[0].botAccess = false;
+    await expect(caller.setSettings({ enabled: true, ruleKind: "ANYONE" })).rejects.toThrow(
+      "Open the Amped.Bio bot in Telegram and press Start"
+    );
+    // Without Telegram replies the bot never has to write to the creator
+    await caller.setSettings({ enabled: true, ruleKind: "ANYONE", replyFromTelegram: false });
+    fake.db.table("telegramAccount")[0].botAccess = true;
     fake.db.table("user").find((u: any) => u.id === MAYA).email_verified = false;
     await expect(caller.setSettings({ enabled: true, ruleKind: "ANYONE" })).rejects.toThrow(
       "Verify your email first."

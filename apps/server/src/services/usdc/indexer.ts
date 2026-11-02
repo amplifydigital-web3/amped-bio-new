@@ -19,10 +19,14 @@ import { recordUsdcTransfers, transfersFromLogs } from "./events";
 
 export const INDEXER_TICK_MS = 30_000;
 export const CONFIRMATIONS = 12n;
-/** First run looks back this far */
-export const INITIAL_LOOKBACK = 200n;
-/** Most blocks read per tick, inside public RPC log range limits */
-export const MAX_RANGE = 500n;
+/**
+ * Most blocks read per tick. The public Base RPC (sepolia.base.org) rejects
+ * eth_getLogs spanning more than 200 blocks with a 413. Base makes a block
+ * every 2 seconds, about 15 per tick, so the indexer still catches up.
+ */
+export const MAX_RANGE = 200n;
+/** First run looks back this far, kept inside MAX_RANGE */
+export const INITIAL_LOOKBACK = MAX_RANGE - 1n;
 const ADDRESS_CHUNK = 100;
 const TRANSFER_EVENT = getAbiItem({ abi: USDC_EIP3009_ABI, name: "Transfer" });
 

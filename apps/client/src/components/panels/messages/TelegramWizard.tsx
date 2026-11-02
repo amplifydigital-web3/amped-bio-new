@@ -35,15 +35,25 @@ import { wellClass } from "../page/blocks/linkValue";
 import { RuleTiles, type RuleValue } from "./RuleTiles";
 import { ConnectSteps, DetectedGroup } from "./TelegramGroups";
 import { pendingGroup, useTelegramGroups } from "./telegramGroupsData";
-import { WIZARD_PARAM, WIZARD_VALUE, errorMessage, stakeMinError, telegramDmLink } from "./shared";
+import {
+  WIZARD_PARAM,
+  WIZARD_VALUE,
+  errorMessage,
+  stakeMinError,
+  telegramBotLink,
+  telegramDmLink,
+} from "./shared";
 
 type Position = "top" | "afterLinks" | "bottom";
 const STEPS = [
   S.creatorWizard.steps.link,
+  S.creatorWizard.steps.bot,
   S.creatorWizard.steps.messages,
   S.creatorWizard.steps.page,
 ];
 const STEPS_WITH_GROUP = [...STEPS, G.wizardStep];
+/** Step indexes. Done is steps.length: 4 without the group step, 5 with it. */
+const STEP = { link: 0, bot: 1, messages: 2, page: 3, group: 4 } as const;
 const LINK_ERRORS: Record<string, string> = {
   conflict: S.errors.alreadyLinked,
   declined: S.errors.declined,
@@ -51,7 +61,7 @@ const LINK_ERRORS: Record<string, string> = {
   error: S.errors.declined,
 };
 
-/** Where the new block goes: first, after the last link, or last (step 3). */
+/** Where the new block goes: first, after the last link, or last (Page step). */
 function placeBlock(blocks: BlockType[], created: BlockType, position: Position) {
   const others = blocks.filter(block => block.id !== created.id);
   if (position === "bottom") return [...others, created];
@@ -62,14 +72,15 @@ function placeBlock(blocks: BlockType[], created: BlockType, position: Position)
 
 /**
  * Wizard A, creator setup (Screen Review 121, board tg10, spec 3.11a). One Dialog
- * with a step bar and one primary per step: Link Telegram, Turn on messages, Add
- * to my page. It resumes from live data (linked, Fan messages on, block on the
- * page), so leaving at any step is safe. With Telegram groups on (board tg10) the
- * bar has a fourth, optional step: the bot finds the group and the creator
- * connects it with the rule from step 2, or skips. Done hands over the Message
- * link, the inline command and the welcome message. The Mini App share card waits
- * on PR 6. Opened by ?wizard=telegram on any editor route; Telegram returns here
- * with ?telegram=.
+ * with a step bar and one primary per step: Link Telegram, Open the bot, Turn on
+ * messages, Add to my page. The bot step exists because the bot can only write to
+ * someone who pressed Start in it. It resumes from live data (linked, bot started,
+ * Fan messages on, block on the page), so leaving at any step is safe. With
+ * Telegram groups on (board tg10) the bar has a fifth, optional step: the bot finds
+ * the group and the creator connects it with the rule from the Messages step, or
+ * skips. Done hands over the Message link, the inline command and the welcome
+ * message. The Mini App share card waits on PR 6. Opened by ?wizard=telegram on
+ * any editor route; Telegram returns here with ?telegram=.
  */
 export function TelegramWizard() {
   const [params, setParams] = useSearchParams();
@@ -77,13 +88,21 @@ export function TelegramWizard() {
   const queryClient = useQueryClient();
   const { blocks, addBlock, reorderBlocks, profile, theme } = useEditor();
 
-  const status = useQuery({ ...trpc.telegram.link.status.queryOptions(), enabled: open });
+  const status = useQuery({
+    ...trpc.telegram.link.status.queryOptions(),
+    enabled: open,
+    // Telegram may open in another app, so focus alone may not bring the Start back
+    refetchInterval: query => {
+      const data = query.state.data;
+      return data?.linked && (!data.botAccess || data.blocked) ? 5_000 : false;
+    },
+  });
   const settings = useQuery({
     ...trpc.messaging.creator.getSettings.queryOptions(),
     enabled: open,
   });
   const [step, setStep] = useState<number | null>(null);
-  const groups = useTelegramGroups({ listen: open && step === 3 });
+  const groups = useTelegramGroups({ listen: open && step === STEP.group });
   const [linkError, setLinkError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [rule, setRule] = useState<RuleValue | null>(null);
@@ -93,6 +112,8 @@ export function TelegramWizard() {
 
   const hasBlock = blocks.some(block => block.type === "telegram_message");
   const linked = !!status.data?.linked;
+  // The bot can write to the creator only after Start was pressed in Telegram
+  const reachable = !!status.data?.linked && status.data.botAccess && !status.data.blocked;
   const enabled = !!settings.data?.enabled;
   const groupsOn = !!groups.data?.enabled;
   const groupList = groups.data?.enabled ? groups.data.groups : [];
@@ -101,7 +122,7 @@ export function TelegramWizard() {
   const steps = groupsOn ? STEPS_WITH_GROUP : STEPS;
   const DONE = steps.length;
   // After the page step: the group step while no group is connected, else Done
-  const afterPage = groupsOn && !hasGroup ? 3 : DONE;
+  const afterPage = groupsOn && !hasGroup ? STEP.group : DONE;
 
   // The result Telegram sent back with, once
   const result = params.get("telegram");
@@ -135,7 +156,17 @@ export function TelegramWizard() {
     }
     if (step !== null || !status.data || !settings.data) return;
     if (!groups.data && !groups.isError) return;
-    setStep(!linked ? 0 : !enabled ? 1 : !hasBlock ? 2 : afterPage);
+    setStep(
+      !linked
+        ? STEP.link
+        : !reachable
+          ? STEP.bot
+          : !enabled
+            ? STEP.messages
+            : !hasBlock
+              ? STEP.page
+              : afterPage
+    );
   }, [
     open,
     step,
@@ -144,6 +175,7 @@ export function TelegramWizard() {
     groups.data,
     groups.isError,
     linked,
+    reachable,
     enabled,
     hasBlock,
     afterPage,
@@ -184,7 +216,7 @@ export function TelegramWizard() {
       await queryClient.invalidateQueries({
         queryKey: trpc.messaging.creator.getSettings.queryKey(),
       });
-      setStep(hasBlock ? afterPage : 2);
+      setStep(hasBlock ? afterPage : STEP.page);
     },
     onError: error => setActionError(errorMessage(error, S.settingsFailed)),
   });
@@ -264,7 +296,7 @@ export function TelegramWizard() {
         <Skeleton className="h-24 rounded-prism-13" />
       </div>
     );
-  } else if (step === 0) {
+  } else if (step === STEP.link) {
     body = (
       <div className="space-y-[13px]">
         <h3 className="text-prism-card-title text-prism-ink">{W.linkTitle}</h3>
@@ -289,7 +321,7 @@ export function TelegramWizard() {
       </div>
     );
     footer = linked ? (
-      <Button size="lg" onClick={() => setStep(1)}>
+      <Button size="lg" onClick={() => setStep(STEP.bot)}>
         {W.next}
       </Button>
     ) : (
@@ -308,7 +340,37 @@ export function TelegramWizard() {
         {W.linkButton}
       </Button>
     );
-  } else if (step === 1) {
+  } else if (step === STEP.bot) {
+    const botUsername = status.data?.botUsername ?? null;
+    body = (
+      <div className="space-y-[13px]">
+        <h3 className="text-prism-card-title text-prism-ink">{W.botTitle}</h3>
+        <p className="text-prism-body text-prism-ink">{W.botLine}</p>
+        {reachable ? (
+          <p className="flex items-center gap-2 text-prism-label font-semibold text-prism-success">
+            <Check aria-hidden className="h-[21px] w-[21px]" />
+            {W.botStarted}
+          </p>
+        ) : (
+          status.data?.linked &&
+          status.data.blocked && <Notice variant="warning">{S.accountBlockedNotice}</Notice>
+        )}
+        <Notice variant="warning">{W.botKeepChat}</Notice>
+      </div>
+    );
+    footer = reachable ? (
+      <Button size="lg" onClick={() => setStep(STEP.messages)}>
+        {W.next}
+      </Button>
+    ) : botUsername ? (
+      <Button size="lg" asChild>
+        <a href={telegramBotLink(botUsername)} target="_blank" rel="noopener noreferrer">
+          <Send aria-hidden />
+          {S.openBotButton}
+        </a>
+      </Button>
+    ) : null;
+  } else if (step === STEP.messages) {
     body = (
       <div className="space-y-[13px]">
         <h3 className="text-prism-card-title text-prism-ink">{W.messagesTitle}</h3>
@@ -329,7 +391,7 @@ export function TelegramWizard() {
       </div>
     );
     footer = enabled ? (
-      <Button size="lg" onClick={() => setStep(hasBlock ? afterPage : 2)}>
+      <Button size="lg" onClick={() => setStep(hasBlock ? afterPage : STEP.page)}>
         {W.next}
       </Button>
     ) : (
@@ -345,7 +407,7 @@ export function TelegramWizard() {
         {W.messagesButton}
       </Button>
     );
-  } else if (step === 2) {
+  } else if (step === STEP.page) {
     body = (
       <div className="space-y-[13px]">
         <h3 className="text-prism-card-title text-prism-ink">{W.pageTitle}</h3>
@@ -424,14 +486,14 @@ export function TelegramWizard() {
         {W.pageButton}
       </Button>
     );
-  } else if (step === 3 && groupsOn) {
+  } else if (step === STEP.group && groupsOn) {
     const ruleLabel = DM_RULE_LABELS[(settings.data?.ruleKind ?? "FOLLOWER") as DmRuleKind];
     body = (
       <div className="space-y-[13px]">
         <h3 className="text-prism-card-title text-prism-ink">{G.wizardTitle}</h3>
         <p className="text-prism-meta text-prism-ink-2">{G.wizardOptional}</p>
         <ConnectSteps found={!!found} botUsername={status.data?.botUsername} showBar={false} />
-        <DetectedGroup group={found} line={G.wizardRuleFromStep2(ruleLabel)} />
+        <DetectedGroup group={found} line={G.wizardRuleFromMessages(ruleLabel)} />
         {actionError && <Notice variant="error">{actionError}</Notice>}
       </div>
     );

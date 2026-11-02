@@ -56,6 +56,9 @@
     "test": {
       "cache": false
     },
+    "test:unit": {
+      "cache": false
+    },
     "dev": {
       "dependsOn": ["prisma:generate"],
       "cache": false,

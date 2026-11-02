@@ -176,6 +176,9 @@ const envSchema = z.object({
 
   // URL for the RNS subgraph to validate name ownership and expiry
   SUBGRAPH_URL: z.string().default(""),
+  // RNS name expiry emails (30, 7 and 1 day before expiry, and on grace). The
+  // hourly sweep reads SUBGRAPH_URL; off when false or when the subgraph is unset.
+  RNS_EXPIRY_EMAILS: boolSchema(true),
 
   // Authbase identity verification API (wallet KYC status lookups)
   AUTHBASE_BASE_URL: z.string().default(""),
@@ -216,7 +219,8 @@ const envSchema = z.object({
   // API getMe() (services/telegram/client.ts), so it always matches the token in
   // use; set this only in tests or a split environment the token cannot reach.
   TELEGRAM_BOT_USERNAME: z.string().default(""),
-  // Value passed as secret_token to setWebhook; the webhook route rejects requests without it
+  // Value passed as secret_token to setWebhook; the webhook route rejects requests without it.
+  // The server registers https://API_HOST/webhooks/telegram with it on startup.
   TELEGRAM_WEBHOOK_SECRET: z.string().default(""),
   // Log In with Telegram (OIDC) client credentials from BotFather, Login Widget
   TELEGRAM_OIDC_CLIENT_ID: z.string().default(""),
