@@ -1,7 +1,16 @@
 import { useMemo, useState } from "react";
 import { keepPreviousData, useInfiniteQuery, useMutation, useQuery } from "@tanstack/react-query";
 import { Loader2, Search, Upload } from "lucide-react";
-import { Button, ChipGroup, EmptyState, ErrorCard, Notice, Skeleton, trpc } from "@repo/ui";
+import {
+  Button,
+  ChipGroup,
+  EmptyState,
+  ErrorCard,
+  Notice,
+  Skeleton,
+  trpc,
+  trpcClient,
+} from "@repo/ui";
 import type { ContentKindName } from "@repo/constants";
 import { toast } from "@/components/ui/toast";
 import { useDelayed } from "@/hooks/useDelayed";
@@ -12,13 +21,16 @@ import { StorageMeter } from "./StorageMeter";
 import { UploadDialog } from "./UploadDialog";
 import { formatLimit, type StorageSnapshot } from "./lib/files";
 import { messageForApiError } from "./lib/uploadTask";
-import { contentUploadApi } from "./lib/browserDeps";
+import { contentUploadApi, normalizeApiError } from "./lib/browserDeps";
 import { refreshContent, useUploads } from "./lib/uploads";
 import { isSettling } from "./lib/status";
 
-type Filter = "all" | "video" | "audio" | "image" | "document" | "file" | "drafts";
+type Filter = "all" | "video" | "audio" | "image" | "document" | "file" | "drafts" | "removed";
 
-const FILTER_INPUT: Record<Filter, { kind?: ContentKindName; publishState?: "draft" }> = {
+const FILTER_INPUT: Record<
+  Filter,
+  { kind?: ContentKindName; publishState?: "draft"; removed?: boolean }
+> = {
   all: {},
   video: { kind: "video" },
   audio: { kind: "audio" },
@@ -26,6 +38,8 @@ const FILTER_INPUT: Record<Filter, { kind?: ContentKindName; publishState?: "dra
   document: { kind: "document" },
   file: { kind: "file" },
   drafts: { publishState: "draft" },
+  // PR 6: deleted items that can still be restored (spec 3.12)
+  removed: { removed: true },
 };
 
 export const PAGE_SIZE = 30;
@@ -77,16 +91,47 @@ export function LibraryView({ onOpenItem }: { onOpenItem: (publicId: string) => 
   const showSkeleton = useDelayed(list.isLoading, 300);
 
   const remove = useMutation({
-    // abortUpload doubles as "remove a failed item" (content router, PR 2)
-    mutationFn: (item: LibraryItem) => contentUploadApi.abortUpload({ publicId: item.publicId }),
+    // A ready item is deleted for 30 days (PR 6); an unfinished or failed upload
+    // is removed at once (abortUpload, PR 2)
+    mutationFn: (item: LibraryItem) =>
+      item.status === "ready" || item.status === "blocked"
+        ? trpcClient.content.delete.mutate({ publicId: item.publicId }).catch(error => {
+            throw normalizeApiError(error);
+          })
+        : contentUploadApi.abortUpload({ publicId: item.publicId }),
     onSuccess: (_data, item) => {
-      toast.add({ type: "success", title: CONTENT_COPY.card.removed(item.title) });
+      toast.add(
+        item.status === "ready"
+          ? {
+              type: "success",
+              title: CONTENT_COPY.editor.deleted(item.title),
+              description: CONTENT_COPY.editor.deletedHelp,
+            }
+          : { type: "success", title: CONTENT_COPY.card.removed(item.title) }
+      );
       refreshContent(item.publicId);
     },
     onError: error =>
       toast.add({
         type: "error",
         title: CONTENT_COPY.card.removeFailed,
+        description: messageForApiError(error),
+      }),
+  });
+
+  const restore = useMutation({
+    mutationFn: (item: LibraryItem) =>
+      trpcClient.content.restore.mutate({ publicId: item.publicId }).catch(error => {
+        throw normalizeApiError(error);
+      }),
+    onSuccess: (_data, item) => {
+      toast.add({ type: "success", title: CONTENT_COPY.card.restored(item.title) });
+      refreshContent(item.publicId);
+    },
+    onError: error =>
+      toast.add({
+        type: "error",
+        title: CONTENT_COPY.card.restoreFailed,
         description: messageForApiError(error),
       }),
   });
@@ -211,6 +256,7 @@ export function LibraryView({ onOpenItem }: { onOpenItem: (publicId: string) => 
               { value: "document", label: CONTENT_COPY.filters.document },
               { value: "file", label: CONTENT_COPY.filters.file },
               { value: "drafts", label: CONTENT_COPY.filters.drafts },
+              { value: "removed", label: CONTENT_COPY.filters.removed },
             ]}
           />
 
@@ -251,8 +297,9 @@ export function LibraryView({ onOpenItem }: { onOpenItem: (publicId: string) => 
                     item={item}
                     onOpen={() => onOpenItem(item.publicId)}
                     onRemove={() => remove.mutate(item)}
+                    onRestore={() => restore.mutate(item)}
                     canRemove={
-                      (item.status === "failed" || item.status === "uploading") &&
+                      ["failed", "uploading", "ready", "blocked"].includes(item.status) &&
                       !queued.has(item.publicId)
                     }
                   />

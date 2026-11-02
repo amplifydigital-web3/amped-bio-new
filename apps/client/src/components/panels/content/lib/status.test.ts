@@ -55,4 +55,20 @@ describe("failureLine", () => {
     );
     expect(failureLine(null)).toMatch(/Processing did not finish/);
   });
+
+  it("shows a removed item with its restore date (PR 6)", () => {
+    const status = itemStatus({
+      status: "deleted",
+      publishState: "draft",
+      moderationState: "clear",
+      processingStep: null,
+      failureReason: null,
+      restorableUntil: "2026-11-22T10:00:00.000Z",
+    });
+    expect(status).toMatchObject({
+      key: "removed",
+      label: "Removed",
+      line: "Restore until Nov 22",
+    });
+  });
 });

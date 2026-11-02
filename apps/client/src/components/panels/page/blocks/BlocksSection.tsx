@@ -21,6 +21,7 @@ import {
   DEFAULT_FOLLOW_CONFIG,
   DEFAULT_FOLLOWERS_CONFIG,
   DEFAULT_RNSID_CONFIG,
+  DEFAULT_CONTENT_BLOCK_CONFIG,
   DEFAULT_TELEGRAM_MESSAGE_CONFIG,
   SINGLETON_BLOCK_TYPES,
   type BlockType,
@@ -71,6 +72,13 @@ function draftFor(kind: NewBlockKind): BlockType {
         type: "rnsid",
         order: 0,
         config: { ...DEFAULT_RNSID_CONFIG, show: { ...DEFAULT_RNSID_CONFIG.show } },
+      };
+    case "content":
+      return {
+        id: DRAFT_ID,
+        type: "content",
+        order: 0,
+        config: { ...DEFAULT_CONTENT_BLOCK_CONFIG, publicIds: [] },
       };
     case "telegram_message":
       return {
