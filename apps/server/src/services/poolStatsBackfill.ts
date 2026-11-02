@@ -10,7 +10,13 @@
 import { prisma, Prisma } from "@repo/database";
 import { createPublicClient, type Address } from "viem";
 import { CREATOR_POOL_ABI, getChainConfig, getPoolName, getRpcTransport } from "@repo/web3";
-import { bumpPoolsListVersion, computePoolStats, recomputePoolStats, toWei } from "./poolStats";
+import {
+  bumpPoolsListVersion,
+  computePoolStats,
+  decimalToWei,
+  recomputePoolStats,
+  toWei,
+} from "./poolStats";
 
 export interface BackfillOptions {
   apply: boolean;
@@ -71,6 +77,8 @@ export async function backfillPoolStats(options: BackfillOptions): Promise<Backf
       poolAddress: true,
       revoStaked: true,
       fans: true,
+      creatorStakeWei: true,
+      statsUpdatedAt: true,
     },
     orderBy: { id: "asc" },
   });
@@ -123,9 +131,12 @@ export async function backfillPoolStats(options: BackfillOptions): Promise<Backf
         where: { poolId: pool.id },
         select: { userWalletId: true, stakeAmount: true },
       });
+      // A failed chain read on a later run must not replace a creator stake
+      // already written: keep the stored value, as recomputePoolStats does.
       const creatorStaked = stakes.get(pool.id) ?? null;
       const stats = computePoolStats(stakeRows, pool.walletId, {
-        chain: creatorStaked,
+        chain:
+          creatorStaked ?? (pool.statsUpdatedAt ? decimalToWei(pool.creatorStakeWei) : null),
         launchStake: toWei(launch?.amount),
       });
 
@@ -154,8 +165,9 @@ export async function backfillPoolStats(options: BackfillOptions): Promise<Backf
             await tx.creatorPool.update({ where: { id: pool.id }, data });
           }
           // Same writer as the live paths. The creator stake is the chain value
-          // when it was read, else the launch stake plus the creator's own row.
-          await recomputePoolStats(tx, pool.id, { creatorStaked: stats.creatorStakeWei });
+          // when it was read; otherwise the stored value once stats exist, else
+          // the launch stake plus the creator's own row.
+          await recomputePoolStats(tx, pool.id, { creatorStaked });
         });
         chains.add(pool.chainId);
       }

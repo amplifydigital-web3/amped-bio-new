@@ -142,6 +142,20 @@ export function createFakePoolsDb() {
     },
     $queryRaw: async (strings: TemplateStringsArray, ...values: unknown[]) => {
       const sql = strings.join("?");
+      if (sql.includes("FROM creator_pools") && sql.includes("FOR UPDATE")) {
+        const [poolId] = values as number[];
+        const pool = pools.get(poolId);
+        return pool
+          ? [
+              {
+                walletId: pool.walletId,
+                chainId: pool.chainId,
+                creatorStakeWei: pool.creatorStakeWei,
+                statsUpdatedAt: pool.statsUpdatedAt,
+              },
+            ]
+          : [];
+      }
       if (sql.includes("FROM staked_pools") && sql.includes("FOR UPDATE")) {
         const [userWalletId, poolId] = values as number[];
         const row = stakeFor(userWalletId, poolId);
