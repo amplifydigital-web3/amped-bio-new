@@ -146,9 +146,9 @@ export const Notice = React.forwardRef<
   );
 });
 
-// The testnet line, verbatim, wherever tREVO appears in a flow or notice.
-export const TESTNET_NOTICE =
-  "Testnet only. Pool rewards come from the network, vary, and are not guaranteed.";
+// The testnet line, verbatim, wherever tREVO appears in a flow or notice. It lives
+// in @repo/constants so the server, the bot and every app share one string.
+export { TESTNET_NOTICE } from "@repo/constants";
 
 // Screen Review 084. One toast card: raised glass r13, 55 minimum, 21 icon,
 // 16/24 ink, at most one ghost action. Used by every toaster in the apps.
