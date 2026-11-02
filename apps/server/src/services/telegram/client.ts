@@ -73,6 +73,23 @@ export async function getBotUsername(): Promise<string | null> {
 /** Update kinds the handlers in ./bot.ts read. Telegram does not send the others. */
 export const TELEGRAM_ALLOWED_UPDATES = ["message", "callback_query", "my_chat_member"] as const;
 
+/** Phase 2 update kinds (./groups.ts, ./inline.ts), requested only with TELEGRAM_GROUPS on. */
+export const TELEGRAM_GROUP_UPDATES = [
+  "chat_join_request",
+  "chat_member",
+  "inline_query",
+  "chosen_inline_result",
+] as const;
+
+/** The allowed_updates list for setWebhook, given the flags this environment runs with. */
+export function telegramAllowedUpdates(): Array<
+  (typeof TELEGRAM_ALLOWED_UPDATES)[number] | (typeof TELEGRAM_GROUP_UPDATES)[number]
+> {
+  return env.TELEGRAM_GROUPS
+    ? [...TELEGRAM_ALLOWED_UPDATES, ...TELEGRAM_GROUP_UPDATES]
+    : [...TELEGRAM_ALLOWED_UPDATES];
+}
+
 /**
  * The webhook URL on this API's public host, or null when API_HOST is local:
  * Telegram cannot reach it, and registering it would take the bot's single
@@ -107,7 +124,7 @@ export async function registerTelegramWebhook(): Promise<boolean> {
   try {
     await bot.api.setWebhook(url, {
       secret_token: env.TELEGRAM_WEBHOOK_SECRET,
-      allowed_updates: [...TELEGRAM_ALLOWED_UPDATES],
+      allowed_updates: telegramAllowedUpdates(),
     });
     console.log(`[telegram] webhook registered at ${url}`);
     return true;

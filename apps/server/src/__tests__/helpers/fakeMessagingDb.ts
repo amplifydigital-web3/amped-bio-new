@@ -36,6 +36,15 @@ const RELATIONS: Record<string, Record<string, Rel>> = {
   userWallet: {
     creatorPools: { table: "creatorPool", local: "id", foreign: "walletId", many: true },
   },
+  // PR 5: groups and inline cards
+  telegramGroup: {
+    creator: { table: "user", local: "creatorUserId", foreign: "id" },
+    members: { table: "telegramGroupMember", local: "id", foreign: "groupId", many: true },
+  },
+  telegramGroupMember: { group: { table: "telegramGroup", local: "groupId", foreign: "id" } },
+  user: {
+    messagingSettings: { table: "creatorMessagingSettings", local: "id", foreign: "userId" },
+  },
 };
 
 const COMPOSITE: Record<string, string[]> = {
@@ -43,6 +52,7 @@ const COMPOSITE: Record<string, string[]> = {
   threadId_idempotencyKey: ["threadId", "idempotencyKey"],
   creator_id_user_id: ["creator_id", "user_id"],
   userId_creatorUserId: ["userId", "creatorUserId"],
+  groupId_telegramUserId: ["groupId", "telegramUserId"],
 };
 
 const DEFAULTS: Record<string, () => Row> = {
@@ -84,6 +94,28 @@ const DEFAULTS: Record<string, () => Row> = {
     updatedAt: new Date(),
   }),
   telegramOutbox: () => ({ status: "PENDING", attempts: 0, createdAt: new Date() }),
+  telegramGroup: () => ({
+    ruleKind: "POOL_MEMBER",
+    stakeMin: null,
+    inviteLink: null,
+    botIsAdmin: false,
+    removeUnverified: false,
+    memberCount: 0,
+    connectedAt: null,
+    lastCheckedAt: null,
+    disconnectedAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  }),
+  telegramGroupMember: () => ({
+    userId: null,
+    approvedAt: null,
+    declinedAt: null,
+    removedAt: null,
+    removedReason: null,
+    lastVerifiedAt: null,
+    createdAt: new Date(),
+  }),
 };
 
 function same(a: any, b: any): boolean {
@@ -107,7 +139,7 @@ function cmp(a: any, b: any): number {
   return a < b ? -1 : a > b ? 1 : 0;
 }
 
-const OPS = new Set(["gt", "gte", "lt", "lte", "not", "in", "contains"]);
+const OPS = new Set(["gt", "gte", "lt", "lte", "not", "in", "contains", "startsWith"]);
 
 function isOpObject(value: any) {
   return (
@@ -142,6 +174,8 @@ export function createFakeDb() {
           if (!(target as any[]).some(t => same(value, t))) return false;
         } else if (op === "contains") {
           if (typeof value !== "string" || !value.includes(target as string)) return false;
+        } else if (op === "startsWith") {
+          if (typeof value !== "string" || !value.startsWith(target as string)) return false;
         } else {
           if (value === null || value === undefined) return false;
           const c = cmp(value, target);
@@ -189,15 +223,16 @@ export function createFakeDb() {
     return true;
   }
 
-  function withRelations(model: string, row: Row): Row {
+  function withRelations(model: string, row: Row, depth = 0): Row {
     const out: Row = { ...row };
+    if (depth > 3) return out;
     for (const name of Object.keys(RELATIONS[model] ?? {})) {
       const value = related(model, row, name);
       if (Array.isArray(value)) {
         out[name] = value;
       } else if (value) {
         const rel = RELATIONS[model]![name]!;
-        out[name] = withRelations(rel.table, value);
+        out[name] = withRelations(rel.table, value, depth + 1);
       } else {
         out[name] = null;
       }

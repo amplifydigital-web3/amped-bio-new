@@ -14,7 +14,7 @@ import { sanitizeBlockConfig } from "../utils/sanitizeBlockConfig";
 import { logger } from "better-auth";
 import { getPublicTrackingPixels } from "./trackingPixels";
 import { showsTelegramMark } from "../services/telegram/accounts";
-import { telegramDoor } from "../services/messaging/door";
+import { telegramDoor, telegramGroupDoor } from "../services/messaging/door";
 import { indexableUserWhere, isUserIndexable } from "../utils/indexable";
 import {
   computeRnsIdentity,
@@ -215,6 +215,7 @@ const appRouter = router({
 
       const blockOptions = rnsIdBlockOptions(blockRows);
       const hasTelegramMessageBlock = blockRows.some(block => block.type === "telegram_message");
+      const hasTelegramGroupBlock = blockRows.some(block => block.type === "telegram_group");
       // Content blocks (#20, spec 3.7): cards for the ids they hold, read once per page
       const contentIds = blockRows
         .filter(block => block.type === "content")
@@ -227,6 +228,7 @@ const appRouter = router({
         trackingPixelsResult,
         telegramResult,
         doorResult,
+        groupDoorResult,
         contentResult,
       ] = await Promise.allSettled([
         getPublicTheme(Number(theme_id)),
@@ -247,6 +249,8 @@ const appRouter = router({
         showsTelegramMark(user_id),
         // Row 115: the Message me block's door, read only when the page carries the block
         hasTelegramMessageBlock ? telegramDoor(user_id) : Promise.resolve(null),
+        // Board tg13: the Join group block's door, read only when the page carries the block
+        hasTelegramGroupBlock ? telegramGroupDoor(user_id) : Promise.resolve(null),
         // Public items only; drafts, 18+ and deleted ids are left out, and a
         // suspended page shows none, as getReadUrl would refuse them. Fails closed.
         contentIds.length && user.page_status === "PUBLISHED" && user.block === "no"
@@ -294,6 +298,8 @@ const appRouter = router({
           telegramMark: telegramResult.status === "fulfilled" && telegramResult.value,
           // Row 115: open, the rule kind and the bot. Null without the block. Fails closed.
           telegramDoor: doorResult.status === "fulfilled" ? doorResult.value : null,
+          // Board tg13: open, the rule kind and the bot. Null without the block. Fails closed.
+          telegramGroupDoor: groupDoorResult.status === "fulfilled" ? groupDoorResult.value : null,
         },
         theme: themeResult.value,
         blocks: publicBlocks,

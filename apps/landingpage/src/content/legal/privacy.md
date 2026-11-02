@@ -109,6 +109,8 @@ A creator never sees your Telegram username unless you turn on Let creators see 
 
 When you message a creator through Amped.Bio, or a creator replies to you, we store the messages and show them in both inboxes on Amped.Bio. When the other side linked Telegram, the Amped.Bio bot also delivers a copy there. We do not read conversations unless one side reports one; then our staff read that conversation to review the report. We keep messages for 12 months after the last message in a conversation, then delete them.
 
+When a creator connects a Telegram group to Amped.Bio, the Amped.Bio bot checks who may join it. For each person who asks to join, joins or leaves that group, we store their Telegram user ID, whether it matches a linked Amped.Bio account, and when they were approved, declined or removed, with the reason. We store this even for people who never linked Telegram to Amped.Bio, because the bot needs it to apply the creator's rule. The creator sees counts only, never who. We delete these records when the creator disconnects the group or closes their account.
+
 Unlink at any time under Connected apps. Unlinking stops all Telegram delivery at once and deletes the link. Your messages stay in your Amped.Bio inbox. Telegram's own privacy policy covers how Telegram handles your messages.
 
 ## 7. How we use information and why
@@ -190,6 +192,7 @@ Creator pages and the public site set nothing in your browser until you choose, 
 | Telegram link | Until you unlink or close your account |
 | Telegram link and delivery choice history (no IP address) | 5 years |
 | Messages between fans and creators | 12 months after the last message in the conversation |
+| Telegram group membership records (Telegram user ID, decisions and removals) | Until the creator disconnects the group or closes their account |
 | Support messages | 2 years |
 | Checkouts you started (the item, the creator, where you tapped Buy, any promoter code, and the status) | 30 days after the checkout ends, unless it became a purchase |
 | RNS name expiry reminders (your name, its expiry date, the reminder stage, the time of the reminder and how many sends failed) | While your account is open, then deleted within 30 days of closing it |

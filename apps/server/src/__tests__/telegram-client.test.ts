@@ -11,6 +11,7 @@ const state = vi.hoisted(() => ({
   getMeFails: false,
   apiHost: "api.staging.amped.bio",
   webhookSecret: "hook_secret",
+  groups: false,
   setWebhook: vi.fn(async () => true),
 }));
 
@@ -28,6 +29,9 @@ vi.mock("../env", () => ({
     },
     get TELEGRAM_WEBHOOK_SECRET() {
       return state.webhookSecret;
+    },
+    get TELEGRAM_GROUPS() {
+      return state.groups;
     },
   },
 }));
@@ -65,6 +69,7 @@ beforeEach(async () => {
   state.getMeFails = false;
   state.apiHost = "api.staging.amped.bio";
   state.webhookSecret = "hook_secret";
+  state.groups = false;
   state.setWebhook.mockReset();
   state.setWebhook.mockResolvedValue(true);
   const envModule = await import("../env");
@@ -116,6 +121,27 @@ describe("registerTelegramWebhook", () => {
       {
         secret_token: "hook_secret",
         allowed_updates: ["message", "callback_query", "my_chat_member"],
+      }
+    );
+  });
+
+  it("also asks for the group and inline updates when TELEGRAM_GROUPS is on", async () => {
+    state.token = "123456:abc";
+    state.groups = true;
+    expect(await registerTelegramWebhook()).toBe(true);
+    expect(state.setWebhook).toHaveBeenCalledWith(
+      "https://api.staging.amped.bio/webhooks/telegram",
+      {
+        secret_token: "hook_secret",
+        allowed_updates: [
+          "message",
+          "callback_query",
+          "my_chat_member",
+          "chat_join_request",
+          "chat_member",
+          "inline_query",
+          "chosen_inline_result",
+        ],
       }
     );
   });
