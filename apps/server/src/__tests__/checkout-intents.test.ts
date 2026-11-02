@@ -44,11 +44,13 @@ vi.mock("@repo/database", () => ({
         async ({ where }: { where: { id: Buffer } }) =>
           state.rows.find(r => r.id.equals(where.id)) ?? null
       ),
-      findFirst: vi.fn(
+      findMany: vi.fn(
         async ({
           where,
+          take,
         }: {
           where: { userId: number; status: { in: string[] }; expiresAt: { gt: Date } };
+          take: number;
         }) =>
           state.rows
             .filter(
@@ -57,7 +59,8 @@ vi.mock("@repo/database", () => ({
                 where.status.in.includes(r.status) &&
                 r.expiresAt > where.expiresAt.gt
             )
-            .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0] ?? null
+            .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+            .slice(0, take)
       ),
       update: vi.fn(async ({ where, data }: { where: { id: Buffer }; data: Partial<Row> }) => {
         const row = state.rows.find(r => r.id.equals(where.id));
@@ -162,6 +165,14 @@ describe("getIntent", () => {
     expect((await getIntent(20, id)).status).toBe("expired");
   });
 
+  it("the creator cannot claim an intent for their own item started signed out", async () => {
+    const { id } = await startIntent(null, buy);
+    await expect(getIntent(10, id)).rejects.toThrow("your own page");
+    expect(state.rows[0]!.userId).toBeNull();
+    // A fan can still claim it afterwards
+    expect((await getIntent(20, id)).status).toBe("open");
+  });
+
   it("unknown ids are not found", async () => {
     await expect(getIntent(20, "ab".repeat(16))).rejects.toThrow("checkout has ended");
   });
@@ -174,6 +185,23 @@ describe("resume bar and retention", () => {
     const bar = await resumableIntent(20);
     expect(bar?.title).toBe("Episode 4");
     expect(await resumableIntent(30)).toBeNull();
+  });
+
+  it("skips a newer intent whose item is no longer for sale", async () => {
+    const older = await startIntent(20, buy);
+    state.rows[0]!.createdAt = new Date(Date.now() - 60_000);
+    await startIntent(20, { ...buy, target: { type: "content", id: "gone" } });
+    const { prisma } = await import("@repo/database");
+    vi.mocked(prisma.contentItem.findUnique).mockImplementation((async (args: {
+      where: { publicId: string };
+    }) => (args.where.publicId === "gone" ? null : sellable())) as never);
+    try {
+      expect((await resumableIntent(20))?.id).toBe(older.id);
+    } finally {
+      vi.mocked(prisma.contentItem.findUnique).mockImplementation(
+        (async () => state.item) as never
+      );
+    }
   });
 
   it("paid stays paid after expiry", () => {

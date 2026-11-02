@@ -110,6 +110,7 @@ type IntentRow = {
   kind: string;
   targetType: string;
   targetId: string;
+  creatorUserId: number;
   userId: number | null;
   status: string;
   expiresAt: Date;
@@ -138,6 +139,7 @@ export async function getIntent(viewerUserId: number | null, idHex: string) {
       kind: true,
       targetType: true,
       targetId: true,
+      creatorUserId: true,
       userId: true,
       status: true,
       expiresAt: true,
@@ -156,6 +158,10 @@ export async function getIntent(viewerUserId: number | null, idHex: string) {
   }
 
   if (row.userId === null && viewerUserId !== null && status !== "expired") {
+    // An intent started signed out must not be claimed by the creator it pays
+    if (viewerUserId === row.creatorUserId) {
+      throw new TRPCError({ code: "BAD_REQUEST", message: "You can't buy from your own page." });
+    }
     // Claim once: only update a row that is still unclaimed
     const claimed = await prisma.checkoutIntent.updateMany({
       where: { id: row.id, userId: null },
@@ -184,22 +190,29 @@ export async function getIntent(viewerUserId: number | null, idHex: string) {
   };
 }
 
-/** The latest open intent for the resume bar, or null. */
+/** How many recent open intents the resume bar looks through. */
+const RESUMABLE_SCAN_LIMIT = 5;
+
+/** The latest open intent for the resume bar whose item is still for sale, or null. */
 export async function resumableIntent(viewerUserId: number) {
-  const row = await prisma.checkoutIntent.findFirst({
+  const rows = await prisma.checkoutIntent.findMany({
     where: {
       userId: viewerUserId,
       status: { in: [...RESUMABLE_CHECKOUT_STATUSES] },
       expiresAt: { gt: new Date() },
     },
     orderBy: { createdAt: "desc" },
+    take: RESUMABLE_SCAN_LIMIT,
     select: { id: true, targetType: true, targetId: true },
   });
-  if (!row) return null;
-  const resolved = await resolveTarget({ type: "content", id: row.targetId });
-  if (!resolved) return null;
-  const hex = intentIdToHex(row.id);
-  return { id: hex, title: resolved.item.title, payPath: checkoutPayPath(hex) };
+  // Skip an intent whose item stopped being for sale, so an older one still shows
+  for (const row of rows) {
+    const resolved = await resolveTarget({ type: "content", id: row.targetId });
+    if (!resolved) continue;
+    const hex = intentIdToHex(row.id);
+    return { id: hex, title: resolved.item.title, payPath: checkoutPayPath(hex) };
+  }
+  return null;
 }
 
 const RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
