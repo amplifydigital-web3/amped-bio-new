@@ -221,8 +221,8 @@ export function installBotHandlers(bot: Bot) {
   // A handler error propagates out of bot.handleUpdate, so the sender loop
   // records it on the inbox row and retries the update
   bot.on("my_chat_member", handlePrivateChatMember);
-  // Phase 2: groups and inline cards. setWebhook allowed_updates must list
-  // chat_join_request, chat_member, inline_query and chosen_inline_result.
+  // Phase 2: groups and inline cards. registerTelegramWebhook (./client.ts) adds
+  // these update kinds to allowed_updates while TELEGRAM_GROUPS is on.
   bot.on("chat_join_request", handleJoinRequest);
   bot.on("chat_member", handleGroupMemberUpdate);
   bot.on("message:migrate_to_chat_id", handleChatMigration);
