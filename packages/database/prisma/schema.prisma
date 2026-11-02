@@ -1690,10 +1690,11 @@ model IdentityCheck {
 
 // One open case per account when an Over 18 check returns under 18 (spec 4.5,
 // decision IQ1). A person reviews it: a safety lead closes the account or clears
-// a wrong read. Kept 5 years (counsel confirms the period).
+// a wrong read. Kept 5 years (counsel confirms the period), so the case outlives
+// a closed (deleted) account: user_id is set to null instead of cascading.
 model IdentityReviewCase {
   id           Bytes     @id @db.Binary(16)
-  userId       Int       @map("user_id")
+  userId       Int?      @map("user_id")
   // open | cleared | closed
   status       String    @default("open") @db.VarChar(16)
   // under_18 (the only kind today)
@@ -1708,7 +1709,7 @@ model IdentityReviewCase {
   decidedBy    Int?      @map("decided_by")
   note         String?   @db.VarChar(500)
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([userId, status])
   @@index([status, openedAt])
