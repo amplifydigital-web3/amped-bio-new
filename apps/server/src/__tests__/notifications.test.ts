@@ -2,13 +2,15 @@
  * Amped Messages notifications (Build Board #2 r4, PR M4; spec 7.4). Bell rows and the
  * bell routes, push scheduling and previews (requests and 18+ senders hide the text),
  * dead subscriptions removed, the 30 minute email check with its limits, the signed
- * one tap off link, the job claim and retries, and broadcast bell rows.
+ * one tap off link, the job claim and retries, and broadcast bell rows. Also the push
+ * endpoint allowlist (SSRF), the race safe email dedupe and the per process job lock.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const fake = vi.hoisted(() => ({ db: null as any }));
 const pushes = vi.hoisted(() => ({ sent: [] as any[], fail: null as null | number }));
 const mails = vi.hoisted(() => ({ sent: [] as any[] }));
+const redisMock = vi.hoisted(() => ({ client: null as any }));
 vi.mock("@repo/database", async () => {
   const helper = await import("./helpers/fakeMessagingDb");
   fake.db = helper.createFakeDb();
@@ -18,7 +20,7 @@ vi.mock("@repo/database", async () => {
     withNumericIdCoercion: (client: unknown) => client,
   };
 });
-vi.mock("../utils/cache", () => ({ getRedisClient: () => null }));
+vi.mock("../utils/cache", () => ({ getRedisClient: () => redisMock.client }));
 vi.mock("web-push", () => ({
   default: {
     setVapidDetails: () => undefined,
@@ -53,12 +55,19 @@ import {
 } from "../services/notifications/bell";
 import {
   JOB_MAX_ATTEMPTS,
+  LOCK_OWNER,
   claimNextJob,
   drainJobs,
+  holdNotificationLock,
   notifyBroadcastDelivered,
   runEmailCheck,
+  scheduleMessageNotifications,
 } from "../services/notifications/jobs";
-import { resetPushConfigForTests } from "../services/notifications/push";
+import {
+  isAllowedPushEndpoint,
+  resetPushConfigForTests,
+  sendPush,
+} from "../services/notifications/push";
 import { messagesRouter } from "../trpc/messages";
 import { notificationsRouter } from "../trpc/notifications";
 import { pushRouter } from "../trpc/push";
@@ -76,7 +85,7 @@ const jobs = (channel?: string) =>
   fake.db.table("notificationJob").filter((j: any) => !channel || j.channel === channel);
 const device = (userId: number, n = 1) =>
   push(userId).subscribe({
-    endpoint: `https://push.example.com/${userId}/${n}`,
+    endpoint: `https://fcm.googleapis.com/fcm/send/${userId}-${n}`,
     keys: { p256dh: "p".repeat(40), auth: "a".repeat(16) },
   });
 const later = (minutes: number) => new Date(Date.now() + minutes * 60_000);
@@ -89,6 +98,7 @@ beforeEach(() => {
   pushes.sent = [];
   pushes.fail = null;
   mails.sent = [];
+  redisMock.client = null;
   Object.assign(env, {
     MESSAGING_ENABLED: true,
     VAPID_PUBLIC_KEY: "BPublicKeyForTests",
@@ -191,6 +201,71 @@ describe("push", () => {
     expect(jobs("push")[0]).toMatchObject({ status: "DONE", error: "no_device" });
   });
 
+  it("accepts only real push service endpoints (SSRF)", () => {
+    for (const ok of [
+      "https://fcm.googleapis.com/fcm/send/abc:def",
+      "https://android.googleapis.com/gcm/send/abc",
+      "https://updates.push.services.mozilla.com/wpush/v2/gAAAA",
+      "https://web.push.apple.com/QGuQyavXu",
+      "https://api.push.apple.com/3/device/abc",
+      "https://wns2-par02p.notify.windows.com/w/?token=abc",
+      "https://FCM.googleapis.com/fcm/send/upper",
+    ]) {
+      expect(isAllowedPushEndpoint(ok), ok).toBe(true);
+    }
+    for (const bad of [
+      "http://fcm.googleapis.com/fcm/send/abc",
+      "https://fcm.googleapis.com:8443/fcm/send/abc",
+      "https://user:pass@fcm.googleapis.com/fcm/send/abc",
+      "https://fcm.googleapis.com./fcm/send/abc",
+      "https://fcm.googleapis.com.evil.example/fcm/send/abc",
+      "https://evilfcm.googleapis.com/fcm/send/abc",
+      "https://push.apple.com/abc",
+      "https://notify.windows.com.attacker.io/abc",
+      "https://push.example.com/1/1",
+      "https://localhost/push",
+      "https://127.0.0.1/push",
+      "https://169.254.169.254/latest/meta-data",
+      "https://[::1]/push",
+      "https://10.0.0.5/push",
+      "not a url",
+    ]) {
+      expect(isAllowedPushEndpoint(bad), bad).toBe(false);
+    }
+  });
+
+  it("refuses to save a subscription for an unknown host", async () => {
+    for (const endpoint of [
+      "https://169.254.169.254/latest/meta-data",
+      "https://internal.example.com/hook",
+      "https://localhost:3000/api",
+    ]) {
+      await expect(
+        push(MAYA).subscribe({
+          endpoint,
+          keys: { p256dh: "p".repeat(40), auth: "a".repeat(16) },
+        })
+      ).rejects.toThrow();
+    }
+    expect(fake.db.table("pushSubscription")).toHaveLength(0);
+  });
+
+  it("never posts to a stored endpoint outside the allowlist", async () => {
+    fake.db.table("pushSubscription").push({
+      id: uuidv7(),
+      userId: MAYA,
+      endpoint: "https://10.0.0.5/internal",
+      p256dh: "p".repeat(40),
+      auth: "a".repeat(16),
+      userAgent: null,
+      failedAt: null,
+    });
+    const result = await sendPush(MAYA, { title: "t", body: "b", url: "/inbox", tag: "x" });
+    expect(result).toEqual({ sent: 0, removed: 1, failed: 0 });
+    expect(pushes.sent).toHaveLength(0);
+    expect(fake.db.table("pushSubscription")).toHaveLength(0);
+  });
+
   it("retries a failing push service, then gives up", async () => {
     friends(MAYA, JORDAN);
     await device(MAYA);
@@ -220,6 +295,28 @@ describe("email reminders", () => {
     });
     expect(mails.sent[0].html).not.toContain("two");
     expect(mails.sent[0].html).toContain("api.staging.amped.bio/email/messages-off?t=");
+  });
+
+  it("keeps one pending check per conversation when messages arrive at once", async () => {
+    const conversationId = uuidv7();
+    const schedule = () =>
+      scheduleMessageNotifications({
+        senderId: JORDAN,
+        recipientId: MAYA,
+        conversationId,
+        messageId: uuidv7(),
+        notificationId: null,
+        muted: false,
+      });
+    await Promise.all([schedule(), schedule(), schedule()]);
+    expect(jobs("email")).toHaveLength(1);
+    expect(jobs("email")[0].dedupeKey).toBe(`email:${MAYA}:${idToHex(conversationId)}`);
+
+    // Once the loop claims it, the slot is free for the next message
+    expect(await claimNextJob(later(31))).not.toBeNull();
+    expect(jobs("email")[0].dedupeKey).toBeNull();
+    await schedule();
+    expect(jobs("email")).toHaveLength(2);
   });
 
   it("skips when read, and labels a request without the sender's text", async () => {
@@ -322,6 +419,43 @@ describe("job claim", () => {
     expect(await claimNextJob()).not.toBeNull();
     expect(await claimNextJob()).toBeNull();
     expect(await claimNextJob(later(3))).not.toBeNull();
+  });
+});
+
+describe("job lock", () => {
+  it("uses a random owner per process, not the pid", () => {
+    expect(LOCK_OWNER).not.toBe(String(process.pid));
+    expect(LOCK_OWNER).toMatch(/:[0-9a-f-]{36}$/);
+  });
+
+  it("runs without Redis, holds or refreshes its own lock, and fails closed on errors", async () => {
+    expect(await holdNotificationLock()).toBe(true);
+
+    const store = new Map<string, string>();
+    redisMock.client = {
+      set: async (key: string, value: string) => {
+        if (store.has(key)) return null;
+        store.set(key, value);
+        return "OK";
+      },
+      eval: async (_script: string, _keys: number, key: string, owner: string) =>
+        store.get(key) === owner ? 1 : 0,
+    };
+    expect(await holdNotificationLock()).toBe(true);
+    expect(store.get("lock:notification-loop")).toBe(LOCK_OWNER);
+    expect(await holdNotificationLock()).toBe(true);
+    store.set("lock:notification-loop", "other-container:1:uuid");
+    expect(await holdNotificationLock()).toBe(false);
+
+    redisMock.client = {
+      set: async () => {
+        throw new Error("connection is closed");
+      },
+      eval: async () => 1,
+    };
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    expect(await holdNotificationLock()).toBe(false);
+    warn.mockRestore();
   });
 });
 

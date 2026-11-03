@@ -4,6 +4,8 @@ import { checkoutIntentIdSchema, checkoutStartInputSchema } from "@repo/constant
 import { privateProcedure, publicProcedure, router } from "./trpc";
 import { env } from "../env";
 import { getIntent, resumableIntent, startIntent } from "../services/checkout/intents";
+import { quoteIntent } from "../services/checkout/quote";
+import { awaitFunds } from "../services/checkout/funds";
 import { getClientIp } from "../services/analytics/requestContext";
 import { enforceRateLimits } from "../utils/rateLimit";
 import { isFeatureOn } from "../services/featureFlags";
@@ -34,6 +36,31 @@ export const checkoutRouter = router({
     .query(async ({ ctx, input }) => {
       requireEnabled();
       return getIntent(ctx.user?.sub ?? null, input.id);
+    }),
+
+  // The pay sheet (CK-2): item, creator look, amount, fee and whether payment can go
+  // ahead. Called on every open so a changed price shows before Pay. Claimed fan only
+  quote: privateProcedure
+    .input(z.object({ id: checkoutIntentIdSchema }))
+    .query(async ({ ctx, input }) => {
+      requireEnabled();
+      await enforceRateLimits(
+        [{ key: `checkout_quote:u:${ctx.user!.sub}`, limit: 60, windowSeconds: 60 }],
+        "Too many checks. Try again in a minute."
+      );
+      return quoteIntent(ctx.user!.sub, input.id);
+    }),
+
+  // Add USDC in Wallet (CK-3): the intent waits for funds. Claimed fan only
+  awaitFunds: privateProcedure
+    .input(z.object({ id: checkoutIntentIdSchema }))
+    .mutation(async ({ ctx, input }) => {
+      requireEnabled();
+      await enforceRateLimits(
+        [{ key: `checkout_await:u:${ctx.user!.sub}`, limit: 20, windowSeconds: 60 }],
+        "Too many checks. Try again in a minute."
+      );
+      return awaitFunds(ctx.user!.sub, input.id);
     }),
 
   // The resume bar on app load: Finish buying {item}
