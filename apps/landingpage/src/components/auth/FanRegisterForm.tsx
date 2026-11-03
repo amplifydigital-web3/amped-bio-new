@@ -37,6 +37,7 @@ import {
 import { PRIVACY_POLICY_URL } from "@/components/layout/PublicFooter";
 import { EMAIL_FIX } from "./SignInForm";
 import { MESSAGE_UI, TELEGRAM_APP_STRINGS } from "@repo/constants";
+import { useFeatureFlag } from "@/components/providers/FeatureFlagsProvider";
 
 const emailSchema = z.string().email();
 const googleEnabled = Boolean(process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID);
@@ -63,6 +64,7 @@ const EMAIL_TAKEN = "This email already has an account.";
  */
 export function FanRegisterForm() {
   const params = useSearchParams();
+  const messagesOn = useFeatureFlag("messages");
   const creatorHandle = normalizeHandle(params.get("creator") ?? "");
   const intent = params.get("intent") === "message" ? "message" : "follow";
   // Back to the creator page; it completes the follow, or opens the link sheet, on load
@@ -203,7 +205,7 @@ export function FanRegisterForm() {
       title={intent === "message" ? `Message ${creatorName}` : `Follow ${creatorName}`}
       subtitle={
         intent === "message"
-          ? process.env.NEXT_PUBLIC_MESSAGES === "true"
+          ? messagesOn
             ? MESSAGE_UI.door.signUpLine(creatorName)
             : TELEGRAM_APP_STRINGS.publicSignUpLine(creatorName)
           : "An account lets you follow creators and get their updates. You can make your own page later."
