@@ -16,7 +16,7 @@ Supersedes these parts of `docs/features/content-system.md`: in 3.6, the **Acces
 ## 2. What exists on development
 
 - `services/access/engine.ts`: `registerResolver`, `check`, `checkBatch`, `open`, `bumpViewer`, `eligibleUserIds`. Only the `block` resolver is registered (`services/access/index.ts`).
-- `trpc/access.ts`: `access.check` (public, 30 a minute per viewer) and `access.rules.list`, `create`, `update`, `delete`. All refuse while `ACCESS_GATING_ENABLED` is off.
+- `trpc/access.ts`: `access.check` (public, 30 a minute per viewer) and `access.rules.list`, `create`, `update`, `delete`. All refuse while the `accessGating` feature flag is off.
 - Live kinds: `follower`, `pool_member`, `stake_min`, `any`, `all`. `any` and `all` take 2 to 4 rule ids. Stake kinds pass only for owners on `ACCESS_STAKE_KINDS_ALLOWLIST` (`stakeKindsAllowed`).
 - `ContentItem.accessRuleId` has its foreign key to `AccessRule` (`onDelete: Restrict`). `baseAccessRuleId` exists and is for store PR 9.
 - `services/content/access.ts`: `PUBLIC_ITEM_WHERE` (requires `accessRuleId: null` and `adult: false`), `isPublicItem`, `openDecision` (owner or public), `servedAssetsClean`.
@@ -53,7 +53,7 @@ It returns null for an id that does not match `contentPublicIdSchema` or does no
 - A locked card or page carries: `publicId`, title, kind, duration, page count, the blur cover URL, and `gate: { kind, summary }` from `ACCESS_RULE_SUMMARIES`. Never a media token, rendition, poster, waveform or description.
 - A locked item page renders with `noindex` and no share image other than the blur cover.
 - The feed page's index rule ("Yes when the creator has a public item") keeps reading `hasPublicContent`.
-- While `ACCESS_GATING_ENABLED` is off, the listed surfaces keep `PUBLIC_ITEM_WHERE`, so nothing changes on public pages until the flag turns on.
+- While the `accessGating` feature flag is off, the listed surfaces keep `PUBLIC_ITEM_WHERE`, so nothing changes on public pages until the flag turns on.
 
 ### 3.3 Reveals go through `open`
 
@@ -66,7 +66,7 @@ It returns null for an id that does not match `contentPublicIdSchema` or does no
 
 ### 3.4 `access.checkPage` (CQ2)
 
-`access.checkPage({ handle, resources: AccessResource[] })`: public, behind `ACCESS_GATING_ENABLED`.
+`access.checkPage({ handle, resources: AccessResource[] })`: public, behind the `accessGating` feature flag.
 
 - Up to 48 resources per call, all owned by the handle's user. Any other resource is dropped from the answer.
 - Calls `checkBatch` with intent render. Returns `{ [type:id]: AccessDecision }`.
@@ -82,7 +82,7 @@ access?: null | { ruleId: string } | AccessRuleInput | { kind: "any"; leaves: Ac
 ```
 
 - `null` sets the item to Everyone. An `AccessRuleInput` creates an inline rule (`name: null`). `{ ruleId }` attaches a saved rule; it must belong to the item's owner. `any` with leaves creates each leaf inline, then the `any` rule over them, in one transaction.
-- Refused while `ACCESS_GATING_ENABLED` is off: `PRECONDITION_FAILED`, "Gating is not available yet."
+- Refused while the `accessGating` feature flag is off: `PRECONDITION_FAILED`, "Gating is not available yet."
 - Refused for `pool_member` and `stake_min`, including inside `any`, when the owner is not on the stake allowlist: `FORBIDDEN`, "Not available for your page yet." `access.rules.create` gets the same check.
 - Refused for kinds outside `LIVE_ACCESS_RULE_KINDS` (Members and Paid until PR 10 and PR 11).
 - An 18+ item may carry a rule. The age check runs before the rule (gating 3.4).
@@ -104,7 +104,7 @@ access?: null | { ruleId: string } | AccessRuleInput | { kind: "any"; leaves: Ac
 - Members and Paid show Later (`LaterPill`) until PR 10 and PR 11. Any of offers only live kinds.
 - Outside the stake allowlist, Pool fans and Fans with a minimum stake show disabled with "Not available for your page yet."
 - Live preview as a locked fan, from `content.getPreview`.
-- Hidden behind a new client flag `VITE_ACCESS_GATING` (off in production), so the picker never shows against a server that refuses.
+- Hidden behind the `accessGating` feature flag, read in the client with `isFeatureOn("accessGating")` (`apps/client/src/config/featureFlags.ts`), so the picker never shows against a server that refuses. This PR changes the registry entry's `scope` from `"server"` to `"public"` so the client receives it. No new `VITE_` variable.
 
 ### 4.2 Locked cards and the locked item page (cs4, cs5, s1)
 
@@ -130,7 +130,7 @@ access?: null | { ruleId: string } | AccessRuleInput | { kind: "any"; leaves: Ac
 | --- | --- | --- | --- | --- |
 | C8 | `feat/content-gating` | 3.1 to 3.6 and 4.1 to 4.2, tests in 5. No migration | G1 (#398), #348 | 5 |
 
-Flags: `ACCESS_GATING_ENABLED` (server) and `VITE_ACCESS_GATING` (client), both off in production. The Phase 2 gate in content spec 3.15 stands: counsel receives the stake copy in parallel.
+Flag: `accessGating` in `packages/constants/src/feature-flags.ts`, off in production and switched in admin › Feature flags with no rebuild or redeploy. The server reads it with `isFeatureOn("accessGating")` (`apps/server/src/services/featureFlags.ts`), the client with `isFeatureOn("accessGating")` (`apps/client/src/config/featureFlags.ts`), the landing app with `useFeatureFlag("accessGating")`. `ACCESS_GATING_ENABLED` stays only as the server fallback while no admin row is set. The Phase 2 gate in content spec 3.15 stands: counsel receives the stake copy in parallel.
 
 Not in C8: broadcast attachments (CQ1), block locks (G3), Members and Paid (PR 10 and PR 11), the store (PR 9).
 
