@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { GOOGLE_FAILED_BODY, GOOGLE_FAILED_TITLE, startGoogleSignIn } from "@/test/mocks/ui";
 import { RegisterForm } from "./RegisterForm";
 import { EMAIL_FIX } from "./SignInForm";
+import { SIGN_UP_UNCONFIRMED_BODY, SIGN_UP_UNCONFIRMED_TITLE } from "@/lib/signUpRecovery";
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 
@@ -18,6 +19,7 @@ function renderForm() {
 const mocks = vi.hoisted(() => ({
   params: new URLSearchParams(),
   signUpEmail: vi.fn(),
+  signInEmail: vi.fn(),
   executeCaptcha: vi.fn(() => Promise.resolve<string | null>("token")),
   isCaptchaEnabled: false,
   referrerId: null,
@@ -36,7 +38,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/auth-client", () => ({
-  authClient: { signUp: { email: mocks.signUpEmail } },
+  authClient: { signUp: { email: mocks.signUpEmail }, signIn: { email: mocks.signInEmail } },
 }));
 vi.mock("next/navigation", () => ({ useSearchParams: () => mocks.params }));
 vi.mock("next/link", () => ({
@@ -232,17 +234,35 @@ describe("RegisterForm", () => {
   });
 
   it("shows the network error notice when sign up throws", async () => {
+    // The account may exist when sign up does not answer (lib/signUpRecovery),
+    // so the notice says it could not be confirmed and Retry signs in
     mocks.signUpEmail.mockRejectedValue(new TypeError("fetch failed"));
+    mocks.signInEmail.mockResolvedValue({ error: { message: "Invalid email or password" } });
     renderForm();
     fillHandle("ada");
     fillEmail("ada@example.com");
     fillPassword("S3cure-pass!");
     submit();
 
-    await waitFor(() =>
-      expect(screen.getByText("Your account was not created")).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByText(SIGN_UP_UNCONFIRMED_TITLE)).toBeInTheDocument());
+    expect(screen.getByText(SIGN_UP_UNCONFIRMED_BODY)).toBeInTheDocument();
+    expect(mocks.signInEmail).toHaveBeenCalledWith(
+      expect.objectContaining({ email: "ada@example.com", password: "S3cure-pass!" })
     );
-    expect(screen.getByText("Check your connection and try again.")).toBeInTheDocument();
+    expect(mocks.goTo).not.toHaveBeenCalled();
+  });
+
+  it("signs in and continues when sign up was lost but the account exists", async () => {
+    mocks.signUpEmail.mockRejectedValue(new TypeError("fetch failed"));
+    mocks.signInEmail.mockResolvedValue({ data: { user: { id: "1" } } });
+    renderForm();
+    fillHandle("ada");
+    fillEmail("ada@example.com");
+    fillPassword("S3cure-pass!");
+    submit();
+
+    await waitFor(() => expect(mocks.goTo).toHaveBeenCalled());
+    expect(screen.queryByText(SIGN_UP_UNCONFIRMED_TITLE)).toBeNull();
   });
 
   it("starts Google sign in and shares the confirmed handle", async () => {
