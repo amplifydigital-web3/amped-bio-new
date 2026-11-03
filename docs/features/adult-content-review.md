@@ -421,7 +421,7 @@ Retention: SafetyEvent, SafetyCase and Strike are kept 3 years (as DMCA records,
 
 **F3 (P2, copy).** The item editor says the 18+ label shows "only to fans who confirmed their age". New copy: "Label this item for adults. Only fans who passed the Over 18 check can open it."
 
-**F4 (P1, process).** Production runs `CLASSIFIER=none` with `CLASSIFIER_REQUIRED=true`, so every image and video is held, and no reviewer tool exists until R2. Either ship R2 with content Phase 1 or keep `CONTENT_UPLOADS_ENABLED` off in production until it lands.
+**F4 (P1, process).** Production runs `CLASSIFIER=none` with `CLASSIFIER_REQUIRED=true`, so every image and video is held, and no reviewer tool exists until R2. Either ship R2 with content Phase 1 or keep the `contentUploads` feature flag off in production until it lands. It is switched in admin › Feature flags (registry `packages/constants/src/feature-flags.ts`) and the server reads it with `isFeatureOn("contentUploads")`; `CONTENT_UPLOADS_ENABLED` is only its fallback while no admin row is set.
 
 ## 12. Decisions
 
