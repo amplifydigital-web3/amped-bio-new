@@ -585,7 +585,7 @@ browser                 API (tRPC)                         R2 / Stream          
 - **Stream rule.** Stream checks the token on every segment and stops at expiry, and the browser fetches audio in Range requests through the gateway for the whole play. So a Stream token and a gated audio URL both live the item duration plus 10 minutes (4 hours at most) even though a grant lives 10 minutes. A fan who loses access finishes that play session and is refused on the next. The gating engine spec records this exception for video and audio.
 - **Previews.** A locked viewer never holds a token for the full video or audio. `content.getPreview` signs the clip uid or the audio preview key only.
 - **Downloads.** `getReadUrl({ download: true })` counts downloads per buyer per item per day in Redis (decision 24) and puts a `jti` in the token. The gateway enforces single use with a Durable Object keyed by `jti` (KV is eventually consistent, so it cannot). Stream MP4 downloads are not single use: they carry a 2 minute token with `downloadable: true`, and the API turns on the MP4 download (`POST /stream/{uid}/downloads`) at READY, only for videos with downloads allowed.
-- **Takedown.** Block or delete writes the KV entry and purges the cache key. R2 tokens stop working within KV propagation (about 60 seconds). Stream videos are set `requireSignedURLs` already, so a blocked video is also deleted from Stream or has its signing denied by `getReadUrl`.
+- **Takedown.** Superseded by `docs/features/content-takedown.md` (C7a): edge states OPEN, PRIVATE and BLOCKED, the `private:` key for old public URLs, and the Stream hide. Original text: Block or delete writes the KV entry and purges the cache key. R2 tokens stop working within KV propagation (about 60 seconds). Stream videos are set `requireSignedURLs` already, so a blocked video is also deleted from Stream or has its signing denied by `getReadUrl`.
 - **Server rendering.** Bio, feed, store and product pages render gated items locked, with blur covers only. Full URLs are fetched by the browser after hydration and never appear in server HTML, page caches, JSON-LD, share tags, the sitemap or `llms.txt`.
 - **18+.** `getReadUrl`, `getPreview` and every public list refuse 18+ items for viewers without a passed age check (#28).
 - **Broadcast attachments.** A broadcast references items by `publicId`. `getReadUrl` accepts a grant for `{ type: "broadcast", id }` and confirms the item is attached to that broadcast. Emails never carry media URLs.
@@ -625,18 +625,20 @@ All four use the same `getHandle` path and return not found for an unpublished p
 
 **Storefront** at `/{handle}/store`, rendered on the server in the creator's theme.
 
-| Section    | Shows                                                                                                                                                                                 | Hidden when                    |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
-| Header     | Banner (3:1, cropped at 4:3 on phones), avatar, store name, tagline, Follow button (Fan Graph), member count from the plan rule (null under 10)                                       | never                          |
-| Membership | The #25 membership card (mb2 and mb10 states), with "Includes N items" counted from items whose rule includes the plan                                                                | no active plan                 |
-| Featured   | Up to 3 products in the large card                                                                                                                                                    | none chosen                    |
-| Products   | All active products in the creator's sort order, kind chips (All, Video, Audio, Downloads, Bundles), product cards with cover, title, kind, length or item count, amount, access line | none active                    |
-| Free       | Public items, newest 6, View all opens `/{handle}/content`                                                                                                                            | none public                    |
-| Live       | Upcoming ticketed and members only streams from #27                                                                                                                                   | #27 not live or none scheduled |
-| About      | The About text and the refund line                                                                                                                                                    | always shows the refund line   |
-| Footer     | Powered by Amped.Bio mark, Report store                                                                                                                                               | never                          |
+| Section | Shows | Hidden when |
+|---|---|---|
+| Header | Banner (3:1, cropped at 4:3 on phones), avatar, store name, tagline, Follow button (Fan Graph), member count from the plan rule (null under 10) | never |
+| Membership | The #25 membership card (mb2 and mb10 states), with "Includes N items" counted from items whose rule includes the plan | no active plan |
+| Featured | Up to 3 products in the large card | none chosen |
+| Products | All active products in the creator's sort order, kind chips (All, Video, Audio, Downloads, Bundles), product cards with cover, title, kind, length or item count, amount, access line | none active |
+| Free | Public items, newest 6, View all opens `/{handle}/content` | none public |
+| Live | Upcoming ticketed and members only streams from #27 | #27 not live or none scheduled |
+| About | The About text | no About text |
+| Buying here | Seller name, the refund summary from the store policy, Read the store policy (store policy spec 3.4, board sp5) | never |
+| Footer | Store policy, Report store, Powered by Amped.Bio mark | never |
 
-- The creator picks the section order in Storefront settings. Header and Footer are fixed.
+- The creator picks the section order in Storefront settings. Header, Buying here and Footer are fixed.
+- The store policy lives at `/{handle}/store/policy` and in the Store tab, Policy (`docs/features/store-policy.md`, boards sp1 to sp4).
 - Product cards never show staking words, pool figures or tREVO. Amounts read `3 USDC`. The word price is not used in copy.
 - Layouts: Grid (2 columns on phones, 3 on desktop), List (one row per product), Feature (first product full width, then grid).
 - Signed out fans see the full store. Buy and Join open sign up with `?next=` back to the product.
@@ -647,7 +649,7 @@ All four use the same `getHandle` path and return not found for an unpublished p
 
 - Cover or the preview player (the first previewable item), title, description.
 - What is included: one row per item with kind, length, pages or file size, and a lock or check per the viewer's access.
-- Access line: Yours to keep, or Access for 30 days, or Access for 365 days.
+- Access line: In your Library, or Access for 30 days, or Access for 365 days. "In your Library" replaces "Yours to keep" because the store policy grants a licence, not ownership (store policy spec 3.4, For counsel item 3; SP-Q45).
 - Amount and Buy. When Also in membership is on: Join to open this and N more, beside Buy.
 - Members of the plan see Included in your membership and Open.
 - Owners (buyers with access) see Open, and Download per item when allowed. A bought bundle opens a list of its items.
@@ -660,6 +662,8 @@ All four use the same `getHandle` path and return not found for an unpublished p
 2. USDC on Base ready in the wallet (#29).
 3. One active product or an active membership plan.
 4. Email verified (the verification grace rule ends at go live, because sales send receipts).
+
+This list is superseded by `docs/features/store-catalog.md` section 2 (seven items, including the seller check, the store policy and adult setup).
 
 Pausing the store hides it and stops new sales. Existing buyers and members keep access.
 
@@ -783,7 +787,7 @@ Recipient { address to; uint16 bps; uint8 role; } // role: 0 creator, 1 platform
 - User content on `usercontent.amped.bio` with a sandbox CSP and `nosniff`. No SVG, HTML or scripts. The zone strips the `Cookie` header before the gateway (3.17 step 8).
 - No public bucket, no `r2.dev`, no presigned GET for viewers.
 - Presigned uploads bind type and length.
-- Quotas per user. `CONTENT_UPLOADS_ENABLED` and `STORE_SALES_ENABLED` stop uploads or sales during an incident.
+- Quotas per user. The site_settings feature flags `contentUploads` and `storeSales` (`packages/constants/src/feature-flags.ts`, switched in admin, Feature flags, no redeploy) stop uploads or sales during an incident. `CONTENT_UPLOADS_ENABLED` stays only as the server fallback while no admin row is set; there is no `STORE_SALES_ENABLED` (store catalog section 2).
 - Secrets in the server secret store: R2 keys, Stream API token, Stream signing key, Stream webhook secret, media token keys, processor secret, PhotoDNA and classifier keys. Worker secrets set with `wrangler secret`.
 - Logs never include tokens or full signed URLs.
 
@@ -792,7 +796,7 @@ Recipient { address to; uint16 bps; uint8 role; } // role: 0 creator, 1 platform
 - No earn, yield, return, profit, invest, investment, passive income, income or gains on any content or store surface (`CONTENT_BANNED_TERMS` in `packages/constants/src/compliance.ts`). Store and checkout surfaces also ban stake, staking, pool and tREVO (#25 3.9). Locked states for stake rules follow `ACCESS_BANNED_TERMS` and show `ACCESS_STAKE_DISCLOSURE`.
 - Amounts read `3 USDC`. The word price is not used in shipped copy.
 - The fee line reads its percentage from `PLATFORM_FEE_BPS`. A change to the fee updates every sheet and receipt, and counsel reads the new line before it ships.
-- Approved words: members only, membership, join, buy, yours to keep, access, support, library, drop, store.
+- Approved words: members only, membership, join, buy, access, support, library, drop, store. "Yours to keep" is withdrawn (SP-Q45, pending counsel's choice of word).
 - Protection claims: "streams through a protected player". Never "cannot be copied" or DRM.
 - Safety claims: "every upload is scanned before it goes live". Never "100% safe".
 - No "share anything".
@@ -915,23 +919,23 @@ About 44 engineer days in total. PRs 3, 4 and 5 can run in parallel after PR 2.
 
 **PR 1. `fix/uploads-sdk-v3-validation`.** Replaces the v2 `getSignedUrlPromise` PUT signing in `S3Service` with `@aws-sdk/s3-request-presigner` and removes `aws-sdk` from `apps/server/package.json`. Confirm steps compare HeadObject `ContentLength` with the declared size and read the first 4 KB to check the real type. Tests for both. Closes the Build Board fix cards Remove AWS SDK v2 and Enforce upload size and file type. No user facing change.
 
-**PR 2. `feat/content-foundation`.** Migration for `ContentItem`, `ContentAsset`, `UserStorageQuota`, `ContentReport`, `CopyrightNotice`, `BlockedContentHash`. `packages/constants/src/content.ts`. `apps/server/src/services/cloudflare/` with `r2.ts` (S3 client on the R2 endpoint, presigned PUT and multipart), `stream.ts` (TUS upload URL, clip, captions, downloads, token signing), `mediaToken.ts` (gateway token signer, shared format in `packages/constants/src/mediaToken.ts`). `content` router: createUpload, signParts, completeUpload, abortUpload, list, get, update, getStorage. Routes `POST /webhooks/cloudflare-stream` and `POST /internal/content/processed`. Env and secrets per 3.17. Flags `CONTENT_UPLOADS_ENABLED=false`, `VITE_CONTENT=false`. Tests: validation, quota reservation, webhook and callback signatures, token format.
+**PR 2. `feat/content-foundation`.** Migration for `ContentItem`, `ContentAsset`, `UserStorageQuota`, `ContentReport`, `CopyrightNotice`, `BlockedContentHash`. `packages/constants/src/content.ts`. `apps/server/src/services/cloudflare/` with `r2.ts` (S3 client on the R2 endpoint, presigned PUT and multipart), `stream.ts` (TUS upload URL, clip, captions, downloads, token signing), `mediaToken.ts` (gateway token signer, shared format in `packages/constants/src/mediaToken.ts`). `content` router: createUpload, signParts, completeUpload, abortUpload, list, get, update, getStorage. Routes `POST /webhooks/cloudflare-stream` and `POST /internal/content/processed`. Env and secrets per 3.17. Feature flags `contentUploads` and `content`, off (site_settings; the env names are fallbacks only). Tests: validation, quota reservation, webhook and callback signatures, token format.
 
 **PR 3. `feat/media-gateway`.** New `apps/media-gateway` (Wrangler, TypeScript, R2 binding `CONTENT`, KV binding `TAKEDOWN`). Token verify with two key rotation, path match, takedown check, cache by key, Range, headers per 3.6. Tests with the Workers Vitest pool. CI gains typecheck and test for the Worker. Deploy is `wrangler deploy` run by Gustavo per environment until deploy automation exists.
 
 **PR 4. `feat/media-processor`.** New `apps/media-processor`: Queue consumer Worker plus a Container image (ffmpeg, sharp, ClamAV with a daily signature update, poppler, qpdf). The API publishes jobs and serves them on `POST /internal/content/job`. Steps per 3.5 with idempotent writes. PhotoDNA and classifier adapters with a mock adapter on staging until keys arrive. Callback client. Dead letter queue handling. Tests per step with fixture files (EICAR, GPS PNG, renamed EXE, zip bomb, 30 second MP3).
 
-**PR 5. `feat/content-library-ui`.** Content destination with the Library tab (cs1), upload dialog with R2 multipart and `tus-js-client` for video (cs2), item editor with Public only (cs3; other rules show Later), storage meter, empty, loading and error states (cs8). Autosave. Flag `VITE_CONTENT`.
+**PR 5. `feat/content-library-ui`.** Content destination with the Library tab (cs1), upload dialog with R2 multipart and `tus-js-client` for video (cs2), item editor with Public only (cs3; other rules show Later), storage meter, empty, loading and error states (cs8). Autosave. Feature flag `content`.
 
 **PR 6. `feat/content-public-pages`.** `content` block type in the five places, block editor, landingpage routes `/{handle}/c/{publicId}` and `/{handle}/content`, `listForBio`, `feed`, `getPublic`, `getReadUrl` for public items, publish, unpublish, delete, restore, the purge job, Report content, JSON-LD for public items, sitemap and `llms.txt` entries. Boards cs4, cs6, cs7.
 
-**PR 7. `feat/content-trust-safety`.** Admin content queue and decisions in `apps/admin`, DMCA tools, hash blocklist actions, CSAM evidence path and alerting, KV takedown writes and cache purge, the 18+ refusals in every public procedure (#28 hook), analytics events, the copy scan over content components. Phase 1 launch gate items are checked off in the PR description.
+**PR 7 (split 3 Nov 2026).** Superseded: C7a `feat/content-takedown` (`docs/features/content-takedown.md`) and the Safety PRs R1 to R3 (`docs/features/adult-content-review.md` 16a). The original scope, kept for the record: `feat/content-trust-safety`. Admin content queue and decisions in `apps/admin`, DMCA tools, hash blocklist actions, CSAM evidence path and alerting, KV takedown writes and cache purge, the 18+ refusals in every public procedure (#28 hook), analytics events, the copy scan over content components. Phase 1 launch gate items are checked off in the PR description.
 
 **PR 8. `feat/content-gating`.** Registers the `content` resolver, the rule picker in the item editor (Everyone, Followers, Members, Pool fans, Fans with a minimum stake, Paid, Any of), locked cards, `getPreview` with clip tokens and audio previews, grant to URL exchange, the stream rule, broadcast attachments, cs5. Members and Paid show Later until PR 10 and PR 11.
 
-**PR 9. `feat/store-catalog`.** Migration for `StoreSettings`, `Offer`, `OfferItem` and the `offerItems` back relation on `ContentItem`. `store` router for settings, products, public, product, listForBio. Store tab with Storefront and Products (st1, st2, st3), storefront and product pages (st6, st7, st8), `store` block type (st10), product rule writing. The store renders for its owner in preview only while `STORE_SALES_ENABLED` is off.
+**PR 9. `feat/store-catalog`.** Migration for `StoreSettings`, `Offer`, `OfferItem` and the `offerItems` back relation on `ContentItem`. `store` router for settings, products, public, product, listForBio. Store tab with Storefront and Products (st1, st2, st3), storefront and product pages (st6, st7, st8), `store` block type (st10), product rule writing. The store renders for its owner in preview only while the `storeSales` feature flag is off.
 
-**PR 10. `feat/store-checkout`.** Migration for `SplitRecipient` (read by the split builder, empty until admins add partners) and the `Purchase` columns. `via` on `payments.quote` and `pay.prepare`, the pay sheet additions (st9), purchase to access wiring, `Offer.salesCount` from the indexer, Library Purchased rows, the go live checklist and `store.setLive`, Sales view with CSV and refunds (st5), the store copy scan. Flag `STORE_SALES_ENABLED` plus the pilot allowlist.
+**PR 10. `feat/store-checkout`.** Migration for `SplitRecipient` (read by the split builder, empty until admins add partners) and the `Purchase` columns. `via` on `payments.quote` and `pay.prepare`, the pay sheet additions (st9), purchase to access wiring, `Offer.salesCount` from the indexer, Library Purchased rows, the go live checklist and `store.setLive`, Sales view with CSV and refunds (st5), the store copy scan. Feature flag `storeSales` plus the pilot allowlist.
 
 **PR 11. `feat/store-membership`.** Membership tab with the plan editor (st4), membership card on the store and the `membership` block type, Also in membership on products, `any(member, paid)` rule writing, Join from the product page.
 
@@ -955,6 +959,53 @@ One Cloudflare account for staging and production (Rob, 3 Nov 2026). Separation 
 12. Deploys: CI only for production (merge to the live branch), with a scoped API token. Account membership and Wrangler access are account wide, so keep the member list short.
 
 Known limits of one account, accepted: the Stream API token and Stream signing keys work on every video in the account, so a staging credential can read, sign or delete a production video if it knows the uid; Workers and Queues tokens are account wide; one wrong `--env` flag reaches the other environment. Revisit two accounts before general availability.
+
+### 3.19 Full QA fixes, 3 Nov 2026 (rows 127, 129, 151 to 156)
+
+Screen Review Full QA against development 98db33f, content gating C8 (`docs/features/content-gating.md`, PR #418 and #433), store catalog C9 (#419), store policy (#420) and mobile checkout (#412). Where this section and an earlier part of 3.1 disagree, this section wins. Where C8 and this section disagree on gating, C8 wins. QA2 boards are on the Content system and Store and paid cards design pages.
+
+**Boards.**
+
+| Row | Was | Now |
+|---|---|---|
+| 151 | cs1, desktop only, rail without Inbox and People, filters Gated and For sale | cs-q1 (1440) and cs-q2 (390). The shipped rail (`apps/client/src/components/shell/destinations.ts`). Filters from `CONTENT_COPY.filters` (`apps/client/src/components/panels/content/copy.ts`): All, kinds, Drafts, In review, Recently removed. Gated and For sale join with C8 and C9 |
+| 152 | cs2, desktop only | cs2 plus the phone sheet on cs-q2. Lines read `CONTENT_COPY.upload` and `CONTENT_COPY.errors` verbatim. The `contentUploads` flag off state ("Uploads are not open yet") is drawn |
+| 153 | cs3, Members and Paid live, "Any of", no testnet line, no people | cs-q3 (1440) and cs-q4 (390). Picker per C8 4.1. People in this item with the release status per person |
+| 154 | cs4 (phone superseded by s1 per C8 4.2) | s1 plus st-q1. Every button reads `$N USDC` (mobile checkout D6). A Pool fans card shows `TESTNET_NOTICE` once in the block |
+| 155 | cs5 (phone superseded by s1), stake panel with member words | s1 plus st-q1 and st-q2: Pool fans state per C8 4.2, Paid state with the seller line under Buy, unavailable state when the seller check fails (gating spec 3.4). Supersedes Screen Review row 371 |
+| 156 | cs8 | cs8 plus cs-q5: uploads closed, load error, blocked, in review, recently removed, failed with the code line |
+| 127 | cs6 | cs6 plus cs-q6: Images chip (`SITE_CONTENT_COPY.kinds`), locked cards carry the rule summary only, a Pool fans card adds `TESTNET_NOTICE` |
+| 129 | cs7 | cs7 plus the store policy link on the purchase row (store policy 3.4) |
+
+**Rules the boards and the build follow.**
+
+1. Amounts on fan surfaces read `$N USDC` (mobile checkout D6). Locked cards carry the gate summary from `ACCESS_RULE_SUMMARIES` and no amount until PR 10; after PR 10 the Buy button carries the amount, never the card text.
+2. Any surface that shows a pool or tREVO, including a Pool fans card or label on the bio, the feed or the item page, shows `TESTNET_NOTICE` (`packages/constants/src/testnet.ts`) once per surface. Stake unlock steps show it above `ACCESS_STAKE_DISCLOSURE` (C8 4.2, 4.3). No board types the disclosure; boards show the constant slot until counsel returns the text.
+3. A bundle only item reads the summary Paid. "In a bundle" is not a rule label.
+4. Locked item page with a Buy or Join action shows "Sold by {seller}. Store policy" under the action bar (store policy 3.4, product page row). The pay sheet carries the counsel sentences "Sold by {seller} on Amped.bio. Your purchase is from {seller}, not from Amped." and the Store policy link, with no discretion sentence (CK-D1, Rob 3 Nov).
+5. When the owner fails `checkIdentity(seller)`, `paid` and `member` rules answer `kind_unavailable` with hint `unavailable` (gating spec 3.4). The item page shows "Not available right now" with Back to the page. Existing buyers keep access.
+6. **People in this item.** The item editor lists every tagged person with their release status with this creator (store policy section 4, performer release `RELEASE_VERSION` 1). The release is signed once per performer per creator at the People invite. Each item records which release covers each tagged performer: the item's people rows point to the `AppearingPerson` row (with its `releaseVersion` and `creatorSignedAt`) for that creator (adult content review section 10, store policy 4.3). Surfaces the release excludes are greyed out (store policy 4.2). `content.publish` refuses with `PRECONDITION_FAILED`, "Every person in this item needs a release with you first.", while a tagged performer has no valid release with the item's creator. The editor disables Publish and shows the same line with Send release.
+
+**Code changes required (build steps).**
+
+| File | Function or line | Change | PR |
+|---|---|---|---|
+| `apps/client/src/components/panels/content/copy.ts` | `CONTENT_COPY.editor.rules` (lines 281 to 289) | Labels from `ACCESS_RULE_SUMMARIES`: `any` reads "Any of these"; Followers helper "Anyone who follows you on Amped. Free for fans."; Members and Paid helper "Needs a verified seller" with "Verify to sell." when the seller check fails | C8 |
+| `apps/client/src/components/panels/content/ItemEditor.tsx` | `AccessCard` | Render `TESTNET_NOTICE` under the picker when Pool fans, Fans with a minimum stake or an Any of these with a stake leaf is shown | C8 |
+| `apps/client/src/components/panels/content/ItemEditor.tsx` and `PublishCard.tsx` | publish action | People in this item section and the publish refusal in rule 6 | R4 (store policy) |
+| `apps/server/src/trpc/content.ts` | `content.publish` | Refuse while a tagged performer lacks a valid release (rule 6) | R4 |
+| `apps/landingpage/src/app/[handle]/c/[publicId]/page.tsx` | `generateMetadata`, `robots` (line 46) | `index: false` for a locked item (C8 3.2); today every item is indexed | C8 |
+| `apps/landingpage/src/components/content/ContentCardView.tsx`, `FeedPageView.tsx`, `ItemPageView.tsx` | locked card and page | Import `TESTNET_NOTICE` and render it per rule 2; seller line per rule 4 after PR 10 | C8, PR 10 |
+| `scripts/check-compliance-copy.ts` | scan | Fail on a pool or tREVO surface without `TESTNET_NOTICE`, and on "In a bundle" used as a rule label | C8 |
+
+**Acceptance additions.**
+
+26. A Pool fans card on the bio, the feed or the item page renders `TESTNET_NOTICE` verbatim, imported from `@repo/constants`.
+27. Publish refuses an item with a tagged performer who has no valid release with that creator, in the API and in the editor.
+28. A locked item page for a gated item renders `noindex`.
+29. Every editor board ships at 1440 and 390.
+
+**For counsel.** Nothing new. `ACCESS_STAKE_DISCLOSURE` text is pending under C8 "For counsel".
 
 ### 3.18 Edits this spec makes to other specs
 
@@ -1014,6 +1065,10 @@ Known limits of one account, accepted: the Stream API token and Stream signing k
 - USDC wallet and on-ramp spec (#29, #5): docs/features/usdc-wallet-onramp.md
 
 ## Revision log
+
+- 2026-11-03: QA fixes. Access line "In your Library" in place of "Yours to keep" (SP-Q45).
+- 2026-11-03: Store policy. Buying here replaces the refund line, footer link, policy route, go live items now in `docs/features/store-catalog.md` section 2. See `docs/features/store-policy.md`.
+- 2026-11-03: Full QA fixes (3.19): QA2 boards, testnet and seller line rules, People in this item and the release check on publish, code steps with files, feature flags replace env switches.
 
 - 2026-09-26: First spec. S3 and CloudFront, Mux, Public or Members only, payments on hold.
 - 2026-10-08: Rob's decisions applied on the fork: Cloudflare Stream for video, adult content behind age verification, CSAM vendor to discuss, Phase 2 counsel review in parallel.
