@@ -117,4 +117,4 @@ Result: 1 S1, 30 S2, 12 S3. The S1 is in code: the pool call to action takes the
 
 Gate after the fixes: 21 boards (12 desktop and states at 1440, 9 phone frames at 390) with 0 em or en dashes, 0 banned words, 0 targets under 44 (search inputs sit inside 44 high labels; switch checkboxes sit inside 55 high labels), 0 contrast failures outside creator content, no sideways scroll.
 
-For Rob: the seller of record for a theme a creator sells (spec 3.15).
+Decided by Rob (TH-D1, 3 Nov): Amped sells only Amped made marketplace themes with Amped branded checkout; a creator who sells a look is the seller of record with creator branded checkout (spec 3.15). No board shows a paid theme checkout.
