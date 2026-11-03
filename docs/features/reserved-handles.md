@@ -2,7 +2,7 @@
 
 Status: revision 2, 28 Oct 2026, for approval. Revision 1 (27 Oct) had R1 to R4, all answered as recommended on 28 Oct. Revision 2 adds the admin interface (section 7): the list moves to two tiers, a locked system tier in code and an admin managed tier in the database, with screens to reserve, assign and release words, run the holder notices from R1, and see redirects and the audit log. Changed sections: 3, 4, 5, 7 (new), 8, 9, 10, 11.
 Full QA, 28 Oct 2026: two independent reviewers (spec and code; design and accessibility). 48 spec edits applied from their reports. Results: `docs/features/reserved-handles-qa.md`. A2 and A5 recommendations changed after QA and are open for Rob.
-Screen QA fixes, 3 Nov 2026 (rows 330 to 337): sections 3.1, 4, 5, 6, 7.1, 7.2, 7.6, 7.8, 7.11, 10 and the new section 12 "For counsel" changed. RH-Q15 (impersonation reserve, notice and redirect) is held for Rob and not changed here.
+Screen QA fixes, 3 Nov 2026 (rows 330 to 337): sections 3.1, 4, 5, 6, 7.1, 7.2, 7.6, 7.8, 7.11, 10 and the new section 12 "For counsel" changed. RH-Q15 decided by Rob on 3 Nov: a word reserved for an impersonation report suspends the holder now, with no notice and no redirect (sections 5, 7.3, 7.6, 7.7, 7.9, 7.10, decision A7).
 Build Board: D2 "Reserved handle list" (Step 1, priority 5).
 Owner: Rob Frasca. Drafted by Claude.
 Baseline: `development` at a3ce333.
@@ -142,13 +142,14 @@ Revision 1 ran a one time script. Revision 2 runs the same check inside the admi
 - **Collision check.** `admin.handles.checkCollisions({ word, kind })` lists every account whose handle matches, with page status, followers, pool and last sign in. It uses the same folded forms as `matchReserved`. It filters in code or escapes `_` and `%` before any MySQL `LIKE`; a raw `amped_%` pattern also matches `ampedbio`. The Add word sheet runs it before saving (section 7.3, screen RA3). The launch audit is the same call run over the whole list: `pnpm --filter server handles:reserved-audit` prints it and changes nothing.
 - **Notice flow (R1).** For each colliding account, the admin chooses one action:
   - **Keep and exempt.** The account keeps the handle. For an admin tier word this is an assignment. A system tier word cannot be exempted, because the route would hide the page.
+  - **Suspend now (impersonation report).** Offered, and the only action, when the reservation's reason type is Impersonation report (decision A7, RH-Q15). In one transaction: `suspendUser(userId, reason)` from the suspended pages spec (block, delete sessions, audit), then `changeHandle` renames the account to the generated form with `redirectOld: false`, so no `HandleRedirect` is written and amped.bio/{word} never sends a visitor to the impersonator. A `HandleNotice` row is written in state `suspended` so the account shows in Holders. No 14 day notice, no Keep and exempt, no notice email and no rename email. The holder gets the suspension email from the suspended pages spec (section 3.4 and 9), category Impersonation, with the support ticket link and never the internal reason. Audit rows, one each: `handle.reserve` for the word, `handle.impersonation_suspend` for the account (`before` and `after` handle, reason, the report ticket ids in the reason), and the `user.block` row that `suspendUser` writes.
   - **Start notice.** Accounts with no published page are renamed at once to the generated form (`pools` becomes `pools7319`) and get the rename email below. Accounts with a published page get the 14 day email with a one click "Choose a new link" button to Public URL. On day 14 the handle is renamed to the generated form if they have not chosen, and the rename email is sent. Every rename, published or not, writes a 90 day `HandleRedirect` row. A live route always wins over it in Next.js, so the sweeper ends redirects whose old word has become a route.
 - **Notice email (QA RH-Q9, RH-Q10).** Transactional stream, from Amped.Bio. Two variants, picked by tier and category:
   - Route word (system tier): subject "Choose a new link for your page by {date}". First line: "Hi {name}, your page @{handle} uses amped.bio/{word}. Amped.Bio is opening a page at amped.bio/{word}."
   - Admin word (Company, Trust, Brand): same subject. First line: "Hi {name}, your page @{handle} uses amped.bio/{word}. amped.bio/{word} is now reserved by Amped.Bio."
   - Both then say: "Please choose a new link by {date}. If you do not choose one, your page moves to amped.bio/{fallback} on that date. Visitors to the old link are sent to the new one for 90 days." The button reads "Choose a new link". A support line follows: "Questions? Open a support ticket", linked to the Freshdesk new ticket page (`SUPPORT_TICKET_URL` in `packages/ui/src/prism/auth.tsx`). The transactional footer stays.
 - **Rename email (QA RH-Q11).** Sent on every rename by the notice flow, at once for an unpublished account and on day 14 for a published one. Subject "Your link is now amped.bio/{new}". Body: "Hi {name}, your page @{old} now lives at amped.bio/{new}. amped.bio/{word} is reserved, so we changed your link. Visitors to the old link are sent to the new one for 90 days. You can pick another link in Account, Public URL." Then the support line and the transactional footer. The editor shows the same fact once as a solid notice on the next sign in.
-- **Default.** System, Company and Trust collisions default to Start notice. Brand, Partner and Hold collisions default to Keep and exempt (decision A2). The migration seeds rows and touches no account. RH2 does not reach production until the launch audit has a recorded action for every seed collision.
+- **Default.** An Impersonation report reason forces Suspend now for every matching account, whatever the category. Otherwise System, Company and Trust collisions default to Start notice. Brand, Partner and Hold collisions default to Keep and exempt (decision A2). The migration seeds rows and touches no account. RH2 does not reach production until the launch audit has a recorded action for every seed collision.
 - **The job.** A sweeper (`setInterval` every 15 minutes, started like `startBroadcastSweeper` in `services/broadcast/index.ts`) sends due notices, runs due renames, removes expired rows and expired redirects, and writes an audit row for each with `actorId` null. It claims each due `HandleNotice` with a conditional `updateMany`, the same lock the Telegram outbox uses (`services/telegram/loop.ts` line 110). Two instances never act on one row, and Redis is not needed. Before a rename it checks again that the word is still reserved and the account still holds `oldHandle`. If the account moved, the notice closes as `chose_new`. If the word was released, it closes as `cancelled`.
 
 ## 6. UI (people choosing a handle)
@@ -228,10 +229,11 @@ Fields:
 | Word | Normalized as typed. Must pass `HANDLE_REGEX` and `HANDLE_MIN_LENGTH`. Refused if already reserved in either tier. Errors show under the field as typed (`FieldError`): "{word} is already reserved. Open it from the Reserved tab to edit it.", "{word} is a system word, reserved in code." or "Use only a to z, 0 to 9, - and _." |
 | Match | Exact word, or Starts with (prefix). A prefix ends in `-` or `_` and has at least 3 letters or digits before it (`amped-` passes, `ab-` fails). Error: "A prefix needs 3 or more letters or digits, then - or _." A prefix that matches more than 200 accounts is refused as too broad: "{word} matches {n} accounts. Reserve a narrower word." |
 | Category | Company, Trust, Brand, Partner, Hold |
+| Reason type | `ChipGroup`: Impersonation report, Other. Default Other. Impersonation report shows the help line "An impersonation report suspends any account that holds this word. No notice, no redirect." and switches the collision step to Suspend now |
 | Reason | Required, 1 to 500 characters. Internal only |
 | Ends on | Required for Hold, optional for Brand and Partner, not shown for Company and Trust |
 
-Match and Category are `ChipGroup` rows (44 chips). On Continue the sheet runs `checkCollisions`. With no matches it saves and shows the toast "Reserved {word}." With matches it lists every matching account (an exact word matches at most one account; a prefix up to 200, by the guard above) and asks for the action per R1 and A2: Keep and exempt (assigns the word for an exact match; for a prefix, a `HandleNotice` row in state `exempt` records it and the account keeps its handle) or Start 14 day notice. A prefix can match many: with more than 20 matches the sheet adds an **Action for all** choice (default per A2) above the per account choices for the first 20, and says how many accounts are not listed. Those accounts take the action for all. Save writes the row, the per account actions and one audit row each, in one transaction. The primary button reads "Reserve {word}"; Back returns to the form. `reserve` runs the collision query again inside the transaction and refuses with CONFLICT if the accounts differ from `holders`, so a handle claimed between Continue and Save is never skipped. A word already reserved by another admin meanwhile is refused with "amped.bio/{word} is already reserved." On a CONFLICT the sheet reloads the accounts and shows the solid notice "The accounts changed since you checked. Review them again before you reserve {word}." Other field errors: Hold with no end date, "A hold needs an end date."; empty reason, "Add a reason. It is saved to the log." The reason help line counts "{n} of 500" and the field stops at 500. Continue stays disabled while any field error shows (QA RH-Q17, RH-Q18).
+Match and Category are `ChipGroup` rows (44 chips). On Continue the sheet runs `checkCollisions`. With no matches it saves and shows the toast "Reserved {word}." With matches it lists every matching account (an exact word matches at most one account; a prefix up to 200, by the guard above) and asks for the action per R1 and A2 (with reason type Impersonation report, the only action is Suspend now, the primary becomes the danger button "Suspend and reserve {word}", and the sheet states that the handle moves with no redirect, screens RA3 and RA3s): Keep and exempt (assigns the word for an exact match; for a prefix, a `HandleNotice` row in state `exempt` records it and the account keeps its handle) or Start 14 day notice. A prefix can match many: with more than 20 matches the sheet adds an **Action for all** choice (default per A2) above the per account choices for the first 20, and says how many accounts are not listed. Those accounts take the action for all. Save writes the row, the per account actions and one audit row each, in one transaction. The primary button reads "Reserve {word}"; Back returns to the form. `reserve` runs the collision query again inside the transaction and refuses with CONFLICT if the accounts differ from `holders`, so a handle claimed between Continue and Save is never skipped. A word already reserved by another admin meanwhile is refused with "amped.bio/{word} is already reserved." On a CONFLICT the sheet reloads the accounts and shows the solid notice "The accounts changed since you checked. Review them again before you reserve {word}." Other field errors: Hold with no end date, "A hold needs an end date."; empty reason, "Add a reason. It is saved to the log." The reason help line counts "{n} of 500" and the field stops at 500. Continue stays disabled while any field error shows (QA RH-Q17, RH-Q18).
 
 ### 7.4 Word sheet (RA4)
 
@@ -265,6 +267,7 @@ One row per account in the notice flow: handle, word matched, page status, follo
 | Exempt | Admin kept the handle | Start notice |
 | Failed | The email send threw, or the rename threw. No bounce feed exists today. The row cause reads "Email did not send" or "Rename did not finish", never "bounced" | Retry: resends a failed email, renames again after a failed rename |
 | Cancelled | The word was released before the deadline | None; leaves the tab after 30 days |
+| Suspended | Suspended now for an impersonation report; renamed with no redirect | Open in Users (unblock there) |
 
 Exempt is offered only for admin tier words. Extend can be used twice per account.
 
@@ -282,6 +285,7 @@ How a redirect resolves:
 - The row stores `userId`, not the new handle, so it follows the account through later renames. There are no chains and no loops.
 - `changeHandle` deletes the redirect for a handle in the same transaction that gives the handle to an account. A redirect therefore ends the moment someone claims the old handle, including after a release.
 - A suspended account's redirect still resolves; the target shows the suspended state from the suspended pages spec.
+- Impersonation reports (A7, RH-Q15): Suspend now renames with `redirectOld: false`, so no row exists for the reserved word. `resolveRedirect` also returns null for any old handle whose `HandleNotice` is in state `suspended`, as a second guard. The reserved word then gives the reserved handle 404 for visitors.
 
 ### 7.8 Log tab (RA8)
 
@@ -378,6 +382,7 @@ enum HandleNoticeState {
   EXEMPT
   FAILED
   CANCELLED
+  SUSPENDED
 }
 ```
 
@@ -406,7 +411,7 @@ All under `admin.handles`, `adminProcedure`, every mutation writes `AdminAuditLo
 | `list({ filter, search, cursor, limit })` | query | Both tiers; system rows come from code, marked `tier: "system"` |
 | `get({ id })` or `get({ word })` | query | Row, holder, last 5 log rows. System rows have no id; they are read by `word` and return the accounts on notice (RA4b) |
 | `checkCollisions({ word, kind })` | query | The first 20 matching accounts and the total count; above 200 it returns `tooBroad: true` |
-| `reserve({ word, kind, category, reason, expiresAt?, defaultAction, holders: [{ userId, action }] })` | mutation | One transaction; bumps the cache version. Matching accounts not in `holders` take `defaultAction` |
+| `reserve({ word, kind, category, reasonType, reason, expiresAt?, defaultAction, holders: [{ userId, action }] })` | mutation | One transaction; bumps the cache version. Matching accounts not in `holders` take `defaultAction`. `reasonType` is `impersonation` or `other`; with `impersonation` every holder's action must be `suspend` and any other value is refused with BAD_REQUEST |
 | `update({ id, category?, reason?, expiresAt? })` | mutation | Word and kind are fixed |
 | `assign({ id, userId, reason, redirectOld, notify })` | mutation | Exact words only |
 | `unassign({ id, reason, startNotice })` | mutation | |
@@ -447,6 +452,8 @@ New in revision 2 (recommended first):
 **A4. Temporary holds.** Recommended: a Hold category with a required end date, for partners and creators in onboarding talks. Why: a word held for a deal should free itself if the deal ends. Alternative: permanent reservations only, released by hand.
 
 **A5. Client visibility.** Recommended: ship only the system tier in the client; the admin tier stays on the server. Partner and Hold words answer `taken`, not `reserved`. Why: a list in the public bundle discloses every deal at once. `checkAvailability` still answers one word at a time, and the system tier is public, so a `reserved` answer for a word outside it shows that the admin tier holds it. A `taken` answer looks the same as any account that holds the handle without a public page, and fan accounts are many. Company, Trust and Brand words still say reserved (R4). Alternative: ship both tiers for instant feedback on every word, or answer `reserved` for every admin word and accept that a guessed partner name can be confirmed.
+
+**A7. Impersonation reports (RH-Q15).** Decided by Rob, 3 Nov. When a word is reserved because of an impersonation report, every account that holds it is suspended now. There is no 14 day notice and no redirect to the impersonator's new handle. The 14 day notice and the 90 day redirect stay for every other reserved word.
 
 **A6. Requests from brands and creators.** Recommended: no in app request flow in this build; a brand asks through a Freshdesk support ticket and an admin assigns. Why: volume is low and identity checks for brands belong with #7 Brand portal. Alternative: a "Request this handle" link on the Reserved status line.
 
@@ -489,6 +496,8 @@ RH1 can ship alone and closes the sign up gap. RH2 must land before any route on
 25. Every notice email names @{handle}, uses the route or admin variant by tier, and carries the support ticket link. Every notice flow rename sends the rename email.
 26. Every `log.export` call writes one `handle.log.export` audit row.
 27. A Failed row on Holders reads "Email did not send" or "Rename did not finish".
+28. Reserving a word with reason type Impersonation report suspends every matching account in the same transaction (sessions end, page offline), renames it with no `HandleRedirect`, sends no notice or rename email, sends the suspension email with category Impersonation, and writes `handle.reserve`, `handle.impersonation_suspend` and `user.block` rows. amped.bio/{word} never redirects to the suspended account.
+29. With any other reason type, the 14 day notice and the 90 day redirect behave as in acceptance 11.
 
 ## 11. Open questions
 
