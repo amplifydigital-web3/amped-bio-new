@@ -1,6 +1,6 @@
 # Server rate limiting
 
-Status: spec for approval, 27 Oct 2026. Build Board: D11 "Server rate limiting" (Step 1, priority 7).
+Status: spec for approval, 27 Oct 2026. QA fixes 3 Nov 2026 (Screen Review rows 344, 345; findings AC-Q1 to AC-Q10). Build Board: D11 "Server rate limiting" (Step 1, priority 7).
 Owner: Rob Frasca. Drafted by Claude.
 Baseline: `development` at a3ce333.
 Design: Rate limit states, https://claude.ai/artifact/9KUtV9batrJPXpTJjqAZ4c
@@ -69,6 +69,8 @@ export const RATE_RULES: Record<string, Rule[]> = {
 
 Every procedure gets the default for its kind. Named rules add to it. Feature limits already written with `enforceRateLimits` stay where they are, because they carry product meaning (a follow cap is a product rule, not abuse control).
 
+Content uploads (AC-Q6, decided 3 Nov): `content.createUpload` keeps its own feature limit in `apps/server/src/trpc/content.ts` (30 starts a minute, `CREATE_UPLOADS_PER_MINUTE`, copy "Too many uploads at once. Try again in a minute."). It is not added to this table and gets no waiting phase. On a 429 the upload task moves to failed with that line, as `apps/client/src/components/panels/content/lib/uploadTask.ts` does today. Board L5 is drawn on the avatar and theme background upload, the two upload rules this table names. If Rob wants content uploads to wait and retry instead, that is a separate change: add `content.createUpload` here with `retryAfter` in the cause and a waiting phase in `UploadTask` that sleeps until `retryAfter`.
+
 Numbers are starting values. Each one is a constant with a comment, and the admin dashboard shows the count of 429s per rule for the last hour so they can be tuned.
 
 ### 3.2 Keys
@@ -104,7 +106,7 @@ secondaryStorage: redisSecondaryStorage(getRedisClient()),
 advanced: { ipAddress: { ipAddressHeaders: ["cf-connecting-ip", "x-forwarded-for"] } },
 ```
 
-Sign in also gets a per email counter (10 failures in 15 minutes locks that email for 15 minutes) in a Better Auth `hooks.before` on `/sign-in/email`, so a spread out attack on one account is caught even across IPs. The lock message does not say whether the email exists.
+Sign in also gets a per email counter (10 failures in 15 minutes locks that email for 15 minutes) in a Better Auth `hooks.before` on `/sign-in/email`, so a spread out attack on one account is caught even across IPs. The lock message does not say whether the email exists. The lock answers HTTP 429 with the `X-Retry-After` header (seconds), the same status, header and text as a Better Auth rate limit, so the client cannot tell a lock from an IP limit (AC-Q1).
 
 ### 3.5 Express routes
 
@@ -120,18 +122,35 @@ Sign in also gets a per email counter (10 failures in 15 minutes locks that emai
 
 ## 4. Client behavior
 
-One shared helper in `packages/ui` reads `data.code === "TOO_MANY_REQUESTS"` and `data.retryAfter`. Surfaces:
+### 4.1 Two retry sources (AC-Q1)
+
+| Source | Where it comes from | Read by |
+| --- | --- | --- |
+| tRPC | `data.code === "TOO_MANY_REQUESTS"` and `data.retryAfter` (ISO time) from the error formatter | One shared helper in `packages/ui` |
+| Better Auth REST (`authClient.signIn.email`, sign up, forgot password, send verification email, two factor) | HTTP 429 with the `X-Retry-After` header in seconds. There is no `data.retryAfter` | `classifyAuthError` in `packages/ui/src/prism/auth.tsx` gains a `rateLimited` kind for `status === 429` that returns the seconds from `X-Retry-After`. Today a 429 falls to `unknown` and `SignInForm.tsx` shows the network card; that is the bug this fixes |
+
+Both feed one countdown hook. The countdown is shown in the status line only. A polite live region announces it once a minute, as the faucet cooldown does (053 I09), not every second.
+
+### 4.2 Surfaces
 
 | Surface | Behavior |
 | --- | --- |
-| Sign in | "Too many tries. Try again in {m:ss}." under the button; button disabled with the countdown |
-| Register handle check | Status line "Checking paused. Try again in a moment." No error colour; resumes on its own |
-| Any button action | The existing toast pattern: "Slow down for a moment. Try again in {seconds} s." |
-| Public page (SSR) | A 429 from `getHandle` renders the page error state ("This page did not load. Try again.") with a Retry button, never the 404 |
-| Uploads | The upload row shows "Upload limit reached for now. Try again in {minutes} min." |
+| Sign in (`SignInForm.tsx`) | The shipped auth card, unchanged: Forgot password on the password label row, Continue with Google, Create account. Status line under the password well, danger icon and danger text: "Too many tries. Try again in {m:ss}." The password well stays neutral (no danger ring: a lock is not a wrong password). The button keeps its label "Sign in" and is disabled until the time runs out. Same text for an unknown email and a locked one (D4) |
+| Register submit | Same pattern: "Too many sign ups from here. Try again in {m:ss}." Button "Create my page" disabled |
+| Forgot password | "Too many reset emails. Try again in {m:ss}." Button "Send reset link" disabled |
+| Resend verification link | "Too many emails sent. Try again in {m:ss}." Button "Resend link" disabled |
+| Two factor code | "Too many codes tried. Try again in {m:ss}." under the code well; Verify disabled |
+| Register handle check (AC-Q3) | A new `Paused` value of `URLStatus`, set on `TOO_MANY_REQUESTS`, in both hooks: `apps/landingpage/src/hooks/useHandleAvailability.ts` and `apps/client/src/hooks/useHandleAvailability.ts` (Public URL change). The hook rechecks on its own at `retryAfter`. `HandleStatusLine.tsx` renders it in ink 2 with the 21 px Clock icon: "Checking paused. Try again in a moment." No danger colour, no Retry button, polite live region kept. The submit stays disabled until a check passes |
+| Any button action | The existing toast (`apps/client/src/components/ui/toast.tsx`) with its dismiss control: "Slow down for a moment. Try again in {seconds} s." Error toasts stay until dismissed |
+| Follow (AC-Q10) | Keeps its own feature copy. `follow.ts` splits the message by the rule that refused: minute rule "You're following too fast. Try again in a minute."; day rule (500 a day) "You reached today's follow limit. Try again tomorrow." `useFollow.ts` shows the server line as today |
+| Public page (SSR) (AC-Q8) | A 429 from `getHandle` throws in `resolveProfile`, so `apps/landingpage/src/app/error.tsx` renders the shipped `DestinationErrorCard` inside `PublicPage` (header and footer kept): 34 px danger icon, title "This page did not load", cause "Something went wrong on our side. Try again.", primary "Try again". After two failed tries the cause becomes "This keeps failing. Try again later." No 429 specific line is added. Never the 404 |
+| Share image (AC-Q9) | `apps/landingpage/src/app/[handle]/opengraph-image.tsx` throws when `result.status === "error"` instead of rendering the generic card, so a 429 during generation is never cached for the 3600 s revalidate window. The generic card stays for not found only |
+| Avatar and theme background uploads (AC-Q6) | The upload row keeps the file and shows one line in ink 2 with a warn pill "Limit reached": "Upload limit reached for now. Try again in {minutes} min." Upload is disabled until the time runs out. No danger text |
+| Content uploads | Unchanged: failed state with "Too many uploads at once. Try again in a minute." (section 3.1) |
+| Offline (AC-Q37) | Before any of these calls, a request that fails with no network shows the offline line in the same slot: "You are offline. Try again when you are back online." It never shows a countdown |
 | Amped Card page | "Too many saves from this network. Try again in a minute." with Try again (contact-card.md section 7) |
 
-Copy is in the design boards.
+Copy is in the design boards (Rate limit states, L1 to L5).
 
 ## 5. Decisions for Rob (recommended first)
 
@@ -153,7 +172,9 @@ Copy is in the design boards.
 | R2 | `feat/auth-rate-limits` | Better Auth on both servers with Redis secondary storage, per email lock, IP headers | 0.5 day |
 | R3 | `feat/ssr-visitor-ip` | Landing headers, API trust check, env on both apps | 0.5 day |
 | R4 | `chore/remove-ndau-debug` | Remove the debug procedure | 0.1 day |
-| R5 | with R1 | Client helper and the surfaces in section 4 | 0.5 day |
+| R5 | with R1 | Client helper, `classifyAuthError` `rateLimited` kind, `Paused` URL status in both hooks, follow cap split, share image throw, and the surfaces in section 4 | 0.5 day |
+
+Order (AC-Q7): R3 ships before R1 or in the same deploy. The landing server sends no visitor IP headers today (`apps/landingpage/src/lib/trpc.ts`), so R1 alone would put every SSR page view in one bucket keyed by the landing server's address, and the 121st `getHandle` a minute across all visitors would get the error state. If R1 must deploy first, the API skips the `ip` buckets for requests from the landing server addresses listed in env `LANDING_SERVER_IPS` until R3 is live, and R3 removes that env.
 
 ## 7. Acceptance
 
@@ -165,7 +186,12 @@ Copy is in the design boards.
 6. A signed in creator's normal session (editor autosave, previews, uploads) never hits a limit in a 30 minute scripted session.
 7. A 429 on a public page shows the error state, never the 404, and never caches.
 8. `debugVerifySignature` no longer exists on the public router.
-9. Typecheck, build and tests pass. Copy has no em or en dashes.
+9. With R1 and R3 deployed, 200 SSR page loads a minute from many visitors through the landing server return no 429 (AC-Q7). A test in R1 fails if R1 is deployed with the `ip` rule on `getHandle` and neither the SSR headers nor `LANDING_SERVER_IPS` are set.
+10. A Better Auth 429 on sign in shows "Too many tries. Try again in {m:ss}." with the time from `X-Retry-After`, never the network card. The per email lock returns the same status, header and text (AC-Q1).
+11. A 429 on the handle check shows the paused line in ink 2 and the check resumes after `retryAfter` with no click (AC-Q3).
+12. The share image for a handle whose lookup returns 429 is not cached; the next request renders the real card (AC-Q9).
+13. A follow refused by the day rule shows the day line, not "Try again in a minute" (AC-Q10).
+14. Typecheck, build and tests pass. Copy has no em or en dashes.
 
 ## 8. Open questions
 

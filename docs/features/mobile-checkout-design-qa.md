@@ -35,10 +35,19 @@ Build Board #49. Companion to `docs/features/mobile-checkout.md`.
 - Buy USDC keeps Coinbase as the named seller and stays Amped.Bio branded (payment flow rule 1).
 - Checking and "can only go through once" match AmpedPay's nonce binding.
 - Renewal terms: 3 day reminder and 7 day grace match D7.
-- "Payments are final. Refunds are at the creator's discretion." matches AmpedPay refunds inside `refund_window_days`.
+- Retired 3 Nov: "Payments are final. Refunds are at the creator's discretion." The seller line in counsel's words replaces it (spec 5, revision 3).
 
 ## Still to test in code
 
 - Every app on real devices before CK-4 merges (spec 13).
 - The handoff token security review before CK-4 merges.
 - The Prism 2.2 gate on the built screens of each PR against boards c1 to c8.
+
+## Full QA 2 (3 Nov 2026)
+
+Boards c1 to c8 checked against `development` 98db33f (CK-2 #414, CK-3 #416, CK-4 #417) and the open follow ups #423 and #424. Report: Screen Review rows 165, 185, 186, 187 and 188 (checkout group, findings CK-Q1 to CK-Q83).
+
+- **S1.** Seller line not counsel text and missing from the join sheet and most pay states (CK-Q1, CK-Q2, CK-Q20). 18+ redirect to a route that does not exist and the mock provider reachable in production, both fixed only in #423 (CK-Q3, CK-Q4). c4 promised a sign in token CK-4 never built (CK-Q30). Renewal reminders drew Telegram and the retired stacked Add USDC sheet (CK-Q70, CK-Q71).
+- **Redraw.** The page is now Prism 2.2 HTML, drawn from the built code: c1 to c8 redrawn, c9 added (18+ fails closed, under 18, quote refused, ended), a 1440 side sheet frame added to c1. Every money figure carries USDC. Every sheet carries the counsel seller line and the staging line.
+- **Decided by Rob (3 Nov).** CK-D1 counsel sentences only, then the Store policy link. CK-D2 no token in v1. CK-D3 bell notification. CK-D4 shipped dock, with CT-D1 for the future fan dock. AD-D1 Alabama HB 164 Section 9 text on the 18+ steps, interim pending counsel. Boards c1, c4, c5, c6, c9, r2 and r3 updated.
+- **Retarget.** #423 and #424 target merged branches. Retarget both to `development`; #423 needs a rebase.
