@@ -1,7 +1,7 @@
 # Content gating (content PR 8)
 
 Build Board #20 (Content system) and #21 (Access gating engine). PR C8, branch `feat/content-gating`.
-Revision 3, 3 Nov 2026. Written after the C8 Full QA against `development` at 0500800b, which has G1 (#398), I1 (#397) and content PR 6 (#348).
+Revision 4, 3 Nov 2026 (QA fix pass on revision 3). Written after the C8 Full QA against `development` at 0500800b, which has G1 (#398), I1 (#397) and content PR 6 (#348).
 
 Supersedes these parts of `docs/features/content-system.md`: in 3.6, the **Access check** and **Broadcast attachments** bullets; in 3.10, the auth column for `content.getPreview` and `content.getReadUrl`; in 3.16, the **PR 8** paragraph; in 3.15, "broadcast attachments" in the Phase 2 row. Where the content spec and this document disagree on PR 8, this document wins. Everything else in the content spec and in `docs/features/access-gating-engine.md` stands.
 
@@ -100,9 +100,14 @@ access?: null | { ruleId: string } | AccessRuleInput | { kind: "any"; leaves: Ac
 
 "Who can open this" in the item editor:
 
-- Everyone, Followers, Pool fans, Fans with a minimum stake (whole tREVO), Any of (2 to 4).
+- Everyone, Followers, Pool fans, Fans with a minimum stake, Any of these (2 to 4). Labels come from `ACCESS_RULE_SUMMARIES` verbatim. "Pool members" and "Members with a minimum stake" are retired; Members means the USDC membership kind only.
+- Followers is live, with the Fan Graph helper "Anyone who follows you on Amped. Free for fans."
+- Fans with a minimum stake opens an amount input: whole tREVO, unit tag tREVO, helper "Whole tREVO. Fans see the amount only when they open the item.", then `TESTNET_NOTICE` verbatim. There is no app floor; the amount is the creator's.
+- Any option that shows a pool or tREVO (Pool fans, Fans with a minimum stake, Any of these with a stake leaf) shows `TESTNET_NOTICE` in the picker.
 - Members and Paid show Later (`LaterPill`) until PR 10 and PR 11. Any of offers only live kinds.
 - Outside the stake allowlist, Pool fans and Fans with a minimum stake show disabled with "Not available for your page yet."
+- After PR 10 and PR 11, Members and Paid need a verified seller (gating 3.4). When `checkIdentity(seller)` fails they show disabled with "Verify to sell." and a button that opens the Verify before you sell sheet (Screen Review row 342). Paid takes an Amount, never "Price", shown as `$N USDC`, with "You receive $N USDC per sale after the {fee}% fee", where the percentage reads `PLATFORM_FEE_BPS`.
+- The Early access row ("Open to everyone on") ships with G6 and is hidden until then.
 - Live preview as a locked fan, from `content.getPreview`.
 - Hidden behind the `accessGating` feature flag, read in the client with `isFeatureOn("accessGating")` (`apps/client/src/config/featureFlags.ts`), so the picker never shows against a server that refuses. This PR changes the registry entry's `scope` from `"server"` to `"public"` so the client receives it. No new `VITE_` variable.
 
@@ -112,6 +117,23 @@ access?: null | { ruleId: string } | AccessRuleInput | { kind: "any"; leaves: Ac
 - The server renders locked cards and the locked page from the locked DTO in 3.2. After hydration the landing app calls `access.checkPage` for the cards on the page and `content.getPreview` for the item page.
 - The unlock card follows the decision's hint: `sign_in`, `follow` (Follow button), `view_pool` (Go to the pool, with the stake disclosures, no amount in public HTML), `verify_age` (the Over 18 sheet from A1), `unavailable`. No `buy` or `join_membership` hints exist before PR 10 and PR 11.
 - Unlocked in place: on a pass the page calls `content.getReadUrl` and swaps the preview for the player without a reload.
+- Stake hints (`view_pool`, and `link_wallet` or `unavailable` on a stake rule) show `TESTNET_NOTICE` above `ACCESS_STAKE_DISCLOSURE` on every step. Eyebrow and title use the rule summary: "Pool fans", "You have no stake in this pool". Never "member" or "membership" on a stake gate.
+- The required tREVO amount shows only in the `stake_below_min` step, to the viewer, after open. Locked cards and public HTML never carry it.
+
+### 4.3 Compliance constants (OB-Q36, OB-Q62)
+
+C8 adds `packages/constants/src/compliance.ts`, exported from `@repo/constants`, before any gating or content copy is final:
+
+| Constant | Value | Used by |
+| --- | --- | --- |
+| `ACCESS_STAKE_DISCLOSURE` | Counsel text (draft below, "For counsel") | Every unlock step, locked card and locked page for `pool_member`, `stake_min`, and `any` or `all` with a stake leaf |
+| `ACCESS_BANNED_TERMS` | `CONTENT_BANNED_TERMS` plus member, members, membership, buy, purchase, price | Copy check on stake gate surfaces |
+| `CONTENT_BANNED_TERMS` | earn, yield, return, profit, invest, investment, passive income, income, gains, APY, APR, interest, ROI | Copy check on content and store surfaces (content spec copy rules) |
+| `PLATFORM_FEE_BPS` | 500 | Fee lines on Paid and Members (content spec 3.4) |
+
+- The landing app and client import the disclosure from the constant. No surface types the text.
+- The copy check script fails on any stake gate surface that contains an `ACCESS_BANNED_TERMS` word outside the disclosure, and on any gating surface that shows tREVO or a pool without `TESTNET_NOTICE`.
+- Boards quote the constant verbatim once counsel returns the text. Until then boards show the constant slot only.
 
 ## 5. Tests and checks
 
@@ -123,20 +145,37 @@ access?: null | { ruleId: string } | AccessRuleInput | { kind: "any"; leaves: Ac
 - Progress and downloads refuse a locked viewer.
 - **Leak test** (gating acceptance 5), extended to content: signed out, the bio, feed page, item page, `getHandle`, JSON-LD, share tags, the sitemap and `llms.txt` carry no media token, rendition, poster, waveform or description for a gated item. C8 adds the content part. G3 adds blocks.
 - A render event is recorded once per viewer key and resource in 10 minutes.
+- `packages/constants/src/compliance.ts` exports `ACCESS_STAKE_DISCLOSURE`, `ACCESS_BANNED_TERMS`, `CONTENT_BANNED_TERMS` and `PLATFORM_FEE_BPS`. A unit test asserts the disclosure has no em or en dash and no word from `CONTENT_BANNED_TERMS` other than inside the counsel text it was approved with.
+- The copy check fails on "Pool members", "Members with a minimum stake" or "member" on a stake gate surface, and on a pool or tREVO surface without `TESTNET_NOTICE`.
+- `access.rules.create` (`apps/server/src/services/access/rules.ts`, create path) refuses `pool_member` and `stake_min`, also inside `any` and `all`, for an owner outside `ACCESS_STAKE_KINDS_ALLOWLIST`, with the same FORBIDDEN text as `content.update` (OB-Q65).
 
 ## 6. Build
 
 | PR | Branch | Scope | Needs | Days |
 | --- | --- | --- | --- | --- |
-| C8 | `feat/content-gating` | 3.1 to 3.6 and 4.1 to 4.2, tests in 5. No migration | G1 (#398), #348 | 5 |
+| C8 | `feat/content-gating` | 3.1 to 3.6 and 4.1 to 4.3, tests in 5. No migration | G1 (#398), #348 | 5 |
 
 Flag: `accessGating` in `packages/constants/src/feature-flags.ts`, off in production and switched in admin › Feature flags with no rebuild or redeploy. The server reads it with `isFeatureOn("accessGating")` (`apps/server/src/services/featureFlags.ts`), the client with `isFeatureOn("accessGating")` (`apps/client/src/config/featureFlags.ts`), the landing app with `useFeatureFlag("accessGating")`. `ACCESS_GATING_ENABLED` stays only as the server fallback while no admin row is set. The Phase 2 gate in content spec 3.15 stands: counsel receives the stake copy in parallel.
 
 Not in C8: broadcast attachments (CQ1), block locks (G3), Members and Paid (PR 10 and PR 11), the store (PR 9).
 
+## For counsel
+
+Draft text for `ACCESS_STAKE_DISCLOSURE`. Not final. No board or build may show it as final until counsel returns it.
+
+> Access is not something you buy with a stake. It stays open while your stake in this pool meets the creator's rule and closes when it does not. Staking tREVO carries risk.
+
+Questions for counsel:
+
+1. Does the line need to name the pool or the creator, or is "this pool" enough on a sheet that already names both?
+2. Should it show once per sheet or on every step of a multi step sheet (current rule: every step, gating 3.11)?
+3. `TESTNET_NOTICE` sits directly above it. Is the pair enough on a stake gate, or does counsel want a link to the pool terms as well?
+4. Is the required minimum (for example "100 tREVO or more") acceptable in the `stake_below_min` step, given gating 3.11 bars amounts on locked cards?
+
 ## Revision log
 
 - 2026-11-03: Revision 3. The stake allowlist is the `access_stake_kinds_allowlist` site setting, not an environment variable.
+- 2026-11-03: Revision 4, QA fix pass (rows 365 to 370, OB-Q26 to OB-Q65). 4.1 gains the summary labels, live Followers, the tREVO amount input with helper and `TESTNET_NOTICE`, the seller check for Members and Paid, Amount and `$N USDC`. 4.2 gains the stake sheet rules. New 4.3 adds `ACCESS_STAKE_DISCLOSURE`, `ACCESS_BANNED_TERMS`, `CONTENT_BANNED_TERMS` and `PLATFORM_FEE_BPS` in `packages/constants/src/compliance.ts`. Tests add the constants, the copy check and the `rules.create` allowlist check. Draft disclosure under For counsel.
 
 - 2026-11-03: Revision 2. One rule from the performer release: excluded surfaces are refused at rule writing from R4; C8 adds the hook only. Source: #420.
 
