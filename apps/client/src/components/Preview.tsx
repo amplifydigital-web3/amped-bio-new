@@ -38,6 +38,7 @@ import { usePreviewMotion } from "./preview/PreviewChrome";
 import { AlertCircle } from "lucide-react";
 import { blockNeed, isHidden, mediaName } from "./panels/page/blocks/blockInfo";
 import { useMyPageIdentity, withLiveAttributes } from "./panels/page/rns/useMyPageIdentity";
+import { isFeatureOn } from "../config/featureFlags";
 
 // Helper function to extract the root domain from a URL
 const extractRootDomain = (url: string): string => {
@@ -56,12 +57,12 @@ const extractRootDomain = (url: string): string => {
  *  (same value as the public page). */
 const VIDEO_BACKDROP = "#14141C";
 
-const fanGraphOn = import.meta.env.VITE_FAN_GRAPH === "true";
-const rnsOn = import.meta.env.VITE_SHOW_RNS === "true";
-const telegramOn = import.meta.env.VITE_SHOW_TELEGRAM === "true";
+const fanGraphOn = isFeatureOn("fanGraph");
+const rnsOn = isFeatureOn("rns");
+const telegramOn = isFeatureOn("telegram");
 // Theme Engine v2 (#28): the preview mounts the shared CreatorPage shell, so it
 // draws what the public page draws (spec 3.4, closes D10)
-const themeV2On = import.meta.env.VITE_SHOW_THEME_V2 === "true";
+const themeV2On = isFeatureOn("themeV2");
 
 interface PreviewProps {
   isEditing: boolean;

@@ -8,6 +8,7 @@ import {
   recordOnrampEvent,
   verifyOnrampSignature,
 } from "../services/onramp/webhook";
+import { isFeatureOn } from "../services/featureFlags";
 
 /**
  * Buy USDC through Coinbase (Build Board #5), spec 3.5.
@@ -27,7 +28,7 @@ const onrampWebhookRouter: Router = Router();
 const WEBHOOK_RATE_PER_SECOND = 50;
 
 export async function handleOnrampWebhook(req: Request, res: Response) {
-  if (!env.ONRAMP_ENABLED || !env.CDP_ONRAMP_WEBHOOK_SECRET) {
+  if (!isFeatureOn("onramp") || !env.CDP_ONRAMP_WEBHOOK_SECRET) {
     res.status(404).end();
     return;
   }
