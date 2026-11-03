@@ -14,6 +14,7 @@ import { CreatorBackdrop } from "../kit/CreatorArt";
 import { ContrastNotice } from "../kit/Notices";
 import { cardFill, formatRatio, useDesign } from "../kit/useDesign";
 import { ParamPanel } from "../kit/ParamStrip";
+import { isFeatureOn } from "../../../../config/featureFlags";
 import {
   NAME_TILES,
   nameIndex,
@@ -25,6 +26,21 @@ import {
 
 // Theme Engine v2 phase 2, Name row (board 08, spec 3.5). Behind
 // VITE_SHOW_THEME_V2; the v1 row stays in MotionRows.tsx.
+
+// TE-3f: Particle text (Showcase) joins the grid with the showcase flag
+const themeShowcaseOn = isFeatureOn("themeShowcase");
+
+/**
+ * The Particle text tile draws the name in a still dot pattern: the live
+ * effect is heavy, and heavy tiles never mount a live engine (decision 12).
+ */
+const DOTTED_NAME: CSSProperties = {
+  backgroundImage: "radial-gradient(currentColor 0.9px, transparent 1.3px)",
+  backgroundSize: "3px 3px",
+  WebkitBackgroundClip: "text",
+  backgroundClip: "text",
+  WebkitTextFillColor: "transparent",
+};
 
 const SETTLE_LABELS = { once: "Play once", always: "Loop" } as const;
 const TARGET_LABELS = { name: "Name", nameAndBio: "Name and bio" } as const;
@@ -105,6 +121,7 @@ function NameTileView({
                   "--amped-name-glow": `${values.fontColor}B3`,
                   fontFamily: values.fontFamily,
                   color: values.fontColor,
+                  ...(entry.render.kind === "particles" ? DOTTED_NAME : {}),
                 } as CSSProperties
               }
             >
@@ -126,6 +143,9 @@ export function NameRow() {
   const { config, values, locked, update, nameContrast, yourColors } = useDesign();
   const selectedIndex = nameIndex(values.heroEffect, config.heroEffectId);
   const tile = NAME_TILES[selectedIndex] ?? NAME_TILES[0]!;
+  // Roving focus lands on the selected tile when it is in the grid, else the first
+  const focusIndex =
+    selectedIndex >= 0 && (tile.entry.tier !== "showcase" || themeShowcaseOn) ? selectedIndex : 0;
   const { entry } = tile;
   const settle = nameSettle(entry, config.heroEffectLoop);
   const target = config.heroAppliesTo ?? "name";
@@ -140,14 +160,16 @@ export function NameRow() {
     >
       <div className="space-y-[21px]">
         <OptionGrid label="Name effect">
-          {NAME_TILES.map((t, index) => (
-            <NameTileView
-              key={t.effectId ?? t.id}
-              tile={t}
-              selected={index === selectedIndex}
-              focusable={selectedIndex === -1 ? index === 0 : index === selectedIndex}
-            />
-          ))}
+          {NAME_TILES.map((t, index) =>
+            t.entry.tier === "showcase" && !themeShowcaseOn ? null : (
+              <NameTileView
+                key={t.effectId ?? t.id}
+                tile={t}
+                selected={index === selectedIndex}
+                focusable={focusIndex === index}
+              />
+            )
+          )}
         </OptionGrid>
 
         <ParamPanel

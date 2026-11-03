@@ -145,7 +145,7 @@ importers:
         version: 1.7.5(@better-auth/core@1.7.5(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(better-call@1.4.0(zod@3.25.64))(jose@6.2.12)(kysely@0.29.6)(nanostores@1.5.3))(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(better-auth@1.7.5(@prisma/client@6.7.0(prisma@6.7.0(typescript@7.0.2))(typescript@7.0.2))(drizzle-orm@0.41.0(@prisma/client@5.22.0(prisma@6.7.0(typescript@7.0.2)))(@types/pg@8.20.0)(better-sqlite3@12.10.0)(kysely@0.29.6)(pg@8.21.0)(prisma@6.7.0(typescript@7.0.2)))(next@16.3.0(@babel/core@7.29.7)(@types/node@24.10.4)(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(pg@8.21.0)(prisma@6.7.0(typescript@7.0.2))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(vitest@3.2.7(@types/debug@4.1.12)(@types/node@24.10.4)(jiti@2.7.0)(jsdom@30.1.2(@noble/hashes@1.8.0))(tsx@4.19.4)(yaml@2.8.3)))(better-call@1.4.0(zod@3.25.64))
       '@better-auth/oauth-provider':
         specifier: 'catalog:'
-        version: 1.7.5(@better-auth/core@1.7.5(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(better-call@1.4.0(zod@3.25.64))(jose@6.2.12)(kysely@0.29.6)(nanostores@1.5.3))(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(better-auth@1.7.5(@prisma/client@6.7.0(prisma@6.7.0(typescript@7.0.2))(typescript@7.0.2))(drizzle-orm@0.41.0(@prisma/client@5.22.0(prisma@6.7.0(typescript@7.0.2)))(@types/pg@8.20.0)(better-sqlite3@12.10.0)(kysely@0.29.6)(pg@8.21.0)(prisma@6.7.0(typescript@7.0.2)))(next@16.3.0(@babel/core@7.29.7)(@types/node@24.10.4)(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(pg@8.21.0)(prisma@6.7.0(typescript@7.0.2))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(vitest@3.2.7(@types/debug@4.1.12)(@types/node@24.10.4)(jiti@2.7.0)(jsdom@30.1.2(@noble/hashes@1.8.0))(tsx@4.19.4)(yaml@2.8.3)))(better-call@1.4.0(zod@3.25.64))
+        version: 1.7.5(@better-auth/core@1.7.5(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(better-call@1.4.0(zod@3.25.64))(jose@6.2.12)(kysely@0.29.6)(nanostores@1.5.3))(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(better-auth@1.7.5(@prisma/client@6.7.0(prisma@6.7.0(typescript@7.0.2))(typescript@7.0.2))(next@16.3.0(@types/node@24.10.4)(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(pg@8.21.0)(prisma@6.7.0(typescript@7.0.2))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(vitest@3.2.7(@types/debug@4.1.12)(@types/node@24.10.4)(jiti@2.7.0)(jsdom@30.1.2(@noble/hashes@1.8.0))(tsx@4.19.4)(yaml@2.8.3)))(better-call@1.4.0(zod@3.25.64))
       '@better-auth/utils':
         specifier: 0.4.2
         version: 0.4.2
@@ -825,7 +825,7 @@ importers:
         version: 1.7.5(@better-auth/core@1.7.5(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(better-call@1.4.0(zod@3.25.64))(jose@6.2.12)(kysely@0.29.6)(nanostores@1.5.3))(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(better-auth@1.7.5(@prisma/client@6.7.0(prisma@6.7.0(typescript@7.0.2))(typescript@7.0.2))(drizzle-orm@0.41.0(@prisma/client@5.22.0(prisma@6.7.0(typescript@7.0.2)))(@types/pg@8.20.0)(better-sqlite3@12.10.0)(kysely@0.29.6)(pg@8.21.0)(prisma@6.7.0(typescript@7.0.2)))(next@16.3.0(@babel/core@7.29.7)(@types/node@24.10.4)(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(pg@8.21.0)(prisma@6.7.0(typescript@7.0.2))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(vitest@3.2.7(@types/debug@4.1.12)(@types/node@24.10.4)(jiti@2.7.0)(jsdom@30.1.2(@noble/hashes@1.8.0))(tsx@4.19.4)(yaml@2.8.3)))(better-call@1.4.0(zod@3.25.64))
       '@better-auth/oauth-provider':
         specifier: 'catalog:'
-        version: 1.7.5(@better-auth/core@1.7.5(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(better-call@1.4.0(zod@3.25.64))(jose@6.2.12)(kysely@0.29.6)(nanostores@1.5.3))(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(better-auth@1.7.5(@prisma/client@6.7.0(prisma@6.7.0(typescript@7.0.2))(typescript@7.0.2))(drizzle-orm@0.41.0(@prisma/client@5.22.0(prisma@6.7.0(typescript@7.0.2)))(@types/pg@8.20.0)(better-sqlite3@12.10.0)(kysely@0.29.6)(pg@8.21.0)(prisma@6.7.0(typescript@7.0.2)))(next@16.3.0(@babel/core@7.29.7)(@types/node@24.10.4)(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(pg@8.21.0)(prisma@6.7.0(typescript@7.0.2))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(vitest@3.2.7(@types/debug@4.1.12)(@types/node@24.10.4)(jiti@2.7.0)(jsdom@30.1.2(@noble/hashes@1.8.0))(tsx@4.19.4)(yaml@2.8.3)))(better-call@1.4.0(zod@3.25.64))
+        version: 1.7.5(@better-auth/core@1.7.5(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(better-call@1.4.0(zod@3.25.64))(jose@6.2.12)(kysely@0.29.6)(nanostores@1.5.3))(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(better-auth@1.7.5(@prisma/client@6.7.0(prisma@6.7.0(typescript@7.0.2))(typescript@7.0.2))(next@16.3.0(@types/node@24.10.4)(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(pg@8.21.0)(prisma@6.7.0(typescript@7.0.2))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(vitest@3.2.7(@types/debug@4.1.12)(@types/node@24.10.4)(jiti@2.7.0)(jsdom@30.1.2(@noble/hashes@1.8.0))(tsx@4.19.4)(yaml@2.8.3)))(better-call@1.4.0(zod@3.25.64))
       '@better-auth/utils':
         specifier: 0.4.2
         version: 0.4.2
@@ -1113,12 +1113,27 @@ importers:
       '@trpc/tanstack-react-query':
         specifier: 11.1.2
         version: 11.1.2(@tanstack/react-query@5.85.4(react@18.3.1))(@trpc/client@11.1.2(@trpc/server@11.1.2(typescript@7.0.2))(typescript@7.0.2))(@trpc/server@11.1.2(typescript@7.0.2))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(typescript@7.0.2)
+      '@tsparticles/effect-trail':
+        specifier: 4.5.0
+        version: 4.5.0(@tsparticles/engine@4.5.0)
       '@tsparticles/engine':
         specifier: ^4.5.0
         version: 4.5.0
+      '@tsparticles/plugin-canvas-mask':
+        specifier: 4.5.0
+        version: 4.5.0(@tsparticles/engine@4.5.0)
+      '@tsparticles/plugin-emitters':
+        specifier: 4.5.0
+        version: 4.5.0(@tsparticles/engine@4.5.0)(@tsparticles/plugin-interactivity@4.5.0(@tsparticles/engine@4.5.0))
+      '@tsparticles/plugin-emitters-shape-square':
+        specifier: 4.5.0
+        version: 4.5.0(@tsparticles/engine@4.5.0)(@tsparticles/plugin-emitters@4.5.0(@tsparticles/engine@4.5.0)(@tsparticles/plugin-interactivity@4.5.0(@tsparticles/engine@4.5.0)))
       '@tsparticles/slim':
         specifier: ^4.5.0
         version: 4.5.0
+      '@tsparticles/updater-destroy':
+        specifier: 4.5.0
+        version: 4.5.0(@tsparticles/engine@4.5.0)
       better-auth:
         specifier: 'catalog:'
         version: 1.7.5(@prisma/client@6.7.0(prisma@6.7.0(typescript@7.0.2))(typescript@7.0.2))(next@16.3.0(@types/node@26.6.4)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(pg@8.21.0)(prisma@6.7.0(typescript@7.0.2))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(vitest@5.0.5(@types/node@26.6.4)(jsdom@30.1.2(@noble/hashes@2.4.0))(vite@6.4.3(@types/node@26.6.4)(jiti@2.7.0)(tsx@4.19.4)(yaml@2.8.3)))
@@ -4564,6 +4579,7 @@ packages:
   '@smithy/smithy-client@4.10.3':
     resolution: {integrity: sha512-EfECiO/0fAfb590LBnUe7rI5ux7XfquQ8LBzTe7gxw0j9QW/q8UT/EHWHlxV/+jhQ3+Ssga9uUYXCQgImGMbNg==}
     engines: {node: '>=18.0.0'}
+    deprecated: Deprecated due to a bug in custom logger data redaction. See https://github.com/aws/aws-sdk-js-v3/issues/8393.
 
   '@smithy/types@4.11.0':
     resolution: {integrity: sha512-mlrmL0DRDVe3mNrjTcVcZEgkFmufITfUAPBEA+AHYiIeYyJebso/He1qLbP3PssRe22KUzLRpQSdBPbXdgZ2VA==}
@@ -5024,6 +5040,11 @@ packages:
     resolution: {integrity: sha512-TYX1NJ0WYkr1YUpBWg+dBw5lct0n4PrGcCqWXn0jwphSSPKOB7M+Is3cro5iOuO8jJFhnGeaoF36xxo40p+l+Q==}
     deprecated: Please update to version 4.1.1
 
+  '@tsparticles/effect-trail@4.5.0':
+    resolution: {integrity: sha512-y7C+NGMH6LqttIRfFX8d8I0Zk5XZ8tFRhWf+cULhlAJvHCpgqM/FPqOVNHbJo5iTH5qC6r2Mf3QvdFpyDmPraw==}
+    peerDependencies:
+      '@tsparticles/engine': 4.5.0
+
   '@tsparticles/engine@3.8.1':
     resolution: {integrity: sha512-S8h10nuZfElY7oih//NUHnT5qf4v3/dnsU8CMs7dz5lBEGr3amrYrXk0V+YKPTIQwfdmJHUaSBoAqFiv4aEGIA==}
     deprecated: Please update to version 4.1.1
@@ -5250,6 +5271,11 @@ packages:
     resolution: {integrity: sha512-BzgIFUbgb5CoWM8DaxskMILtDtUsTCQQENfOj6wvIvnG4vQ9gIi1My0udKvhl4WD/yN6XbCO68qCzvKb+vacLQ==}
     deprecated: Please update to version 4.1.1
 
+  '@tsparticles/plugin-canvas-mask@4.5.0':
+    resolution: {integrity: sha512-2nwzs8mcOAFexCBgyCHp9zfdXpGSswKZtJNLCJTjGJgq4ON1XEsVsJuOTdJbx5jKXMMkmqtP6dt0cu6Df4H/Ow==}
+    peerDependencies:
+      '@tsparticles/engine': 4.5.0
+
   '@tsparticles/plugin-easing-back@3.8.1':
     resolution: {integrity: sha512-tc0tstqLIWMDimH9C6oXLBhe82yhAGgvzXAt7h+dJHDrcBnVuiiYCX49vQ3li3PgJbn6BHzxsIoeq81eWcIQNQ==}
     deprecated: Please update to version 4.1.1
@@ -5303,8 +5329,23 @@ packages:
   '@tsparticles/plugin-emitters-shape-square@3.8.1':
     resolution: {integrity: sha512-hg8a9ZD3PPRuNW8y/jqrRS2J153DkVvAfSdsO+l2PASG8vYVaxzUD1kqAUknUhNZmhg3BvtwQp+ojCNaat5/Lg==}
 
+  '@tsparticles/plugin-emitters-shape-square@4.5.0':
+    resolution: {integrity: sha512-NSdZ3DrO/cH/E2x0qlc8sAdbeaVoUU+UUNr1pjdPgrukTeBD10Pepjc4KYw/ge4Iqtz+UFBnhps5BndAGIWw+w==}
+    peerDependencies:
+      '@tsparticles/engine': 4.5.0
+      '@tsparticles/plugin-emitters': 4.5.0
+
   '@tsparticles/plugin-emitters@3.8.1':
     resolution: {integrity: sha512-PGldE3OHs1hsZM6a8qHpXvKIMhaWAqZNwq8v7FwgJGxikXVvYtkKSaWslTpID3hYvtB6+whKig2uWURmq2TUsg==}
+
+  '@tsparticles/plugin-emitters@4.5.0':
+    resolution: {integrity: sha512-Re+Di9jgS/27Z0mqY330FNqyhp8PqjoryLD7IpW+xt5XJTKHtNV8tu46A0McXa4xeGi+vtoUxANgzXMrET8q5g==}
+    peerDependencies:
+      '@tsparticles/engine': 4.5.0
+      '@tsparticles/plugin-interactivity': 4.5.0
+    peerDependenciesMeta:
+      '@tsparticles/plugin-interactivity':
+        optional: true
 
   '@tsparticles/plugin-export-image@3.8.1':
     resolution: {integrity: sha512-prcizsOHD+8mD4ce9sCMQgJWXD3QPwabT7H9Jvs4U7T6OpHePKnKA+ERj/c3T8kTYpiTW9SY+WRGuqFR3fuh9A==}
@@ -5512,6 +5553,11 @@ packages:
   '@tsparticles/updater-destroy@3.8.1':
     resolution: {integrity: sha512-OMy8zZv3ujiaLw1i2BNWOhDgBPNnDiKlTwIP1mK0N9cYOplJkgaxmHOc7NhCndnLvZaYHqfN2bujLK2iBgNdbw==}
     deprecated: Please update to version 4.1.1
+
+  '@tsparticles/updater-destroy@4.5.0':
+    resolution: {integrity: sha512-2ifi8L6A8lXO6i0zGIDb2kkta8a7ftBSiKE8BVXp6yZYlkT17Dwmq7803OefIJljuWHKKcMH6kkikl5vQYXXrg==}
+    peerDependencies:
+      '@tsparticles/engine': 4.5.0
 
   '@tsparticles/updater-gradient@3.8.1':
     resolution: {integrity: sha512-tGqdrVyP+ndqScFc0JHrC4Y1f4vqQY5ONdEN0+FyKA/w/X6TBTgVGRGGWwYjP3JzyIR7CU2vJmvts2cSKn0EIA==}
@@ -12266,7 +12312,7 @@ snapshots:
   '@better-auth/cimd@1.7.5(puyy47ioz5iggma2m3gtdppnye)':
     dependencies:
       '@better-auth/core': 1.7.5(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(better-call@1.4.0(zod@3.25.64))(jose@6.2.12)(kysely@0.29.6)(nanostores@1.5.3)
-      '@better-auth/oauth-provider': 1.7.5(@better-auth/core@1.7.5(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(better-call@1.4.0(zod@3.25.64))(jose@6.2.12)(kysely@0.29.6)(nanostores@1.5.3))(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(better-auth@1.7.5(@prisma/client@6.7.0(prisma@6.7.0(typescript@7.0.2))(typescript@7.0.2))(drizzle-orm@0.41.0(@prisma/client@5.22.0(prisma@6.7.0(typescript@7.0.2)))(@types/pg@8.20.0)(better-sqlite3@12.10.0)(kysely@0.29.6)(pg@8.21.0)(prisma@6.7.0(typescript@7.0.2)))(next@16.3.0(@babel/core@7.29.7)(@types/node@24.10.4)(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(pg@8.21.0)(prisma@6.7.0(typescript@7.0.2))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(vitest@3.2.7(@types/debug@4.1.12)(@types/node@24.10.4)(jiti@2.7.0)(jsdom@30.1.2(@noble/hashes@1.8.0))(tsx@4.19.4)(yaml@2.8.3)))(better-call@1.4.0(zod@3.25.64))
+      '@better-auth/oauth-provider': 1.7.5(@better-auth/core@1.7.5(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(better-call@1.4.0(zod@3.25.64))(jose@6.2.12)(kysely@0.29.6)(nanostores@1.5.3))(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(better-auth@1.7.5(@prisma/client@6.7.0(prisma@6.7.0(typescript@7.0.2))(typescript@7.0.2))(next@16.3.0(@types/node@24.10.4)(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(pg@8.21.0)(prisma@6.7.0(typescript@7.0.2))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(vitest@3.2.7(@types/debug@4.1.12)(@types/node@24.10.4)(jiti@2.7.0)(jsdom@30.1.2(@noble/hashes@1.8.0))(tsx@4.19.4)(yaml@2.8.3)))(better-call@1.4.0(zod@3.25.64))
       better-auth: 1.7.5(@prisma/client@6.7.0(prisma@6.7.0(typescript@7.0.2))(typescript@7.0.2))(drizzle-orm@0.41.0(@prisma/client@5.22.0(prisma@6.7.0(typescript@7.0.2)))(@types/pg@8.20.0)(better-sqlite3@12.10.0)(kysely@0.29.6)(pg@8.21.0)(prisma@6.7.0(typescript@7.0.2)))(next@16.3.0(@babel/core@7.29.7)(@types/node@24.10.4)(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(pg@8.21.0)(prisma@6.7.0(typescript@7.0.2))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(vitest@3.2.7(@types/debug@4.1.12)(@types/node@24.10.4)(jiti@2.7.0)(jsdom@30.1.2(@noble/hashes@1.8.0))(tsx@4.19.4)(yaml@2.8.3))
       better-call: 1.4.0(zod@3.25.64)
 
@@ -12441,7 +12487,7 @@ snapshots:
   '@better-auth/mcp@1.7.5(@better-auth/core@1.7.5(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(better-call@1.4.0(zod@3.25.64))(jose@6.2.12)(kysely@0.29.6)(nanostores@1.5.3))(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(better-auth@1.7.5(@prisma/client@6.7.0(prisma@6.7.0(typescript@7.0.2))(typescript@7.0.2))(drizzle-orm@0.41.0(@prisma/client@5.22.0(prisma@6.7.0(typescript@7.0.2)))(@types/pg@8.20.0)(better-sqlite3@12.10.0)(kysely@0.29.6)(pg@8.21.0)(prisma@6.7.0(typescript@7.0.2)))(next@16.3.0(@babel/core@7.29.7)(@types/node@24.10.4)(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(pg@8.21.0)(prisma@6.7.0(typescript@7.0.2))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(vitest@3.2.7(@types/debug@4.1.12)(@types/node@24.10.4)(jiti@2.7.0)(jsdom@30.1.2(@noble/hashes@1.8.0))(tsx@4.19.4)(yaml@2.8.3)))(better-call@1.4.0(zod@3.25.64))':
     dependencies:
       '@better-auth/core': 1.7.5(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(better-call@1.4.0(zod@3.25.64))(jose@6.2.12)(kysely@0.29.6)(nanostores@1.5.3)
-      '@better-auth/oauth-provider': 1.7.5(@better-auth/core@1.7.5(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(better-call@1.4.0(zod@3.25.64))(jose@6.2.12)(kysely@0.29.6)(nanostores@1.5.3))(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(better-auth@1.7.5(@prisma/client@6.7.0(prisma@6.7.0(typescript@7.0.2))(typescript@7.0.2))(drizzle-orm@0.41.0(@prisma/client@5.22.0(prisma@6.7.0(typescript@7.0.2)))(@types/pg@8.20.0)(better-sqlite3@12.10.0)(kysely@0.29.6)(pg@8.21.0)(prisma@6.7.0(typescript@7.0.2)))(next@16.3.0(@babel/core@7.29.7)(@types/node@24.10.4)(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(pg@8.21.0)(prisma@6.7.0(typescript@7.0.2))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(vitest@3.2.7(@types/debug@4.1.12)(@types/node@24.10.4)(jiti@2.7.0)(jsdom@30.1.2(@noble/hashes@1.8.0))(tsx@4.19.4)(yaml@2.8.3)))(better-call@1.4.0(zod@3.25.64))
+      '@better-auth/oauth-provider': 1.7.5(@better-auth/core@1.7.5(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(better-call@1.4.0(zod@3.25.64))(jose@6.2.12)(kysely@0.29.6)(nanostores@1.5.3))(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(better-auth@1.7.5(@prisma/client@6.7.0(prisma@6.7.0(typescript@7.0.2))(typescript@7.0.2))(next@16.3.0(@types/node@24.10.4)(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(pg@8.21.0)(prisma@6.7.0(typescript@7.0.2))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(vitest@3.2.7(@types/debug@4.1.12)(@types/node@24.10.4)(jiti@2.7.0)(jsdom@30.1.2(@noble/hashes@1.8.0))(tsx@4.19.4)(yaml@2.8.3)))(better-call@1.4.0(zod@3.25.64))
       better-auth: 1.7.5(@prisma/client@6.7.0(prisma@6.7.0(typescript@7.0.2))(typescript@7.0.2))(drizzle-orm@0.41.0(@prisma/client@5.22.0(prisma@6.7.0(typescript@7.0.2)))(@types/pg@8.20.0)(better-sqlite3@12.10.0)(kysely@0.29.6)(pg@8.21.0)(prisma@6.7.0(typescript@7.0.2)))(next@16.3.0(@babel/core@7.29.7)(@types/node@24.10.4)(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(pg@8.21.0)(prisma@6.7.0(typescript@7.0.2))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(vitest@3.2.7(@types/debug@4.1.12)(@types/node@24.10.4)(jiti@2.7.0)(jsdom@30.1.2(@noble/hashes@1.8.0))(tsx@4.19.4)(yaml@2.8.3))
       better-call: 1.4.0(zod@3.25.64)
       jose: 6.2.12
@@ -12479,7 +12525,7 @@ snapshots:
       '@better-auth/core': 1.7.5(@better-auth/utils@0.5.0)(@better-fetch/fetch@1.3.2)(better-call@1.4.0(zod@3.25.64))(jose@6.2.12)(kysely@0.29.6)(nanostores@1.5.3)
       '@better-auth/utils': 0.4.2
 
-  '@better-auth/oauth-provider@1.7.5(@better-auth/core@1.7.5(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(better-call@1.4.0(zod@3.25.64))(jose@6.2.12)(kysely@0.29.6)(nanostores@1.5.3))(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(better-auth@1.7.5(@prisma/client@6.7.0(prisma@6.7.0(typescript@7.0.2))(typescript@7.0.2))(drizzle-orm@0.41.0(@prisma/client@5.22.0(prisma@6.7.0(typescript@7.0.2)))(@types/pg@8.20.0)(better-sqlite3@12.10.0)(kysely@0.29.6)(pg@8.21.0)(prisma@6.7.0(typescript@7.0.2)))(next@16.3.0(@babel/core@7.29.7)(@types/node@24.10.4)(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(pg@8.21.0)(prisma@6.7.0(typescript@7.0.2))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(vitest@3.2.7(@types/debug@4.1.12)(@types/node@24.10.4)(jiti@2.7.0)(jsdom@30.1.2(@noble/hashes@1.8.0))(tsx@4.19.4)(yaml@2.8.3)))(better-call@1.4.0(zod@3.25.64))':
+  '@better-auth/oauth-provider@1.7.5(@better-auth/core@1.7.5(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(better-call@1.4.0(zod@3.25.64))(jose@6.2.12)(kysely@0.29.6)(nanostores@1.5.3))(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(better-auth@1.7.5(@prisma/client@6.7.0(prisma@6.7.0(typescript@7.0.2))(typescript@7.0.2))(next@16.3.0(@types/node@24.10.4)(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(pg@8.21.0)(prisma@6.7.0(typescript@7.0.2))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(vitest@3.2.7(@types/debug@4.1.12)(@types/node@24.10.4)(jiti@2.7.0)(jsdom@30.1.2(@noble/hashes@1.8.0))(tsx@4.19.4)(yaml@2.8.3)))(better-call@1.4.0(zod@3.25.64))':
     dependencies:
       '@better-auth/core': 1.7.5(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(better-call@1.4.0(zod@3.25.64))(jose@6.2.12)(kysely@0.29.6)(nanostores@1.5.3)
       '@better-auth/utils': 0.4.2
@@ -15833,6 +15879,10 @@ snapshots:
     dependencies:
       '@tsparticles/engine': 3.8.1
 
+  '@tsparticles/effect-trail@4.5.0(@tsparticles/engine@4.5.0)':
+    dependencies:
+      '@tsparticles/engine': 4.5.0
+
   '@tsparticles/engine@3.8.1': {}
 
   '@tsparticles/engine@4.5.0': {}
@@ -16044,6 +16094,11 @@ snapshots:
     dependencies:
       '@tsparticles/engine': 3.8.1
 
+  '@tsparticles/plugin-canvas-mask@4.5.0(@tsparticles/engine@4.5.0)':
+    dependencies:
+      '@tsparticles/canvas-utils': 4.5.0(@tsparticles/engine@4.5.0)
+      '@tsparticles/engine': 4.5.0
+
   '@tsparticles/plugin-easing-back@3.8.1':
     dependencies:
       '@tsparticles/engine': 3.8.1
@@ -16109,9 +16164,20 @@ snapshots:
       '@tsparticles/engine': 3.8.1
       '@tsparticles/plugin-emitters': 3.8.1
 
+  '@tsparticles/plugin-emitters-shape-square@4.5.0(@tsparticles/engine@4.5.0)(@tsparticles/plugin-emitters@4.5.0(@tsparticles/engine@4.5.0)(@tsparticles/plugin-interactivity@4.5.0(@tsparticles/engine@4.5.0)))':
+    dependencies:
+      '@tsparticles/engine': 4.5.0
+      '@tsparticles/plugin-emitters': 4.5.0(@tsparticles/engine@4.5.0)(@tsparticles/plugin-interactivity@4.5.0(@tsparticles/engine@4.5.0))
+
   '@tsparticles/plugin-emitters@3.8.1':
     dependencies:
       '@tsparticles/engine': 3.8.1
+
+  '@tsparticles/plugin-emitters@4.5.0(@tsparticles/engine@4.5.0)(@tsparticles/plugin-interactivity@4.5.0(@tsparticles/engine@4.5.0))':
+    dependencies:
+      '@tsparticles/engine': 4.5.0
+    optionalDependencies:
+      '@tsparticles/plugin-interactivity': 4.5.0(@tsparticles/engine@4.5.0)
 
   '@tsparticles/plugin-export-image@3.8.1':
     dependencies:
@@ -16361,6 +16427,10 @@ snapshots:
   '@tsparticles/updater-destroy@3.8.1':
     dependencies:
       '@tsparticles/engine': 3.8.1
+
+  '@tsparticles/updater-destroy@4.5.0(@tsparticles/engine@4.5.0)':
+    dependencies:
+      '@tsparticles/engine': 4.5.0
 
   '@tsparticles/updater-gradient@3.8.1':
     dependencies:

@@ -38,6 +38,8 @@ const V2_NAMES: [string, number][] = [
   ["name.letter-rise", 0],
   ["name.type-on", 0],
   ["name.decrypt", 0],
+  // TE-3f, Showcase: offered with SHOW_THEME_SHOWCASE (NameRow)
+  ["name.particle-text", 0],
 ];
 
 export const NAME_TILES: NameTile[] = [

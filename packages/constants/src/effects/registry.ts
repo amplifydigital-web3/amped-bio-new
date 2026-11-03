@@ -5,6 +5,7 @@ import { CONTAINER_EFFECTS } from "./containers";
 import { CURSOR_EFFECTS } from "./cursors";
 import { NAME_EFFECTS } from "./names";
 import { SCENE_EFFECTS } from "./scenes";
+import { PARTICLE_TEXT_EFFECT } from "./scenes.plugins";
 import {
   EFFECT_LAYERS,
   type EffectCost,
@@ -28,7 +29,8 @@ export const EFFECTS_BY_LAYER: Readonly<Record<EffectLayer, readonly EffectEntry
   button: BUTTON_EFFECTS,
   buttonHover: BUTTON_HOVER_EFFECTS,
   buttonPress: BUTTON_PRESS_EFFECTS,
-  name: NAME_EFFECTS,
+  // TE-3f: Particle text joins the name layer (scenes.plugins.ts)
+  name: [...NAME_EFFECTS, PARTICLE_TEXT_EFFECT],
   cursor: CURSOR_EFFECTS,
 };
 

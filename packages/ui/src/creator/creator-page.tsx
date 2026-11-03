@@ -1,6 +1,6 @@
 "use client";
 
-import type { CSSProperties, ReactNode, Ref } from "react";
+import { useState, type CSSProperties, type ReactNode, type Ref } from "react";
 import { sanitizeRichHtml, type AnyThemeConfig } from "@repo/constants";
 import { cn } from "../utils";
 import {
@@ -16,6 +16,7 @@ import {
   playingOverlay,
 } from "./look";
 import { NameText } from "./name-effect";
+import { ParticleName } from "./particle-name";
 import { ParticlesLayer } from "./particles-layer";
 import { ShaderLayer, type EffectDrop } from "./shader-layer";
 import { gradientScene, textureStyle } from "./scene";
@@ -159,6 +160,9 @@ export function CreatorPage({
   const texture = textureStyle(background);
   // Phase 2 Name row: Settle, Applies to and the text entrances
   const weak = device === "weak";
+  // TE-3f: Particle text hides the heading's ink only once its dots are drawn
+  const [dotsDrawn, setDotsDrawn] = useState(false);
+  const particleName = look.name.render.kind === "particles";
   const nameStyle = { ...textStyle, ...nameLoopStyle(look, paused, weak) };
   const bioEffect = nameOnBio(look) ? effectClassName(look.name, paused) : undefined;
   const bioStyle = bioEffect ? nameStyle : textStyle;
@@ -216,7 +220,8 @@ export function CreatorPage({
           entry={playingOverlay(look)}
           params={look.overlayParams}
           colors={look.colors}
-          paused={paused || weak}
+          // A Showcase overlay (Comet trails) holds its still frame while the flag is off
+          paused={paused || weak || (playingOverlay(look)?.tier === "showcase" && !showcase)}
         />
       )}
     </div>
@@ -259,13 +264,32 @@ export function CreatorPage({
             )}
             style={nameStyle}
           >
-            <NameText
-              entry={look.name}
-              text={profile.name}
-              colors={look.colors}
-              paused={paused}
-              entranceKey={entranceKey}
-            />
+            {particleName ? (
+              <span
+                className="relative inline-block max-w-full"
+                style={dotsDrawn ? { color: "transparent" } : undefined}
+              >
+                {profile.name}
+                <ParticleName
+                  entry={look.name}
+                  params={look.v2.name.params}
+                  colors={look.colors}
+                  showcase={showcase}
+                  paused={paused}
+                  weak={weak}
+                  text={profile.name}
+                  onDrawn={setDotsDrawn}
+                />
+              </span>
+            ) : (
+              <NameText
+                entry={look.name}
+                text={profile.name}
+                colors={look.colors}
+                paused={paused}
+                entranceKey={entranceKey}
+              />
+            )}
             {nameExtras}
           </h1>
           {/* 109 I06, I07: the RNS chip in the creator font and color, never animated */}
