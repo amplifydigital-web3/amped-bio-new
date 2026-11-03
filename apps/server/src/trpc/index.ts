@@ -31,6 +31,7 @@ import { contentRouter } from "./content";
 import { notificationsRouter } from "./notifications";
 import { progressRouter } from "./progress";
 import { checkoutRouter } from "./checkout";
+import { storeRouter } from "./store";
 import { identityRouter } from "./identity";
 import { accessRouter } from "./access";
 import { inferRouterOutputs } from "@trpc/server";
@@ -75,6 +76,8 @@ const mergedRouter = router({
   progress: progressRouter,
   // Mobile checkout intents (Build Board #49), behind the checkout feature flag
   checkout: checkoutRouter,
+  // Creator stores (content PR 9, C9)
+  store: storeRouter,
   // Identity checks through Authbase: Over 18 and verified seller (Build Board #47)
   identity: identityRouter,
   // Access gating engine core (Build Board #21), behind the accessGating feature flag

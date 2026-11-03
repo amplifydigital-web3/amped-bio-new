@@ -69,7 +69,14 @@ const t = initTRPC.context<Context>().create({
   // it exposes server paths and code to any caller, whatever the environment
   // (QA-002). Server logs keep the full error.
   errorFormatter({ shape, error }) {
-    const retryAfter = (error.cause as { retryAfter?: unknown } | undefined)?.retryAfter;
+    const cause = error.cause as
+      | { retryAfter?: unknown; refusal?: unknown; detail?: unknown }
+      | undefined;
+    const retryAfter = cause?.retryAfter;
+    // Store refusals (C9) name their code and a small detail so the client shows the right line
+    const refusal = typeof cause?.refusal === "string" ? cause.refusal : undefined;
+    const detail =
+      refusal && cause?.detail && typeof cause.detail === "object" ? cause.detail : undefined;
     return {
       ...shape,
       data: {
@@ -77,6 +84,8 @@ const t = initTRPC.context<Context>().create({
         // undefined keys are dropped when the response is serialized
         stack: undefined,
         retryAfter: typeof retryAfter === "string" ? retryAfter : undefined,
+        refusal,
+        detail,
       },
     };
   },

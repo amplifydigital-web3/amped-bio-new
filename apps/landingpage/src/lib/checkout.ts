@@ -28,3 +28,18 @@ export async function startCheckout(input: {
   });
   window.location.assign(payUrl(payPath));
 }
+
+/** Starts an intent for a store product (C9) and navigates to the pay sheet. */
+export async function startProductCheckout(input: {
+  offerId: string;
+  source: CheckoutSource;
+  via?: string | null;
+}): Promise<void> {
+  const { payPath } = await trpcClient.checkout.start.mutate({
+    kind: "purchase",
+    target: { type: "offer", id: input.offerId },
+    source: input.source,
+    ...(input.via ? { via: input.via } : {}),
+  });
+  window.location.assign(payUrl(payPath));
+}

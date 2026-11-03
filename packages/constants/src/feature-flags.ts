@@ -201,6 +201,14 @@ export const FEATURE_FLAGS = {
     default: false,
     env: { server: "PAYMENTS_ENABLED" },
   },
+  storeSales: {
+    label: "Store sales",
+    description:
+      "Creator stores and product pages are public and take payments. Off: a store renders for its owner in preview only (store catalog 2).",
+    scope: "public",
+    default: false,
+    env: {},
+  },
   accessGating: {
     label: "Access gating",
     description:

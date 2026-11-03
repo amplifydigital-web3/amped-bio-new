@@ -149,7 +149,7 @@ export function PayPage() {
   const item = q?.item;
 
   if (intent.data?.status === "paid" || phase === "paid") {
-    const itemHref = creator && item ? `${LANDING}/${creator.handle}/c/${item.publicId}` : pageHref;
+    const itemHref = creator && item ? `${LANDING}${item.path}` : pageHref;
     return (
       <SheetFrame
         creator={creator}
