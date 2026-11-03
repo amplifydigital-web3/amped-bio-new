@@ -62,7 +62,7 @@ Change in `computeRnsIdentity`:
 
 Existing Verified pages lose the badge until the owner publishes once. Before the switch, a one time email and an editor notice ask owners with a one way binding to publish (about two minutes, one transaction). The switch is behind `RNS_BADGE_TWO_WAY` so it turns on after the notice period (decision B3).
 
-The seller check in `docs/features/identity-checks.md` (revision 4, S1) uses `checkRnsBinding(...).ok`, the one way rule, so selling is not blocked by a missing `url` record. Whether sellers should need two way binding once the flag is on is held for Rob (identity checks section 9, X-Q1).
+Sellers follow the same rule (X-Q1, Rob 3 Nov). The seller check in `docs/features/identity-checks.md` (revision 4, S1) requires `checkRnsBinding(...)` to return `ok` and `twoWay`; one way fails with `name_not_linked` and the Get paid card shows Publish to your name. It turns on with `RNS_BADGE_TWO_WAY`, after the same notice period, and the notice email and editor notice also tell sellers bound one way that their store stops taking payments until they publish. Today `apps/server/src/services/identity/checks.ts:143` uses `.ok`, the one way rule; RN3 changes it.
 
 ## 5. One RNS module
 
@@ -87,12 +87,14 @@ Design boards cover:
   - Each row is one 44 px target (the whole row toggles the checkbox) (RN-Q5).
   - States (RN-Q4): reverse row hidden; Network fee: not available with Retry; declined ("You cancelled in your wallet. Nothing changed."); failed ("Publish did not complete" with Retry); desktop SidePanel 508 wide at 1440. All reuse the shipped cards.
 - B2 Identity sheet (owner) with the new "Linked both ways" line, and the nudge when only one way. Both carry the shipped footnote "Verified means the identity check passed. It is not an endorsement." (`packages/ui/src/prism/rns-identity.tsx:77`) (RN-Q6). B2b keeps the "Verified by Authbase" row, so the owner sees that only the link is missing (RN-Q8). States (RN-Q7): loading; Authbase unavailable (`rnsTrust` returns unavailable: "We could not check Authbase right now. Try again in a minute." with Try again); Authbase not verified with two way binding (name chip, Verify with Authbase); Authbase expired (Verify again); name expired (Extend); notice period before `RNS_BADGE_TWO_WAY` turns on (one way still Verified, with "From {date}, Verified needs your name linked both ways. Publish to your name to keep it."); desktop at 1440.
-- B3 Handle changed after publish, in the Page panel, phone and 1440 (RN-Q9). Copy (RN-Q10): "You changed your page link to amped.bio/{new}. Publish to update your name." The line "Your store is not affected." is held with X-Q1: it is true only while sellers use the one way rule.
+- B3 Handle changed after publish, in the Page panel, phone and 1440 (RN-Q9). Copy (RN-Q10): "You changed your page link to amped.bio/{new}. Publish to update your name." Sellers need two way binding (X-Q1), so the prompt adds "Until you do, your store does not take payments." for an account with a seller pass or a live store.
 - B4 Public chip and sheet, unchanged for visitors except the badge rule.
 
 ## 7. Decisions for Rob (recommended first)
 
 All decisions in this section are open until Rob answers on the card.
+
+**X-Q1. Two way for sellers (decided, Rob 3 Nov).** Sellers need two way binding, matching the badge rule.
 
 **`badge-rule` (open on the card).** Recommended: two way binding plus Authbase VERIFIED. Why: binding proves control of both sides, Authbase proves the person. Alternative: one way binding plus Authbase (today).
 
@@ -116,7 +118,7 @@ All decisions in this section are open until Rob answers on the card.
 | --- | --- | --- |
 | RN1 | `packages/web3/src/rns` module, imports moved, no behavior change | 1.5 days |
 | RN2 | `url` read in the binding, `twoWay`, Publish rows (url label, reverse) inside the shipped Profile step, two transactions or one `wallet_sendCalls` batch (3), `flow=point` (3.1), Identity sheet states and footnote (6), handle change state | 2 days |
-| RN3 | `RNS_BADGE_TWO_WAY` flag, badge rule, notice email and editor notice | 0.5 day |
+| RN3 | `RNS_BADGE_TWO_WAY` flag, badge rule, seller check `twoWay` and `name_not_linked` (X-Q1), notice email and editor notice (with the seller line) | 1 day |
 
 ## 9. Acceptance
 
@@ -124,7 +126,7 @@ All decisions in this section are open until Rob answers on the card.
 2. Changing the handle makes `twoWay` false and shows the publish prompt; publishing restores it.
 3. With the flag on, a VERIFIED owner with a one way binding shows the name chip, not Verified, and sees the nudge.
 4. Publishing with the reverse row on makes the wallet's reverse lookup return the name.
-5. The seller check passes on a one way binding.
+5. With the flag on, the seller check fails on a one way binding with `name_not_linked` and passes after Publish. (X-Q1)
 6. After RN1 the client and server contain no RNS subgraph query outside `packages/web3/src/rns`.
 7. Typecheck, build and tests pass. Copy has no em or en dashes.
 8. With the reverse row on and no `wallet_sendCalls` support, Review says "Two transactions" and the fee is the sum of both estimates. (RN-Q1)
