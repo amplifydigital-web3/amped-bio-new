@@ -19,7 +19,7 @@ Seven short steps, phone first. Each one can be skipped.
 4. **Building.** Amp Builder reads, sorts and marks duplicates, names each link, writes two bio options and picks three looks. It shows each step as it finishes. About 15 seconds.
 5. **Review your links.** Every link with its title, icon and order. Keep, rename, move or drop, by tap or drag. Unsafe links are removed and listed with the reason.
 6. **Pick a look and a bio.** A photo choice (YouTube avatar, upload or keep current), three looks built from the photo's colours on Amped themes, and two bio options suggested by AI to choose from or edit.
-7. **Preview and add.** The whole page in a phone frame. A new page publishes. A page that already has blocks gets the choice of Add to my page (new links after the current blocks) or Replace my page. Either can be undone for 7 days from the toast or Page menu, History.
+7. **Preview and add.** The whole page in a phone frame. A new page publishes. A page that already has blocks gets the choice of Add to my page (new links after the current blocks) or Replace my page, which swaps only free links and the look and keeps paid, gated, content and group blocks. Either can be undone for 7 days from the toast or Page menu, History.
 
 ## What makes it different
 

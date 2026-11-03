@@ -1,6 +1,6 @@
 # Amp Builder (AI auto builder): phase 1 spec
 
-Status: spec for approval, 28 Oct 2026. QA fixes 3 Nov 2026 (Screen Review rows 299 to 307; held: AB-Q27, AB-Q31). Build Board: #14 "AI Amped bio builder".
+Status: spec for approval, 28 Oct 2026. QA fixes 3 Nov 2026 (Screen Review rows 299 to 307). AB-Q27 and AB-Q31 decided by Rob, 3 Nov. Build Board: #14 "AI Amped bio builder".
 Owner: Rob Frasca. Drafted by Claude.
 Baseline: `main` at 1b498c9 (production) and `development` at a3ce333.
 Overview: `docs/overviews/ai-builder.md`. Research: `docs/features/ai-builder-research.md`. Design: AI auto builder screens, https://claude.ai/artifact/ERXtBxw8fBU7vVkpjMLPSe.
@@ -157,7 +157,7 @@ model BuildSession {
   status      String    @db.VarChar(16)           // gathering | planning | review | applied | undone | expired | failed
   sources     Json                                // page, handles, about; no raw HTML
   plan        Json?                               // BuildPlan, section 7
-  snapshot    Json?                               // page before apply: blocks, theme id, description, image ids
+  snapshot    Json?                               // page before apply: block rows with ids, full theme config, description, image file id
   applyMode   String?   @map("apply_mode") @db.VarChar(8)   // add | replace
   model       String?   @db.VarChar(64)           // AI model id used
   costMicros  Int?      @map("cost_micros")       // AI cost, for the admin report
@@ -269,8 +269,8 @@ Review controls (AB-Q20): every row, socials and buttons, has a keep Checkbox (2
 
 `builder.apply({ sessionId, mode, choices })`, one database transaction:
 
-1. Save the snapshot: block rows, theme id, description, image ids.
-2. `replace`: delete the page's blocks (what Replace keeps is held for Rob, AB-Q27). `add`: keep them and append after the last block. New blocks are created with `order` set after the current maximum, in plan order. Do not reuse the `order: 0` write in `blocks.addBlock` (`apps/server/src/trpc/blocks.ts`, line 201), which would put them first (AB-Q32).
+1. Save the snapshot: block rows with their ids, the full theme config (not only the theme id, because `applyTheme` with themeId 0 updates the user's one theme row in place, `apps/server/src/trpc/theme.ts` lines 280 to 299), the description, and the image file id.
+2. `replace` (AB-Q27, decided): swaps only free link and media blocks and the look. It keeps every paid, gated, content and group block (gated blocks, content blocks, Telegram group blocks, pool and follow blocks) in place with the same ids, so unlocks, analytics events and click counts stay attached. Kept blocks stay first, then the new links. AB8d and the Replace confirm (AB8e) name the kept blocks: "Kept: {n} paid or gated blocks." with each title. `add`: keep them and append after the last block. New blocks are created with `order` set after the current maximum, in plan order. Do not reuse the `order: 0` write in `blocks.addBlock` (`apps/server/src/trpc/blocks.ts`, line 201), which would put them first (AB-Q32).
 3. Create link and media blocks through the same validation as `blocks.addBlock` (validation only, not its order), in plan order, skipping links with `keep: false`. Social links become one icon row block when Block Review v2 ships; until then, link blocks with platform icons.
 4. Set the description if a bio was chosen.
 5. Create a user theme from the chosen look (system theme config plus overrides) and set it.
@@ -281,7 +281,7 @@ Publishing: a new account's page publishes through the existing publish step (`s
 
 AB8 (AB-Q28, AB-Q29, AB-Q30): the mode is an OptionTile radiogroup, Add to my page (default) and Replace my page ("Your current page is kept for 7 days so you can undo."). The primary is the lg 55 indigo button and names the mode ("Add 13 links to my page" or "Replace my page"); the value deep commit button is for money only. The preview shows the page as it will be: with Add, current blocks first, then the new links, with the full chosen bio. A new account with no blocks (AB8b) gets no mode choice; it shows the page address with a handle suggested from the old page, checked against reserved handles (gate D2), and the primary is "Publish my page". Applying locks the controls ("Adding your links"). Apply failed rolls back the one transaction: "We could not add your links. Nothing on your page changed. Your plan is saved." with Try again.
 
-Undo: `builder.undo({ sessionId })` restores the snapshot in one transaction and marks the session `undone`. Available for 7 days from the editor toast and from Page panel, History. Snapshot contents and the warning for edits made after apply are held for Rob (AB-Q31).
+Undo: `builder.undo({ sessionId })` restores the snapshot in one transaction and marks the session `undone`. Available for 7 days from the editor toast and from Page panel, History. Undo restores the snapshot exactly: block rows with their original ids (so analytics reattach), the full theme config, description and image file id (AB-Q31, decided). If the page changed after apply, Undo first opens a Dialog that names each change that will be lost (block added or removed, bio edited, theme changed, photo changed) with "Undo and lose these" as a destructive action (AB9d). With no later edits, the plain confirm (AB9c) shows.
 
 AB9 (AB-Q33, AB-Q34, AB-Q35): drawn in the Page shell (top bar with bell, phone dock). The success toast reads "{n} links added. You can undo for 7 days." after Add ("Your page is rebuilt. You can undo for 7 days." after Replace). It stays 8 seconds, like the checklist undo, or until dismissed with its 44 close button; this overrides the 5 second default for success toasts. History (AB9b) lists `builder.history` rows: what changed, when, and "Undo until {date}" or "Undo window ended". Undo states: confirm Dialog ("Undo Amp Builder?"), undoing (controls locked), undone toast ("Done. Your page is back to how it was."), window ended, and failed ("We could not undo. Nothing changed. Try again.", error toast that stays until acted on).
 
@@ -368,7 +368,9 @@ Env (AB-Q14): add `YOUTUBE_API_KEY` to `apps/server/src/env.ts` (none today). Qu
 4. A URL that resolves to a private or metadata address is refused before connect and after a redirect.
 5. A `javascript:` link in any source never reaches the plan; the review screen lists it as removed.
 6. With the AI call forced to fail, the person still gets a plan and can apply it.
-7. Replace then Undo restores the exact blocks, theme, bio and avatar.
+7. Replace then Undo restores the exact blocks (same ids), theme, bio and avatar, including for a creator with a custom theme (themeId 0): the custom theme config is identical after Undo.
+7a. Replace on a page with a gated block, a content block and a Telegram group block keeps all three with the same ids, unlocks and analytics, and the confirm names them.
+7b. Undo after a later edit opens the Dialog that lists that edit before anything is restored.
 8. Every colour pair in an applied look passes 4.5:1.
 9. The sixth build in a day is refused with the rate limit state.
 10. The AI request body contains no email, phone or wallet address (test on fixtures).
@@ -388,5 +390,3 @@ Env (AB-Q14): add `YOUTUBE_API_KEY` to `apps/server/src/env.ts` (none today). Qu
 | Where is the page building MCP server Rob mentioned (repo, branch)? Phase 3 should reuse or replace it | Rob | Phase 3 |
 | Counsel memo on reading competitor pages at the user's request (AB1), host by host | Counsel | Read path for every named link in bio host |
 | AI provider agreement with zero retention | Rob | B2 in production |
-| What Replace deletes: keep gated, content, Telegram, pool and follow blocks, or list them and ask; undo restoring original block ids (AB-Q27, held) | Rob | B4 |
-| Undo scope: full theme snapshot and a warning for edits made after apply (AB-Q31, held) | Rob | B4 |
