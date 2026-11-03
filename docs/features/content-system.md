@@ -618,7 +618,7 @@ All four use the same `getHandle` path and return not found for an unpublished p
 
 - Cover or the preview player (the first previewable item), title, description.
 - What is included: one row per item with kind, length, pages or file size, and a lock or check per the viewer's access.
-- Access line: Yours to keep, or Access for 30 days, or Access for 365 days.
+- Access line: In your Library, or Access for 30 days, or Access for 365 days. "In your Library" replaces "Yours to keep" because the store policy grants a licence, not ownership (store policy spec 3.4, For counsel item 3; SP-Q45).
 - Amount and Buy. When Also in membership is on: Join to open this and N more, beside Buy.
 - Members of the plan see Included in your membership and Open.
 - Owners (buyers with access) see Open, and Download per item when allowed. A bought bundle opens a list of its items.
@@ -765,7 +765,7 @@ Recipient { address to; uint16 bps; uint8 role; } // role: 0 creator, 1 platform
 - No earn, yield, return, profit, invest, investment, passive income, income or gains on any content or store surface (`CONTENT_BANNED_TERMS` in `packages/constants/src/compliance.ts`). Store and checkout surfaces also ban stake, staking, pool and tREVO (#25 3.9). Locked states for stake rules follow `ACCESS_BANNED_TERMS` and show `ACCESS_STAKE_DISCLOSURE`.
 - Amounts read `3 USDC`. The word price is not used in shipped copy.
 - The fee line reads its percentage from `PLATFORM_FEE_BPS`. A change to the fee updates every sheet and receipt, and counsel reads the new line before it ships.
-- Approved words: members only, membership, join, buy, yours to keep, access, support, library, drop, store.
+- Approved words: members only, membership, join, buy, access, support, library, drop, store. "Yours to keep" is withdrawn (SP-Q45, pending counsel's choice of word).
 - Protection claims: "streams through a protected player". Never "cannot be copied" or DRM.
 - Safety claims: "every upload is scanned before it goes live". Never "100% safe".
 - No "share anything".
@@ -984,6 +984,7 @@ About 44 engineer days in total. PRs 3, 4 and 5 can run in parallel after PR 2.
 
 ## Revision log
 
+- 2026-11-03: QA fixes. Access line "In your Library" in place of "Yours to keep" (SP-Q45).
 - 2026-11-03: Store policy. Buying here replaces the refund line, footer link, policy route, go live items now in `docs/features/store-catalog.md` section 2. See `docs/features/store-policy.md`.
 
 - 2026-09-26: First spec. S3 and CloudFront, Mux, Public or Members only, payments on hold.

@@ -97,8 +97,8 @@ Flow (boards ar5 and sp8):
 
 1. Creator taps Add a person, types a display name, and shares the invite link (`app.amped.bio/appear/{token}`, single use, 14 days).
 2. The person opens the link, signs in or creates an account (no page, Fan Graph page_status rules), and passes `checkIdentity(person, "age_over_18")` with Authbase. Their wallet is made on sign up, so Authbase links to it.
-3. The person sets the release options (store policy spec 4.1): where the creator may sell (store, memberships, paid messages, Broadcast, live), other platforms, face shown or not, tag or not, payment (none, fixed fee, revenue share).
-4. The person confirms they gave the creator a copy of their ID and every name they have used, reads the release (`RELEASE_VERSION`), ticks consent and types their full legal name. Amped stores the typed name, the options, the timestamp, the version, the IP and the check outcome. It never stores an ID image.
+3. The person sets the release options (store policy spec 4.1) with the release's labels: where the creator may sell (Store (one time purchase), Memberships, Paid messages, Broadcast, Live stream), other platforms (Nowhere else, or Also on with a text field), face shown or not, tag or not, payment (No payment, a fixed fee with an amount field, or a revenue share as a percent of the creator's share, stored as bps of the creator share).
+4. The person reads the full release (`RELEASE_VERSION`) with every field and option filled, scrolled to the end before Sign enables, then confirms they gave the creator a copy of their ID and every name they have used, ticks consent and types their full legal name. Amped stores the typed name, the options, the filled text and its hash, the timestamp, the version, the check outcome and the check date and reference (snapshot at signing). It does not store the IP until counsel adds it to release section 10 (store policy spec 4.3). It never stores an ID image. Both parties get a copy (release section 12).
 5. The creator countersigns in People. Only then does the person show Ready.
 6. The person can withdraw consent at any time from Account, Appearing in, or with the report reason "I appear in this and withdraw consent". Withdrawal hides every item they appear in on receipt and opens a case per item (section 7.4).
 
@@ -318,7 +318,11 @@ model AppearingPerson {
   releaseOptions  Json?     @map("release_options")                // surfaces, otherPlatforms, faceShown, tagAllowed, payment kind, fixed amount, bps
   idGivenConfirmedAt DateTime? @map("id_given_confirmed_at")       // person confirms they gave the creator their ID and names
   releaseAt       DateTime? @map("release_at")
-  releaseIp       String?   @map("release_ip") @db.VarChar(45)
+  releaseText     String?   @map("release_text") @db.Text           // the filled text the person signed
+  releaseHash     String?   @map("release_hash") @db.Char(64)        // sha256 of releaseText
+  checkReference  String?   @map("check_reference") @db.VarChar(64) // Authbase reference, snapshot at signing
+  checkDate       DateTime? @map("check_date")
+  // releaseIp is not stored until counsel adds IP to release section 10 (store policy spec 4.3)
   creatorSignedAt DateTime? @map("creator_signed_at")             // Ready only when set
   withdrawnAt     DateTime? @map("withdrawn_at")
   createdAt       DateTime  @default(now()) @map("created_at")
@@ -559,5 +563,6 @@ Launch gate for 18+: counsel approval (done, 3 Nov 2026); the operational items 
 
 ## Revision log
 
+- 2026-11-03: Revision 3 (QA fixes). 5.2 steps 3 and 4: release labels, full text before Sign, check reference snapshot, no IP until counsel adds it, copies to both parties. Data model: releaseText, releaseHash, checkReference, checkDate; releaseIp removed. Release scope per item or per creator is held (SP-Q36).
 - 2026-11-03: Revision 2. First repo copy. Counsel approval recorded (D3, Q3, Q4). Release is the creator's document with options, ID confirmation and countersignature; custodian of records step; surface rule; withdraw consent reason; Age result and Store policy case types; L1; launch gate updated to COUNSEL-ADULT 10.3.
 - 2026-10-24: Revision 1. Spec for approval, project copy `claude/amped-adult-content-review-spec-2026-10-24.md`.
