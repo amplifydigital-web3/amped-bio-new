@@ -1,6 +1,6 @@
 # Identity checks: Over 18 and verified sellers
 
-Status: revision 3, 30 Oct 2026, build ready for I1. Revision 3 applies the Full QA of 30 Oct (project doc claude/amped-identity-gating-full-qa-2026-10-30.md) and Rob's answer on IQ1 (section 4.5); see the revision log. Revision 1 (23 Oct, PR #354) is in this file's history. Revision 2 applied Rob's choices on the six decisions: A1, A2, A3 (implied by S2), S2 and S3 as recommended; **S1 alternative (an active RNS name bound to the wallet is required to sell)** and **S4 alternative (creator only)**. Changed sections: 3 (seller result), 5, 6, 7, 8, 9. Build Board: card "Identity checks (Authbase)", with edits to #28 Adult content, #20 Content and store, #25 Memberships, #15 Payments to creators, #21 Gating engine.
+Status: revision 4, 3 Nov 2026. Revision 4 records S5 and Rob's answer on the RNS network (see the revision log). Revision 3 applies the Full QA of 30 Oct (project doc claude/amped-identity-gating-full-qa-2026-10-30.md) and Rob's answer on IQ1 (section 4.5); see the revision log. Revision 1 (23 Oct, PR #354) is in this file's history. Revision 2 applied Rob's choices on the six decisions: A1, A2, A3 (implied by S2), S2 and S3 as recommended; **S1 alternative (an active RNS name bound to the wallet is required to sell)** and **S4 alternative (creator only)**. Changed sections: 3 (seller result), 5, 6, 7, 8, 9. Build Board: card "Identity checks (Authbase)", with edits to #28 Adult content, #20 Content and store, #25 Memberships, #15 Payments to creators, #21 Gating engine.
 Owner: Rob Frasca. Drafted by Claude.
 Baseline: `development` at f8bd0bb (revision 2 used a3ce333, revision 1 used 48ca154), plus open PR #348 (content public pages).
 Design: Verified seller screens, https://claude.ai/artifact/LUnttKDFQVAgSjenbQu8FM. The fan Over 18 sheet is drawn on #28 (ar1 to ar7) and is not redrawn here. The Under 18 review case is board ad8 on the same #28 page, https://claude.ai/artifact/LHQbtepDpgxEmLqoZzVVc7#ad8.
@@ -187,10 +187,8 @@ At expiry new sales stop: the store shows "Not taking payments right now", paid 
 | S3 | Renewals after seller expiry | Recommended: pause, members keep access to period end |
 | S4 | Which payees must pass | **Alternative: the creator only** |
 | IQ1 | What happens on an under_18 result | Recommended (30 Oct): refuse, store, open a review case; a safety lead closes the account or clears it |
-
-New decision raised by S1:
-
-**S5. Where sellers get the RNS name.** Recommended: registration stays in the Wallet Names tab and the Get paid card deep links to it with the handle prefilled as the label. Why: one registration flow, already built (`RegisterFlow.tsx`). Alternative: an inline register step inside the Get paid card. Fewer taps, but a second copy of the money flow.
+| S5 | Where sellers get the RNS name | Recommended (3 Nov): registration stays in the Wallet Names tab (`RegisterFlow.tsx`). The Get paid card deep links to it with the handle prefilled as the label. No second registration flow |
+| RN1 | Which network do seller names live on | Rob (3 Nov): RNS names are held on testnet and mainnet. The product, selling included, runs on testnet with testnet names until the mainnet go live. The seller check reads the RNS chain of the environment |
 
 ## 7. Build
 
@@ -226,11 +224,12 @@ Order with Rob's sequence: G0 (stake unit fix) before messaging goes live. I1 an
 | Is Authbase's Over 18 attribute re-issued on a schedule (Ohio requires periodic re-verification)? | Authbase team | No |
 | Can Authbase report status changes by webhook so expiry is pushed, not polled? | Authbase team | No |
 | Is Authbase verification enough for a creator's 2257 record, or does #28 still need its own ID capture? | Counsel | A2 |
-| RNS runs on Libertas testnet today (`RNS_CHAIN = libertasTestnet`; `AVAILABLE_CHAINS` has no mainnet entry). With S1 required, no creator can sell on mainnet until RNS mainnet ships. Is RNS mainnet on the same date as USDC selling, or does selling launch on testnet names? | Rob, Revolution team | First mainnet sale |
+| Answered (RN1, Rob 3 Nov): RNS names are held on testnet and mainnet, and the product runs on testnet until the mainnet go live. Staging sells on testnet names. Mainnet selling needs RNS mainnet in `AVAILABLE_CHAINS` before the first mainnet sale | Rob, Revolution team | First mainnet sale only |
 | Should a name in its one day grace period (`RNS_GRACE_PERIOD_SECONDS`) still pass? `isRnsNameActive` (packages/web3/src/rns.ts) does not count grace, so sales stop on the expiry date | Rob | No |
 
 ## Revision log
 
+- 2026-11-03 (revision 4): S5 recorded as recommended (Wallet Names tab, deep link from the Get paid card). RN1 recorded: RNS names on testnet and mainnet; the product runs on testnet until the mainnet go live. Authbase questions drafted for Rob to send (method and IAL2, re-verification, retention, anonymized result, expiry webhook, rate limits, status across staging and production, sandbox).
 - 2026-10-30 (revision 3): Full QA of I1 against `development` f8bd0bb. Seller reason mapping from `checkRnsBinding`; `unavailable` never cached; rows for another wallet ignored (no wallet change flow exists); `identity.recheck` rate limit; privacy notice lines, retention and `CONSENT_POLICY_VERSION` bump spelled out; new 4.5 Under 18 result (IQ1, Rob 30 Oct) with board ad8; `IdentityReviewCase` added to I1; S1 no longer waits on #351. Acceptance 9 replaced, 12 and 13 added.
 - 2026-10-27 (revision 2): S1 and S4 alternatives, S5 raised.
 - 2026-10-23 (revision 1): first spec, PR #354.
