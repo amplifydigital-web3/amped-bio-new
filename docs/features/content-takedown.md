@@ -147,7 +147,7 @@ Without the KV values the loop logs `[content] ALERT edge sync not configured` o
 
 ## 5. Screens
 
-C7a is mostly server work. Two boards cover what people see (page "Takedown and Safety additions", Screen Review rows 372 and 373):
+C7a is mostly server work. Two boards cover what people see (page "Takedown and Safety additions", https://claude.ai/artifact/41WUvZcFU7KLVm1KBb86ta, Screen Review rows 372 and 373):
 
 - **tk1, viewer states.** A fan whose item was removed or hidden while the page was open: the player stops and shows "This item is no longer available." with Back to the page; the item page answers the standard not found page; a fan on a gated item that was just unpublished sees "This item is not available right now." The creator's library shows "Hidden by Safety" with "Open the notice" (R2 notices), and "Stopping delivery" for a minute after delete.
 - **tk2, admin delivery health.** A Dashboard tile, "Takedown sync": items waiting, oldest wait, failures, last run, and a state (Healthy, Behind, Not configured). In the Safety case view, a line under the media: "Delivery stopped 14:02" or "Stopping delivery, 2 retries" with Retry now (safety lead).

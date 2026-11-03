@@ -4,7 +4,7 @@ Status: revision 6, 3 Nov 2026 (content PR 7 split into C7a and R1 to R3, sectio
 Owner: Rob Frasca. Drafted by Claude.
 Baseline: `development` at 0500800 (2 Nov), with I1 (#397), G1 (#398) and content PR 6 (#348) merged. `docs/features/identity-checks.md`, `docs/features/content-system.md` sections 3.5, 3.11 and PR 7.
 Texts: `docs/legal/adult-content-policy.md` (COUNSEL-ADULT v1.1, `ADULT_POLICY_VERSION` 1.1), `docs/legal/performer-release.md` (`RELEASE_VERSION` 1). Store policy and release options: `docs/features/store-policy.md`.
-Designs: "Adult content review" design page, https://claude.ai/artifact/LHQbtepDpgxEmLqoZzVVc7 (boards ar1 to ar7, ad1 to ad8), and the release options board sp8 on https://claude.ai/artifact/TErq8QL9fn31ENpgo6nD1r. Screen Review rows 190 to 203, 314 and 329. Revision 6 boards ad2b, ad3b, ad6b, ar8, ar9, tk1 and tk2 on "Takedown and Safety additions" (Screen Review rows 372 to 378).
+Designs: "Adult content review" design page, https://claude.ai/artifact/LHQbtepDpgxEmLqoZzVVc7 (boards ar1 to ar7, ad1 to ad8), and the release options board sp8 on https://claude.ai/artifact/TErq8QL9fn31ENpgo6nD1r. Screen Review rows 190 to 203, 314 and 329. Revision 6 boards ad2b, ad3b, ad6b, ar8, ar9, tk1 and tk2 on "Takedown and Safety additions", https://claude.ai/artifact/41WUvZcFU7KLVm1KBb86ta (Screen Review rows 372 to 378).
 
 Counsel note: this spec states product rules and the controls that support them. Counsel approved the positions in COUNSEL-ADULT v1.1 section 10.2 on 3 Nov 2026. 18+ go live still waits on the operational items in its section 10.3.
 
