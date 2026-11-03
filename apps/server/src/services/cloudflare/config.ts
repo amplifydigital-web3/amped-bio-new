@@ -1,10 +1,11 @@
 /**
  * Content system (Build Board #20): which Cloudflare settings are present.
- * Spec 3.17. Uploads stay refused until CONTENT_UPLOADS_ENABLED is on AND every
+ * Spec 3.17. Uploads stay refused until the contentUploads flag is on AND every
  * setting the upload path needs exists, so a half configured environment answers
  * with a clear error instead of a broken upload.
  */
 import { env } from "../../env";
+import { isFeatureOn } from "../featureFlags";
 
 export interface ContentConfigStatus {
   ready: boolean;
@@ -30,7 +31,7 @@ export function contentConfigStatus(): ContentConfigStatus {
 
 /** True when the upload procedures may run. */
 export function contentUploadsOpen(): boolean {
-  return env.CONTENT_UPLOADS_ENABLED && contentConfigStatus().ready;
+  return isFeatureOn("contentUploads") && contentConfigStatus().ready;
 }
 
 /** Stream allowedOrigins: hostnames only, no scheme. */
