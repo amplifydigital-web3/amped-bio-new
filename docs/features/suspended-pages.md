@@ -20,6 +20,7 @@ An admin can block an account in the admin app. The block stops new sign ins. It
 | Follow, follow card | `apps/server/src/trpc/follow.ts` `findCreator` | Already excluded |
 | Broadcast and Telegram audiences | `services/broadcast/index.ts`, `services/telegram/rules.ts` | Already excluded |
 | Pool list and pool page | `apps/server/src/trpc/pools/fan.ts` `getPools` (line 215), `getPoolByAddress` (line 32) | Served |
+| Amped Card page and vCard (#58, not built) | `card.public`, `GET /api/card/{token}.vcf` | Must serve the inactive card page and expire Google Wallet objects (contact-card.md section 8) |
 | Sign in | `apps/server/src/utils/auth.ts` session `create.before` (line 425) | New sessions refused |
 | Live sessions | same | Not revoked. A blocked creator keeps editing until the session ends |
 | Admin action | `apps/server/src/trpc/admin/users.ts` `updateUser` (line 419) | Writes `block` only |
@@ -84,6 +85,7 @@ export function notSuspendedWhere(now = new Date()): Prisma.UserWhereInput {
 | `apps/server/src/trpc/handle.ts` | `getHandle` refuses suspended accounts |
 | `apps/server/src/trpc/pools/fan.ts` | `getPools`, `getPoolByAddress`, `getPoolDetailsForModal`, `searchPoolsForBlockEditor` filter suspended creators |
 | `apps/server/src/services/messaging/door.ts` | Null door for suspended creators |
+| `apps/server/src/services/card/*` (#58, when built) | `card.public` and the vCard route use `notSuspendedWhere`; `suspendUser` calls `expireGoogleObjects` |
 | `apps/server/src/utils/indexable.ts`, `trpc/user.ts`, `trpc/follow.ts`, `services/broadcast/index.ts`, `services/telegram/rules.ts` | Use the helper |
 | `apps/server/src/services/moderation/suspend.ts` | New. `suspendUser`, `unsuspendUser` |
 | `apps/server/src/trpc/admin/users.ts` | `updateUser` routes block changes through the service; `reason` input |

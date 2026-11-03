@@ -142,6 +142,7 @@ The migration is labeled `migration`. It changes delete rules only; no data move
 | Telegram link history | Kept 5 years; the live link is deleted |
 | Referral rows | The row is deleted. The other user's reward history keeps the amounts with "Deleted account" in place of the name |
 | Identity check outcomes (D47) | Deleted. Authbase keeps its own record under its own terms |
+| Amped Card (#58): `ContactCard`, `ContactRecord`, `WalletPass`, `CardHandoff` | Deleted. Google Wallet objects are set to EXPIRED with name and logo cleared first (`expireGoogleObjects`). Apple passes on devices open the inactive card page |
 | On chain data (pool contract, stakes, names, transfers) | Cannot be deleted. The sheet says so |
 
 The visitor privacy notice and creator terms get one paragraph that matches this table (counsel review, open question 1).

@@ -38,6 +38,7 @@ Not limited:
 | MCP | `routes/mcp.ts`, mounted at `/mcp` | Agent loops |
 | Analytics collector | `services/analytics/collector.ts` | Own limiter, per process only |
 | Referral reads, RNS lookups, theme gallery | various public procedures | Low |
+| Amped Card (#58, not built) | `GET /api/card/{token}.vcf`, `card.public`, `card.addHandoff` | Contact file scraping. Limits in `docs/features/contact-card.md` section 5: vCard 30 per minute per IP, shared with the Save contact block |
 
 Identity: `getVisitorIp(req)` (`services/analytics/visitorIp.ts`) walks `X-Forwarded-For` past private and Cloudflare hops and reads `CF-Connecting-IP` behind Cloudflare. Express `trust proxy` is set from `env.TRUST_PROXY`.
 
@@ -147,6 +148,7 @@ Both feed one countdown hook. The countdown is shown in the status line only. A 
 | Avatar and theme background uploads (AC-Q6) | The upload row keeps the file and shows one line in ink 2 with a warn pill "Limit reached": "Upload limit reached for now. Try again in {minutes} min." Upload is disabled until the time runs out. No danger text |
 | Content uploads | Unchanged: failed state with "Too many uploads at once. Try again in a minute." (section 3.1) |
 | Offline (AC-Q37) | Before any of these calls, a request that fails with no network shows the offline line in the same slot: "You are offline. Try again when you are back online." It never shows a countdown |
+| Amped Card page | "Too many saves from this network. Try again in a minute." with Try again (contact-card.md section 7) |
 
 Copy is in the design boards (Rate limit states, L1 to L5).
 
