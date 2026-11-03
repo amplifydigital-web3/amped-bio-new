@@ -1,7 +1,7 @@
 # Content gating (content PR 8)
 
 Build Board #20 (Content system) and #21 (Access gating engine). PR C8, branch `feat/content-gating`.
-Revision 2, 3 Nov 2026. Written after the C8 Full QA against `development` at 0500800b, which has G1 (#398), I1 (#397) and content PR 6 (#348).
+Revision 3, 3 Nov 2026. Written after the C8 Full QA against `development` at 0500800b, which has G1 (#398), I1 (#397) and content PR 6 (#348).
 
 Supersedes these parts of `docs/features/content-system.md`: in 3.6, the **Access check** and **Broadcast attachments** bullets; in 3.10, the auth column for `content.getPreview` and `content.getReadUrl`; in 3.16, the **PR 8** paragraph; in 3.15, "broadcast attachments" in the Phase 2 row. Where the content spec and this document disagree on PR 8, this document wins. Everything else in the content spec and in `docs/features/access-gating-engine.md` stands.
 
@@ -17,7 +17,7 @@ Supersedes these parts of `docs/features/content-system.md`: in 3.6, the **Acces
 
 - `services/access/engine.ts`: `registerResolver`, `check`, `checkBatch`, `open`, `bumpViewer`, `eligibleUserIds`. Only the `block` resolver is registered (`services/access/index.ts`).
 - `trpc/access.ts`: `access.check` (public, 30 a minute per viewer) and `access.rules.list`, `create`, `update`, `delete`. All refuse while the `accessGating` feature flag is off.
-- Live kinds: `follower`, `pool_member`, `stake_min`, `any`, `all`. `any` and `all` take 2 to 4 rule ids. Stake kinds pass only for owners on `ACCESS_STAKE_KINDS_ALLOWLIST` (`stakeKindsAllowed`).
+- Live kinds: `follower`, `pool_member`, `stake_min`, `any`, `all`. `any` and `all` take 2 to 4 rule ids. Stake kinds pass only for owners on the stake allowlist (`stakeKindsAllowed`), read from the site setting `access_stake_kinds_allowlist` with `ACCESS_STAKE_KINDS_ALLOWLIST` as the environment fallback.
 - `ContentItem.accessRuleId` has its foreign key to `AccessRule` (`onDelete: Restrict`). `baseAccessRuleId` exists and is for store PR 9.
 - `services/content/access.ts`: `PUBLIC_ITEM_WHERE` (requires `accessRuleId: null` and `adult: false`), `isPublicItem`, `openDecision` (owner or public), `servedAssetsClean`.
 - `services/content/viewer.ts`: `loadItemForViewer`, used by `content.getReadUrl`. `trpc/progress.ts` calls `openDecision` itself.
@@ -135,6 +135,8 @@ Flag: `accessGating` in `packages/constants/src/feature-flags.ts`, off in produc
 Not in C8: broadcast attachments (CQ1), block locks (G3), Members and Paid (PR 10 and PR 11), the store (PR 9).
 
 ## Revision log
+
+- 2026-11-03: Revision 3. The stake allowlist is the `access_stake_kinds_allowlist` site setting, not an environment variable.
 
 - 2026-11-03: Revision 2. One rule from the performer release: excluded surfaces are refused at rule writing from R4; C8 adds the hook only. Source: #420.
 
