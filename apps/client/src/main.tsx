@@ -1,14 +1,8 @@
 import "./index.css";
-import ReactDOM from "react-dom/client";
-import { QueryClientProvider } from "@tanstack/react-query";
-import { queryClient } from "@repo/ui";
-import App from "./App.tsx";
-import { AppProviders } from "./providers/AppProviders.tsx";
+import { loadFeatureFlags } from "./config/featureFlags";
 
-ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
-  <QueryClientProvider client={queryClient}>
-    <AppProviders>
-      <App />
-    </AppProviders>
-  </QueryClientProvider>
-);
+// Feature flags load before the app is imported, so every module level flag
+// read sees the admin's rows (config/featureFlags.ts).
+void loadFeatureFlags()
+  .then(() => import("./renderApp"))
+  .then(({ renderApp }) => renderApp());

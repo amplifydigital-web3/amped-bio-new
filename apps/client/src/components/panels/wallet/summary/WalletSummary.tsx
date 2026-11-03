@@ -12,6 +12,7 @@ import { BalanceFigure } from "./BalanceFigure";
 import { WalletActions } from "./WalletActions";
 import { UsdcTile } from "./UsdcTile";
 import { USDC_FLAGS } from "@/config/usdc/flags";
+import { isFeatureOn } from "../../../../config/featureFlags";
 
 // How long the Wallet waits for an address before it says the wallet did not connect
 const NO_ADDRESS_AFTER_MS = 10_000;
@@ -37,7 +38,7 @@ function AddressLine({ address }: { address: string }) {
   const timer = useRef<ReturnType<typeof setTimeout>>();
   useEffect(() => () => clearTimeout(timer.current), []);
 
-  const revoName = import.meta.env.VITE_SHOW_RNS === "true" ? profile.revoName : null;
+  const revoName = isFeatureOn("rns") ? profile.revoName : null;
   const short = `${address.slice(0, 6)}…${address.slice(-4)}`;
 
   const copy = async () => {

@@ -13,12 +13,13 @@ import {
 } from "../services/access";
 import { getClientIp } from "../services/analytics/requestContext";
 import { enforceRateLimits } from "../utils/rateLimit";
+import { isFeatureOn } from "../services/featureFlags";
 
 const ruleIdInput = z.string().regex(/^[0-9a-f]{32}$/);
 const opensToAllAtInput = z.string().datetime().nullable().optional();
 
 function requireEnabled() {
-  if (!env.ACCESS_GATING_ENABLED) {
+  if (!isFeatureOn("accessGating")) {
     throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Gating is not available yet." });
   }
 }
@@ -35,7 +36,7 @@ function viewerFrom(ctx: Context): Viewer {
   };
 }
 
-// Access gating engine (Build Board #21, PR G1). Behind ACCESS_GATING_ENABLED.
+// Access gating engine (Build Board #21, PR G1). Behind the accessGating feature flag.
 // Block locks, checkPage, openBlock and /go ship in G3.
 export const accessRouter = router({
   // One decision. Public procedures return not_signed_in for anonymous viewers on

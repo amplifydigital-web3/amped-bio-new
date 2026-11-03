@@ -1,9 +1,10 @@
 import { useSearchParams } from "react-router";
 import { TELEGRAM_APP_STRINGS, telegramPayload, type DmRuleKind } from "@repo/constants";
+import { isFeatureOn } from "../../../config/featureFlags";
 
 // Messaging on Telegram (Build Board #2), phase 1 client (PR 4). Behind
 // VITE_SHOW_TELEGRAM, like the Account row (row 112) and the composer (row 117).
-export const MESSAGES_ON = import.meta.env.VITE_SHOW_TELEGRAM === "true";
+export const MESSAGES_ON = isFeatureOn("telegram");
 
 /** `?wizard=telegram` on any editor route opens wizard A (spec 3.11a). */
 export const WIZARD_PARAM = "wizard";
