@@ -6,6 +6,7 @@ import { useWalletContext } from "@/contexts/WalletContext";
 import { useEditor } from "@/contexts/EditorContext";
 import { appChainId } from "@/utils/appChain";
 import { HELP_ARTICLES_URL } from "@/components/shell/useSupportWidget";
+import { isFeatureOn } from "../../../config/featureFlags";
 
 // Screen Review 061 (D19). The quietest card on Wallet, shown last and only
 // to a creator with no pool. Copy is the wording Rob approved on 30 Sep (D1).
@@ -14,7 +15,7 @@ import { HELP_ARTICLES_URL } from "@/components/shell/useSupportWidget";
 const LaunchPoolAd: React.FC = () => {
   const { address } = useWalletContext();
   const { setActivePanelAndNavigate } = useEditor();
-  const enabled = import.meta.env.VITE_SHOW_CREATOR_POOL === "true" && !!address;
+  const enabled = isFeatureOn("creatorPool") && !!address;
 
   const myPool = useQuery({
     ...trpc.pools.creator.getPool.queryOptions({ chainId: appChainId() }),
