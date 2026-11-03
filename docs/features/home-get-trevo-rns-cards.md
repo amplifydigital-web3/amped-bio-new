@@ -86,7 +86,14 @@ My RNS names (now "Your RNS names") is a two column card grid, one column below 
 - `eslint`: no errors.
 - New Vitest tests: `fundRow.test.ts` (6) and `shareTargets.test.ts` (2), all passing.
 
-## 5. Staging QA
+## 5. QA follow ups (3 Nov 2026, Screen Review row 357)
+
+The design record was updated to match the code (AC-Q30, AC-Q32, AC-Q33): the Testnet card shows `TESTNET_NOTICE`, the stat strip reads Unclaimed and the button Review and claim rewards, the Wallet row reads "Faucet: Ready.", sent, paused and empty use the code lines, the rail is the grouped shipped rail, the mobile share is the icon share row, and the Fund dialog frame was removed (it keeps its own faucet request). Two code gaps remain for a follow up PR:
+
+1. Testnet line in the faucet card (AC-Q31). `apps/client/src/components/panels/wallet/faucet/FaucetCard.tsx` renders a local `TESTNET_LINE` ("Testnet only. tREVO has no cash value."). The rule is the code constant wherever tREVO shows, and on phones the Testnet card sits below the section. Change: import `TESTNET_NOTICE` from `@repo/constants` (or `@repo/ui`) and render it in place of `TESTNET_LINE`; delete the local constant. Alternative for Rob: approve adding "tREVO has no cash value." to `TESTNET_NOTICE` in `packages/constants/src/testnet.ts`, which then changes every surface. Acceptance: grep finds no testnet string literal in `FaucetCard.tsx`.
+2. Suspense fallback (AC-Q34). `apps/client/src/components/panels/home/GetTrevoSection.tsx` wraps `RefereeCard`, `FaucetCard` and `InviteCard` in `<Suspense>` with no fallback, so the cards appear late with no placeholder and the layout jumps. Change: pass `fallback` with the card skeletons (`FaucetSkeleton` exported from `FaucetCard.tsx`, and an invite skeleton of the same shape). Acceptance: on a throttled network the section shows two card skeletons before the chunks load.
+
+## 6. Staging QA
 
 1. Home shows Get tREVO under Page status. At 1360 and up the faucet and invite cards sit side by side.
 2. The faucet in each state: setup with open steps, ready, request sent, cooldown ring, paused.
