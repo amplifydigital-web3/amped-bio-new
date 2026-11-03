@@ -1,0 +1,563 @@
+# Adult content review and the Safety admin
+
+Status: revision 2, 3 Nov 2026. Build Board #28 (Adult content compliance, 18+). Revision 1 was approved by Rob on the Build Board card (24 to 26 Oct); outside counsel approved the policy, the 2257 position and the release on 3 Nov 2026.
+Owner: Rob Frasca. Drafted by Claude.
+Baseline: `development` at 0500800 (2 Nov), with I1 (#397), G1 (#398) and content PR 6 (#348) merged. `docs/features/identity-checks.md`, `docs/features/content-system.md` sections 3.5, 3.11 and PR 7.
+Texts: `docs/legal/adult-content-policy.md` (COUNSEL-ADULT v1.1, `ADULT_POLICY_VERSION` 1.1), `docs/legal/performer-release.md` (`RELEASE_VERSION` 1). Store policy and release options: `docs/features/store-policy.md`.
+Designs: "Adult content review" design page, https://claude.ai/artifact/LHQbtepDpgxEmLqoZzVVc7 (boards ar1 to ar7, ad1 to ad8), and the release options board sp8 on https://claude.ai/artifact/TErq8QL9fn31ENpgo6nD1r. Screen Review rows 190 to 203, 314 and 329.
+
+Counsel note: this spec states product rules and the controls that support them. Counsel approved the positions in COUNSEL-ADULT v1.1 section 10.2 on 3 Nov 2026. 18+ go live still waits on the operational items in its section 10.3.
+
+## 1. What this covers
+
+Rob decided on 8 Oct that Amped.Bio allows adult content behind age checks, and on 23 Oct that the Over 18 check is the Authbase attribute RNS already reads. The identity checks spec owns the check itself. This spec owns everything around it:
+
+1. How a creator turns on 18+ and who may appear in 18+ items.
+2. How every 18+ item is reviewed before a fan can open it.
+3. How fans report items, and how anyone (with or without an account) asks for an intimate image to be taken down.
+4. The Safety admin: the queue, the case view, the Take It Down desk, creator safety profiles, appeals, the audit log, roles and reviewer wellbeing.
+5. Two defects in the current code that must be fixed before any 18+ item can open (section 11).
+
+It replaces the trust and safety part of content system PR 7 for 18+ and widens it: PR 7 keeps DMCA, malware and the CSAM evidence path; this spec adds the shared queue and case model those tools sit in.
+
+## 2. Rules already decided
+
+| Rule | Source |
+| --- | --- |
+| Adult content is allowed for verified adult creators, behind an age check | Rob, 8 Oct (#20 decision 3) |
+| Amped is a platform and storefront. The creator is the seller of record and the producer | Rob, 3 Nov; COUNSEL-ADULT v1.1 sections 1 to 3, counsel approved |
+| Fan payments are USDC wallet to creator wallet. The on-ramp only loads the wallet and never sees what is bought | Rob, 8 Oct (onramp-adult, moot) |
+| Over 18 is the Authbase `age_over_18` attribute, through `checkIdentity` | Rob, 23 Oct; identity checks spec |
+| One age gate for every viewer of 18+ content in every state and country | COUNSEL-ADULT v1.1 section 5.1 |
+| Creators who collect USDC are Authbase verified sellers | Rob, 23 Oct |
+| 18+ never appears on the public bio HTML, Explore, search, SEO, `llms.txt`, share previews, email, push, Telegram or the brand portal | #28 decision surfaces |
+| No adult live streams in v1 | #28 decision live-adult |
+| Amped stores the check outcome only, never documents or attribute values | #28 decision store-outcome-only |
+| Over 18 everywhere (authbase-everywhere), creators pass both checks (creator-18-checks) | #28 |
+
+## 3. Research summary
+
+**Laws that bite on a creator platform with adult content.** The full analysis and the state table are in `docs/legal/adult-content-policy.md` sections 5 to 7.
+
+- **Age verification.** 27 US states had adult content age verification laws by September 2026, most with a one third threshold and "reasonable" or "commercially reasonable" methods; several reach hosts or portions of sites, and Ohio and Tennessee require periodic re-verification. Missouri, Kentucky and West Virginia restrict retention of identifying data. The Supreme Court upheld Texas's law in Free Speech Coalition v. Paxton (27 Jun 2025). Consequence: one rule everywhere and outcome only storage.
+- **UK.** Ofcom requires user to user services that allow pornography to use highly effective age assurance, in force since 25 July 2025. Self declaration does not qualify. Consequence: Authbase must meet Ofcom's highly effective standard before UK viewers open 18+ (Q1).
+- **Take It Down Act.** Covered platforms had to comply by 19 May 2026: a clear and conspicuous notice, a request process usable by people without an account, removal within 48 hours of a valid request, reasonable efforts to remove identical copies, and a good faith safe harbor for removals. The FTC enforces it as a rule violation, up to 53,088 dollars per violation. Consequence: section 7.
+- **18 U.S.C. 2257 and 28 CFR 75.** Hosting, storing and transmitting another person's content without selecting or altering it is excluded from producer status, and removal consistent with Section 230(c) is not selection or alteration. Counsel approved the position on 3 Nov: creators are the producers and keep their own records; Amped does not select, feature, rank or edit 18+ items (D3, D4).
+- **CSAM.** 18 U.S.C. 2258A reporting to NCMEC, evidence kept 1 year (REPORT Act). Already specified in content system 3.11. This spec routes escalations into it and never displays a suspected file again.
+
+**What comparable platforms do.** OnlyFans, Fanvue and Fansly run three controls together: verified identity for every creator and every person who appears, a signed release per co-performer held by the creator, and review of adult uploads before they are visible, backed by automated scanning. Amped matches these with Authbase for identity, the creator's in app release, the processor's classifier and CSAM steps, and a human review queue.
+
+## 4. Product shape
+
+```
+Creator                         Amped                                Fan
+-------                         -----                                ---
+Set up 18+  ---- checks ---->   Authbase Over 18 + seller
+  accept Adult Content Policy
+Invite people who appear ---->  each person: Authbase Over 18,
+                                 sets release options, signs;
+                                 creator countersigns
+Upload, label 18+, tag people
+                                Processor: hash, malware, CSAM,
+                                classifier
+                                Safety queue: a reviewer opens
+                                the case, checks people and
+                                releases, decides
+Publish (only when CLEAR) ----> 18+ shelf on the creator's page  --> Over 18 check sheet
+                                (signed in, passed only)             then the item
+Reports, Take It Down ------->  Safety queue, 48 hour clock      <-- Report, This is me
+Appeal ---------------------->  second reviewer
+```
+
+## 5. Creator side
+
+### 5.1 Turn on 18+ (Adult setup)
+
+Content, Store, Settings gains "Adult content". Off by default. Turning it on opens a checklist (board ar3):
+
+| Step | Pass rule | Fail |
+| --- | --- | --- |
+| Over 18 | `checkIdentity(user, "age_over_18")` passes | Verify with Authbase, or Share in Authbase |
+| Seller verified | `checkIdentity(user, "seller")` passes | Verify with Authbase |
+| Adult Content Policy | Accepts the current `ADULT_POLICY_VERSION` (1.1) | Read and accept |
+| Custodian of records | Names the custodian of records for 2257 (name and address, kept private) | Add custodian |
+| People who appear | Read only explainer: everyone in an 18+ item must be on your list | None |
+
+All required steps pass: `CreatorAdultProfile.enabledAt` is set and the 18+ label appears in the item editor. A new policy version asks the creator to accept again before the next 18+ upload; published items stay up.
+
+Turning 18+ off later unpublishes every 18+ item (they return as drafts) and keeps the records.
+
+Admin can turn it off (section 8.4). The creator then sees "18+ turned off by Amped.Bio" with the reason and an Appeal button.
+
+### 5.2 People who appear (co-performers)
+
+Every person who appears in an 18+ item, other than the creator, must be on the creator's People list with a release signed by both parties before the item can be submitted. The release is the creator's document (`docs/legal/performer-release.md`). Amped is neither party nor beneficiary.
+
+Flow (boards ar5 and sp8):
+
+1. Creator taps Add a person, types a display name, and shares the invite link (`app.amped.bio/appear/{token}`, single use, 14 days).
+2. The person opens the link, signs in or creates an account (no page, Fan Graph page_status rules), and passes `checkIdentity(person, "age_over_18")` with Authbase. Their wallet is made on sign up, so Authbase links to it.
+3. The person sets the release options (store policy spec 4.1): where the creator may sell (store, memberships, paid messages, Broadcast, live), other platforms, face shown or not, tag or not, payment (none, fixed fee, revenue share).
+4. The person confirms they gave the creator a copy of their ID and every name they have used, reads the release (`RELEASE_VERSION`), ticks consent and types their full legal name. Amped stores the typed name, the options, the timestamp, the version, the IP and the check outcome. It never stores an ID image.
+5. The creator countersigns in People. Only then does the person show Ready.
+6. The person can withdraw consent at any time from Account, Appearing in, or with the report reason "I appear in this and withdraw consent". Withdrawal hides every item they appear in on receipt and opens a case per item (section 7.4).
+
+A person may appear for several creators. Each creator relationship has its own release.
+
+### 5.3 Item editor 18+ section
+
+The 18+ switch in the item editor (row 153, board cs3) becomes a section (board ar4):
+
+- **18+ label.** Shown only with 18+ turned on. Off: the classifier holds explicit items (content system 3.5 step 6).
+- **Who appears.** Only me, or Me and people from my list (multi select of Ready people). Required when 18+ is on.
+- **Surfaces.** A surface the release of any listed person excludes is greyed out with "Not allowed by {person}'s release". Rule writing refuses it on the server (content gating hook `releaseAllowsSurface`).
+- **Confirmation.** "Everyone in this item is 18 or older, agreed to be filmed and agreed to it being shared here." Required checkbox, stored with the submission.
+- **Locked label.** When the classifier or a reviewer marked the item explicit, the switch is locked on and reads "A reviewer marked this 18+. Ask for a review if this is wrong." (Fixes defect F1.)
+
+Saving with 18+ on puts the item in review (section 6). The status chip reads In review.
+
+### 5.4 Notices and appeals
+
+Creators see one of four states on the item and in Inbox (board ar6):
+
+| State | Copy | Action |
+| --- | --- | --- |
+| In review | A reviewer checks 18+ items before fans can open them. Usually within 1 business day. | None |
+| Needs a change | Reason text from the reviewer (for example, a person who appears is not on your list) | Fix and resubmit |
+| Removed | Reason, policy link, and the strike count | Appeal |
+| Cleared | Ready to publish | Publish |
+
+Appeal: one per decision, within 30 days, with up to 1,000 characters. A different reviewer decides within 5 business days. The answer is final inside Amped.
+
+## 6. Review before publish
+
+### 6.1 What is reviewed
+
+Every 18+ item is reviewed by a person before it can be published (decision D1). Every unlabeled item the classifier holds is reviewed too. Store products inherit: a product with any 18+ item publishes only when every item in it is CLEAR.
+
+Re-review triggers: a new file version, a change to Who appears, the 18+ label turned off (F1), a report, an appeal.
+
+### 6.2 States
+
+`ContentItem.moderationState` keeps PENDING, CLEAR, HELD, BLOCKED. A case carries the detail:
+
+```
+PENDING (processing) --> HELD (in queue) --> CLEAR       --> publish allowed
+                                         --> NEEDS_CHANGE (case outcome; item stays HELD, creator edits, resubmits)
+                                         --> BLOCKED     (removed; appeal possible)
+```
+
+`ContentItem` gains `explicitAt DateTime?` (set when the classifier returns explicit or a reviewer labels 18+). While `explicitAt` is set, `adult` cannot be set false by the owner.
+
+### 6.3 What the reviewer checks
+
+The case view (board ad2) shows the checks in order. A case can be cleared only when every required check is ticked:
+
+1. No sign of a minor. Any doubt escalates (section 8.5). Never Clear on doubt.
+2. Every person visible matches Who appears. Each listed person has a Ready release for this creator. A person whose release says Must not be shown is not identifiable by face.
+3. Nothing in the prohibited list of the Adult Content Policy section 4.6.
+4. The 18+ label is right (labeled when explicit, not labeled when not).
+5. Title, description and cover are fine for the 18+ shelf (no prohibited terms; cover is only shown after the Over 18 check anyway).
+
+Approve or remove are the only outcomes on content. Reviewers never edit, crop, caption, retitle, reorder or feature an item (COUNSEL-ADULT 6.5).
+
+## 7. Reports and Take It Down
+
+### 7.1 Report
+
+The existing Report content (PR #348) offers these reasons, in this order: "This is me and I did not agree", "I appear in this and withdraw consent", "This shows a child", "Adult item not labeled", "It copies my work" (copyright), "Harassment", "Scam or fraud", "Something else". Store pages add "Store policy breaks the rules". The first three route as follows:
+
+- **This shows a child.** The item is hidden at once (KV takedown, no reviewer needed), a case opens at Critical, and the reporter is told "Thank you. We hid it while we check." Staff follow the CSAM path in content system 3.11. Abuse guard: a reporter account or IP whose child reports are found unfounded 3 times in 30 days loses the automatic hide; their reports still open Critical cases. A wrongly hidden item is restored by the reviewer within the 1 hour due time and the creator gets no strike.
+- **This is me and I did not agree.** Opens the Take It Down form with the item prefilled.
+- **I appear in this and withdraw consent.** For a signed in person on the creator's People list, withdraws their release (5.2 step 6). For anyone else, opens the Take It Down form.
+
+### 7.2 Take It Down form
+
+Public at `amped.bio/takedown` and linked from every page footer and every 18+ page. No account needed (board ar7).
+
+Fields, matching the Act's valid request:
+
+1. Where it is: one or more Amped.Bio links (prefilled from Report), or a creator handle plus a description.
+2. Statement: "I believe in good faith that this was shared without my consent." Required checkbox, plus optional detail.
+3. Who you are: "I am the person shown" or "I act for them" (with the relationship).
+4. Contact: email (required) and phone (optional).
+5. Signature: full name typed.
+
+On submit: a request number (TD-2026-000123), an email with that number, and a status page `amped.bio/takedown/{number}?k={key}`.
+
+### 7.3 What happens in Safety
+
+- Valid on its face (all five fields present and the link points to an Amped item): the items are hidden at once (decision D5) and the request enters the Requests tab with a 48 hour clock from receipt.
+- A reviewer confirms within the clock: Remove (hash blocked, identical copies searched and removed, requester told), or Not valid (reason sent to the requester; the item is restored and the creator is not told who asked).
+- Identical copies: exact `sha256` matches across all creators are hidden automatically with the reported item. Perceptual hash matches above the threshold set in Settings are listed for the reviewer, who can hide them at once and remove them with the decision.
+- On Remove, the image hash is offered to StopNCII.org with the requester's agreement (decision D9).
+- The creator is told the item was removed under the Take It Down Act. The requester's identity is never shown to the creator.
+- Abuse guard: many requests from the same email or IP against one creator in a short window are flagged for the reviewer. Items are still hidden, but a Not valid outcome restores them with no strike, and the creator sees "Restored after review".
+- A clock past 36 hours pages the safety lead. A clock past 48 hours is an incident and appears on the dashboard.
+
+### 7.4 Consent withdrawn
+
+When a person who appears withdraws consent (5.2 step 6), Safety hides each published item they appear in, opens one case per item, and follows 7.3. The creator takes the item off sale everywhere they control it within 48 hours (release section 7). The item comes back only if the reviewer finds the person does not appear.
+
+## 8. The Safety admin
+
+A new rail group "Safety" in `apps/admin` with one destination, Review (`/safety`, shortcut Cmd or Ctrl plus Alt plus R, in the mobile dock). Tabs: Queue, Requests, Creators, Appeals, Log, Settings.
+
+### 8.1 Queue (board ad1)
+
+One list of open cases, sorted by due time. Each row: type, severity, item thumbnail (blurred), creator handle, opened, due, assignee.
+
+| Case type | Opens when | Due |
+| --- | --- | --- |
+| Child safety | Report reason "This shows a child", CSAM match, reviewer escalation | 1 hour, Critical |
+| Take It Down | Valid request (7.3) or consent withdrawn (7.4) | 48 hours legal, 24 hours target |
+| Age result | `under_18` identity result (identity checks 4.5, board ad8) | 1 business day |
+| 18+ review | Creator submits an 18+ item or new version | 1 business day |
+| Classifier hold | Unlabeled item held by the classifier | 1 business day |
+| Store policy | Report on a store policy (store policy spec 3.1) | 3 business days |
+| Report | Any other report reason | 3 business days |
+| Appeal | Creator appeals a decision | 5 business days |
+| 18+ setup check | First 18+ submission by a creator (one per creator) | 1 business day |
+
+Filters: type, severity, mine, unassigned, overdue. Summary tiles: open, overdue, due today, Take It Down clock (the oldest open request). Claim assigns the case to the reviewer; a claimed case is released after 30 minutes of no activity.
+
+### 8.2 Case view (board ad2)
+
+Left: the media viewer. Right: facts and the decision panel.
+
+- **Viewer.** Blurred and grayscale by default, audio muted. Reveal unblurs one asset at a time; each reveal is logged. Video plays from frame thumbnails first (one per 5 seconds), then full playback on Reveal. Documents show page thumbnails. Zoom, rotate.
+- **Facts.** Title, description, kind, size, uploaded, labeled 18+ or not, classifier labels with scores, sha256, hash matches, report text.
+- **Creator.** Handle, joined, Over 18 and seller check status with valid until, 18+ on since, strikes in the last 12 months, open cases, link to the creator profile.
+- **People in this item.** Each listed person with check status, release date, countersign date, and the face and tag options. A missing release or countersignature blocks Clear.
+- **Checklist.** The five checks in 6.3.
+- **Decision.** Clear; Label 18+ and clear (only when the creator has 18+ on); Ask for a change (reason required, sent to the creator); Remove (reason code required; optional strike); Escalate to child safety. Every decision needs a note of at least 10 characters for the log. Keyboard: C clear, L label, A ask, R remove, E escalate, J and K next and previous case.
+- **Store policy cases.** Show the published version and the reported text. Decision: Keep, or Remove custom policy (the store falls back to the standard policy with the creator's last settings, store policy spec 3.1).
+
+### 8.3 Requests (board ad3)
+
+The Take It Down desk. Each request shows the clock, the requester's statement, contact (masked until Show, which is logged), the located items and identical copies with their state, and actions: Remove all, Not valid (reason), Ask the requester (email from a template), Share hash with StopNCII. A request cannot close while any located item is visible.
+
+### 8.4 Creators (board ad4)
+
+A safety profile per creator: identity checks, 18+ status and policy version, People list with release states, store policy version and mode, strikes (12 month window), cases, decisions, appeals, and the store state. Actions:
+
+- Turn off 18+ (reason, notice to the creator).
+- Pause store (stops new sales; buyers keep access).
+- Suspend account (sets `User.block = "yes"`, KV takedown on every item, store paused). Needs a second person with the safety lead role to approve within the tool. Child safety escalations suspend at once and ask for approval after.
+
+### 8.5 Child safety escalation
+
+Escalate (or a CSAM match, or a child report) does the following at once: hides the item, freezes the creator's uploads and store, closes the viewer for everyone, and opens a Critical case for the safety lead. Nobody reveals the media again. The safety lead follows content system 3.11 (evidence bucket, NCMEC report). The Safety tool records that a report was made and its reference, never the file.
+
+### 8.6 Appeals and Log (board ad5)
+
+- **Appeals.** The original decision, the reviewer, the creator's text, and the item. The appeal reviewer must differ from the first reviewer (enforced by the server). Outcomes: Uphold, Reverse (restores the item and removes the strike).
+- **Log.** Every action in Safety, append only: who, when, case, action, reason, note, and reveals. Filter by reviewer, creator, case, action. Export CSV for counsel (safety lead only).
+
+### 8.7 Settings (board ad6)
+
+Reason codes and their creator facing text, strike rules (decision D6), due times, the perceptual hash threshold, classifier thresholds, wellbeing limits, and who has which role. Changes to Settings need the safety lead role and are logged.
+
+### 8.8 Roles
+
+Roles stay in the comma separated `User.role` field the server already reads (`createRoleProtectedProcedure`). New roles:
+
+| Role | Can |
+| --- | --- |
+| `moderator` | Queue, case view, Clear, Label, Ask, Remove without strike, Requests (Remove, Not valid), Log (own actions) |
+| `safety_lead` | Everything a moderator can, plus strikes, appeals, suspend approvals, child safety cases, Settings, Log export, contact reveal on requests |
+| `admin` | Unchanged. Does not get Safety by default; an admin who reviews needs `moderator` too |
+
+The admin app gate (`apps/admin/src/ProtectedRoute.tsx`) admits only accounts whose role includes `admin` today. R1 widens it to `admin`, `moderator` or `safety_lead`; a moderator or safety lead without `admin` sees only the Safety group in the rail and gets 403 from every other admin procedure. New Safety procedures use `createRoleProtectedProcedure(["moderator", "safety_lead"])` or `(["safety_lead"])`.
+
+When PR #308 (Better Auth admin plugin) lands, these roles move into its role model with the same names. Decision D7.
+
+### 8.9 Reviewer wellbeing
+
+Defaults per reviewer (decision D8): blur on, grayscale on, audio muted, reveal per asset. A break prompt after 50 minutes of case view time, and a daily cap of 4 hours on 18+ and child safety cases (Settings). The cap blocks new claims of those types and shows the time left. A wellbeing link sits in the Safety footer.
+
+### 8.10 Phone triage (board ad7)
+
+Safety on a phone shows the Queue and Requests in a single column and lets a moderator Remove or hide an item and assign it. Full review (reveal, clear) is desktop only, so media is never revealed on a phone.
+
+## 9. Fan side
+
+- **18+ shelf.** On a creator page with 18+ items, signed out or unchecked viewers see one card, "Adult items", with no title, cover or count (identity checks 4.4). After a pass, the shelf at `amped.bio/{handle}/adult` lists the items in the creator's theme with the 18+ chip. The landing app serves only an empty shell for that route and fills it from the signed in `content.listAdultForBio` call, so no server HTML ever holds an 18+ title or cover.
+- **Over 18 check sheet.** The six states from identity checks 4.2 (boards ar1 and ar2). Phone first.
+- **Report.** Every 18+ item and product page carries Report with the reasons in 7.1.
+- **Nothing 18+ by Amped's hand.** No Explore, no recommendations, no "more like this", no Amped emails or pushes that name 18+ items. Fan Library lists 18+ items the fan owns, behind the same check (decision D4).
+- **Legal pages.** The Adult Content Policy and the public 2257 statement (COUNSEL-ADULT 6.7) are public pages linked from every footer (L1).
+
+## 10. Data model
+
+New tables, UUID v7 keys per AGENTS.md. Admin only tables are never exported to the client.
+
+```prisma
+model CreatorAdultProfile {
+  id             Bytes     @id @db.Binary(16)
+  userId         Int       @unique @map("user_id")
+  enabledAt      DateTime? @map("enabled_at")
+  policyVersion  String?   @map("policy_version") @db.VarChar(16)
+  custodianName  String?   @map("custodian_name") @db.VarChar(160)   // 2257 custodian, encrypted at rest, never public
+  custodianAddress String? @map("custodian_address") @db.Text        // encrypted at rest, given only on lawful request
+  disabledAt     DateTime? @map("disabled_at")
+  disabledBy     Int?      @map("disabled_by")      // admin user id, null when the creator turned it off
+  disabledReason String?   @map("disabled_reason") @db.VarChar(255)
+  @@map("creator_adult_profiles")
+}
+
+model AppearingPerson {
+  id              Bytes     @id @db.Binary(16)
+  creatorUserId   Int       @map("creator_user_id")
+  personUserId    Int?      @map("person_user_id")    // set when the invite is accepted
+  displayName     String    @map("display_name") @db.VarChar(80)
+  inviteHash      String?   @unique @map("invite_hash") @db.Char(64)
+  inviteExpires   DateTime? @map("invite_expires")
+  releaseVersion  String?   @map("release_version") @db.VarChar(16)
+  releaseName     String?   @map("release_name") @db.VarChar(160)   // typed legal name, encrypted at rest
+  releaseOptions  Json?     @map("release_options")                // surfaces, otherPlatforms, faceShown, tagAllowed, payment kind, fixed amount, bps
+  idGivenConfirmedAt DateTime? @map("id_given_confirmed_at")       // person confirms they gave the creator their ID and names
+  releaseAt       DateTime? @map("release_at")
+  releaseIp       String?   @map("release_ip") @db.VarChar(45)
+  creatorSignedAt DateTime? @map("creator_signed_at")             // Ready only when set
+  withdrawnAt     DateTime? @map("withdrawn_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  @@index([creatorUserId])
+  @@index([personUserId])
+  @@map("appearing_people")
+}
+
+model ContentItemPerson {
+  contentItemId Bytes @map("content_item_id") @db.Binary(16)
+  personId      Bytes @map("person_id") @db.Binary(16)
+  @@id([contentItemId, personId])
+  @@map("content_item_people")
+}
+
+enum SafetyCaseType { CHILD_SAFETY TAKE_IT_DOWN AGE_RESULT ADULT_REVIEW CLASSIFIER_HOLD STORE_POLICY REPORT APPEAL ADULT_SETUP }
+enum SafetyCaseState { OPEN CLAIMED WAITING_CREATOR DECIDED CLOSED }
+
+model SafetyCase {
+  id            Bytes           @id @db.Binary(16)
+  number        String          @unique @db.VarChar(20)     // SC-2026-000123
+  type          SafetyCaseType
+  severity      Int                                          // 0 critical, 1 high, 2 normal
+  state         SafetyCaseState @default(OPEN)
+  contentItemId Bytes?          @map("content_item_id") @db.Binary(16)
+  offerId       Bytes?          @map("offer_id") @db.Binary(16)
+  storePolicyVersionId Bytes?   @map("store_policy_version_id") @db.Binary(16)
+  creatorUserId Int?            @map("creator_user_id")
+  requestId     Bytes?          @map("request_id") @db.Binary(16)
+  parentCaseId  Bytes?          @map("parent_case_id") @db.Binary(16)  // appeals
+  assigneeId    Int?            @map("assignee_id")
+  claimedAt     DateTime?       @map("claimed_at")
+  dueAt         DateTime        @map("due_at")
+  outcome       String?         @db.VarChar(24)   // clear | label_clear | needs_change | removed | escalated | upheld | reversed | not_valid | kept | policy_removed
+  reasonCode    String?         @map("reason_code") @db.VarChar(32)
+  decidedById   Int?            @map("decided_by_id")
+  decidedAt     DateTime?       @map("decided_at")
+  createdAt     DateTime        @default(now()) @map("created_at")
+  @@index([state, dueAt])
+  @@index([creatorUserId, createdAt])
+  @@index([contentItemId])
+  @@map("safety_cases")
+}
+
+model SafetyEvent {               // append only audit log
+  id        Bytes    @id @db.Binary(16)
+  caseId    Bytes?   @map("case_id") @db.Binary(16)
+  actorId   Int?     @map("actor_id")          // null for the system
+  action    String   @db.VarChar(32)           // claim | reveal | decide | strike | suspend_request | suspend_approve | contact_reveal | setting_change | export ...
+  detail    Json?
+  note      String?  @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+  @@index([caseId, createdAt])
+  @@index([actorId, createdAt])
+  @@map("safety_events")
+}
+
+model TakedownRequest {
+  id            Bytes     @id @db.Binary(16)
+  number        String    @unique @db.VarChar(20)    // TD-2026-000123
+  statusKeyHash String    @map("status_key_hash") @db.Char(64)
+  relationship  String    @db.VarChar(16)            // self | agent
+  agentDetail   String?   @map("agent_detail") @db.VarChar(160)
+  contactEmail  String    @map("contact_email") @db.Text      // encrypted
+  contactPhone  String?   @map("contact_phone") @db.Text      // encrypted
+  signature     String    @db.Text                            // encrypted
+  statement     String?   @db.Text
+  locations     Json                                          // [{ url, publicId? }]
+  receivedAt    DateTime  @default(now()) @map("received_at")
+  dueAt         DateTime  @map("due_at")                      // receivedAt + 48 hours
+  closedAt      DateTime? @map("closed_at")
+  outcome       String?   @db.VarChar(16)                     // removed | not_valid | withdrawn
+  @@index([closedAt, dueAt])
+  @@map("takedown_requests")
+}
+
+model Strike {
+  id         Bytes     @id @db.Binary(16)
+  userId     Int       @map("user_id")
+  caseId     Bytes     @map("case_id") @db.Binary(16)
+  reasonCode String    @map("reason_code") @db.VarChar(32)
+  createdAt  DateTime  @default(now()) @map("created_at")
+  reversedAt DateTime? @map("reversed_at")
+  @@index([userId, createdAt])
+  @@map("strikes")
+}
+```
+
+Changes to existing tables: `ContentItem.explicitAt DateTime?`; `ContentReport.reason` gains `ncii`, `withdraw` and `child`; `ContentReport.caseId Bytes?`; `BlockedContentHash.reason` gains `ncii` and a `phash String?` column with an index.
+
+Constants in `packages/constants`: `ADULT_POLICY_VERSION = "1.1"`, `RELEASE_VERSION = "1"`.
+
+Retention: SafetyEvent, SafetyCase and Strike are kept 3 years (as DMCA records, content system 3.12). TakedownRequest contact fields are erased 1 year after close; the number, dates and outcome stay. Release records stay as long as any item with that person exists plus 7 years, on the retention schedule counsel set. Account deletion (#13) keeps release records and the custodian details for that period. Child safety evidence stays in the restricted store (content system 3.11).
+
+## 11. Defects found in this review
+
+**F1 (P0 before 18+ opens).** `content.update` lets the owner set `adult` from true to false at any time, and the classifier runs only once during processing. An item labeled 18+ passes the classifier as explicit, becomes CLEAR, and can then be unlabeled and published as a public item with no review. Fix: store `explicitAt`; refuse `adult: false` while `explicitAt` is set; until `explicitAt` exists, turning `adult` off on a READY item sets `moderationState = HELD` with reason `adult_label_removed`. Test: label, process explicit, unlabel, publish is refused.
+
+**F2 (P1).** The processor classifies images and video frames only. Document page renders skip the classifier, and `file` items are never seen. Fix: classify document page renders; for `file` items of creators with 18+ on, open an 18+ review case; for others, keep `file` items download only and reportable (decision D10).
+
+**F3 (P2, copy).** The item editor says the 18+ label shows "only to fans who confirmed their age". New copy: "Label this item for adults. Only fans who passed the Over 18 check can open it."
+
+**F4 (P1, process).** Production runs `CLASSIFIER=none` with `CLASSIFIER_REQUIRED=true`, so every image and video is held, and no reviewer tool exists until R2. Either ship R2 with content Phase 1 or keep `CONTENT_UPLOADS_ENABLED` off in production until it lands.
+
+## 12. Decisions
+
+D1 to D12 were answered as recommended on the Build Board card (#28). D3 is confirmed by counsel.
+
+**D1. Human review of every 18+ item before publish.** Every 18+ item and every new version.
+
+**D2. Co-performers verify with Authbase and sign in app.** Every person who appears passes the Authbase Over 18 check and signs the creator's release in the app; the creator countersigns. No ID documents reach Amped.
+
+**D3. Records position on 2257.** Creators are the producers and keep their own 2257 records and name a custodian; Amped keeps the check outcomes and releases as platform policy records and does not select, feature or edit 18+ content. Counsel approved on 3 Nov 2026 (COUNSEL-ADULT section 6).
+
+**D4. No curation of 18+.** Amped never features, ranks, recommends or emails 18+ items.
+
+**D5. Hide first on a valid Take It Down request.** Hide on a facially valid request, review within 48 hours.
+
+**D6. Strikes.** A strike on Remove for a policy reason; 3 strikes in 12 months turns off 18+; child safety or a confirmed non consent upload suspends at once.
+
+**D7. Roles now, Better Auth later.** `moderator` and `safety_lead` in the existing role string now; into #308's role model when it merges.
+
+**D8. Wellbeing defaults on.** Blur, grayscale and mute by default, per asset reveal, 50 minute break prompt, 4 hour daily cap.
+
+**D9. StopNCII.** On Remove, offer the requester to share the hash with StopNCII.org.
+
+**D10. Unscannable files.** `file` items from creators with 18+ on go through 18+ review; document page renders are classified.
+
+**D11. Appeals.** One appeal per decision, within 30 days, decided by a different reviewer within 5 business days.
+
+**D12. Phone triage only.** Safety on phones can hide, remove and assign, but never reveals media.
+
+## 13. API
+
+New routers `safety` (admin roles) and additions to `content`, `identity`, `takedown` (public).
+
+| Procedure | Access | Purpose |
+| --- | --- | --- |
+| `adult.getSetup`, `adult.acceptPolicy`, `adult.setCustodian`, `adult.enable`, `adult.disable` | private, owner | 5.1 |
+| `adult.people.list`, `adult.people.invite`, `adult.people.countersign`, `adult.people.remove` | private, owner | 5.2 |
+| `adult.appear.get`, `adult.appear.setOptions`, `adult.appear.sign`, `adult.appear.withdraw` | private, the invited person | 5.2 |
+| `content.update` (people, surfaces, confirmation) | private, owner | 5.3, F1 |
+| `content.submitForReview` | private, owner | 6.1 |
+| `content.appeal` | private, owner | 5.4 |
+| `content.report` (new reasons) | public, rate limited | 7.1 |
+| `takedown.submit`, `takedown.status` | public, rate limited, Turnstile | 7.2 |
+| `safety.queue.list`, `safety.case.get`, `safety.case.claim`, `safety.case.release` | moderator | 8.1, 8.2 |
+| `safety.case.reveal` | moderator | logs and returns a 60 second gateway token for one asset |
+| `safety.case.decide` | moderator (strike: safety_lead) | 8.2 |
+| `safety.case.escalate` | moderator | 8.5 |
+| `safety.requests.list`, `safety.requests.get`, `safety.requests.revealContact`, `safety.requests.decide`, `safety.requests.copies` | moderator (contact: safety_lead) | 8.3 |
+| `safety.creators.get`, `safety.creators.disableAdult`, `safety.creators.pauseStore`, `safety.creators.removeStorePolicy`, `safety.creators.suspendRequest`, `safety.creators.suspendApprove` | moderator, approve: safety_lead | 8.4 |
+| `safety.appeals.decide` | safety_lead, not the first reviewer | 8.6 |
+| `safety.log.list`, `safety.log.export` | moderator own, safety_lead all | 8.6 |
+| `safety.settings.get`, `safety.settings.update` | safety_lead | 8.7 |
+
+Reveal tokens: `safety.case.reveal` signs a gateway token with `aud: "safety"`, 60 seconds, for one asset, and the gateway accepts it for HELD items. No token is ever issued for a child safety case.
+
+## 14. Notifications
+
+| Event | Who | Channel |
+| --- | --- | --- |
+| Case decided | Creator | Inbox and email (no media, no title for 18+ items: "An item needs a change") |
+| Take It Down received, decided | Requester | Email with the number |
+| Take It Down removal | Creator | Inbox and email, no requester detail |
+| Consent withdrawn | Creator | Inbox and email naming the person's display name only |
+| Release ready to countersign | Creator | Inbox |
+| Clock over 36 hours | safety_lead | Email and the admin dashboard banner |
+| Child safety case | safety_lead | Email and SMS |
+| Suspend waiting for approval | safety_lead | Email |
+
+## 14a. Privacy
+
+New personal data: the typed legal name, options, IP and timestamps on a release; the custodian name and address; Take It Down contact details and signatures; reviewer notes that may describe a person. Per `docs/legal/privacy-parameters.md` and AGENTS.md, the privacy notice gains these before R3 and R4 ship, with retention as in section 10, and `CONSENT_POLICY_VERSION` is bumped. New recipient if D9 is used: StopNCII.org (hashes only, with the requester's agreement). Authbase is already listed through identity checks.
+
+## 15. Analytics
+
+Counts only, no media and no requester data: `safety_case_opened` (type), `safety_case_decided` (type, outcome, minutes to decide), `takedown_received`, `takedown_closed` (hours), `adult_enabled`, `adult_person_ready`, `adult_consent_withdrawn`.
+
+## 16. Build plan
+
+| PR | Branch | Scope | Depends | Size |
+| --- | --- | --- | --- | --- |
+| F1 | `fix/content-adult-unlabel` | Unlabel holds the item; `explicitAt`; test | #348 (merged) | 0.5 day |
+| R1 | `feat/safety-foundation` | Tables in section 10, roles and the admin app gate (8.8), SafetyEvent writer, KV hide and restore helpers, settings defaults, `ADULT_POLICY_VERSION` and `RELEASE_VERSION` | I1 (merged) | 2 days |
+| R2 | `feat/safety-queue` | Admin Safety rail group, Queue, Case view with blur and reveal, decisions, store policy cases, notices to creators, keyboard | R1 | 4 days |
+| R3 | `feat/takedown` | Public form and status page, Requests desk, identical copy search, the withdraw consent reason, notices, footer links | R1 | 3 days |
+| R4 | `feat/adult-setup` | Creator 18+ setup with the custodian step, People and invites, release options, signature and countersignature, the surface rule behind `releaseAllowsSurface`, item editor section, submit for review, privacy notice entries | R1 | 4 days |
+| R5 | `feat/safety-creators-appeals` | Creator profile, strikes, suspend with approval, remove custom store policy, appeals, Log export, Settings | R2 | 3 days |
+| R6 | with A1 | 18+ shelf after a pass, Over 18 sheet states (identity checks A1) | R2, R4, A1 | in A1 |
+| R7 | `feat/classifier-docs` | F2: classify document renders, `file` items into review for 18+ creators | processor | 1 day |
+| L1 | `feat/legal-pages` | Public Adult Content Policy and 2257 statement pages, footer links (can fold into R3) | none | 1 day |
+
+About 19 engineer days plus A1. Order: F1 now. R1 and R2 with content Phase 1 (they also answer F4). R3 and L1 before any public 18+ and before content general availability. R4, R5, R6 before 18+ opens.
+
+Launch gate for 18+: counsel approval (done, 3 Nov 2026); the operational items in COUNSEL-ADULT 10.3 (Authbase written terms against Q1 and Q2, NCMEC registration, Take It Down desk live, release and store policy in the app, 2257 statement published); R1 to R7 and L1 merged; PhotoDNA live (content system decision 11); staging walk of every acceptance test below.
+
+## 17. Acceptance
+
+1. A creator without both identity passes, the accepted policy version and a custodian cannot turn on 18+, and the API refuses an 18+ label from them even when the client is bypassed.
+2. An 18+ item with a person who has no Ready release (both signatures) cannot be submitted.
+3. An item cannot be placed on a surface excluded by the release of any person in it.
+4. No 18+ item is CLEAR without a recorded reviewer decision with all checks ticked.
+5. F1: label, process explicit, unlabel, publish is refused and a case opens.
+6. F2: an explicit PDF on staging (`qa-explicit` mock) is held.
+7. A Take It Down request with all fields hides the item within 1 minute and shows a number. The requester gets the email.
+8. A withdrawal hides every item with that person within 1 minute.
+9. Identical copies (same sha256) under another creator are listed and removed in one action.
+10. The creator never sees the requester's name, email, phone or statement.
+11. A child safety escalation hides the item, freezes the creator's uploads and store, and no reveal token can be issued for that case afterwards.
+12. A suspend needs a second safety_lead approval, except child safety, which suspends at once and asks after.
+13. An appeal cannot be decided by the reviewer who made the decision.
+14. Every reveal, decision, contact reveal and setting change appears in the Log with the actor.
+15. A moderator past the daily cap cannot claim 18+ or child safety cases.
+16. Safety on a phone never shows unblurred media.
+17. Server HTML, sitemaps, `llms.txt`, share tags, email and push contain no 18+ title, cover or link.
+18. A `moderator` without `admin` can open Safety and gets 403 from every other admin page and procedure.
+19. Typecheck, build and tests pass. UI copy has no em or en dashes. Every control is at least 44 high. Contrast passes 4.5:1 for body text.
+
+## 18. Open questions
+
+| # | Question | Owner | Blocks |
+| --- | --- | --- | --- |
+| Q1 | Authbase written terms: Ofcom highly effective, US commercially reasonable methods, IAL2 for Arkansas, anonymized result for Florida | Authbase team | UK and US 18+ go live |
+| Q2 | Authbase re-verification schedule (Ohio, Tennessee) and deletion terms (Kentucky, Missouri, West Virginia) | Authbase team | 18+ go live |
+| Q3 | 2257 position and release text | Counsel | Answered 3 Nov 2026 |
+| Q4 | Adult Content Policy and prohibited list | Counsel, Rob | Answered 3 Nov 2026 |
+| Q5 | StopNCII partnership terms | Rob | D9 only |
+| Q6 | Who holds `safety_lead` at launch, and the child safety on call list | Rob, ops | R2 go live |
+| Q7 | Reviewer staffing: in house or a vendor for the 1 business day target | Rob | Scale, not pilot |
+
+## 19. Sources
+
+- `docs/legal/adult-content-policy.md` sources list (state laws, OnlyFans and Fanvue terms, 28 CFR 75.1, Third Circuit, TAKE IT DOWN, REPORT Act, Ofcom).
+- AVPA, US state age verification laws for adult content (updated 13 Sep 2026): https://avpassociation.com/us-state-age-verification-laws-for-adult-content/
+- WilmerHale, The TAKE IT DOWN Act goes live (15 Jun 2026): https://wilmerhale.com/en/insights/client-alerts/20260615-the-take-it-down-act-goes-live
+- 28 CFR 75.1 definitions (Cornell LII): https://www.law.cornell.edu/cfr/text/28/75.1
+
+## Revision log
+
+- 2026-11-03: Revision 2. First repo copy. Counsel approval recorded (D3, Q3, Q4). Release is the creator's document with options, ID confirmation and countersignature; custodian of records step; surface rule; withdraw consent reason; Age result and Store policy case types; L1; launch gate updated to COUNSEL-ADULT 10.3.
+- 2026-10-24: Revision 1. Spec for approval, project copy `claude/amped-adult-content-review-spec-2026-10-24.md`.

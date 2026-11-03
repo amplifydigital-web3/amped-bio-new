@@ -631,8 +631,8 @@ All four use the same `getHandle` path and return not found for an unpublished p
 2. USDC on Base ready in the wallet (#29).
 3. One active product or an active membership plan.
 4. Email verified (the verification grace rule ends at go live, because sales send receipts).
-6. Store policy published (store policy spec 3.5; step 5 is the seller check in store-catalog.md).
-7. Adult setup complete, only when the store has an 18+ product (store policy spec 3.5).
+
+This list is superseded by `docs/features/store-catalog.md` section 2 (seven items, including the seller check, the store policy and adult setup).
 
 Pausing the store hides it and stops new sales. Existing buyers and members keep access.
 
@@ -984,7 +984,7 @@ About 44 engineer days in total. PRs 3, 4 and 5 can run in parallel after PR 2.
 
 ## Revision log
 
-- 2026-11-03: Store policy. Buying here replaces the refund line, footer link, policy route, go live steps 6 and 7. See `docs/features/store-policy.md`.
+- 2026-11-03: Store policy. Buying here replaces the refund line, footer link, policy route, go live items now in `docs/features/store-catalog.md` section 2. See `docs/features/store-policy.md`.
 
 - 2026-09-26: First spec. S3 and CloudFront, Mux, Public or Members only, payments on hold.
 - 2026-10-08: Rob's decisions applied on the fork: Cloudflare Stream for video, adult content behind age verification, CSAM vendor to discuss, Phase 2 counsel review in parallel.

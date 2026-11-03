@@ -118,7 +118,7 @@ model StorePolicyVersion {
 
 ### 4.3 Data
 
-`PerformerRelease` (adult content review section 10) gains `options Json` (surfaces, otherPlatforms, faceShown, tagAllowed, payment kind, fixed amount, bps), `creatorSignedAt`, and `releaseVersion`. Amped never stores an ID image.
+`AppearingPerson` (`docs/features/adult-content-review.md` section 10) carries `releaseOptions`, `idGivenConfirmedAt`, `creatorSignedAt` and `releaseVersion`. `CreatorAdultProfile` carries the custodian of records. Amped never stores an ID image.
 
 ## 5. PRs that need this
 
@@ -154,9 +154,10 @@ model StorePolicyVersion {
 
 ### 5.3 Specs to edit
 
-- `docs/features/content-system.md` 3.8: Buying here card, footer link, policy route, checklist steps 5 and 6 (edited in this PR).
-- `docs/features/mobile-checkout.md` section 5: the c1 changes above (on #412).
-- Adult content review spec 5.2 and section 10: release options and countersignature (that spec lands with R1).
+- `docs/features/content-system.md` 3.8: Buying here card, footer link, policy route (edited in this PR). The go live list points to `store-catalog.md`.
+- `docs/features/store-catalog.md` (#419): go live items 6 and 7 and section 3a, the C9 scope (done on #419).
+- `docs/features/mobile-checkout.md` (#412): seller line, CK-5 policy sheet and version, join checkbox (done on #412, revision 2).
+- `docs/features/adult-content-review.md`: first repo copy, revision 2, with release options, countersignature, custodian step and the new case types (this PR).
 - `docs/legal/privacy-parameters.md`: release options and store policy versions as stored data (with R4).
 - Agency System (#38): an agency may edit a draft store policy; only the creator can publish it, because it speaks in the creator's name.
 
