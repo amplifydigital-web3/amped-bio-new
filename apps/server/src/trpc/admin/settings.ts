@@ -3,6 +3,8 @@ import { z } from "zod";
 import { prisma } from "@repo/database";
 import { FEATURE_FLAG_KEYS, SITE_SETTINGS, type FeatureFlagKey } from "@repo/constants";
 import { listFeatureFlags, setFeatureFlag } from "../../services/featureFlags";
+import { stakeKindsAllowlist } from "../../services/access/engine";
+import { env } from "../../env";
 
 export const settingsRouter = router({
   getFaucetStatus: adminProcedure.query(async () => {
@@ -93,6 +95,46 @@ export const settingsRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       await setFeatureFlag(input.key, input.value, ctx.user!.sub);
+      return { ok: true };
+    }),
+
+  // Access gating stake pilot (Build Board #21, spec 6): creator ids whose stake rules are live
+  getStakeKindsAllowlist: adminProcedure.query(async () => {
+    const row = await prisma.siteSettings.findUnique({
+      where: { setting_key: SITE_SETTINGS.ACCESS_STAKE_KINDS_ALLOWLIST },
+    });
+    const list = await stakeKindsAllowlist();
+    return {
+      userIds: list
+        .split(",")
+        .map(value => value.trim())
+        .filter(value => /^\d+$/.test(value))
+        .map(Number),
+      source: row ? ("setting" as const) : ("environment" as const),
+      environmentValue: env.ACCESS_STAKE_KINDS_ALLOWLIST,
+    };
+  }),
+
+  /** Set the creator ids, or pass null to drop the row and use the environment value again */
+  setStakeKindsAllowlist: adminProcedure
+    .input(z.object({ userIds: z.array(z.number().int().positive()).max(500).nullable() }))
+    .mutation(async ({ ctx, input }) => {
+      const key = SITE_SETTINGS.ACCESS_STAKE_KINDS_ALLOWLIST;
+      if (input.userIds === null) {
+        await prisma.siteSettings.deleteMany({ where: { setting_key: key } });
+      } else {
+        const value = [...new Set(input.userIds)].sort((a, b) => a - b).join(",");
+        await prisma.siteSettings.upsert({
+          where: { setting_key: key },
+          create: { setting_key: key, setting_value: value, value_type: "STRING" },
+          update: { setting_value: value, value_type: "STRING" },
+        });
+      }
+      console.info(
+        `[access admin] admin ${ctx.user!.sub} set the stake allowlist to ${
+          input.userIds === null ? "environment default" : input.userIds.length + " creators"
+        }`
+      );
       return { ok: true };
     }),
 });

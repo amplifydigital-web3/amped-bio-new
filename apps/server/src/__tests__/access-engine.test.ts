@@ -49,6 +49,7 @@ const state = vi.hoisted(() => ({
     tier: "STANDARD",
   } as unknown,
   allowlist: "10",
+  allowlistRow: null as string | null,
   events: [] as unknown[],
 }));
 
@@ -101,6 +102,11 @@ vi.mock("@repo/database", () => ({
       create: vi.fn(async ({ data }: { data: unknown }) => {
         state.events.push(data);
       }),
+    },
+    siteSettings: {
+      findUnique: vi.fn(async () =>
+        state.allowlistRow === null ? null : { setting_value: state.allowlistRow }
+      ),
     },
   },
 }));
@@ -156,6 +162,7 @@ beforeEach(() => {
   state.chain = 0n;
   state.identity = { pass: true, validUntil: new Date(Date.now() + 86_400_000), tier: "STANDARD" };
   state.allowlist = String(OWNER);
+  state.allowlistRow = null;
   state.events = [];
 });
 
@@ -272,8 +279,19 @@ describe("stake kinds (acceptance 1, 2, 7, 8)", () => {
     gateWith(addRule("pool_member", { poolId: POOL }));
     state.mirror = 1n;
     expect((await check(fan, resource)).reason).toBe("kind_unavailable");
-    expect(stakeKindsAllowed(10, " 3, 10 ,11")).toBe(true);
-    expect(stakeKindsAllowed(10, "100")).toBe(false);
+    expect(await stakeKindsAllowed(10, " 3, 10 ,11")).toBe(true);
+    expect(await stakeKindsAllowed(10, "100")).toBe(false);
+  });
+
+  it("the access_stake_kinds_allowlist site setting wins over the environment", async () => {
+    state.allowlist = "";
+    state.allowlistRow = "3,10";
+    expect(await stakeKindsAllowed(10)).toBe(true);
+    state.allowlist = "10";
+    state.allowlistRow = "";
+    expect(await stakeKindsAllowed(10)).toBe(false);
+    state.allowlistRow = null;
+    expect(await stakeKindsAllowed(10)).toBe(true);
   });
 
   it("eligibleUserIds returns no stake audience outside the pilot allowlist", async () => {
