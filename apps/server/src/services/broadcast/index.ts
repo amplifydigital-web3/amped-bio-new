@@ -91,7 +91,8 @@ export async function getQuota(
     leftThisWeek: Math.max(0, BROADCAST_LIMITS.perWeek - week),
     paused: !!status?.pausedAt,
     nextSendReviewed: !status?.firstApprovedAt,
-    invited: !!status?.invitedAt,
+    // The invite pilot ended in PR M2 (msg-invite)
+    invited: true,
   };
 }
 

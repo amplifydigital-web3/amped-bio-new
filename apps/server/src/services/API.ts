@@ -108,10 +108,7 @@ app.use("/webhooks/coinbase-onramp", onrampWebhookRouter);
 // Tells clients that the authorization server is at auth.amped.bio.
 // This is served BEFORE the body parser because Better Auth needs the raw body.
 app.get(
-  [
-    "/.well-known/oauth-protected-resource",
-    "/.well-known/oauth-protected-resource/mcp",
-  ],
+  ["/.well-known/oauth-protected-resource", "/.well-known/oauth-protected-resource/mcp"],
   (req, res) => {
     const authOrigin = env.BETTER_AUTH_URL.replace(/\/+$/, "");
     // Redirect to the auth subdomain which serves the actual metadata
@@ -123,6 +120,13 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
+// Amped Messages realtime stream (PR M3, spec 7.3 item 2): proxies and Cloudflare must
+// neither buffer nor compress or cache the SSE response
+app.use("/trpc/realtime.events", (_req, res, next) => {
+  res.setHeader("X-Accel-Buffering", "no");
+  res.setHeader("Cache-Control", "no-cache, no-transform");
+  next();
+});
 app.use("/trpc", trpcMiddleware as any);
 app.use("/.well-known", wellKnownRouter);
 app.use("/api/blocks/schemas", blocksSchemasRouter);

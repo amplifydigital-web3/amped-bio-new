@@ -23,6 +23,8 @@ import { broadcastRouter } from "./broadcast";
 import { onboardingRouter } from "./onboarding";
 import { telegramRouter } from "./telegram";
 import { messagingRouter } from "./messaging";
+import { messagesRouter } from "./messages";
+import { realtimeRouter } from "./realtime";
 import { usdcRouter } from "./usdc";
 import { onrampRouter } from "./onramp";
 import { contentRouter } from "./content";
@@ -60,6 +62,8 @@ const mergedRouter = router({
   onboarding: onboardingRouter,
   telegram: telegramRouter,
   messaging: messagingRouter,
+  messages: messagesRouter,
+  realtime: realtimeRouter,
   // USDC in the wallet (Build Board #29): gasless send and USDC activity
   usdc: usdcRouter,
   // Buy USDC through Coinbase (Build Board #5)

@@ -18,6 +18,7 @@ import {
   ALL_EFFECTS,
   TELEGRAM_BANNED_PHRASES,
   TELEGRAM_COPY_EXEMPT,
+  collectMessageCopy,
   collectTelegramCopy,
   findBannedTerms,
 } from "../packages/constants/src/index";
@@ -86,7 +87,13 @@ function main() {
     effects,
     checkEffectCopy(effects)
   );
-  if (!telegramOk || !effectsOk) process.exit(1);
+  // Amped Messages (PR M2): the Telegram rules plus no dashes
+  const messages = collectMessageCopy();
+  const messagesOk = report("Amped Messages", "packages/constants/src/messages.ts", messages, [
+    ...checkTelegramCopy(messages),
+    ...checkEffectCopy(messages),
+  ]);
+  if (!telegramOk || !effectsOk || !messagesOk) process.exit(1);
 }
 
 const invokedDirectly =
