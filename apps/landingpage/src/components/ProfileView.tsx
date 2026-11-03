@@ -33,6 +33,8 @@ import { RnsIdBlock } from "@/components/blocks/RnsIdBlock";
 import { TelegramMessageBlock } from "@/components/blocks/TelegramMessageBlock";
 import { TelegramGroupBlock } from "@/components/blocks/TelegramGroupBlock";
 import { ContentBlock } from "@/components/content/ContentBlock";
+import { GatedBlock } from "@/components/blocks/GatedBlock";
+import { usePageDecisions } from "@/components/content/gating";
 import { FollowContext } from "@/components/follow/FollowContext";
 import { useReferralHandler } from "@/hooks/useReferralHandler";
 import { useAuth } from "@/contexts/AuthContext";
@@ -347,6 +349,19 @@ export function ProfileView({
     })();
   }, [normalizedHandle, initialData]);
 
+  // G3: decisions for gated blocks after hydration, and ?unlock=<blockId> from /go
+  const blockDecision = usePageDecisions(
+    normalizedHandle,
+    blocks
+      .filter(block => block.gated && isRenderable(block))
+      .map(block => ({ type: "block" as const, id: String(block.id) }))
+  );
+  const [unlockId, setUnlockId] = useState<number | null>(null);
+  useEffect(() => {
+    const raw = new URLSearchParams(window.location.search).get("unlock");
+    if (raw && /^\d{1,10}$/.test(raw)) setUnlockId(Number(raw));
+  }, []);
+
   if (loading) return <ProfileSkeleton />;
   if (!profile) return <ProfileSkeleton />;
 
@@ -420,7 +435,16 @@ export function ProfileView({
   ) : null;
   const blockList = renderable.map(block => (
     <ErrorBoundary key={block.id} fallback={null} context={{ blockId: block.id, type: block.type }}>
-      {block.type === "link" ? (
+      {block.gated ? (
+        <GatedBlock
+          block={block}
+          theme={themeConfig as any}
+          handle={normalizedHandle}
+          decision={blockDecision(String(block.id), "block")}
+          autoOpen={unlockId === block.id}
+          onChanged={blockDecision.refresh}
+        />
+      ) : block.type === "link" ? (
         <CreatorButton
           theme={themeConfig}
           icon={<LinkIcon platform={block.config.platform} url={block.config.url} />}
