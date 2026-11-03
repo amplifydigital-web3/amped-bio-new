@@ -46,12 +46,16 @@ const db = vi.hoisted(() => {
     return out;
   };
   const theme = {
-    findUnique: vi.fn(async ({ where, select }: Row) =>
-      pick(
-        state.themes.find(t => t.id === where.id),
-        select
-      )
-    ),
+    findUnique: vi.fn(async ({ where, select, include }: Row) => {
+      const row = state.themes.find(t =>
+        where.share_slug !== undefined ? t.share_slug === where.share_slug : t.id === where.id
+      );
+      if (row && include?.user) {
+        const owner = state.users.find(u => u.id === row.user_id);
+        return { ...row, user: owner ? { handle: owner.handle } : null };
+      }
+      return pick(row, select);
+    }),
     findFirst: vi.fn(async ({ where, orderBy, select }: Row) =>
       pick(
         order(
@@ -83,7 +87,19 @@ const db = vi.hoisted(() => {
     }),
     update: vi.fn(async ({ where, data }: Row) => {
       const row = state.themes.find(t => t.id === where.id)!;
-      Object.assign(row, data, { updated_at: new Date() });
+      if (
+        data.share_slug &&
+        state.themes.some(t => t !== row && t.share_slug === data.share_slug)
+      ) {
+        throw Object.assign(new Error("Unique constraint"), { code: "P2002" });
+      }
+      for (const [key, value] of Object.entries(data)) {
+        row[key] =
+          value && typeof value === "object" && "increment" in (value as Row)
+            ? (row[key] ?? 0) + (value as Row).increment
+            : value;
+      }
+      row.updated_at = new Date();
       return row;
     }),
   };
@@ -146,8 +162,12 @@ vi.mock("../services/featureFlags", () => ({
 vi.mock("../services/S3Service", () => ({ s3Service: {} }));
 vi.mock("../utils/fileUrlResolver", () => ({ getFileUrl: vi.fn() }));
 vi.mock("../utils/auth", () => ({ auth: { api: {} } }));
+vi.mock("../utils/rateLimit", () => ({ enforceRateLimits: vi.fn() }));
+vi.mock("../services/analytics/visitorIp", () => ({ getVisitorIp: () => ({ ip: "203.0.113.9" }) }));
 
 import { themeRouter } from "../trpc/theme";
+import { enforceRateLimits } from "../utils/rateLimit";
+import { SHARE_SLUG_PATTERN, configForApply, newShareSlug } from "../services/theme/share";
 import {
   LOOK_LIMIT,
   THEME_LIMIT,
@@ -174,6 +194,10 @@ function seedLook(userId: number, name = "Look", extra: Row = {}): Row {
     created_at: new Date(),
     updated_at: new Date(),
     share_level: "private",
+    share_slug: null,
+    share_credit: true,
+    share_download: false,
+    share_uses: 0,
     ...extra,
   };
   db.state.themes.push(row);
@@ -186,8 +210,8 @@ beforeEach(() => {
   db.state.themes = [];
   db.state.versions = [];
   db.state.users = [
-    { id: 1, theme: null },
-    { id: 2, theme: null },
+    { id: 1, theme: null, handle: "alice", email: "a@example.com" },
+    { id: 2, theme: null, handle: "bob", email: "b@example.com" },
   ];
   db.state.nextTheme = 1;
   db.state.nextVersion = 1;
@@ -413,6 +437,138 @@ describe("theme router: looks", () => {
     const versionOfB = db.state.versions.find(v => v.themeId === b.id)!;
     await expect(caller(1).restore({ id: a.id, versionId: versionOfB.id })).rejects.toMatchObject({
       code: "NOT_FOUND",
+    });
+  });
+});
+
+describe("share slugs", () => {
+  it("are 8 base32 characters from 40 random bits", () => {
+    expect(newShareSlug(new Uint8Array([0, 0, 0, 0, 0]))).toBe("aaaaaaaa");
+    expect(newShareSlug(new Uint8Array([255, 255, 255, 255, 255]))).toBe("77777777");
+    for (let i = 0; i < 50; i += 1) expect(newShareSlug()).toMatch(SHARE_SLUG_PATTERN);
+  });
+});
+
+describe("configForApply", () => {
+  it("never carries the author's uploaded background", () => {
+    const shared = { buttonColor: "#111111", background: { type: "image", value: "x", fileId: 9 } };
+    const target = { background: { type: "color", value: "#fafafa" } };
+    expect(configForApply(shared, target)).toEqual({
+      config: { buttonColor: "#111111", background: { type: "color", value: "#fafafa" } },
+      backgroundKept: true,
+    });
+    expect(configForApply(shared, {}).config).toEqual({ buttonColor: "#111111" });
+  });
+
+  it("keeps catalog backgrounds, which are not uploads", () => {
+    const shared = { background: { type: "image", value: "https://cdn/x.jpg", id: "beach" } };
+    expect(configForApply(shared, {})).toEqual({ config: shared, backgroundKept: false });
+  });
+});
+
+describe("theme router: share links", () => {
+  it("creates a link once, keeps it, and changes the switches", async () => {
+    const look = seedLook(1, "Northern Lights");
+    const first = await caller(1).share({ id: look.id });
+    expect(first.slug).toMatch(SHARE_SLUG_PATTERN);
+    expect(first).toMatchObject({ path: `/t/${first.slug}`, credit: true, download: false });
+    const second = await caller(1).share({ id: look.id, credit: false, download: true });
+    expect(second).toMatchObject({ slug: first.slug, credit: false, download: true });
+    expect(look.share_level).toBe("link");
+    expect(look.share_config).toEqual({ credit: false, download: true });
+    expect(enforceRateLimits).toHaveBeenCalledWith(
+      [{ key: "theme-share:1", limit: 10, windowSeconds: 3600 }],
+      expect.any(String)
+    );
+  });
+
+  it("draws a new slug when one collides", async () => {
+    seedLook(2, "Taken", { share_slug: "aaaaaaaa", share_level: "link" });
+    const look = seedLook(1);
+    const share = await import("../services/theme/share");
+    const real = share.newShareSlug;
+    let calls = 0;
+    // The first draw collides; the router draws again
+    const spy = vi.spyOn(share, "newShareSlug").mockImplementation(() => {
+      calls += 1;
+      return calls === 1 ? "aaaaaaaa" : real();
+    });
+    const out = await caller(1).share({ id: look.id });
+    spy.mockRestore();
+    expect(out.slug).toMatch(SHARE_SLUG_PATTERN);
+    expect(out.slug).not.toBe("aaaaaaaa");
+    expect(calls).toBe(2);
+  });
+
+  it("refuses to share another creator's look", async () => {
+    const theirs = seedLook(2);
+    await expect(caller(1).share({ id: theirs.id })).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
+
+  it("bySlug returns the look, the handle only with credit on, and nothing private", async () => {
+    const look = seedLook(1, "Northern Lights");
+    const { slug } = await caller(1).share({ id: look.id });
+    const anon = themeRouter.createCaller({ req: {} } as never);
+    const out = await anon.bySlug({ slug: slug! });
+    expect(out).toMatchObject({
+      name: "Northern Lights",
+      author: "alice",
+      uses: 0,
+      download: false,
+    });
+    expect(JSON.stringify(out)).not.toContain("a@example.com");
+    expect(out.cost).toMatchObject({ level: "still", count: 0 });
+    await caller(1).share({ id: look.id, credit: false });
+    expect((await anon.bySlug({ slug: slug! })).author).toBeNull();
+    expect(enforceRateLimits).toHaveBeenCalledWith(
+      [{ key: "theme-by-slug:203.0.113.9", limit: 60, windowSeconds: 60 }],
+      expect.any(String)
+    );
+  });
+
+  it("a revoked or unknown slug is NOT_FOUND, and so is every slug with sharing off", async () => {
+    const look = seedLook(1);
+    const { slug } = await caller(1).share({ id: look.id });
+    const anon = themeRouter.createCaller({ req: {} } as never);
+    flags.themeSharing = false;
+    await expect(anon.bySlug({ slug: slug! })).rejects.toMatchObject({ code: "NOT_FOUND" });
+    flags.themeSharing = true;
+    await caller(1).unshare({ id: look.id });
+    expect(look.share_slug).toBeNull();
+    await expect(anon.bySlug({ slug: slug! })).rejects.toMatchObject({ code: "NOT_FOUND" });
+    await expect(anon.bySlug({ slug: "bbbbbbbb" })).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
+
+  it("Use this look replaces the current look, counts a use, and can be undone", async () => {
+    const shared = seedLook(2, "Northern Lights", { config: { buttonColor: "#00ffaa" } });
+    const { slug } = await caller(2).share({ id: shared.id });
+    const mine = seedLook(1, "Mine", { config: { buttonColor: "#123123" } });
+    db.state.users[0]!.theme = mine.id;
+
+    const out = await caller(1).applyShared({ slug: slug!, mode: "apply" });
+    expect(out).toMatchObject({ themeId: mine.id, mode: "apply", backgroundKept: false });
+    expect(mine.config).toEqual({ buttonColor: "#00ffaa" });
+    expect(shared.share_uses).toBe(1);
+
+    await caller(1).restore({ id: mine.id, versionId: out.undoVersionId! });
+    expect(mine.config).toEqual({ buttonColor: "#123123" });
+  });
+
+  it("Save to My looks adds a look without applying it, within the limit", async () => {
+    const shared = seedLook(2, "Northern Lights", { config: { buttonColor: "#00ffaa" } });
+    const { slug } = await caller(2).share({ id: shared.id });
+    const mine = seedLook(1, "Mine");
+    db.state.users[0]!.theme = mine.id;
+
+    const out = await caller(1).applyShared({ slug: slug!, mode: "save" });
+    const saved = db.state.themes.find(t => t.id === out.themeId)!;
+    expect(saved).toMatchObject({ user_id: 1, name: "Northern Lights", kind: "look" });
+    expect(db.state.users[0]!.theme).toBe(mine.id);
+    expect(shared.share_uses).toBe(1);
+
+    for (let i = 0; i < LOOK_LIMIT; i += 1) seedLook(1, `Look ${i}`);
+    await expect(caller(1).applyShared({ slug: slug!, mode: "save" })).rejects.toMatchObject({
+      message: THEME_LIMIT,
     });
   });
 });

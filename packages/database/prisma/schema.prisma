@@ -197,6 +197,13 @@ model Theme {
   // user) or marketplace (user_id null). config_version is 1 or 2, set on write.
   kind              String    @default("look") @db.VarChar(16)
   config_version    Int       @default(1)
+  // TE-4b (spec 3.9, decision 8): a read only, revocable share link at
+  // amped.bio/t/<share_slug>. 8 random base32 characters; null is not shared.
+  share_slug        String?   @unique @db.VarChar(48)
+  share_credit      Boolean   @default(true)
+  share_download    Boolean   @default(false)
+  // Counted on Use this look and Save to My looks, never on a view
+  share_uses        Int       @default(0)
 
   user           User?          @relation("ThemeOwner", fields: [user_id], references: [id], onDelete: Cascade)
   versions       ThemeVersion[]

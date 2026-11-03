@@ -68,14 +68,14 @@ export async function ownLook(userId: number, id: number) {
 /**
  * Records a save of a look. Within the session window the newest version takes
  * the new config and time; `force` always starts a new version. Then trims the
- * look to its last 20 versions.
+ * look to its last 20 versions. Returns the id of the version written.
  */
 export async function recordVersion(
   themeId: number,
   config: unknown,
   { force = false, now = new Date() }: { force?: boolean; now?: Date } = {}
-): Promise<void> {
-  if (config === null || config === undefined) return;
+): Promise<number | null> {
+  if (config === null || config === undefined) return null;
   const data = config as object;
   const newest = force
     ? null
@@ -83,13 +83,17 @@ export async function recordVersion(
         where: { themeId },
         orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       });
+  let written: number;
   if (newest && now.getTime() - newest.createdAt.getTime() < VERSION_SESSION_MS) {
     await prisma.themeVersion.update({
       where: { id: newest.id },
       data: { config: data, createdAt: now },
     });
+    written = newest.id;
   } else {
-    await prisma.themeVersion.create({ data: { themeId, config: data, createdAt: now } });
+    written = (
+      await prisma.themeVersion.create({ data: { themeId, config: data, createdAt: now } })
+    ).id;
   }
   const stale = await prisma.themeVersion.findMany({
     where: { themeId },
@@ -100,6 +104,7 @@ export async function recordVersion(
   if (stale.length > 0) {
     await prisma.themeVersion.deleteMany({ where: { id: { in: stale.map(v => v.id) } } });
   }
+  return written;
 }
 
 /**
