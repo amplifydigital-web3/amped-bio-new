@@ -173,6 +173,7 @@ export const CHECKOUT_COPY = {
   seller: (handle: string) =>
     `@${handle} cannot take payments right now. Nothing was taken from your wallet.`,
   removed: "This item is no longer for sale. Nothing was taken from your wallet.",
+  over18: "This item is for over 18s. It cannot be bought here yet.",
   failed: "The payment did not go through. Nothing was taken from your wallet.",
   ended: "This checkout has ended. Start again from the page.",
 } as const;

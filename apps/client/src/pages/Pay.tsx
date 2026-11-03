@@ -100,13 +100,6 @@ export function PayPage() {
     setSeen(value);
   }, [quote.data, intentId, provider, seen]);
 
-  // An 18+ item passes the Over 18 check first (spec 6, identity checks 4.2)
-  useEffect(() => {
-    if (quote.data?.item?.adult) {
-      window.location.assign(`/age-check?returnTo=${encodeURIComponent(`/pay/${intentId}`)}`);
-    }
-  }, [quote.data?.item?.adult, intentId]);
-
   const creator = quote.data?.creator ?? null;
   const theme = creator?.theme ?? null;
   const pageHref = creator ? `${LANDING}/${creator.handle}` : LANDING;
@@ -183,7 +176,11 @@ export function PayPage() {
           ? CHECKOUT_COPY.seller(creator.handle)
           : q.state === "removed"
             ? CHECKOUT_COPY.removed
-            : null;
+            : // An 18+ item needs the Over 18 check (spec 6, identity checks 4.2). That check
+              // has no screen in the app yet (A1), so the sheet fails closed instead of Pay
+              item?.adult
+              ? CHECKOUT_COPY.over18
+              : null;
   if (stateMessage) {
     return (
       <SheetFrame

@@ -167,6 +167,15 @@ describe("PayPage", () => {
     expect(screen.queryByRole("button", { name: /^Pay / })).toBeNull();
   });
 
+  it("an 18+ item fails closed until the Over 18 check exists", async () => {
+    mocks.quote.mockResolvedValue(
+      quote({ item: { title: "Episode 4", publicId: "abc123", kind: "VIDEO", adult: true } })
+    );
+    renderPay();
+    expect(await screen.findByText(/This item is for over 18s/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Pay / })).toBeNull();
+  });
+
   it("an ended checkout says so", async () => {
     mocks.get.mockResolvedValue({ id: ID, status: "expired", signedIn: true, item: null });
     renderPay();
