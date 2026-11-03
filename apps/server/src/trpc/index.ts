@@ -30,6 +30,7 @@ import { onrampRouter } from "./onramp";
 import { contentRouter } from "./content";
 import { notificationsRouter } from "./notifications";
 import { progressRouter } from "./progress";
+import { libraryRouter } from "./library";
 import { checkoutRouter } from "./checkout";
 import { identityRouter } from "./identity";
 import { accessRouter } from "./access";
@@ -73,6 +74,7 @@ const mergedRouter = router({
   notifications: notificationsRouter,
   // Fan Library (#26) phase A: playback position per account
   progress: progressRouter,
+  library: libraryRouter,
   // Mobile checkout intents (Build Board #49), behind the checkout feature flag
   checkout: checkoutRouter,
   // Identity checks through Authbase: Over 18 and verified seller (Build Board #47)
