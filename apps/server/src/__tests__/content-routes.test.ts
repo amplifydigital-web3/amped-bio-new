@@ -94,6 +94,30 @@ describe("POST /webhooks/cloudflare-stream", () => {
     expect(state.applyStreamWebhook).toHaveBeenCalledWith(JSON.parse(body));
   });
 
+  it("ignores an event tagged for another environment and applies its own or an untagged one", async () => {
+    Object.assign(env, { APP_ENV: "staging" });
+    const tagged = (value: string) =>
+      JSON.stringify({ uid: "b".repeat(32), status: { state: "ready" }, meta: { env: value } });
+
+    const other = tagged("production");
+    const ignored = await call(handleStreamWebhook, other, { "webhook-signature": sign(other) });
+    expect(ignored.statusCode).toBe(200);
+    expect(ignored.body).toEqual({ result: "ignored" });
+    expect(state.applyStreamWebhook).not.toHaveBeenCalled();
+
+    const own = tagged("staging");
+    expect(
+      (await call(handleStreamWebhook, own, { "webhook-signature": sign(own) })).statusCode
+    ).toBe(200);
+    expect(state.applyStreamWebhook).toHaveBeenCalledTimes(1);
+
+    // No meta.env: the router sends it to both APIs, and each looks up its own uids
+    expect(
+      (await call(handleStreamWebhook, body, { "webhook-signature": sign(body) })).statusCode
+    ).toBe(200);
+    expect(state.applyStreamWebhook).toHaveBeenCalledTimes(2);
+  });
+
   it("acknowledges a signed body that is not JSON without retrying", async () => {
     const res = await call(handleStreamWebhook, "not json", {
       "webhook-signature": sign("not json"),
