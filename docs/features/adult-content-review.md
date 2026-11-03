@@ -1,6 +1,6 @@
 # Adult content review and the Safety admin
 
-Status: revision 4, 3 Nov 2026 (Full QA AD-Q1 to AD-Q53). Revision 2, 3 Nov 2026. Build Board #28 (Adult content compliance, 18+). Revision 1 was approved by Rob on the Build Board card (24 to 26 Oct); outside counsel approved the policy, the 2257 position and the release on 3 Nov 2026.
+Status: revision 5, 3 Nov 2026 (Rob's decisions AD-D1 and AD-D2). Revision 4: Full QA AD-Q1 to AD-Q53. Revision 2, 3 Nov 2026. Build Board #28 (Adult content compliance, 18+). Revision 1 was approved by Rob on the Build Board card (24 to 26 Oct); outside counsel approved the policy, the 2257 position and the release on 3 Nov 2026.
 Owner: Rob Frasca. Drafted by Claude.
 Baseline: `development` at 0500800 (2 Nov), with I1 (#397), G1 (#398) and content PR 6 (#348) merged. `docs/features/identity-checks.md`, `docs/features/content-system.md` sections 3.5, 3.11 and PR 7.
 Texts: `docs/legal/adult-content-policy.md` (COUNSEL-ADULT v1.1, `ADULT_POLICY_VERSION` 1.1), `docs/legal/performer-release.md` (`RELEASE_VERSION` 1). Store policy and release options: `docs/features/store-policy.md`.
@@ -141,7 +141,7 @@ Appeal: one per decision, within 30 days, with up to 1,000 characters. A differe
 Exceptions and extra notices (QA AD-Q24, AD-Q25):
 
 - **Child safety removals are final** (COUNSEL-ADULT 4.7). The item shows "Removed. This decision is final." with the policy link and no Appeal button. `content.appeal` refuses a case of type Child safety with `appeal_not_allowed`.
-- **Removed under the Take It Down Act.** "This item was removed after a request under the Take It Down Act." No requester detail. Appeal follows decision AD-D2 (open for Rob); until it is answered the board draws Appeal and the spec keeps the general rule.
+- **Removed under the Take It Down Act.** "This item was removed after a request under the Take It Down Act." No requester detail. Decision AD-D2 (Rob, 3 Nov): one appeal, within 30 days, decided by a safety lead (not the first reviewer). The item stays hidden during the appeal. On Reverse, the requester is emailed with the reason before anything is restored; the restore runs 2 business days after that notice unless the requester replies, and a reply returns the case to the safety lead. Copy under Appeal: "A safety lead decides. The item stays hidden until then. The person who asked is told before anything is restored." Board ar6e; admin board ad5d.
 - **18+ turned off by Amped.Bio** (5.1): reason, the strike count or the admin reason, and Appeal.
 - **Restored after review** (7.3 abuse guard): "Restored after review. No strike." No action.
 - Inbox and email carry the reason and the action only. For 18+ items they name no title and show no media ("An item needs a change"), per section 14.
@@ -278,7 +278,7 @@ The child safety case view (board ad2, third frame; QA AD-Q39) shows no media an
 
 ### 8.6 Appeals and Log (board ad5)
 
-- **Appeals.** The original decision, the reviewer, the creator's text, and the item. The appeal reviewer must differ from the first reviewer (enforced by the server). Outcomes: Uphold, Reverse (restores the item and removes the strike).
+- **Appeals.** The original decision, the reviewer, the creator's text, and the item. The appeal reviewer must differ from the first reviewer (enforced by the server). Outcomes: Uphold, Reverse (restores the item and removes the strike). A Take It Down appeal (AD-D2) keeps the item hidden; Reverse first sends the requester notice (SafetyEvent `requester_notified`) and `safety.appeals.decide` refuses to restore a Take It Down item without that event; the restore job runs 2 business days later unless the requester replied.
 - **Log.** Every action in Safety, append only: who, when, case, action, reason, note, and reveals. Filter by reviewer, creator, case, action. Export CSV for counsel (safety lead only).
 
 ### 8.7 Settings (board ad6)
@@ -313,6 +313,20 @@ Safety on a phone shows the Queue and Requests in a single column and lets a mod
 - **Over 18 check sheet.** The six states from identity checks 4.2 (boards ar1 and ar2). Phone first.
 - **Report.** Every 18+ item and product page carries Report with the reasons in 7.1.
 - **Nothing 18+ by Amped's hand.** No Explore, no recommendations, no "more like this", no Amped emails or pushes that name 18+ items. Fan Library lists 18+ items the fan owns, behind the same check (decision D4).
+- **Health warnings and helpline (AD-D1, Rob 3 Nov). Interim, pending counsel.** Source: Alabama Act 2024 HB 164 (enrolled), Section 9, effective 1 Oct 2024; the adult website threshold is more than 33 1/3 percent of content harmful to minors (Section 2). Counsel approved COUNSEL-ADULT 10.2 item 6 but has not yet given a written answer on whether and where it applies; until then Amped shows the statutory text to every viewer, matching the one national gate (COUNSEL-ADULT 5.1).
+  - The three warnings (Section 9(a)(1)) show on the Over 18 sheet in every state of 4.2 that a viewer sees before the check passes, and on the 18+ shelf landing (`amped.bio/{handle}/adult`). Boards ar1b to ar1d and ar2b.
+  - The helpline notice (Section 9(a)(2)) shows on every 18+ page: the shelf and every 18+ item and product page. Boards ar2b and ar2e.
+  - Section 9(c) asks for 14 point or larger and conspicuous: Prism body 16 px or larger, full contrast ink (16152B on white, or the theme ink on the theme background at 4.5:1 or more) inside a 1.5 px ink outline, never collapsed, truncated or behind a toggle.
+  - The text is verbatim statute. It is not edited and is exempt from the dash and banned word checks. It lives in constants and nowhere else:
+
+```
+ALABAMA HEALTH AND HUMAN SERVICES WARNING: Pornography is potentially biologically addictive, is proven to harm human brain development, desensitizes brain reward circuits, increases conditioned responses, and weakens brain function.
+ALABAMA HEALTH AND HUMAN SERVICES WARNING: Exposure to this content is associated with low self-esteem and body image, eating disorders, impaired brain development, and other emotional and mental illnesses.
+ALABAMA HEALTH AND HUMAN SERVICES WARNING: Pornography increases the demand for prostitution, child exploitation, and child pornography.
+
+U.S. SUBSTANCE ABUSE AND MENTAL HEALTH SERVICES ADMINISTRATION HELPLINE: 1-800-662-HELP (4357)
+THIS HELPLINE IS A FREE, CONFIDENTIAL INFORMATION SERVICE (IN ENGLISH OR SPANISH) OPEN 24 HOURS PER DAY, FOR INDIVIDUALS AND FAMILY MEMBERS FACING MENTAL HEALTH OR SUBSTANCE USE DISORDERS. THE SERVICE PROVIDES REFERRAL TO LOCAL TREATMENT FACILITIES, SUPPORT GROUPS, AND COMMUNITY-BASED ORGANIZATIONS.
+```
 - **Legal pages.** The Adult Content Policy and the public 2257 statement (COUNSEL-ADULT 6.7) are public pages linked from every footer (L1).
 
 ## 10. Data model
@@ -517,6 +531,7 @@ Reveal tokens: `safety.case.reveal` signs a gateway token with `aud: "safety"`, 
 | --- | --- | --- |
 | Case decided | Creator | Inbox and email (no media, no title for 18+ items: "An item needs a change") |
 | Take It Down received, decided | Requester | Email with the number |
+| Take It Down appeal reversed, before restore (AD-D2) | Requester | Email with the number and the reason, 2 business days before the restore |
 | Take It Down removal | Creator | Inbox and email, no requester detail |
 | Consent withdrawn | Creator | Inbox and email naming the person's display name only |
 | Release ready to countersign | Creator | Inbox |
@@ -544,6 +559,7 @@ Counts only, no media and no requester data: `safety_case_opened` (type), `safet
 | R5 | `feat/safety-creators-appeals` | Creator profile, strikes, suspend with approval, remove custom store policy, appeals, Log export, Settings | R2 | 3 days |
 | R6 | with A1 | 18+ shelf after a pass, Over 18 sheet states (identity checks A1) | F1, R2, R4, A1 | in A1 |
 | R7 | `feat/classifier-docs` | F2: classify document renders, `file` items into review for 18+ creators | processor | 1 day |
+| C1 | with A1 (R6) | `packages/constants/src/compliance.ts`: `ALABAMA_HEALTH_WARNINGS` (readonly array of the three warnings) and `SAMHSA_HELPLINE_NOTICE` (readonly array of the two lines), verbatim from section 9, with a source comment (Alabama Act 2024 HB 164, Section 9, interim pending counsel). A shared `StatutoryNotice` component renders them at 16 px or larger with no collapse. A unit test compares both constants byte for byte with the block in section 9 of this spec. The copy linter (dash and banned word checks) skips `compliance.ts` only | none | 0.5 day |
 | L1 | `feat/legal-pages` | Public Adult Content Policy and 2257 statement pages, footer links (can fold into R3) | none | 1 day |
 
 About 19 engineer days plus A1. Order: F1 now; A1 must not merge before F1, because `content.update` still sets `adult` freely (`apps/server/src/trpc/content.ts:634`) and the only guard today is the blanket refusal in `publish` (`content.ts:683`) that A1 lifts (QA AD-Q18). R1 and R2 with content Phase 1 (they also answer F4). R3 and L1 before any public 18+ and before content general availability. R4, R5, R6 before 18+ opens.
@@ -577,12 +593,14 @@ Launch gate for 18+: counsel approval (done, 3 Nov 2026); the operational items 
 23. A child safety case cannot close without a CyberTipline report number or a safety lead note.
 24. An 18+ item cannot be submitted without the AI label answered and, when others appear, the recording dates.
 25. A `csam` report hides the item at once; every other reason hides nothing.
+26. The Over 18 sheet and the 18+ shelf landing show the three Alabama warnings, and every 18+ page shows the helpline notice, rendered from the constants, byte for byte, at 16 px or larger and never collapsed (AD-D1).
+27. A Take It Down appeal is decided only by a safety lead, the item stays hidden while it is open, and no restore runs before the requester notice is sent (AD-D2).
 
 ## 17a. For counsel
 
 Drafted for counsel. Nothing here is on a board as final text.
 
-1. Alabama health warning (COUNSEL-ADULT 10.2 item 6). Counsel approved the item on 3 Nov, but the answer and the warning text are not in `docs/legal`. Does the warning apply to Amped, and if so what text and where (Over 18 sheet, 18+ shelf, every 18+ page)? Boards draw no warning until the text is recorded (decision AD-D1).
+1. Alabama health warning (COUNSEL-ADULT 10.2 item 6). Rob decided on 3 Nov (AD-D1) to show the statutory text now as interim text (section 9). Counsel to confirm in writing whether and where it applies to a mixed platform, and whether showing it to every viewer is right. Until then the interim text stays.
 2. Per creator release wording (store policy spec, For counsel 5). Board ar5 marks the scope sentence as pending counsel.
 
 ## 18. Open questions
@@ -605,6 +623,8 @@ Drafted for counsel. Nothing here is on a board as final text.
 - 28 CFR 75.1 definitions (Cornell LII): https://www.law.cornell.edu/cfr/text/28/75.1
 
 ## Revision log
+
+- 2026-11-03: Revision 5. Rob's decisions AD-D1 (Alabama HB 164 Section 9 warnings and SAMHSA helpline, interim pending counsel, constants in C1) and AD-D2 (one Take It Down appeal by a safety lead, item hidden, requester told before restore). Acceptance 26 and 27.
 
 - 2026-11-03: Revision 4 (Full QA AD-Q1 to AD-Q53). Seller row has both parts; custodian row text; policy 1.1 on boards; release status words, recording dates and AI label in the item editor; child safety removals final; Take It Down removal, turned off and restored notices; report reasons mapped to the code values (`csam` kept) and the R3 change to `content.report`; admin shell, Safety group position and phone dock; no thumbnails for child safety; people panel detail; non consent suspends at once; CyberTipline report panel and trafficking escalation; phone Remove on requests; no IP in 14a; A1 after F1; acceptance 20 to 25; For counsel.
 
