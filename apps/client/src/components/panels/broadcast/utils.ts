@@ -32,7 +32,7 @@ export function longTime(value: string | Date) {
 const POLL = { refetchInterval: 60_000, refetchOnWindowFocus: true, staleTime: 30_000 } as const;
 
 /**
- * Unread broadcasts for the Inbox button while VITE_MESSAGES is off (the native Inbox
+ * Unread broadcasts for the Inbox button while the messages feature flag is off (the native Inbox
  * counts in panels/inbox). Polls every 60 seconds and on focus.
  */
 export function useInboxUnread(enabled = true) {

@@ -111,14 +111,6 @@ export const FEATURE_FLAGS = {
     default: false,
     env: { landing: "NEXT_PUBLIC_SHOW_MOTION" },
   },
-  telegram: {
-    label: "Telegram (app)",
-    description:
-      "Telegram surfaces in the apps: the Account link, Fan messages, the composer channel and the Telegram blocks. The bot itself follows TELEGRAM_ENABLED on the API.",
-    scope: "public",
-    default: false,
-    env: { client: "VITE_SHOW_TELEGRAM", landing: "NEXT_PUBLIC_SHOW_TELEGRAM" },
-  },
   broadcast: {
     label: "Broadcasts",
     description: "Creator Pool Broadcast: the My Pool Broadcasts tab and the Inbox.",

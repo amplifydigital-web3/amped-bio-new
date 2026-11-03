@@ -414,9 +414,9 @@ export function UpdatesTab() {
 }
 
 /**
- * The broadcast only Inbox (spec 3.2) while VITE_MESSAGES is off: Updates are
+ * The broadcast only Inbox (spec 3.2) while the messages feature flag is off: Updates are
  * broadcasts (Build Board #1). The Telegram era Messages and Settings tabs ended in
- * PR M8; with VITE_MESSAGES on, the native Inbox (panels/inbox) holds conversations.
+ * PR M8; with the flag on, the native Inbox (panels/inbox) holds conversations.
  */
 export function InboxPanel() {
   return <div className="px-4 py-5 md:px-6">{BROADCAST_ON && <UpdatesTab />}</div>;

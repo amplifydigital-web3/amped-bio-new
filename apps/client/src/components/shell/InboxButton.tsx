@@ -6,8 +6,8 @@ import { INBOX_ON, useInboxUnread } from "../panels/broadcast/utils";
 
 /**
  * Inbox entry in the top bar (Build Board #1, board br3): a 44 icon button
- * with an unread dot. Muted creators do not count. Behind VITE_SHOW_BROADCAST, while
- * VITE_MESSAGES is off; the bell center replaces it when the native Inbox is on.
+ * with an unread dot. Muted creators do not count. Behind the broadcast feature flag, while
+ * the messages feature flag is off; the bell center replaces it when the native Inbox is on.
  */
 export function InboxButton() {
   const { activePanel } = useEditor();

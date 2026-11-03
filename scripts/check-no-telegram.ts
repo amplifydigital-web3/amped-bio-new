@@ -13,6 +13,8 @@
  *    (blocks/TelegramBlock) is a link to a channel and stays.
  * 4. No call to the removed routers (trpc.telegram, trpc.messaging.creator or .fan) and
  *    no TELEGRAM_* environment variable read (TELEGRAM_LINK is the community link).
+ * 5. No `telegram` feature flag read (isFeatureOn / useFeatureFlag / resolveLandingFlag):
+ *    the registry entry was removed with Telegram.
  *
  * Run: `pnpm run check:telegram` (also a step in .github/workflows/typecheck-build.yml).
  * Exit code 1 on any hit, with the file, the line and the rule.
@@ -75,6 +77,12 @@ export const RULES: Rule[] = [
         )) ||
       ((ENV.test(file) || file === "turbo.json") &&
         /^\s*"?(TELEGRAM_\w+|VITE_SHOW_TELEGRAM|NEXT_PUBLIC_SHOW_TELEGRAM)"?\s*[=,\]]?/.test(line)),
+  },
+  {
+    id: "Telegram feature flag",
+    test: (line, file) =>
+      CODE.test(file) &&
+      /\b(isFeatureOn|useFeatureFlag|resolveLandingFlag)\(\s*["']telegram["']/.test(line),
   },
 ];
 

@@ -20,7 +20,6 @@ const LOAD_TIMEOUT_MS = 2_000;
 // Written out so Next inlines each NEXT_PUBLIC_ value in client bundles
 const LANDING_ENV: Partial<Record<FeatureFlagKey, string | undefined>> = {
   rns: process.env.NEXT_PUBLIC_SHOW_RNS,
-  telegram: process.env.NEXT_PUBLIC_SHOW_TELEGRAM,
   themeV2: process.env.NEXT_PUBLIC_SHOW_THEME_V2,
   motion: process.env.NEXT_PUBLIC_SHOW_MOTION,
   fanGraph: process.env.NEXT_PUBLIC_FAN_GRAPH,
