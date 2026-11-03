@@ -1,6 +1,6 @@
 import { prisma } from "@repo/database";
 import { MESSAGE_CAP_SETTING_KEYS, MESSAGE_LIMITS, type MessageCapKey } from "@repo/constants";
-import { env } from "../../env";
+import { isFeatureOn } from "../featureFlags";
 
 /**
  * Amped Messages caps (spec 7.6, decision msg-new-accounts). Admins change them under
@@ -46,11 +46,12 @@ export function clearMessageCapsCache() {
 }
 
 /**
- * The kill switch. SiteSettings messaging.enabled ("false") overrides the env value so an
- * admin can stop sending without a deploy (M7 writes it).
+ * The kill switch: the `messages` feature flag (admin Feature flags, falling back to
+ * MESSAGING_ENABLED), and SiteSettings messaging.enabled ("false") so an admin can stop
+ * sending without a deploy (M7 writes it).
  */
 export async function messagingEnabled(): Promise<boolean> {
-  if (!env.MESSAGING_ENABLED) return false;
+  if (!isFeatureOn("messages")) return false;
   const row = await prisma.siteSettings.findUnique({
     where: { setting_key: "messaging.enabled" },
     select: { setting_value: true },

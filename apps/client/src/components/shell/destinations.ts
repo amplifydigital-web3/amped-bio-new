@@ -12,6 +12,8 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import type { EditorPanelType } from "@/types/editor";
+import type { FeatureFlagKey } from "@repo/constants";
+import { isFeatureOn } from "../../config/featureFlags";
 
 // The editor destinations in D01 order (Screen Review 001 I01, I11).
 export type DestinationId =
@@ -33,24 +35,24 @@ export interface Destination {
   label: string;
   icon: LucideIcon;
   group: DestinationGroup;
-  /** Environment flag that must be "true"; no flag means always rendered */
-  flag?: string;
+  /** Feature flag that must be on (config/featureFlags.ts); no flag means always rendered */
+  flag?: FeatureFlagKey;
 }
 
 export const DESTINATIONS: Destination[] = [
   { id: "home", label: "Home", icon: Home, group: "start" },
   { id: "explore", label: "Explore", icon: Search, group: "start" },
   // Amped Messages (#2 r4, M5, spec 8.1): the Inbox with the unread conversations badge
-  { id: "inbox", label: "Inbox", icon: MessageCircle, group: "start", flag: "VITE_MESSAGES" },
+  { id: "inbox", label: "Inbox", icon: MessageCircle, group: "start", flag: "messages" },
   { id: "page", label: "Page", icon: LayoutPanelTop, group: "page" },
   // Content system (#20, decision 7): uploads, the library and later Store and Live
-  { id: "content", label: "Content", icon: Library, group: "page", flag: "VITE_CONTENT" },
+  { id: "content", label: "Content", icon: Library, group: "page", flag: "content" },
   { id: "design", label: "Design", icon: Palette, group: "page" },
   { id: "analytics", label: "Analytics", icon: BarChart3, group: "page" },
   // Fan Graph (#22, decision 5): followers live in People
-  { id: "people", label: "People", icon: UsersRound, group: "page", flag: "VITE_FAN_GRAPH" },
-  { id: "wallet", label: "Wallet", icon: Wallet, group: "money", flag: "VITE_SHOW_WALLET" },
-  { id: "my-pool", label: "My Pool", icon: Coins, group: "money", flag: "VITE_SHOW_CREATOR_POOL" },
+  { id: "people", label: "People", icon: UsersRound, group: "page", flag: "fanGraph" },
+  { id: "wallet", label: "Wallet", icon: Wallet, group: "money", flag: "wallet" },
+  { id: "my-pool", label: "My Pool", icon: Coins, group: "money", flag: "creatorPool" },
 ];
 
 // Group eyebrows. The Start group has no label (I03).
@@ -60,8 +62,8 @@ export const GROUP_LABELS: Record<DestinationGroup, string | null> = {
   money: "Money",
 };
 
-export function isFlagOn(flag?: string) {
-  return !flag || import.meta.env[flag] === "true";
+export function isFlagOn(flag?: FeatureFlagKey) {
+  return !flag || isFeatureOn(flag);
 }
 
 /** Destinations whose flag is on. Flag off items are not rendered (D07, I04). */
@@ -80,8 +82,8 @@ export function destinationForPanel(panel: EditorPanelType): DestinationId | nul
     case "rns":
       return "wallet";
     case "inbox":
-      // The broadcast only inbox (VITE_MESSAGES off) has no rail item; the native Inbox does
-      return isFlagOn("VITE_MESSAGES") ? "inbox" : null;
+      // The broadcast only inbox (messages flag off) has no rail item; the native Inbox does
+      return isFlagOn("messages") ? "inbox" : null;
     case "home":
     case "explore":
     case "page":

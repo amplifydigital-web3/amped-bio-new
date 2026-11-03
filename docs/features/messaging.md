@@ -258,7 +258,7 @@ Scale notes: the hot reads are the inbox list (`conversation_members` by `userId
 5. Caps: per conversation per hour, per day, new conversations per day, the recipient's `dailyNewThreadCap`, new account cap. Refuse `sender_cap` or `cap_reached`.
 6. Allowed, folder REQUESTS. While the recipient has not accepted, the sender's 4th message refuses `awaiting_accept`.
 
-The env check `MESSAGING_INVITE_ONLY` and `settings.invitedAt` are removed. `MESSAGING_ENABLED` (default true) is the kill switch. When false, sends refuse `disabled` and the Inbox reads only.
+The env check `MESSAGING_INVITE_ONLY` and `settings.invitedAt` are removed. The kill switch is the `messages` feature flag (admin › Feature flags), resolved on the API with `isFeatureOn("messages")`; without an admin row it falls back to the server variable `MESSAGING_ENABLED` (default true). When off, sends refuse `disabled` and the Inbox reads only.
 
 ### 7.2 Sending (`services/messaging/send.ts`)
 
@@ -308,7 +308,7 @@ Built in M7: `admin.messaging.*` on `moderatorProcedure` (admin or moderator). T
 
 ### 8.1 Shell
 
-1. Rail: Inbox (MessageCircle icon) in the Start group after Explore, behind `VITE_MESSAGES`. A count badge shows unread conversations, capped at 99+. Requests and broadcasts never raise it; they count on their tab and on the bell. Badge: 20 high pill, 13/16 700 white on #5650A2 (6.85:1), tabular figures (Prism v1.1 addition pending approval).
+1. Rail: Inbox (MessageCircle icon) in the Start group after Explore, behind the `messages` feature flag (admin › Feature flags). A count badge shows unread conversations, capped at 99+. Requests and broadcasts never raise it; they count on their tab and on the bell. Badge: 20 high pill, 13/16 700 white on #5650A2 (6.85:1), tabular figures (Prism v1.1 addition pending approval).
 2. Phone dock: Home, Page, Inbox, Wallet, More. Design moves to More.
 3. Top bar bell: count of unseen alerts in a small pill on the bell. The popover (desktop) or sheet (phone) lists alerts with avatar, "@handle sent you a message", time, and an unread mark. Mark all as seen. View all opens Inbox.
 4. Toast (D21 convention): G1 clear, r13, min 55, bottom left of the context field (above the dock on phones), sender and first line, one ghost action Reply, dismisses after 5 s. Never for muted conversations, never while that conversation is open.
@@ -335,7 +335,7 @@ Who can message me (rule tiles as today plus No one, with the stake input for th
 
 Block kind `message` replaces `telegram_message`; existing blocks migrate in place and keep their label. Default label "Message me". The rule line stays ("Followers and members"). Tap: signed in opens the composer sheet over the page (calls `messages.canMessage` first and shows the refusal notice in the sheet); signed out opens sign up with `returnTo` and the draft in session storage. Inside in app browsers the sheet works in place; no hand off is needed.
 
-Built in M6: block kind `message` (label only, 40 characters, default "Message me"; `messageBlockConfigSchema`). `getHandle` returns `messageDoor` `{ open, ruleKind }` when the page carries the block: open unless the kill switch is on, the page is unpublished or suspended, the rule is No one, or inbound messages are paused. The door never carries an amount. Migration `20261103020000_message_block` turns `telegram_message` rows into `message` rows in place; a label still at "Message me on Telegram" becomes "Message me". Until it runs, a `telegram_message` row renders and edits as Message me behind the flags (`NEXT_PUBLIC_MESSAGES` on the landing app, `VITE_MESSAGES` in the editor). Signed out, the text waits in session storage under `amped_message_draft` while the fan sign up card opens, and the person returns with `?message=1` to the same sheet with the text kept; they tap Send themselves. The owner's tap shows a short note and Open my Inbox.
+Built in M6: block kind `message` (label only, 40 characters, default "Message me"; `messageBlockConfigSchema`). `getHandle` returns `messageDoor` `{ open, ruleKind }` when the page carries the block: open unless the kill switch is on, the page is unpublished or suspended, the rule is No one, or inbound messages are paused. The door never carries an amount. Migration `20261103020000_message_block` turns `telegram_message` rows into `message` rows in place; a label still at "Message me on Telegram" becomes "Message me". Until it runs, a `telegram_message` row renders and edits as Message me behind the `messages` feature flag (admin › Feature flags). Signed out, the text waits in session storage under `amped_message_draft` while the fan sign up card opens, and the person returns with `?message=1` to the same sheet with the text kept; they tap Send themselves. The owner's tap shows a short note and Open my Inbox.
 
 ### 8.5 Service worker and manifest
 

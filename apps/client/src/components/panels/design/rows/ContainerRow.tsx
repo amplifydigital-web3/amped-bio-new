@@ -9,6 +9,7 @@ import { ContrastNotice } from "../kit/Notices";
 import { formatRatio, useDesign } from "../kit/useDesign";
 import { containerRowValue, currentShape } from "../kit/surfaceLook";
 import { SurfaceControls } from "./SurfaceControls";
+import { isFeatureOn } from "../../../../config/featureFlags";
 
 // Screen Review 024. The Container row: style tiles, Container color, Opacity.
 
@@ -24,7 +25,7 @@ const CONTAINER_STYLES = [
 ];
 
 // Theme Engine v2 (#28, phase 2): Shape and Border under the surfaces (board 03)
-const themeV2On = import.meta.env.VITE_SHOW_THEME_V2 === "true";
+const themeV2On = isFeatureOn("themeV2");
 
 const OPACITY_PRESETS = ["100", "75", "50", "25", "0"] as const;
 

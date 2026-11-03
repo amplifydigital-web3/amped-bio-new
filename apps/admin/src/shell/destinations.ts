@@ -8,6 +8,7 @@ import {
   Megaphone,
   MessageCircle,
   Palette,
+  ToggleRight,
   Users,
   type LucideIcon,
 } from "lucide-react";
@@ -21,7 +22,7 @@ import {
 // (Build Board #29, spec 3.8) joins Money after Pools, and Payments (AmpedPay,
 // Build Board #50, spec docs/features/ampedpay.md 3.8) after USDC. ndau conversions were
 // removed from the admin: they are processed manually through the support
-// portal.
+// portal. Feature flags (site_settings) sit in Access after OAuth clients.
 export type AdminGroup = "start" | "content" | "money" | "access";
 
 export interface AdminDestination {
@@ -150,6 +151,15 @@ export const ADMIN_DESTINATIONS: AdminDestination[] = [
     icon: KeyRound,
     group: "access",
     shortcut: "KeyO",
+    dock: false,
+  },
+  {
+    id: "feature-flags",
+    path: "/feature-flags",
+    label: "Feature flags",
+    title: "Feature flags",
+    icon: ToggleRight,
+    group: "access",
     dock: false,
   },
 ];

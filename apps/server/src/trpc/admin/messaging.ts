@@ -12,7 +12,7 @@ import {
   messagingEnabled,
 } from "../../services/messaging/caps";
 import { openStreamCount } from "../../services/realtime/bus";
-import { env } from "../../env";
+import { isFeatureOn } from "../../services/featureFlags";
 
 /**
  * admin.messaging (Build Board #2 r4, PR M7, board m6, spec 7.6). Admin, Messaging at
@@ -117,8 +117,8 @@ export const messagingAdminRouter = router({
       emailRemindersToday: emailsSent,
       openReports,
       enabled,
-      // The env switch wins over the admin one; say which is off
-      envOff: !env.MESSAGING_ENABLED,
+      // The messages feature flag (admin Feature flags) wins over this switch; say which is off
+      flagOff: !isFeatureOn("messages"),
       off,
     };
   }),

@@ -31,6 +31,7 @@ interface ImportMetaEnv {
   readonly VITE_SHOW_NFTS?: string;
   /** Creator Pool Broadcast (Build Board #1): My Pool Broadcasts tab and the Inbox */
   readonly VITE_SHOW_BROADCAST: string;
+  /** Fallback of the `messages` feature flag (Amped Messages); read through isFeatureOn("messages") */
   readonly VITE_MESSAGES?: string;
   readonly VITE_DEFAULT_NETWORK_ID_HEX: `0x${string}`;
   /** USDC in the wallet (Build Board #29, Screen Review 137). Base beside Libertas. */

@@ -1,8 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { trpc } from "@repo/ui";
+import { isFeatureOn } from "../../../config/featureFlags";
 
 /** Creator Pool Broadcast (Build Board #1). Behind VITE_SHOW_BROADCAST. */
-export const BROADCAST_ON = import.meta.env.VITE_SHOW_BROADCAST === "true";
+export const BROADCAST_ON = isFeatureOn("broadcast");
 
 const sameDay = (a: Date, b: Date) => a.toDateString() === b.toDateString();
 

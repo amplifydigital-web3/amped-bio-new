@@ -32,6 +32,10 @@ function portSchema(fallback: number) {
 }
 
 // ================ environment schema ================
+// The product flags listed in packages/constants/src/feature-flags.ts
+// (CHECKOUT_ENABLED, USDC_ENABLED, ...) are only fallbacks: an admin's
+// site_settings row wins. Read them with isFeatureOn (services/featureFlags.ts),
+// never as env.X, and add new product flags to that registry, not here.
 const envSchema = z.object({
   // The environment the app is running in
   APP_ENV: z.enum(["development", "production", "testing", "staging"]).default("development"),
@@ -217,8 +221,8 @@ const envSchema = z.object({
   // Meta Graph API version used for the Conversions API
   META_GRAPH_API_VERSION: z.string().default("v24.0"),
 
-  // Amped Messages kill switch (spec 7.1). False makes every Inbox read only. Admin can
-  // override it at runtime (SiteSettings messaging.enabled, PR M7).
+  // Fallback of the `messages` feature flag (admin Feature flags) when it has no row.
+  // Off makes every Inbox read only (spec 7.1).
   MESSAGING_ENABLED: boolSchema(true),
 
   // Amped Messages (Build Board #2 r4), spec docs/features/messaging.md 4.4 and 7.1.
