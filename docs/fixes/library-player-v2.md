@@ -59,6 +59,7 @@ Branch `feat/library-player-v2` into `development`. Fan Library plan FL-1 (Build
 
 ## 2. Not in this PR
 
+- **Video quality choice.** Spec 3.5 lists speed and quality together. This PR ships speed; quality stays on hls.js automatic selection. A manual quality list is a follow up on the Chapters and speed sheet.
 - **Save** needs `library.save` and `SavedItem` (FL-2). `PlayerActions` hides Save until a host passes `onSave`.
 - **The Library's own full screen players** (the "Playing from" header in m7) arrive with the Library page (FL-3).
 - **The creator's colors on the mini player and players** need `CreatorThemeScope` (FL-4). They stay media dark here.
