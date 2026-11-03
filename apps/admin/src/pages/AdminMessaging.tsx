@@ -121,9 +121,9 @@ export function AdminMessaging() {
         <WordBadge tone={on ? "success" : "danger"}>
           {on ? "Messaging on" : "Messaging off"}
         </WordBadge>
-        {health.data?.envOff && (
+        {health.data?.flagOff && (
           <span className="text-prism-meta text-prism-ink-2">
-            Off in the server settings (MESSAGING_ENABLED). The switch here cannot turn it on.
+            Off by the messages feature flag (Feature flags). The switch here cannot turn it on.
           </span>
         )}
         <span className="flex-1" />
@@ -134,7 +134,7 @@ export function AdminMessaging() {
         ) : (
           <Button
             onClick={() => turnOn.mutate({ enabled: true })}
-            disabled={turnOn.isPending || !!health.data?.envOff}
+            disabled={turnOn.isPending || !!health.data?.flagOff}
           >
             Turn messaging on
           </Button>
