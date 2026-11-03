@@ -65,10 +65,10 @@ Refund summary for custom policies reads "You buy from {seller}. See the store p
 
 ### 3.5 Go live (sp7)
 
-The st1 checklist (content spec 3.8, decision 22) gains:
+The st1 checklist (content spec 3.8, decision 22) gains two steps after #419's item 5 (seller check):
 
-5. Store policy published.
-6. Adult setup complete, only when the store has an 18+ product (Over 18, seller verified, current `ADULT_POLICY_VERSION` accepted).
+6. Store policy published.
+7. Adult setup complete, only when the store has an 18+ product (Over 18, seller verified, current `ADULT_POLICY_VERSION` accepted).
 
 `store.setLive` enforces both on the server.
 
@@ -127,7 +127,8 @@ model StorePolicyVersion {
 | PR | Change |
 |---|---|
 | #412 `docs/mobile-checkout` (CK-0) | Add the seller line and policy sheet to c1 section 5, `storePolicyVersionId` on the intent, the "This store updated its policy" state beside Price changed, and the membership checkbox wording naming the store policy |
-| #414 `feat/pay-route` (CK-2) | Render the seller line and the policy sheet (sp6). Store `storePolicyVersionId` at quote on the mock provider path. The policy changed state |
+| #414 `feat/pay-route` (CK-2) | Seller line only: "Sold by {seller} on Amped.bio. You buy from {seller}, not Amped." No policy link yet, because `StorePolicyVersion` lands in C9. No migration. #416 and #417 rebase on it |
+| #419 `docs/store-c9-identity` | C9 spec: checklist step 5 is the seller check, so store policy and adult setup become steps 6 and 7. sp5 sits on the phone boards s2 and s3 that replace st6 and st8. Add the policy fields and route to `store-catalog.md` |
 | #418 `docs/content-gating-c8` (C8) | Item editor: a surface not allowed by a person's release is refused at rule writing. One line in the C8 spec; no build change until R4 |
 | #411 `feat/message-door` (M6) | None to build. The store policy contact uses the Message me door as the default contact |
 | #413 `feat/messages-admin` (M7) | None to build. Store policy reports go to Safety, not Messaging admin |
@@ -136,9 +137,9 @@ model StorePolicyVersion {
 
 | PR | Change |
 |---|---|
-| C9 `feat/store-catalog` | Main home: `StorePolicyVersion` migration, `StoreSettings` fields, Policy tab (sp1 to sp3), `/{handle}/store/policy` (sp4), Buying here card and footer link (sp5), product page line, go live steps 5 and 6 (sp7), procedures in 3.7. Migration label |
-| PAY-2 `feat/payments-core` | `Purchase.storePolicyVersionId` and `CheckoutIntent.storePolicyVersionId` columns. Receipt email shows seller name and the version link. Performer revenue share rows in the split builder |
-| CK-5 `feat/checkout-live` | Carry the version from intent to Purchase |
+| C9 `feat/store-catalog` | Main home: `StorePolicyVersion` migration, `StoreSettings` fields, Policy tab (sp1 to sp3), `/{handle}/store/policy` (sp4), Buying here card and footer link (sp5), product page line, go live steps 6 and 7 (sp7), procedures in 3.7. Migration label |
+| PAY-2 `feat/payments-core` | `Purchase.storePolicyVersionId` and `CheckoutIntent.storePolicyVersionId` columns (CheckoutIntent merged in CK-1 #399, so this is a new migration on it). Receipt email shows seller name and the version link. Performer revenue share rows in the split builder |
+| CK-5 `feat/checkout-live` | Policy link and sheet on the pay sheet (sp6), version stored at quote, the policy changed state, carry the version from intent to Purchase |
 | C10 `feat/store-sales` | Refund menu shows the creator's refund option. Sales CSV gains the policy version. Report store policy reaches Safety |
 | MB-1 `feat/memberships-core` | `Membership.storePolicyVersionId`. Renewal reminder email links the policy. Join sheet seller line |
 | MB-2 `feat/store-membership` | Section 5 of the standard policy renders only with an active plan |
@@ -172,4 +173,5 @@ model StorePolicyVersion {
 
 ## Revision log
 
+- 2026-11-03: Revision 2. Checklist steps renumbered 6 and 7 after #419; CK-2 carries the seller line only; policy sheet and version move to CK-5; #419 added.
 - 2026-11-03: Revision 1. Store policy modes, versions, surfaces and go live steps; release options and countersignature; PR map.
