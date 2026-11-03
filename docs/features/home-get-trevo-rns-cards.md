@@ -61,6 +61,12 @@ My RNS names (now "Your RNS names") is a two column card grid, one column below 
 | Set primary on a card | Not in this PR | There is no set primary flow yet. It needs a reverse registrar transaction and its own review step | Add a Set primary flow and put it on non primary cards |
 | "On your page" on a card | Not in this PR | The list query has no page binding per name | Read the binding per card |
 
+The Wallet RNS names canvas shows only what shipped (QA 3 Nov, rows 358, WR-Q1 to WR-Q4, WR-Q6 to WR-Q8): Manage, Extend, Renew now and Verify; the error, connect and indexing states; the shipped empty and loading states; the tab label "RNS" and the search label "Search RNS names". Set primary and "On your page" appear only on a board marked Proposed. Set primary waits on decision RN-Q3 (`rns-identity-phase2.md`, section 7).
+
+## 2.1 Follow up (QA 3 Nov 2026)
+
+**Wallet Verified chip (WR-Q5).** The chip on every name card means the wallet is Authbase verified (`apps/client/src/components/panels/wallet/rns/MyRnsNames.tsx:41-43,105`). The public Verified needs the name bound to the page (`apps/server/src/services/rnsIdentity.ts:293`), and two way binding once `RNS_BADGE_TWO_WAY` is on. Owners see Verified on names that show no badge in public. Required change: in `MyRnsNames.tsx`, render the chip as "Wallet verified" (a `RowBadge` with the shield icon, not `VerifiedChip`) on every card, and keep `VerifiedChip` with the label "Verified" only on the card whose label equals `user.revo_name` when `computeRnsIdentity` reports verified. Test: a second name in a verified wallet shows "Wallet verified", not "Verified".
+
 ## 3. Files
 
 | File | Change |
