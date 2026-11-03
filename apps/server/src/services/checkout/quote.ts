@@ -5,13 +5,15 @@
  * creator's look, for how much, and whether payment can go ahead. The sheet calls it on
  * every open, so a price or fee that changed shows before Pay.
  *
- * CK-2 runs on the mock provider: the amount is CHECKOUT_MOCK_PRICE_UNITS (offers arrive
- * with store PR 9) and nothing is charged. The fee, the pause, the pilot list and the
+ * CK-2 runs on the mock provider: the amount is CHECKOUT_MOCK_PRICE_UNITS, or the
+ * site_settings row CHECKOUT_MOCK_PRICE_SETTING when one is set (offers arrive with store
+ * PR 9), and nothing is charged. The fee, the pause, the pilot list and the
  * daily limits are the real AmpedPay settings, so the error states behave as they will
  * with PAY-2. CK-5 replaces the amount and the provider and changes no screen.
  */
 import { prisma } from "@repo/database";
 import {
+  CHECKOUT_MOCK_PRICE_SETTING,
   CHECKOUT_MOCK_PRICE_UNITS,
   type AnyThemeConfig,
   type CheckoutProvider,
@@ -64,9 +66,15 @@ function startOfUtcDay(now: Date) {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
 }
 
-/** CHECKOUT_MOCK_PRICE_UNITS (USDC units, 6 decimals) overrides the 3 USDC mock price. */
-function mockAmount(min: bigint, max: bigint): bigint {
-  const raw = process.env.CHECKOUT_MOCK_PRICE_UNITS;
+/**
+ * The mock price: the site_settings row CHECKOUT_MOCK_PRICE_SETTING (USDC units, 6 decimals)
+ * when it holds a whole positive number, else 3 USDC. Clamped to the one time price bounds.
+ */
+async function mockAmount(min: bigint, max: bigint): Promise<bigint> {
+  const row = await prisma.siteSettings.findUnique({
+    where: { setting_key: CHECKOUT_MOCK_PRICE_SETTING },
+  });
+  const raw = row?.setting_value.trim();
   const configured = raw && /^[1-9]\d{0,12}$/.test(raw) ? BigInt(raw) : CHECKOUT_MOCK_PRICE_UNITS;
   if (configured < min) return min;
   if (configured > max) return max;
@@ -137,7 +145,7 @@ export async function quoteIntent(viewerUserId: number, idHex: string): Promise<
     }),
   ]);
 
-  const amount = mockAmount(settings.oneTimePriceMin, settings.oneTimePriceMax);
+  const amount = await mockAmount(settings.oneTimePriceMin, settings.oneTimePriceMax);
   const fee = (amount * BigInt(settings.platformFeeBps)) / 10_000n;
   const handle = resolved.item.creatorHandle;
 
