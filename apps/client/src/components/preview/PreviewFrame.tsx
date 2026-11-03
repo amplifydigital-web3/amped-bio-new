@@ -8,13 +8,14 @@ import { PUBLISH_FIRST, usePageUnpublished } from "@/components/shell/pageVisibi
 import { requestAddBlock } from "./addBlockRequest";
 import { PreviewCostLine, PreviewMotionControls } from "./PreviewChrome";
 import { usePreviewBlockSelect, usePreviewTheme } from "./previewHooks";
+import { isFeatureOn } from "../../config/featureFlags";
 
 // Screen Review 006. The live preview: the commitment field frame on desktop
 // (Phone and Desktop modes, View page footer) and the full width Preview tab
 // on smaller screens. Everything inside the render belongs to the creator.
 
 // Theme Engine v2 (#28, phase 2): the editor chrome around the preview
-const themeV2On = import.meta.env.VITE_SHOW_THEME_V2 === "true";
+const themeV2On = isFeatureOn("themeV2");
 
 type Mode = "phone" | "desktop";
 const MODE_KEY = "amped:preview-mode";

@@ -18,11 +18,12 @@ import { ContrastNotice } from "../kit/Notices";
 import { formatRatio, useDesign, useSpecimenLabel } from "../kit/useDesign";
 import { buttonRowValue, currentButtonShape } from "../kit/surfaceLook";
 import { ButtonControls } from "./ButtonControls";
+import { isFeatureOn } from "../../../../config/featureFlags";
 
 // Screen Review 025. The Buttons row: shape tiles and Button color.
 
 // Theme Engine v2 (#28, phase 2): Hard shadow, Shape, Border, Layout (board 07)
-const themeV2On = import.meta.env.VITE_SHOW_THEME_V2 === "true";
+const themeV2On = isFeatureOn("themeV2");
 
 interface ButtonStyleTile {
   /** The v1 integer; for a v2 only style, the nearest v1 look. */

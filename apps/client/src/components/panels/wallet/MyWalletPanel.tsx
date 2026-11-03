@@ -4,6 +4,7 @@ import { useRnsSubPage } from "./rns/useRnsRoute";
 import { RnsSubPage } from "./rns/RnsTab";
 import { WalletErrorCard, WalletSummary, useNoWalletTimeout } from "./summary/WalletSummary";
 import { USDC_FLAGS } from "@/config/usdc/flags";
+import { isFeatureOn } from "../../../config/featureFlags";
 
 // 062 I01: Send opens in the value panel at ?send=1 (D05, D12)
 const SendFlow = lazy(() => import("./send/SendFlow"));
@@ -73,7 +74,7 @@ function WalletContent() {
 
           {/* D19: Stakes sits right under the summary, above the tabs. It is
               not rendered with the pools flag off (059 I01). */}
-          {import.meta.env.VITE_SHOW_CREATOR_POOL === "true" && (
+          {isFeatureOn("creatorPool") && (
             <Suspense>
               <StakesCard />
             </Suspense>
