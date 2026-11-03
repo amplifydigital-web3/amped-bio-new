@@ -7,7 +7,7 @@ import { NetworkTotals } from "@/components/layout/NetworkTotals";
 import { ClaimBar } from "@/components/landing/ClaimBar";
 import { ProfileCarousel } from "@/components/landing/ProfileCarousel";
 import { JsonLd } from "@/components/seo/JsonLd";
-import { SHOW_MOTION } from "@/components/landing/motion/flag";
+import { getFeatureFlagOverrides, resolveLandingFlag } from "@/lib/featureFlags";
 import { HeroBeam } from "@/components/landing/motion/HeroBeam";
 import { HeroHeadline } from "@/components/landing/motion/HeroHeadline";
 import { HowItWorks } from "@/components/landing/motion/HowItWorks";
@@ -40,23 +40,24 @@ const VALUE_CARDS = [
 // Native Prism landing (Screen Review 007, D1): copy lives in code, no creator
 // theme, no consent prompt on the front door. Order: header, hero with claim
 // bar and example page carousel, value cards, testnet notice, network totals, footer.
-// With NEXT_PUBLIC_SHOW_MOTION (Build Board #26): the hero light, the headline
+// With the motion feature flag (Build Board #26): the hero light, the headline
 // reveal, How it works and Pause motion. Network totals are tREVO figures and
 // never move.
-export default function HomePage() {
+export default async function HomePage() {
+  const showMotion = resolveLandingFlag("motion", await getFeatureFlagOverrides());
   return (
     <div className="prism-room prism-font flex min-h-dvh flex-col overflow-x-clip text-prism-ink">
       <JsonLd data={buildSiteJsonLd()} />
       <PublicHeader />
       <main className="mx-auto w-full max-w-[1372px] flex-1 px-[13px] sm:px-0">
         <section className="relative isolate grid items-center gap-[34px] pt-[55px] lg:grid-cols-[minmax(0,1fr)_508px] lg:gap-[21px] lg:pt-[68px]">
-          {SHOW_MOTION && <HeroBeam />}
+          {showMotion && <HeroBeam />}
           <div className="max-w-[856px]">
             <p className="flex items-center gap-2 text-prism-eyebrow uppercase text-prism-ink-2">
               <span aria-hidden className="h-[3px] w-[13px] rounded-full bg-prism-value" />
               Link in bio with a wallet
             </p>
-            {SHOW_MOTION ? (
+            {showMotion ? (
               <HeroHeadline
                 text="Claim your page."
                 className="mt-[13px] font-prism-display text-prism-display-68 text-prism-ink sm:text-prism-display"
@@ -79,7 +80,7 @@ export default function HomePage() {
           </div>
         </section>
 
-        {SHOW_MOTION && <HowItWorks />}
+        {showMotion && <HowItWorks />}
 
         <section aria-label="What you get" className="mt-[89px] space-y-[21px]">
           <div
@@ -113,13 +114,13 @@ export default function HomePage() {
           <NetworkTotals />
         </section>
 
-        {SHOW_MOTION && (
+        {showMotion && (
           <div className="mt-[34px] flex justify-end">
             <PauseMotionButton />
           </div>
         )}
 
-        <div className={SHOW_MOTION ? "mt-[21px]" : "mt-[89px]"}>
+        <div className={showMotion ? "mt-[21px]" : "mt-[89px]"}>
           <PublicFooter />
         </div>
       </main>

@@ -18,6 +18,7 @@ import { cache } from "../utils/cache";
 import { getAuthbaseWalletStatus, isAuthbaseConfigured, publicSharedAttributes } from "./authbase";
 import { checkRnsBinding, checkRnsBindingCached, type RnsBindingResult } from "./rns";
 import { readPrimaryName } from "./rnsSummary";
+import { isFeatureOn } from "./featureFlags";
 
 /**
  * Screen Review 108 and 109: what a creator page shows about its RNS name and
@@ -112,7 +113,9 @@ export async function getRnsVerification(wallet: string, fresh = false): Promise
       status.verification &&
       status.verification.valid_until &&
       Date.now() > new Date(status.verification.valid_until).getTime();
-    const attributes = env.RNS_PUBLIC_ATTRIBUTES ? publicSharedAttributes(status.attributes) : {};
+    const attributes = isFeatureOn("rnsPublicAttributes")
+      ? publicSharedAttributes(status.attributes)
+      : {};
     const result: RnsVerification =
       status.verified && status.verification && !alreadyExpired
         ? {
@@ -274,7 +277,7 @@ export async function computeRnsIdentity(
 
   // The check is read for the owner whatever the name does (108 I08)
   const verificationPromise: Promise<RnsVerification> =
-    walletAddress && env.RNS_PUBLIC_IDENTITY
+    walletAddress && isFeatureOn("rnsPublicIdentity")
       ? getRnsVerification(walletAddress, options.fresh)
       : Promise.resolve({ state: walletAddress ? "off" : "not_verified" });
 
@@ -340,7 +343,7 @@ export async function computeRnsIdentity(
   // and a current verification gate them. The flag is re-checked at read time so
   // a cached verification cannot release them after the flag turns off (cache
   // entries can be up to 5 min old).
-  if (env.RNS_PUBLIC_ATTRIBUTES && current) {
+  if (isFeatureOn("rnsPublicAttributes") && current) {
     const shown = pickShownAttributes(current.attributes, block?.attributes ?? []);
     if (Object.keys(shown).length) identity.attributes = shown;
   }

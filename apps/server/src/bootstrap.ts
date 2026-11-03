@@ -12,6 +12,7 @@ import { startOnrampTokenPurge } from "./services/onramp/sessions";
 import { startRnsExpirySweeper } from "./services/rnsExpiry";
 import { startCheckoutIntentPurge } from "./services/checkout/intents";
 import { getGeoIpReader } from "./services/analytics/geoipDatabase";
+import { startFeatureFlagRefresh } from "./services/featureFlags";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
@@ -20,6 +21,10 @@ BigInt.prototype.toJSON = function () {
 };
 
 instrumentCaptchaVerification();
+
+// Feature flags from site_settings: load the rows, then reload them every 15 seconds.
+// Until the first load answers, every flag reads its environment variable as before.
+void startFeatureFlagRefresh();
 
 // Resume broadcasts left queued after a restart (Build Board #1)
 startBroadcastSweeper();
@@ -32,7 +37,7 @@ startTelegramLoop();
 // Phase 2: hourly group checks. No-op until TELEGRAM_GROUPS.
 startGroupChecks();
 
-// USDC in the wallet (Build Board #29): index USDC transfers on Base. No-op until USDC_ENABLED.
+// USDC in the wallet (Build Board #29): index USDC transfers on Base. Each tick is a no-op while the usdc flag is off.
 startUsdcIndexer();
 // AmpedPay admin (Build Board #50): mark Safe changes applied from the contract's events.
 // No-op until AMPEDPAY_ADDRESS is set.

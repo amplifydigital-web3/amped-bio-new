@@ -11,9 +11,10 @@ import { TextRow } from "./rows/TextRow";
 import { ButtonHoverRow, ButtonPressRow, NameEffectRow, ParticlesRow } from "./rows/MotionRows";
 import { NameRow } from "./rows/NameRow";
 import { SceneRow } from "./rows/SceneRow";
+import { isFeatureOn } from "../../../config/featureFlags";
 
 // Theme Engine v2 (#28, phase 2): the Name row (board 08) and the Scene row (board 01)
-const themeV2On = import.meta.env.VITE_SHOW_THEME_V2 === "true";
+const themeV2On = isFeatureOn("themeV2");
 
 // Screen Review 027. Style holds Background, Container, Buttons and Text;
 // Motion holds Button hover, Particles and Name effect. One row open at a time.

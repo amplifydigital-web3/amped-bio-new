@@ -16,6 +16,7 @@ import { paymentChain, paymentClient } from "./chain";
 import { startOfUtcDay } from "./limits";
 import { getRelayer, isRelayerConfigured } from "./relayer";
 import { gasLines } from "../payments/settings";
+import { isFeatureOn } from "../featureFlags";
 
 /**
  * Admin, Money (spec 3.8, Build Board #29 USDC-3). Amped.Bio pays Base gas
@@ -189,7 +190,7 @@ export async function moneyOverview(now = new Date()) {
     network: paymentChain.name,
     chainId: paymentChain.id,
     explorerUrl: paymentChain.blockExplorers?.default.url ?? null,
-    enabled: env.USDC_ENABLED,
+    enabled: isFeatureOn("usdc"),
     paused,
     relayer,
     gasLines: lines,

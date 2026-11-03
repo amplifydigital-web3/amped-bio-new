@@ -20,9 +20,10 @@ import { useDebounce } from "@/hooks/useDebounce";
 import UsersTab, { type UserView } from "./components/UsersTab";
 import PoolsTab from "./components/PoolsTab";
 import FollowingTab from "./components/FollowingTab";
+import { isFeatureOn } from "../../../config/featureFlags";
 
 // Fan Graph (#22): Explore, Following (decision 6)
-const FAN_GRAPH = import.meta.env.VITE_FAN_GRAPH === "true";
+const FAN_GRAPH = isFeatureOn("fanGraph");
 
 // Screen Review 044 (D07): NFTs is not rendered. It returns as a tab of this
 // container behind VITE_SHOW_NFTS (default off) once NFT data exists; until

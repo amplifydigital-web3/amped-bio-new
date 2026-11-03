@@ -32,6 +32,10 @@ function portSchema(fallback: number) {
 }
 
 // ================ environment schema ================
+// The product flags listed in packages/constants/src/feature-flags.ts
+// (CHECKOUT_ENABLED, USDC_ENABLED, ...) are only fallbacks: an admin's
+// site_settings row wins. Read them with isFeatureOn (services/featureFlags.ts),
+// never as env.X, and add new product flags to that registry, not here.
 const envSchema = z.object({
   // The environment the app is running in
   APP_ENV: z.enum(["development", "production", "testing", "staging"]).default("development"),
@@ -346,7 +350,6 @@ const envSchema = z.object({
   // Default per creator quota (spec 3.2, decision 5)
   CONTENT_QUOTA_DEFAULT_MB: numSchema(5120),
   CONTENT_QUOTA_VIDEO_MINUTES: numSchema(300),
-
 });
 
 // ================ parse & export ================

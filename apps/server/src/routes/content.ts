@@ -24,7 +24,7 @@ import { buildProcessorJob } from "../services/content/job";
  *
  * All three are signed over the exact request bytes, so they are mounted in
  * services/API.ts before the global JSON parser and read the raw body here.
- * Neither depends on CONTENT_UPLOADS_ENABLED: videos and files already in flight
+ * Neither depends on the contentUploads flag: videos and files already in flight
  * must still finish when uploads are paused. Each answers 404 until its secret is
  * set, so an unconfigured environment exposes nothing.
  */
