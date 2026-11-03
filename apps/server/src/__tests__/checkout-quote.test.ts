@@ -195,7 +195,7 @@ describe("quoteIntent", () => {
       state.seller = { pass: false, reason };
       expect((await quoteIntent(20, ID)).state).toBe("seller");
     }
-    expect(checkIdentity).toHaveBeenCalledWith(10, "seller");
+    expect(checkIdentity).toHaveBeenCalledWith(10, "seller", { fresh: true });
     state.seller = { pass: true };
     expect((await quoteIntent(20, ID)).state).toBe("ready");
   });
