@@ -197,7 +197,7 @@ model AccessEvent {
 - `ContentItem.accessRuleId` gets its foreign key to `AccessRule` (`onDelete: Restrict`). No code writes the column today, so no row breaks the key. `baseAccessRuleId` stays as the content spec defines it.
 - Delete behavior (GQ2, Rob 30 Oct): `AccessRule.owner` uses `onDelete: NoAction`, not Cascade. A user delete then cannot remove a rule an item still points to. The account deletion job (#13 AD2) deletes content items and blocks, then the user's rules, then the user. `SetNull` is never used on a rule reference: it would make a gated item public.
 - `params` has a zod schema per kind in `@repo/constants/src/access.ts`, checked on create, update and read. A row that fails to parse refuses (default deny).
-- `Broadcast` gains `accessRuleId` when Broadcast phase 2 needs it, not before.
+- `Broadcast` gains `accessRuleId` when Broadcast phase 2 needs it, not before. Content attachments on broadcasts ship there too, with a `broadcast` resolver (CQ1, Rob 3 Nov); content PR 8 does not build them.
 - `CreatorMessagingSettings` and `TelegramGroup` (#383) keep `ruleKind` and `stakeMin` (whole tREVO) in G2. Both map onto engine kinds at read time, with `wholeTokensToWei` for the minimum. A later migration may replace them with `accessRuleId`; nothing in this build depends on it.
 - Privacy (AGENTS.md): `AccessEvent.viewerKey` for signed out viewers is the daily salted hash used by visit counting, never reversible or cross creator, and never the IP. G1 adds access events to the retention list in `docs/legal/privacy-parameters.md` (25 months, like visit events) and one line to the notice, section 4: "When you open or try to open a locked item, we record that it happened so the creator can see how their locks perform." Bump `CONSENT_POLICY_VERSION` with it.
 - A rule in use cannot be deleted (`CONFLICT` with the count). `kind` is immutable. Owner of rule must equal owner of resource on attach.
@@ -222,7 +222,7 @@ tRPC `access` router:
 
 | Procedure | Auth | Purpose |
 | --- | --- | --- |
-| `access.checkPage` | public | Decisions for every gated block and content card on a bio, after hydration |
+| `access.checkPage` | public | Decisions for every gated block and content card on a bio, after hydration. Content PR 8 builds it for content cards; G3 adds blocks (CQ2, Rob 3 Nov) |
 | `access.check` | public | One decision, `intent` render or open |
 | `access.openBlock` | public* | Text or media block body, through `open` |
 | `access.rules.list`, `create`, `update`, `delete`, `stats` | private | Creator rules and stats |
@@ -269,13 +269,19 @@ The four Prism 2.2 gating screens (rule picker, locked bio, unlock sheet, rules 
 4. Rule picker: Early access date row ("Open to everyone on").
 5. Locked content card with price and duration, matching R11 (sticky buy bar).
 6. Rule picker (30 Oct QA): Followers is live in G1, not Later; stake labels read "Pool fans" and "Fans with a minimum stake" (3.5), not "Pool members" and "Members with a minimum stake". The boards are redrawn with deltas 1 to 6 before G3.
+7. Rules and stats live in People, Access tab, not My Pool (Rob's decision 6, revised in the 3 Nov QA fix pass). Followers, Members and Paid rules have nothing to do with a pool, and My Pool only renders behind `VITE_SHOW_CREATOR_POOL`. People tabs: Followers, Members (MB-1), Access (G6). On phones People sits in More. My Pool keeps the tabs Amped Messages gives it: Overview with the Broadcast card (Screen Review row 321). No Broadcasts or Telegram tab, and no rules.
+8. Access insights show totals only: by rule, by refusal reason and by item. Never a fan's name, handle, avatar or wallet address, and no per fan rows or times (Fan Graph 3.8, privacy notice line in 3.6). `access.rules.stats` returns aggregates only; a bucket under 5 viewers is shown as "Under 5".
+9. The Access tab has empty ("No rules yet"), loading and flag off states; with the `accessGating` feature flag off the tab is not rendered. Pilot copy: "Pool rules are open to pilot creators while counsel reviews them."
+10. Block row actions match `BlockRow.tsx`: eye, More (Delete inside) and collapse. The picker sits inside the open row from G3, behind the `accessGating` feature flag.
+11. Unlock sheet frames per hint: `view_pool` (eyebrow "Pool fans", title "You have no stake in this pool"), `link_wallet`, `view_pool` on `stake_below_min`, `unavailable` on `chain_unavailable` (Try again), `follow`, `confirm_email`, `verify_age` hand off, `unavailable` on `kind_unavailable`. A viewer who qualifies opens on tap with no sheet. Boards: https://claude.ai/artifact/WWAqVBfubtYhYwmNHdaAKC (ge1 to ge4) and https://claude.ai/artifact/2MTfnbcQPAkBkCRBseGyrL (mb1, mb4), redrawn 3 Nov.
 
 ### 3.11 Compliance
 
 v1 section 3.9 stands. Additions:
 
 - Stake disclosure shows on every unlock sheet step for `pool_member` and `stake_min`, and for `any` or `all` with a stake leaf. Never on follower, paid or member sheets.
-- No amount, rate, NRR, rank or reward figure appears on a locked card or unlock sheet. Pool links open the pool page and never start a stake.
+- No amount, rate, NRR, rank or reward figure appears on a locked card or unlock sheet. Pool links open the pool page and never start a stake. One exception: the `stake_below_min` step shows the creator's required minimum to the viewer after open (3.5). It is never in public HTML.
+- The disclosure is the `ACCESS_STAKE_DISCLOSURE` constant from `packages/constants/src/compliance.ts` (content gating 4.3), shown below `TESTNET_NOTICE`. Stake gate copy is checked against `ACCESS_BANNED_TERMS`: no "member" or "membership" on a stake gate.
 - Paid and member copy follows the payment flow rules (creator branded, fan pays the creator, fee shown inside).
 - The copy check script covers gating surfaces in client and landing app and fails on banned terms and on em and en dashes.
 
@@ -287,7 +293,7 @@ v1 section 3.9 stands. Additions:
 2. `AccessRule`, `AccessEvent`, `Block.accessRuleId`, content foreign key.
 3. `check`, `checkBatch`, `open`, `eligibleUserIds`, resolver registry, preconditions, kinds follower, pool_member, stake_min, any, all.
 4. Messaging, Telegram and broadcast run through the engine with no behavior change except the two fixes.
-5. Gated link, text and media blocks with `/go`, locked DTO, `checkPage`, rule picker and unlock sheet, behind `ACCESS_GATING_ENABLED`.
+5. Gated link, text and media blocks with `/go`, locked DTO, `checkPage`, rule picker and unlock sheet, behind the `accessGating` feature flag.
 6. Leak test in CI.
 
 ### P1
@@ -331,11 +337,11 @@ Each PR is one branch into `development`, labeled by type, with a handoff doc fo
 | G0 | `fix/stake-min-units` (PR #357) | `wholeTokensToWei` in constants; STAKE_MIN converts the stored whole tREVO `stakeMin` to wei at comparison time, so no data migration and no settings change; follower rule uses `trustedEmailWhere`; tests with real units | none | 0.5 day |
 | G1 | `feat/access-core` | Constants contract and zod params, one Prisma migration (`AccessRule`, `AccessEvent`, `Block.accessRuleId`, content foreign key, delete rules in 3.6), engine, resolver for `block`, kinds follower, pool_member, stake_min, any, all, identity mapping (3.4), caching, `bumpViewer` hooks in follow, unfollow, remove, block, unblock and `identity.recheck` (stake decisions are never cached, so stake confirm needs no hook), rules router behind flag, privacy entries (3.6). No UI. Label `migration`. | G0 (#357), I1 | 4 days |
 | G2 | `refactor/access-adopt` | `rules.ts`, `messaging/access.ts`, Telegram group sweep and broadcast audience call the engine. Resolvers `dm` and `telegram_group`, reading both `CreatorMessagingSettings` and `TelegramGroup` rules. | G1, #383 | 1.5 days |
-| G3 | `feat/access-blocks` | Locked DTO, `checkPage`, `/go`, `openBlock`, `blocks.setAccessRule`, rule picker on the block row, unlock sheet in landing app, leak test, copy check. No schema (in G1). Needs the gating boards redrawn first (3.10). | G1 | 4 days |
-| Content PR 8 | `feat/content-gating` | Content resolver built on `services/content/access.ts` from #348, `getReadUrl` through `open`, locked cards, item editor picker | G1, #348 | content plan |
+| G3 | `feat/access-blocks` | Locked DTO, blocks in `checkPage` (content PR 8 builds it for content cards), `/go`, `openBlock`, `blocks.setAccessRule`, rule picker on the block row, unlock sheet in landing app, leak test, copy check. No schema (in G1). Needs the gating boards redrawn first (3.10). | G1 | 4 days |
+| Content PR 8 | `feat/content-gating` | Content resolver built on `services/content/access.ts` from #348, `getReadUrl` and `getPreview` through `open`, `access.checkPage` for content cards, locked cards, item editor picker. Build spec: `docs/features/content-gating.md` | G1, #348 | 5 days |
 | G4 | `feat/access-paid` | `UsdcPaymentVerifier`, `paid` live, soft unlock, `purchase_pending` | Content PR 10 | 1.5 days |
 | G5 | `feat/access-member` | Membership reader, `member` live | Memberships phase C | 1 day |
-| G6 | `feat/access-insights` | Rules and stats page, events, nightly leak scan, early access date | G3 | 2 days |
+| G6 | `feat/access-insights` | `access.rules.stats` (aggregates only, 3.10 delta 8), People Access tab with empty, loading and flag off states (3.10 deltas 7 to 9), events, nightly leak scan, early access date | G3 | 2 days |
 
 The age precondition needs no PR of its own: G1 calls `checkIdentity` from I1.
 
@@ -350,7 +356,7 @@ While messaging runs before G2, its evaluator (`telegram/rules.ts`) stays in pla
 
 Critical path to the first paid unlock: G0 (done), I1, G1, content PR 8, store PR 9 with S1, store PR 10, G4.
 
-Flags: `ACCESS_GATING_ENABLED` (server), `VITE_ACCESS_GATING` (client and landing), `ACCESS_STAKE_KINDS_ALLOWLIST` (creator ids for pool kinds while counsel reviews).
+Flags live in site_settings, set from the admin with no rebuild or redeploy (Rob, 3 Nov). The `accessGating` feature flag (`packages/constants/src/feature-flags.ts`, admin › Feature flags) switches the engine on the server, client and landing app. The site setting `access_stake_kinds_allowlist` holds the creator ids for pool kinds while counsel reviews, as comma separated user ids. `ACCESS_GATING_ENABLED` and `ACCESS_STAKE_KINDS_ALLOWLIST` stay in the server environment only as fallbacks while no row is set. No new environment variable is added for a flag, an allowlist or an amount.
 
 ## 7. Decisions for Rob (recommended first)
 
@@ -393,8 +399,13 @@ Lagging (90 days after paid goes live): share of creators with any paid or membe
 
 ## Revision log
 
+- 2026-11-03: Flags in site_settings. `accessGating` is a feature flag (#421) and the stake allowlist is the `access_stake_kinds_allowlist` site setting. `VITE_ACCESS_GATING` is dropped.
+- 2026-11-03: QA fix pass (rows 365 to 368, 370). 3.10 deltas 7 to 11: rules and stats move to People, Access; totals only; empty, loading and flag off states; block row actions; unlock sheet frames per hint. 3.11: the required minimum shows only in the `stake_below_min` step; the disclosure is `ACCESS_STAKE_DISCLOSURE`. G6 scope updated.
+
+- 2026-11-03: C8 Full QA. CQ1: content attachments on broadcasts move to Broadcast phase 2. CQ2: content PR 8 builds `access.checkPage` for content cards and G3 extends it to blocks. C8 build spec in `docs/features/content-gating.md`.
+
 - 2026-10-30: Full QA against `development` f8bd0bb. GQ1: all gating schema in one G1 migration, `block` resolver in G1, `content` resolver moves to content PR 8 (needs #348). GQ2: rule references `Restrict`, `AccessRule.owner` `NoAction`, deletion order in AD2, never `SetNull`. Identity result mapping and new reason `identity_unavailable`. Suspended viewers refuse. zod params per kind. No decision cache without Redis. `TelegramGroup` rules (#383) in G2. AccessEvent privacy entries. G1 depends on G0 and I1.
 - 2026-10-28: G0 row and units paragraph matched to PR #357: convert at comparison time with `wholeTokensToWei`, no data migration. G1 stores wei in `AccessRule`; G2 maps `stakeMin` through `wholeTokensToWei`.
 - 2026-10-24: Rob: staking is tREVO or REVO only, never USDC. Deployed staking contracts are not changed; gating reads stakes and compares them to the amount the creator sets. The admin minimum stays in the contracts (`_minStake`). v1's 1 REVO app floor removed; `pool_member` is any stake. Acceptance 1 added.
-- 2026-10-23 (later): Rob's direction applied. Age precondition uses the Authbase Over 18 attribute through the shared identity check (G7 removed). Seller verification precondition on paid and member. Sequence: messaging and content live before the engine; G0 before messaging launch.
+- 2026-10-23 (later): Rob's direction applied. Age precondition uses the Authbase Over 18 attribute through the shared identity check (G7 removed). Seller verification precondition on paid and member. Sequence: messaging and content live before the engine; G0 before messaging goes live.
 - 2026-10-23: v2. Reconciled to development at 48ca154. Audit found no engine, two defects in the messaging evaluator, UUID rule ids on content, the media gateway in place of CloudFront. Added preconditions (blocked, age, early access), one call `open`, `paid` soft unlock, `member` from #25, `rns_verified` defined, adoption of messaging, Telegram and broadcast, and a PR plan G0 to G7.

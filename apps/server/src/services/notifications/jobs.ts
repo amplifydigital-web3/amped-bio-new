@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+import { hostname } from "node:os";
 import { render } from "@react-email/render";
 import { prisma, type NotificationJob } from "@repo/database";
 import { MESSAGE_LIMITS } from "@repo/constants";
@@ -32,11 +34,28 @@ const STALE_MS = 2 * 60 * 1000;
 type MessageJobPayload = { conversationId: string; messageId: string; senderId: number };
 type BroadcastJobPayload = { broadcastId: number; creatorUserId: number };
 
-async function enqueue(channel: "push" | "email", userId: number, payload: object, runAfter: Date) {
+async function enqueue(
+  channel: "push" | "email",
+  userId: number,
+  payload: object,
+  runAfter: Date,
+  dedupeKey: string | null = null
+) {
   await prisma.notificationJob.create({
-    data: { id: uuidv7(), channel, userId, payload, runAfter },
+    data: { id: uuidv7(), channel, userId, payload, runAfter, dedupeKey },
   });
 }
+
+/**
+ * Unique while an email check is PENDING; the claim clears it. Two messages sent at the
+ * same moment both try to insert, and the unique index lets only one through.
+ */
+export function emailDedupeKey(userId: number, conversationId: string): string {
+  return `email:${userId}:${conversationId}`;
+}
+
+const isUniqueViolation = (error: unknown) =>
+  (error as { code?: string } | null)?.code === "P2002";
 
 // ------------------------------------------------------------------ scheduling
 
@@ -77,20 +96,17 @@ export async function scheduleMessageNotifications(input: {
       await enqueue("push", input.recipientId, payload, now);
     }
     if (prefs.email) {
-      const pending = await prisma.notificationJob.findMany({
-        where: { userId: input.recipientId, channel: "email", status: "PENDING" },
-        select: { payload: true },
-      });
-      const already = pending.some(
-        j => (j.payload as MessageJobPayload | null)?.conversationId === payload.conversationId
-      );
-      if (!already) {
+      // One pending check per conversation: a duplicate insert hits the unique dedupeKey
+      try {
         await enqueue(
           "email",
           input.recipientId,
           payload,
-          new Date(now.getTime() + MESSAGE_LIMITS.emailReminderAfterMinutes * 60_000)
+          new Date(now.getTime() + MESSAGE_LIMITS.emailReminderAfterMinutes * 60_000),
+          emailDedupeKey(input.recipientId, payload.conversationId)
         );
+      } catch (error) {
+        if (!isUniqueViolation(error)) throw error;
       }
     }
   } catch (error) {
@@ -325,10 +341,17 @@ export async function claimNextJob(now = new Date()): Promise<NotificationJob | 
     if (!candidate) return null;
     const claimed = await prisma.notificationJob.updateMany({
       where: { id: candidate.id, status: candidate.status, claimedAt: candidate.claimedAt },
-      data: { status: "CLAIMED", claimedAt: now, attempts: { increment: 1 } },
+      // Free the dedupe slot: a message after this point queues a fresh check
+      data: { status: "CLAIMED", claimedAt: now, attempts: { increment: 1 }, dedupeKey: null },
     });
     if (claimed.count === 1) {
-      return { ...candidate, status: "CLAIMED", claimedAt: now, attempts: candidate.attempts + 1 };
+      return {
+        ...candidate,
+        status: "CLAIMED",
+        claimedAt: now,
+        attempts: candidate.attempts + 1,
+        dedupeKey: null,
+      };
     }
   }
   return null;
@@ -405,21 +428,45 @@ let ticker: NodeJS.Timeout | null = null;
 let purger: NodeJS.Timeout | null = null;
 let draining = false;
 
-/** One instance polls at a time; the claim is still safe if two do. */
-async function holdLock(): Promise<boolean> {
+/**
+ * Lock owner, unique per process. `process.pid` is the same (often 1) in every
+ * container, which let every instance believe it held the lock.
+ */
+export const LOCK_OWNER = `${hostname()}:${process.pid}:${randomUUID()}`;
+
+// Extend the lock only while this process still owns it (atomic get and pexpire)
+const REFRESH_LOCK_SCRIPT = `if redis.call("get", KEYS[1]) == ARGV[1] then
+  return redis.call("pexpire", KEYS[1], ARGV[2])
+end
+return 0`;
+
+let lockErrorLogged = false;
+
+/**
+ * One instance polls at a time; the claim is still safe if two do. Without Redis (local
+ * development, one process) the loop runs. When Redis is configured but fails, the lock
+ * cannot be confirmed and this fails closed: no drain until Redis answers again.
+ */
+export async function holdNotificationLock(): Promise<boolean> {
   const redis = getRedisClient();
   if (!redis) return true;
   try {
-    const owner = `${process.pid}`;
-    const ok = await redis.set(LOCK_KEY, owner, "PX", TICK_MS * 3, "NX");
-    if (ok === "OK") return true;
-    if ((await redis.get(LOCK_KEY)) === owner) {
-      await redis.pexpire(LOCK_KEY, TICK_MS * 3);
-      return true;
+    const ttl = TICK_MS * 3;
+    const ok = await redis.set(LOCK_KEY, LOCK_OWNER, "PX", ttl, "NX");
+    const held =
+      ok === "OK" ||
+      Number(await redis.eval(REFRESH_LOCK_SCRIPT, 1, LOCK_KEY, LOCK_OWNER, ttl)) === 1;
+    lockErrorLogged = false;
+    return held;
+  } catch (error) {
+    if (!lockErrorLogged) {
+      console.warn(
+        "[notifications] lock unavailable, pausing the job loop:",
+        (error as Error).message
+      );
+      lockErrorLogged = true;
     }
     return false;
-  } catch {
-    return true;
   }
 }
 
@@ -429,7 +476,7 @@ export function startNotificationLoop() {
     if (draining) return;
     draining = true;
     try {
-      if (await holdLock()) await drainJobs();
+      if (await holdNotificationLock()) await drainJobs();
     } catch (error) {
       console.error("[notifications] loop tick failed", error);
     } finally {
