@@ -39,7 +39,12 @@ Before that, the Store tab shows the go live checklist (boards st1a, st1c, k1d) 
 
 ## 3. 18+ items (replaces the 18+ bullet in 3.6)
 
-- Storefront and store block (proposed, decision ST-D1 for Rob): for viewers without a pass, one Adult items card with no title, cover or count opens the Over 18 sheet, as on the bio (identity checks 4.4). 18+ products load through a signed in client call after the pass. The store block never lists an 18+ product. Boards st6b (s2b), st7a, st10a.
+- Storefront and store block (ST-D1, decided by Rob 3 Nov): for viewers without a pass, one Adult items card with no title, cover or count opens the Over 18 sheet, as on the bio (identity checks 4.4). 18+ products load through a signed in client call after the pass. The store block never lists an 18+ product. Boards st6b (s2b), st7a, st8e (s3e), st10a.
+- **Interim statutory text (AD-D1, Rob 3 Nov). Interim, pending counsel.** Source: Alabama Act 2024 HB 164 (enrolled), Section 9, effective 1 Oct 2024; the adult website threshold is more than 33 1/3 percent of content harmful to minors (Section 2). Counsel's written answer on whether and where it applies is open. Until then:
+  - The three Section 9(a)(1) warnings show on the Over 18 sheet opened from the store or store block and on the landing of every 18+ product page, to every viewer. Constant `ALABAMA_HEALTH_WARNINGS` in `packages/constants/src/compliance.ts`.
+  - The Section 9(a)(2) helpline (two lines) shows on every 18+ page. Constant `SAMHSA_HELPLINE_NOTICE` in the same file.
+  - Section 9(c): body 16 or larger, full contrast on the creator surface, never collapsed or behind a toggle.
+  - The text is verbatim statute. It is not edited, and the dash and banned word checks in `scripts/check-compliance-copy.ts` exempt these two constants. Boards st8d (s3d) and st8e (s3e).
 - Product editor: 18+ comes from the items and cannot be turned off on the product. Activating an 18+ product needs the creator's Over 18 and seller passes, adult setup, and a valid release with this creator for every performer tagged on its items. A missing release refuses with `release_missing` naming the performer (Rob 3 Nov; board st3b).
 
 - Public lists, `getReadUrl` and `getPreview` refuse 18+ items for viewers without a passed Over 18 check: `checkIdentity(viewer, "age_over_18")`, built in I1 and wired through the gating engine (`docs/features/content-gating.md`).
@@ -117,6 +122,8 @@ Supersedes the text named at the top of this file. Source: findings ST-Q1 to ST-
 
 **Sales (st5, k2, PR 10).** Status Pending until final, then Final, or Refunded (D4). The refund sheet shows "Your store policy:" with the `REFUND_SUMMARY` of the version on the purchase. Export CSV includes the store policy version per sale.
 
+**Seller line on the pay sheet (CK-D1, Rob 3 Nov).** Counsel sentences only after the seller line: "Sold by {seller} on Amped.bio. You buy from {seller}, not Amped." From CK-5 add "Refunds follow the store policy." and the Store policy link. "Refunds are at {seller}'s discretion." is dropped and "Payments are final." is not restored. Build change: `CHECKOUT_COPY.soldBy` in `packages/constants/src/checkout.ts` (lines 157 to 158) drops its last sentence, and the `Pay.test.tsx` match stays on the first two. Boards st9a and st9b.
+
 **Storefront and product page (s2, s3, st7).** Buying here card and footer Store policy on every store. "Sold by {seller}. Store policy" under Buy on every product page, with a 44 high link row. Members see "Included in your membership." and Open. Report item in the product page footer. The in app browser handoff is c4 (Mobile checkout, QA1); the store draws no Open in Safari button.
 
 **Store block (st10).** Up to 6 products in a row labelled with the product count, each card a link at least 44 high, Visit store, the membership card. No 18+ products. Hidden when the store is not live or has no active products.
@@ -129,13 +136,18 @@ Supersedes the text named at the top of this file. Source: findings ST-Q1 to ST-
 4. An 18+ product with a tagged performer who has no valid release with the creator cannot be activated (`release_missing`).
 5. No store, product page, store block or editor string contains "Yours to keep", "a month", "monthly" or the word price, and every amount reads `$N USDC` (`scripts/check-compliance-copy.ts`).
 6. The storefront, product page, pay sheet and receipt each name the creator as seller and link the store policy version.
+8. The Over 18 sheet and every 18+ product page show `ALABAMA_HEALTH_WARNINGS` and `SAMHSA_HELPLINE_NOTICE` byte for byte, at 16 or larger, never collapsed (interim, AD-D1).
+9. No pay sheet seller line contains "discretion" or "Payments are final" (CK-D1).
 7. 18+ products are absent from server HTML, the store block, sitemaps, `llms.txt`, JSON-LD and share tags for viewers without a pass.
 
 ## For counsel
 
-1. Access line wording: "In your Library" in place of "Yours to keep" (SP-Q45). The store policy grants a licence, not ownership.
+1. AD-D1: whether Alabama Act 2024 HB 164 Section 9 applies to Amped (adult website threshold, Section 2) and where the warnings and helpline must show. The interim text ships until counsel answers in writing.
+2. Access line wording: "In your Library" in place of "Yours to keep" (SP-Q45). The store policy grants a licence, not ownership.
 
 ## Revision log
+
+- 2026-11-03: Revision 4. Rob's decisions: ST-D1 Adult items placeholder decided, CK-D1 seller line without the refund sentence, AD-D1 interim Alabama warnings and SAMHSA helpline on the Over 18 sheet and 18+ product pages.
 
 - 2026-11-03: Revision 3. Full QA of rows 157 to 166: two way seller binding, the quote as the hard stop with a build step in `quote.ts`, 18+ on the storefront, block and product editor, section 6 copy and states, acceptance, For counsel. Boards redrawn on the Creator Store, Creator store on phone and Store and paid cards pages.
 
