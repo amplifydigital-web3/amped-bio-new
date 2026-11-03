@@ -1,9 +1,9 @@
 # Identity checks: Over 18 and verified sellers
 
-Status: revision 4, 3 Nov 2026. Revision 4 records S5 and Rob's answer on the RNS network (see the revision log). Revision 3 applies the Full QA of 30 Oct (project doc claude/amped-identity-gating-full-qa-2026-10-30.md) and Rob's answer on IQ1 (section 4.5); see the revision log. Revision 1 (23 Oct, PR #354) is in this file's history. Revision 2 applied Rob's choices on the six decisions: A1, A2, A3 (implied by S2), S2 and S3 as recommended; **S1 alternative (an active RNS name bound to the wallet is required to sell)** and **S4 alternative (creator only)**. Changed sections: 3 (seller result), 5, 6, 7, 8, 9. Build Board: card "Identity checks (Authbase)", with edits to #28 Adult content, #20 Content and store, #25 Memberships, #15 Payments to creators, #21 Gating engine.
+Status: revision 4, 3 Nov 2026, with the seller QA fixes of 3 Nov (Full QA of rows 341 to 343, project doc claude/amped-screen-full-qa-seller-2026-11-03.md). Revision 4 records S5 and Rob's answer on the RNS network (see the revision log). Revision 3 applies the Full QA of 30 Oct (project doc claude/amped-identity-gating-full-qa-2026-10-30.md) and Rob's answer on IQ1 (section 4.5); see the revision log. Revision 1 (23 Oct, PR #354) is in this file's history. Revision 2 applied Rob's choices on the six decisions: A1, A2, A3 (implied by S2), S2 and S3 as recommended; **S1 alternative (an active RNS name bound to the wallet is required to sell)** and **S4 alternative (creator only)**. Changed sections: 3 (seller result), 5, 6, 7, 8, 9. Build Board: card "Identity checks (Authbase)", with edits to #28 Adult content, #20 Content and store, #25 Memberships, #15 Payments to creators, #21 Gating engine.
 Owner: Rob Frasca. Drafted by Claude.
 Baseline: `development` at f8bd0bb (revision 2 used a3ce333, revision 1 used 48ca154), plus open PR #348 (content public pages).
-Design: Verified seller screens, https://claude.ai/artifact/LUnttKDFQVAgSjenbQu8FM. The fan Over 18 sheet is drawn on #28 (ar1 to ar7) and is not redrawn here. The Under 18 review case is board ad8 on the same #28 page, https://claude.ai/artifact/LHQbtepDpgxEmLqoZzVVc7#ad8.
+Design: Verified seller screens, https://claude.ai/artifact/LUnttKDFQVAgSjenbQu8FM (boards V1 to V10 and the 1440 frames, redrawn 3 Nov for this revision). The fan Over 18 sheet is drawn on #28 (ar1 to ar7) and is not redrawn here. The Under 18 review case is board ad8 on the same #28 page, https://claude.ai/artifact/LHQbtepDpgxEmLqoZzVVc7#ad8.
 
 ## 1. Rob's direction (23 Oct)
 
@@ -60,6 +60,25 @@ Rules:
 - `unavailable` never passes. No grace on outage.
 - A stored row whose `walletAddress` differs from the session wallet is ignored and replaced on the next check.
 - `identity.recheck` is rate limited to 6 a minute per user through `hitRateLimit` (`utils/rateLimit.ts`). Authbase answers 429 under load.
+
+Seller detail for the Get paid card (QA 3 Nov, VS-Q2 and VS-Q3). `IdentityCheckResult` stays the gate. The card needs one state per row, so `identity.myChecks` and `identity.recheck({ kind: "seller" })` also return a `sellerDetail`:
+
+```ts
+export type SellerDetail = {
+  authbase: { state: "done" | "todo" | "expired" | "unavailable"; validUntil?: string };
+  name: {
+    state: "done" | "none" | "not_bound" | "not_owner" | "expired" | "unavailable";
+    label?: string;        // the stored revo_name, or the bound name found for the wallet
+    expiry?: string;       // ISO date of the name's registration expiry
+  };
+  validUntil?: string;     // the earlier of the two dates, when both rows are done
+};
+```
+
+- The binding is read even when Authbase fails, so the RNS row can be Done while Identity is To do. Today `checkIdentity` reads the binding only after a VERIFIED status (`apps/server/src/services/identity/checks.ts:215-223`). The pass or fail of `seller` does not change; only the detail is new.
+- `not_bound` is `addr_elsewhere` from `checkRnsBinding`; `not_owner` is `not_owner`. The gate keeps mapping both to `name_not_bound`. The detail keeps them apart because the fixes differ (5.2).
+- `authbase.state` is `expired` when Authbase returns NOT_VERIFIED and an earlier stored pass for this wallet had a `validUntil` in the past. Otherwise NOT_LINKED and NOT_VERIFIED are `todo`.
+- The detail carries dates and states only. No attribute value. `toClient` in `apps/server/src/trpc/identity.ts:13-17` gains the field.
 
 Storage, new table (UUIDv7 per AGENTS.md):
 
@@ -150,30 +169,79 @@ It does not cover the wallet's own Send. Sending USDC to an address is the user'
 
 ### 5.2 The seller checklist
 
-One card, "Get paid", on the Store page and the Memberships setup, phone first. It shows two rows with their own state, then the go live switch:
+One card, "Get paid", on the Store page and the Memberships setup, phone first and at 1440 inside the editor shell. It is item 5 of the store go live checklist (`store-catalog.md`, go live). It shows two rows with their own state. It does not turn payments on: the card ends with Back to checklist, and the store live switch stays on the checklist (QA 3 Nov, VS-Q6).
 
-| Row | Pass | Not yet |
-| --- | --- | --- |
-| Identity | Verified by Authbase. Valid until {date} | Verify with Authbase (`AUTHBASE_VERIFY_URL`) |
-| RNS name | {name} (for example mayalin.revotest.eth), active until {date} | Get an RNS name (Wallet, Names tab), or Point {name} to this wallet when it is owned but not bound |
+Card copy. Lede: "Fans pay you in USDC. Amped.Bio needs your identity and an RNS name on your wallet before your first sale."
 
-The rows can be done in either order. Returning from Authbase or the Names tab runs a fresh check. A seller who passes sees the Verified badge preview: "Fans see this on your store and checkout."
+| Row | State (from `sellerDetail`) | Copy | Action (44 px link button) |
+| --- | --- | --- | --- |
+| Identity | done | Verified by Authbase. Valid until {date} | none |
+| Identity | todo | Verify with Authbase. It takes a few minutes and you do it once. | Verify with Authbase (`AUTHBASE_VERIFY_URL`) |
+| Identity | expired | Your Authbase verification ended on {date}. | Verify again (`AUTHBASE_VERIFY_URL`) |
+| RNS name | done | {name}, active until {date} | none |
+| RNS name | none | Selling needs an active RNS name that points to this wallet. | Get an RNS name (Names tab, handle prefilled, S5) |
+| RNS name | not_bound | Point {name} to this wallet. It points to another wallet now. | Point to this wallet (flow in 5.2.1) |
+| RNS name | not_owner | {name} is no longer in this wallet. | Get an RNS name |
+| RNS name | expired | {name} expired on {date}. Extend it to sell again. | Extend {label} (`flow=extend`) |
+| Either | unavailable | We could not check right now. Try again in a minute. | Try again (`identity.recheck`) |
+
+Card states (boards V1 to V10):
+
+- **Checking.** After the user returns from Authbase or the Names tab, the card runs `identity.recheck` with a spinner row "Checking". No row changes until the answer.
+- **Rate limited.** `identity.recheck` refuses with "Too many checks. Try again in a minute." The card shows it as an inline error under the rows and keeps the last state.
+- **unavailable.** Never cached (section 3). Authbase not configured reads the same.
+- **no_wallet.** The card shows one row: "Set up your Amped wallet to get paid." with Open Wallet. No other row shows.
+- **Ready.** Both rows Done. The card shows the badge preview with "Fans see this on your store and checkout." and under it the shipped footnote "Verified means the identity check passed. It is not an endorsement." (`apps/client/src/config/rns/copy.ts:22`). The card ends with Back to checklist (Button lg primary, indigo, 55). No commit button: nothing moves money here.
+- **Not ready.** The card ends with "This is item 5 of your go live checklist." and Back to checklist (secondary). The line does not show on Ready.
+
+Network line (QA 3 Nov, X-Q4). Payments run on `PAYMENT_CHAIN` (`apps/server/src/env.ts:254`, default `base-sepolia`, `packages/web3/src/usdc.ts` `getPaymentChain`). When it is not `base`, the Get paid card and checkout show "Test mode. Payments use test USDC on Base Sepolia. It has no cash value." Rob confirms the staging value (section 9).
+
+The badge preview shows what a fan sees today under the one way binding. Whether a seller also needs two way binding is open (X-Q1, held for Rob, section 9). Until it is decided, the preview is the shipped Verified chip.
+
+#### 5.2.1 Register and point fixes (QA 3 Nov)
+
+- **Register writes the name (VS-Q1, code gap, S1).** The seller check reads only `user.revo_name` (`checks.ts:141,185,220`). The only writer today is the Page panel RNS section (`apps/client/src/components/panels/page/rns/RnsSection.tsx:213`). A creator who registers from the Get paid deep link and comes back still fails with `no_name`. Required change: in `apps/client/src/components/panels/wallet/rns/RegisterFlow.tsx`, in the effect that runs on `reg.tx.phase === "done"` (line 111), when the account has no `revo_name`, call `trpcClient.user.setRnsName.mutate({ label })`. Registration already sets the resolver `addr` to the wallet (`apps/client/src/hooks/rns/useRegistration.ts:208`, `setAddr` in the register `data`), so `assertRnsBinding` in `user.setRnsName` (`apps/server/src/trpc/user.ts:224-236`) passes right after the receipt. Then invalidate `identity.myChecks` and, when the flow was opened from Get paid (`returnTo`), run `identity.recheck({ kind: "seller" })` on return. A failed `setRnsName` does not fail the registration: the result step shows "Use {name} on your page" with a Retry that calls the same mutation. An account that already has a `revo_name` keeps it.
+- **Point to this wallet (VS-Q4).** No flow writes `addr` on an existing name today. Publish writes text records only (`apps/client/src/components/panels/wallet/rns/name/PublishFlow.tsx:93-112`). Required change: a name page flow `flow=point` (`apps/client/src/components/panels/wallet/rns/route.ts`, add to `NAME_PAGE_FLOWS`) that calls the resolver `setAddr(node, wallet)`. Steps as Publish: Review (Network fee (estimate), Balance after, ComplianceCard with `TESTNET_NOTICE`), Confirm in wallet, result. Built with RN2 (`rns-identity-phase2.md`, section 3.1). Until it ships, the row links to the RNS app for the name.
 
 ### 5.3 Enforcement points
 
 | Point | Check | Result on fail |
 | --- | --- | --- |
 | Store go live checklist (#20 decision 22) | Item 5: Verified seller (both rows) | Store live switch disabled; checklist opens the Get paid card |
-| Plan activation (#25), offer activation (#20 PR 9), ticket creation (#27), tip block (#15 phase C) | `checkIdentity(seller)` fresh | Activation refused with the Get paid card |
+| Plan activation (#25), offer activation (#20 PR 9, `store.products.setStatus`), ticket creation (#27), tip block (#15 phase C) | `checkIdentity(seller)` fresh | Activation refused with the Verify before you sell sheet (board V4). Every activation reuses V4 with its own save label (Save as draft, Save offer, Save ticket, Save block). The sheet varies by reason, below |
+| Content checkout (`apps/server/src/services/checkout/intents.ts` `resolveTarget`, lines 38-72) | `checkIdentity(creatorUserId, "seller", { fresh: true })` after the item checks pass (QA 3 Nov, X-Q2, code gap) | `resolveTarget` returns null and the fan sees the existing "not available" checkout state. Also checked again before any pay step |
 | Split table signing (`payments.quote`, the CDP split signer, #15) | The creator passes; the creator's payout address equals the checked wallet | Quote refused. This is the hard stop: no signed split, no payment |
 | Membership renewal job (#25) | Creator passes | S3: renewals pause, members keep access to period end |
 | Agency link (#38) | Not checked by this service (S4 alternative) | No effect |
 
+The split signer hard stop (`payments.quote`, `packages/constants/src/checkout.ts:12`) is not built at 0500800. It gets the same `checkIdentity` call when it ships (X-Q2).
+
+Refusal sheet by reason (QA 3 Nov, VS-Q14). Title "Verify before you sell". Prices show as "$N USDC" (for example "$8 USDC a month").
+
+| Reason | Body | Primary | Secondary |
+| --- | --- | --- | --- |
+| not_linked, not_verified, no_name, name_not_bound, no_wallet | You can save this plan now. To make it live, finish Get paid: verify your identity and put an RNS name on your wallet. | Open Get paid (returns to the item) | Save as draft |
+| name_expired | Your RNS name {name} has expired. Extend it to make this plan live. | Extend {label} | Save as draft |
+| unavailable | We could not check right now. Try again in a minute. | Try again | Save as draft |
+
 ### 5.4 Expiry
 
-Two dates can end a seller pass: Authbase `valid_until` and the RNS name expiry. Amped emails the seller 30 and 7 days before the earlier of the two, naming which one ends ("Your Authbase verification ends on {date}" or "Your RNS name {name} expires on {date}"). The RNS expiry email from #46 (PR #351) carries one extra line for sellers: "When it expires, your store stops taking payments."
+Two dates can end a seller pass: Authbase `valid_until` and the RNS name expiry. The earlier date wins: it ends the pass, and the notice and the emails name that one. Amped emails the seller 30 and 7 days before it ("Your Authbase verification ends on {date}" or "Your RNS name {name} expires on {date}").
 
-At expiry new sales stop: the store shows "Not taking payments right now", paid and member cards show their lock without Buy or Join, and renewals pause (S3). Buyers and members keep the access they have. Sales resume on the next passing check, with no admin step.
+Store notice (boards V5 and V5b), solid warning from 30 days out. Dates carry the year.
+
+| Date that ends first | Notice | Action |
+| --- | --- | --- |
+| RNS name | Your RNS name expires on 2 Mar 2027. When it expires, your store stops taking payments. Members keep access until their period ends. | Extend {label} |
+| Authbase | Your Authbase verification ends on 14 Oct 2027. When it ends, your store stops taking payments. Members keep access until their period ends. | Verify again (`AUTHBASE_VERIFY_URL`) |
+
+Seller expiry emails (QA 3 Nov, VS-Q17, code gap). Neither ships at 0500800. Required changes:
+
+1. `apps/server/src/utils/email/RnsExpiryTemplate.tsx`: add a `seller?: boolean` prop. When true, the body adds "When it expires, your store stops taking payments." after the expiry sentence. `services/rnsExpiry/index.ts` sets it when the name is the owner's `revo_name` and the owner has a seller pass or a live store.
+2. New `apps/server/src/utils/email/AuthbaseSellerExpiryTemplate.tsx` and a sweep stage `d30` and `d7` on the Authbase `valid_until` of a seller pass (reuse `rnsExpiryStage` rules and the `rns_expiry_notices` dedupe pattern with kind `authbase_seller`). Subject "Your Authbase verification ends in N days". Body: "Your Authbase verification ends on {date}. When it ends, your store stops taking payments. Members keep access until their period ends." Button "Verify again". Footer as the RNS expiry email (rns-expiry-email.md, section 8).
+3. Both are drawn on the RNS expiry email canvas (https://claude.ai/artifact/NXaY8GTJ9VwqSKQ3ykMdaz).
+
+At expiry new sales stop: the store shows "Not taking payments right now", paid cards show their lock without Buy and member cards without Join (board V6), and renewals pause (S3). Buyers and members keep the access they have, members until their period ends. Sales resume on the next passing check, with no admin step.
 
 ## 6. Decisions (recorded on the Build Board card)
 
@@ -187,7 +255,7 @@ At expiry new sales stop: the store shows "Not taking payments right now", paid 
 | S3 | Renewals after seller expiry | Recommended: pause, members keep access to period end |
 | S4 | Which payees must pass | **Alternative: the creator only** |
 | IQ1 | What happens on an under_18 result | Recommended (30 Oct): refuse, store, open a review case; a safety lead closes the account or clears it |
-| S5 | Where sellers get the RNS name | Recommended (3 Nov): registration stays in the Wallet Names tab (`RegisterFlow.tsx`). The Get paid card deep links to it with the handle prefilled as the label. No second registration flow |
+| S5 | Where sellers get the RNS name | Decided (3 Nov): registration stays in the Wallet Names tab (`RegisterFlow.tsx`). The Get paid card deep links to it with the handle prefilled as the label. No second registration flow |
 | RN1 | Which network do seller names live on | Rob (3 Nov): RNS names are held on testnet and mainnet. The product, selling included, runs on testnet with testnet names until the mainnet go live. The seller check reads the RNS chain of the environment |
 
 ## 7. Build
@@ -196,7 +264,8 @@ At expiry new sales stop: the store shows "Not taking payments right now", paid 
 | --- | --- | --- | --- | --- |
 | I1 | `feat/identity-checks` | `IdentityCheck` and `IdentityReviewCase` models and one migration, `services/identity/checks.ts`, `identity.myChecks` and `identity.recheck` (rate limited), cache rules in 3, under 18 case and support alert (4.5), privacy notice, parameters and `CONSENT_POLICY_VERSION` (3), tests | none | 2 days |
 | A1 | `feat/content-adult-access` | Over 18 sheet (app host), content adult paths in 4.4, creator 18+ label requires A2 | I1, PR #348 | 2.5 days |
-| S1 | with store PR 9 and memberships | Get paid card (two rows), activation checks, split signer check (creator), renewal check, expiry emails for both dates | I1 (#46 PR #351 merged 30 Oct) | 2 days spread across those PRs |
+| S1 | with store PR 9 and memberships | Get paid card (two rows, states in 5.2), `sellerDetail` on `identity.myChecks` and `identity.recheck` (3), register writes `revo_name` (5.2.1), activation checks and the refusal sheet by reason (5.3), content checkout check in `resolveTarget` (5.3), split signer check (creator) when the signer ships, renewal check, store notice for both dates and the seller expiry emails (5.4), network line (5.2) | I1 (#46 PR #351 merged 30 Oct) | 3 days spread across those PRs |
+| RN2 point | with RN2 (`rns-identity-phase2.md`) | `flow=point`: resolver `setAddr` on an owned name (5.2.1) | RN2 | 0.5 day |
 
 Order with Rob's sequence: G0 (stake unit fix) before messaging goes live. I1 and A1 with content. S1 rides with the first USDC selling PR. The gating engine follows and reuses I1.
 
@@ -215,6 +284,12 @@ Order with Rob's sequence: G0 (stake unit fix) before messaging goes live. I1 an
 11. Typecheck, build and tests pass. Copy has no em or en dashes.
 12. Authbase down returns `unavailable`, writes no row, and the next Try again calls Authbase.
 13. An `under_18` result opens one review case and sends the support alert. A second result attaches to the same case. Only a safety lead can close the account.
+14. A creator with no `revo_name` who registers a name from the Get paid deep link and returns passes the seller check with no other step. `user.revo_name` holds the new label. (VS-Q1)
+15. `identity.myChecks` returns `sellerDetail` with one state per row. A creator who is not Authbase verified but has a bound name sees the RNS row Done. (VS-Q2)
+16. `addr_elsewhere` shows Point to this wallet; `not_owner` shows Get an RNS name. (VS-Q3)
+17. A content checkout for a creator without a seller pass does not resolve. A test covers `resolveTarget`. (X-Q2)
+18. The refusal sheet shows Try again on `unavailable` and Extend on `name_expired`. (VS-Q14)
+19. A seller whose Authbase date is earlier than the name expiry sees the Authbase notice and gets the Authbase seller email at 30 and 7 days. (VS-Q16, VS-Q17)
 
 ## 9. Open questions
 
@@ -225,10 +300,13 @@ Order with Rob's sequence: G0 (stake unit fix) before messaging goes live. I1 an
 | Can Authbase report status changes by webhook so expiry is pushed, not polled? | Authbase team | No |
 | Is Authbase verification enough for a creator's 2257 record, or does #28 still need its own ID capture? | Counsel | A2 |
 | Answered (RN1, Rob 3 Nov): RNS names are held on testnet and mainnet, and the product runs on testnet until the mainnet go live. Staging sells on testnet names. Mainnet selling needs RNS mainnet in `AVAILABLE_CHAINS` before the first mainnet sale | Rob, Revolution team | First mainnet sale only |
+| Held (X-Q1, QA 3 Nov): do sellers need two way binding (`rns-identity-phase2.md`, section 4) once `RNS_BADGE_TWO_WAY` is on? Today the seller check uses the one way binding (`checks.ts:143`), so a one way seller passes and fans see the name chip, not Verified. Decide: two way for sellers, or the Get paid card adds a Publish nudge and the preview shows the real chip | Rob | Ready preview copy, 5.1 wording |
+| What is `PAYMENT_CHAIN` on staging? If it is not `base`, the network line in 5.2 shows on Get paid and checkout (X-Q4) | Rob | No |
 | Should a name in its one day grace period (`RNS_GRACE_PERIOD_SECONDS`) still pass? `isRnsNameActive` (packages/web3/src/rns.ts) does not count grace, so sales stop on the expiry date | Rob | No |
 
 ## Revision log
 
+- 2026-11-03 (revision 4, seller QA fixes): Full QA of rows 341 to 343. `sellerDetail` per row (3). Get paid card copy and states, card ends with Back to checklist, endorsement line, network line (5.2). Register writes `revo_name` and the Point to this wallet flow (5.2.1). Refusal sheet by reason, content checkout check (5.3). Earlier date wins, Authbase notice, seller expiry emails (5.4). S5 decided. Acceptance 14 to 19. X-Q1 held for Rob.
 - 2026-11-03 (revision 4): S5 recorded as recommended (Wallet Names tab, deep link from the Get paid card). RN1 recorded: RNS names on testnet and mainnet; the product runs on testnet until the mainnet go live. Authbase questions drafted for Rob to send (method and IAL2, re-verification, retention, anonymized result, expiry webhook, rate limits, status across staging and production, sandbox).
 - 2026-10-30 (revision 3): Full QA of I1 against `development` f8bd0bb. Seller reason mapping from `checkRnsBinding`; `unavailable` never cached; rows for another wallet ignored (no wallet change flow exists); `identity.recheck` rate limit; privacy notice lines, retention and `CONSENT_POLICY_VERSION` bump spelled out; new 4.5 Under 18 result (IQ1, Rob 30 Oct) with board ad8; `IdentityReviewCase` added to I1; S1 no longer waits on #351. Acceptance 9 replaced, 12 and 13 added.
 - 2026-10-27 (revision 2): S1 and S4 alternatives, S5 raised.
