@@ -13,6 +13,7 @@ import {
   ErrorCard,
   Notice,
   Skeleton,
+  TESTNET_NOTICE,
 } from "@repo/ui";
 import { useWalletContext } from "@/contexts/WalletContext";
 import { useEditor } from "@/contexts/EditorContext";
@@ -195,8 +196,8 @@ function ReceiveBody({
       ) : (
         <Notice variant="warning" title="Testnet only.">
           <p>
-            Pool rewards come from the network, vary, and are not guaranteed. Send only {network}
-            tREVO to this address. Tokens sent from another network can be lost.
+            {TESTNET_NOTICE.replace(/^Testnet only\.\s*/, "")} Send only {network} tREVO to this
+            address. Tokens sent from another network can be lost.
           </p>
         </Notice>
       )}
