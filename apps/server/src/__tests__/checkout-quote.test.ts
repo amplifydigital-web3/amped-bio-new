@@ -19,6 +19,7 @@ const state = vi.hoisted(() => ({
   rows: [] as Row[],
   wallet: { address: "0xabc" } as { address: string } | null,
   countedToday: 0,
+  mockPrice: null as string | null,
   settings: {
     paymentsPaused: false,
     platformFeeBps: 500,
@@ -56,6 +57,11 @@ vi.mock("@repo/database", () => ({
   prisma: {
     contentItem: { findUnique: vi.fn(async () => state.item) },
     theme: { findUnique: vi.fn(async () => null) },
+    siteSettings: {
+      findUnique: vi.fn(async () =>
+        state.mockPrice === null ? null : { setting_value: state.mockPrice }
+      ),
+    },
     userWallet: { findUnique: vi.fn(async () => state.wallet) },
     checkoutIntent: {
       findUnique: vi.fn(
@@ -100,6 +106,7 @@ beforeEach(() => {
   state.rows = [intent()];
   state.wallet = { address: "0xabc" };
   state.countedToday = 0;
+  state.mockPrice = null;
   state.settings = {
     ...state.settings,
     paymentsPaused: false,
@@ -126,6 +133,15 @@ describe("quoteIntent", () => {
     });
     expect(quote.creator?.handle).toBe("maya");
     expect(quote.creator?.image).toBe("https://example.com/maya.png");
+  });
+
+  it("the checkout_mock_price_units site setting sets the mock price within the bounds", async () => {
+    state.mockPrice = "1500000";
+    expect((await quoteIntent(20, ID)).amount).toBe("1500000");
+    state.mockPrice = "100";
+    expect((await quoteIntent(20, ID)).amount).toBe("500000");
+    state.mockPrice = "2 USDC";
+    expect((await quoteIntent(20, ID)).amount).toBe("3000000");
   });
 
   it("only the fan who claimed the intent can read it", async () => {
