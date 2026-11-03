@@ -80,7 +80,7 @@ model User {
   telegramAccount         TelegramAccount?
   telegramGroups          TelegramGroup[]
   telegramLinkEvents      TelegramLinkEvent[]
-  messagingSettings       CreatorMessagingSettings?
+  messagingSettings       MessagingSettings?
   messagingSenderStatus   MessagingSenderStatus?
   threadsAsCreator        MessageThread[]           @relation("ThreadCreator")
   threadsAsFan            MessageThread[]           @relation("ThreadFan")
@@ -1651,18 +1651,20 @@ enum DmRuleKind {
   PAID_MEMBER // Memberships (#25); no one qualifies until it ships
   POOL_MEMBER // "Pool fans only"
   STAKE_MIN // "Fans with a minimum stake"
+  NOBODY // Amped Messages (#2 r4): only existing conversations. Messaging only, never a group rule.
 }
 
-model CreatorMessagingSettings {
+// Amped Messages (#2 r4, PR M2): every account has one, creator or fan. Renamed from
+// creator_messaging_settings; invitedAt dropped with the invite pilot and enabled replaced by
+// ruleKind NOBODY (accounts that had messages off migrate to NOBODY).
+model MessagingSettings {
   userId            Int        @id
-  enabled           Boolean    @default(false)
+  // No row means the defaults: Followers and members. NOBODY replaces the old enabled flag.
   ruleKind          DmRuleKind @default(FOLLOWER)
   // STAKE_MIN only: whole tREVO as a decimal string, compared like StakedPool.stakeAmount
   stakeMin          String?    @db.VarChar(80)
   dailyNewThreadCap Int        @default(50)
   replyFromTelegram Boolean    @default(true)
-  // MESSAGING_INVITE_ONLY pilot: set by an admin invite
-  invitedAt         DateTime?
   // Set by an admin or by the report threshold (spec 3.9); Fan messages stay off while set
   pausedAt          DateTime?
   pausedReason      String?    @db.VarChar(255)
@@ -1672,7 +1674,7 @@ model CreatorMessagingSettings {
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@map("creator_messaging_settings")
+  @@map("messaging_settings")
 }
 
 // A fan's ability to send. pausedUntil null with pausedAt set means paused until an admin resumes.
@@ -1774,7 +1776,8 @@ enum MessageReportReason {
 
 model MessageReport {
   id             Bytes               @id @db.Binary(16)
-  threadId       Bytes               @db.Binary(16)
+  // Null on reports filed against conversations (PR M2)
+  threadId       Bytes?              @db.Binary(16)
   messageId      Bytes?              @db.Binary(16)
   reporterUserId Int
   reason         MessageReportReason
@@ -1788,7 +1791,7 @@ model MessageReport {
   resolvedAt     DateTime?
   createdAt      DateTime            @default(now())
 
-  thread   MessageThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  thread   MessageThread? @relation(fields: [threadId], references: [id], onDelete: Cascade)
   reporter User          @relation(fields: [reporterUserId], references: [id], onDelete: Cascade)
 
   @@index([threadId])

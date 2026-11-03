@@ -23,7 +23,8 @@ export const telegramAdminRouter = router({
     .input(z.object({ resolved: z.boolean().default(false) }).default({}))
     .query(async ({ input }) => {
       const rows = await prisma.messageReport.findMany({
-        where: { resolvedAt: input.resolved ? { not: null } : null },
+        // Legacy thread reports only; Amped Messages reports move to admin /messaging (M7)
+        where: { resolvedAt: input.resolved ? { not: null } : null, threadId: { not: null } },
         orderBy: { createdAt: "desc" },
         take: 100,
         include: {
@@ -39,24 +40,30 @@ export const telegramAdminRouter = router({
           },
         },
       });
-      return rows.map(row => ({
-        id: idToHex(row.id),
-        reason: row.reason,
-        note: row.note,
-        createdAt: row.createdAt,
-        resolvedAt: row.resolvedAt,
-        messageId: row.messageId ? idToHex(row.messageId) : null,
-        reporter: row.reporter,
-        reporterSide: row.reporterUserId === row.thread.creator.id ? "creator" : "fan",
-        thread: {
-          id: idToHex(row.thread.id),
-          status: row.thread.status,
-          creator: row.thread.creator,
-          fan: row.thread.fan,
-          reports: row.thread._count.reports,
-          messages: row.thread._count.messages,
-        },
-      }));
+      return rows.flatMap(row => {
+        const thread = row.thread;
+        if (!thread) return [];
+        return [
+          {
+            id: idToHex(row.id),
+            reason: row.reason,
+            note: row.note,
+            createdAt: row.createdAt,
+            resolvedAt: row.resolvedAt,
+            messageId: row.messageId ? idToHex(row.messageId) : null,
+            reporter: row.reporter,
+            reporterSide: row.reporterUserId === thread.creator.id ? "creator" : "fan",
+            thread: {
+              id: idToHex(thread.id),
+              status: thread.status,
+              creator: thread.creator,
+              fan: thread.fan,
+              reports: thread._count.reports,
+              messages: thread._count.messages,
+            },
+          },
+        ];
+      });
     }),
 
   /** A reported thread's messages. Refused for a thread nobody reported. */
@@ -98,7 +105,7 @@ export const telegramAdminRouter = router({
         include: { user: { select: userSelect } },
         orderBy: { pausedAt: "desc" },
       }),
-      prisma.creatorMessagingSettings.findMany({
+      prisma.messagingSettings.findMany({
         where: { pausedAt: { not: null } },
         include: { user: { select: userSelect } },
         orderBy: { pausedAt: "desc" },
@@ -142,7 +149,7 @@ export const telegramAdminRouter = router({
           update: { pausedAt: now, pausedUntil: null, pausedReason: input.reason },
         });
       } else {
-        await prisma.creatorMessagingSettings.upsert({
+        await prisma.messagingSettings.upsert({
           where: { userId: input.userId },
           create: { userId: input.userId, pausedAt: now, pausedReason: input.reason },
           update: { pausedAt: now, pausedReason: input.reason },
@@ -160,7 +167,7 @@ export const telegramAdminRouter = router({
           data: { pausedAt: null, pausedUntil: null, pausedReason: null },
         });
       } else {
-        await prisma.creatorMessagingSettings.updateMany({
+        await prisma.messagingSettings.updateMany({
           where: { userId: input.userId },
           data: { pausedAt: null, pausedReason: null },
         });
@@ -168,62 +175,32 @@ export const telegramAdminRouter = router({
       return { ok: true };
     }),
 
-  /** MESSAGING_INVITE_ONLY pilot: creators who may turn Fan messages on. */
-  listInvited: adminProcedure.query(async () => {
-    const rows = await prisma.creatorMessagingSettings.findMany({
-      where: { invitedAt: { not: null } },
-      include: { user: { select: userSelect } },
-      orderBy: { invitedAt: "desc" },
-    });
-    return rows.map(row => ({
-      user: row.user,
-      invitedAt: row.invitedAt,
-      enabled: row.enabled,
-      ruleKind: row.ruleKind,
-    }));
-  }),
+  /**
+   * The MESSAGING_INVITE_ONLY pilot ended in PR M2 (msg-invite): messaging is open to every
+   * account. The admin Pilot tab still calls these until PR M7 removes it.
+   */
+  listInvited: adminProcedure.query(
+    async () =>
+      [] as {
+        user: { id: number; name: string; handle: string | null; email: string };
+        invitedAt: Date | null;
+        enabled: boolean;
+        ruleKind: string;
+      }[]
+  ),
 
-  /** Invite by user id, or by @handle or email from the admin page (tg9). */
   invite: adminProcedure
-    .input(
-      z
-        .object({
-          userId: z.number().int().positive().optional(),
-          who: z.string().trim().min(1).max(255).optional(),
-        })
-        .refine(v => v.userId !== undefined || !!v.who, "Name a user")
-    )
-    .mutation(async ({ input }) => {
-      const who = input.who?.replace(/^@/, "").toLowerCase();
-      const user = await prisma.user.findFirst({
-        where:
-          input.userId !== undefined
-            ? { id: input.userId }
-            : who!.includes("@")
-              ? { email: who }
-              : { handle: who },
-        select: { id: true },
+    .input(z.object({ userId: z.number().int().positive().optional(), who: z.string().optional() }))
+    .mutation(async () => {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "The invite pilot ended. Messaging is open to every account.",
       });
-      if (!user) throw new TRPCError({ code: "NOT_FOUND", message: "User not found." });
-      const now = new Date();
-      await prisma.creatorMessagingSettings.upsert({
-        where: { userId: user.id },
-        create: { userId: user.id, invitedAt: now },
-        update: { invitedAt: now },
-      });
-      return { ok: true };
     }),
 
-  /** Ending the invite also turns Fan messages off. */
   uninvite: adminProcedure
     .input(z.object({ userId: z.number().int().positive() }))
-    .mutation(async ({ input }) => {
-      await prisma.creatorMessagingSettings.updateMany({
-        where: { userId: input.userId },
-        data: { invitedAt: null, enabled: false },
-      });
-      return { ok: true };
-    }),
+    .mutation(async () => ({ ok: true })),
 
   /** Row 120 bot health card. */
   botHealth: adminProcedure.query(async () => {

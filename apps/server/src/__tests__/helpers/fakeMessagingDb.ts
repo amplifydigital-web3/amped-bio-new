@@ -31,7 +31,7 @@ const RELATIONS: Record<string, Record<string, Rel>> = {
     follower: { table: "user", local: "follower_id", foreign: "id" },
     creator: { table: "user", local: "creator_id", foreign: "id" },
   },
-  creatorMessagingSettings: { user: { table: "user", local: "userId", foreign: "id" } },
+  messagingSettings: { user: { table: "user", local: "userId", foreign: "id" } },
   messagingSenderStatus: { user: { table: "user", local: "userId", foreign: "id" } },
   userWallet: {
     creatorPools: { table: "creatorPool", local: "id", foreign: "walletId", many: true },
@@ -43,9 +43,24 @@ const RELATIONS: Record<string, Record<string, Rel>> = {
   },
   telegramGroupMember: { group: { table: "telegramGroup", local: "groupId", foreign: "id" } },
   user: {
-    messagingSettings: { table: "creatorMessagingSettings", local: "id", foreign: "userId" },
+    messagingSettings: { table: "messagingSettings", local: "id", foreign: "userId" },
+  },
+  // Amped Messages (M2)
+  conversation: {
+    members: { table: "conversationMember", local: "id", foreign: "conversationId", many: true },
+    messages: { table: "directMessage", local: "id", foreign: "conversationId", many: true },
+  },
+  conversationMember: {
+    conversation: { table: "conversation", local: "conversationId", foreign: "id" },
+    user: { table: "user", local: "userId", foreign: "id" },
+  },
+  directMessage: {
+    conversation: { table: "conversation", local: "conversationId", foreign: "id" },
   },
 };
+
+/** Single column unique keys checked on create (P2002), per model. */
+const UNIQUE: Record<string, string[]> = { conversation: ["pairKey"] };
 
 const COMPOSITE: Record<string, string[]> = {
   creatorUserId_fanUserId: ["creatorUserId", "fanUserId"],
@@ -54,6 +69,8 @@ const COMPOSITE: Record<string, string[]> = {
   userId_creatorUserId: ["userId", "creatorUserId"],
   groupId_telegramUserId: ["groupId", "telegramUserId"],
   follower_id_creator_id: ["follower_id", "creator_id"],
+  conversationId_userId: ["conversationId", "userId"],
+  conversationId_idempotencyKey: ["conversationId", "idempotencyKey"],
 };
 
 const DEFAULTS: Record<string, () => Row> = {
@@ -77,13 +94,12 @@ const DEFAULTS: Record<string, () => Row> = {
     createdAt: new Date(),
   }),
   messageReport: () => ({ messageId: null, note: null, resolvedAt: null, createdAt: new Date() }),
-  creatorMessagingSettings: () => ({
-    enabled: false,
+  messagingSettings: () => ({
     ruleKind: "FOLLOWER",
     stakeMin: null,
     dailyNewThreadCap: 50,
     replyFromTelegram: true,
-    invitedAt: null,
+    readReceipts: true,
     pausedAt: null,
     pausedReason: null,
     updatedAt: new Date(),
@@ -94,6 +110,31 @@ const DEFAULTS: Record<string, () => Row> = {
     pausedReason: null,
     updatedAt: new Date(),
   }),
+  conversation: () => ({
+    kind: "DIRECT",
+    lastMessageId: null,
+    lastMessageAt: null,
+    createdAt: new Date(),
+  }),
+  conversationMember: () => ({
+    folder: "PRIMARY",
+    state: "ACTIVE",
+    acceptedAt: null,
+    lastReadId: null,
+    lastReadAt: null,
+    unread: 0,
+    mutedUntil: null,
+    archivedAt: null,
+    clearedBeforeId: null,
+    joinedAt: new Date(),
+  }),
+  directMessage: () => ({
+    idempotencyKey: null,
+    flaggedTerms: null,
+    unsentAt: null,
+    createdAt: new Date(),
+  }),
+  notification: () => ({ count: 1, seenAt: null, readAt: null, createdAt: new Date() }),
   telegramOutbox: () => ({ status: "PENDING", attempts: 0, createdAt: new Date() }),
   telegramGroup: () => ({
     ruleKind: "POOL_MEMBER",
@@ -230,7 +271,8 @@ export function createFakeDb() {
     for (const name of Object.keys(RELATIONS[model] ?? {})) {
       const value = related(model, row, name);
       if (Array.isArray(value)) {
-        out[name] = value;
+        const rel = RELATIONS[model]![name]!;
+        out[name] = depth < 2 ? value.map(r => withRelations(rel.table, r, depth + 1)) : value;
       } else if (value) {
         const rel = RELATIONS[model]![name]!;
         out[name] = withRelations(rel.table, value, depth + 1);
@@ -246,13 +288,26 @@ export function createFakeDb() {
     return out;
   }
 
-  function sortRows(rows: Row[], orderBy: any) {
+  function sortRows(rows: Row[], orderBy: any, wrapped = false) {
     if (!orderBy) return rows;
+    if (wrapped) {
+      const sorted = sortRows(
+        rows.map(r => r.view),
+        orderBy
+      );
+      return sorted.map(view => rows.find(r => r.view === view)!);
+    }
     const keys = (Array.isArray(orderBy) ? orderBy : [orderBy]).flatMap(o => Object.entries(o));
+    const value = (row: Row, field: string, dir: any) =>
+      dir && typeof dir === "object"
+        ? (row[field]?.[Object.keys(dir)[0]!] ?? 0)
+        : (row[field] ?? 0);
+    const direction = (dir: any) => (dir && typeof dir === "object" ? Object.values(dir)[0] : dir);
     return [...rows].sort((a, b) => {
       for (const [field, dir] of keys) {
-        const c = cmp(a[field] ?? 0, b[field] ?? 0);
-        if (c !== 0) return dir === "desc" ? -c : c;
+        const c = cmp(value(a, field, dir), value(b, field, dir));
+        if (c !== 0) return direction(dir) === "desc" ? -c : c;
+        continue;
       }
       return 0;
     });
@@ -272,9 +327,13 @@ export function createFakeDb() {
   function delegate(model: string) {
     const findMany = async (args: Row = {}) => {
       let rows = sortRows(
-        table(model).filter(row => matches(model, row, args.where)),
-        args.orderBy
-      );
+        table(model)
+          .filter(row => matches(model, row, args.where))
+          .map(row => ({ row, view: withRelations(model, row) })) as any,
+        args.orderBy,
+        true
+      ) as any[];
+      rows = rows.map((r: any) => r.row);
       if (args.cursor) {
         const index = rows.findIndex(row => matches(model, row, args.cursor));
         rows = index >= 0 ? rows.slice(index) : [];
@@ -305,6 +364,11 @@ export function createFakeDb() {
       },
       create: async (args: Row) => {
         const row = { ...(DEFAULTS[model]?.() ?? {}), ...args.data };
+        for (const field of UNIQUE[model] ?? []) {
+          if (table(model).some(other => same(other[field], row[field]))) {
+            throw new FakeKnownRequestError("P2002");
+          }
+        }
         for (const [name, fields] of Object.entries(COMPOSITE)) {
           if (!fields.every(field => field in row) || fields.some(f => row[f] === null)) continue;
           const clash = table(model).some(other => fields.every(f => same(other[f], row[f])));
@@ -394,4 +458,5 @@ export const fakePrismaNamespace = {
   sql: (_strings: TemplateStringsArray, ...values: unknown[]) => ({ values }),
   join: (values: unknown[]) => values,
   PrismaClientKnownRequestError: FakeKnownRequestError,
+  DbNull: null,
 };
