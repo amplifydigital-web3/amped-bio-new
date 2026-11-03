@@ -12,6 +12,7 @@ import { prisma } from "@repo/database";
 import {
   ACCESS_RULE_SUMMARIES,
   LIVE_ACCESS_RULE_KINDS,
+  SITE_SETTINGS,
   STAKE_ACCESS_RULE_KINDS,
   type AccessDecision,
   type AccessReason,
@@ -34,7 +35,7 @@ import type { Gate, Resolver, Viewer } from "./types";
 type Intent = "render" | "open";
 export type CheckOptions = { intent?: Intent; fresh?: boolean };
 
-// ── Resolver registry ───────────────────────────────────────────
+// ── Resolver registry ───────────────────────────────────
 const resolvers = new Map<AccessResourceType, Resolver>();
 
 export function registerResolver(type: AccessResourceType, resolver: Resolver) {
@@ -82,12 +83,22 @@ export function ageDecision(result: IdentityCheckResult | "signed_out"): AccessD
   }
 }
 
+/**
+ * The stake pilot allowlist (spec 6, flags): creator user ids, comma separated. The
+ * site_settings row wins, so an admin changes it with no redeploy. With no row, the
+ * ACCESS_STAKE_KINDS_ALLOWLIST environment value is the fallback. An empty row means nobody.
+ */
+export async function stakeKindsAllowlist(): Promise<string> {
+  const row = await prisma.siteSettings.findUnique({
+    where: { setting_key: SITE_SETTINGS.ACCESS_STAKE_KINDS_ALLOWLIST },
+  });
+  return row ? row.setting_value : env.ACCESS_STAKE_KINDS_ALLOWLIST;
+}
+
 /** Stake rules are live only for creators on the pilot allowlist (spec 6, flags). */
-export function stakeKindsAllowed(
-  ownerUserId: number,
-  allowlist = env.ACCESS_STAKE_KINDS_ALLOWLIST
-) {
-  return allowlist
+export async function stakeKindsAllowed(ownerUserId: number, allowlist?: string) {
+  const list = allowlist ?? (await stakeKindsAllowlist());
+  return list
     .split(",")
     .map(value => value.trim())
     .filter(Boolean)
@@ -155,7 +166,7 @@ async function evaluateLeaf(
   }
 
   // pool_member and stake_min
-  if (!stakeKindsAllowed(owner.id))
+  if (!(await stakeKindsAllowed(owner.id)))
     return refuse("kind_unavailable", { action: "unavailable" }, rule);
   const poolId = rule.params.poolId as number;
   const pool = await loadPool(poolId);
@@ -469,7 +480,7 @@ export async function eligibleUserIds(
     userIds = rows.map(row => row.follower_id);
   } else if ((STAKE_ACCESS_RULE_KINDS as readonly string[]).includes(rule.kind)) {
     // Same pilot allowlist as check(): a stake audience is empty outside it
-    if (!stakeKindsAllowed(ownerUserId)) return { userIds: [], nextCursor: null };
+    if (!(await stakeKindsAllowed(ownerUserId))) return { userIds: [], nextCursor: null };
     const poolId = rule.params.poolId as number;
     const pool = await loadPool(poolId);
     if (!pool || pool.ownerUserId !== ownerUserId) return { userIds: [], nextCursor: null };
