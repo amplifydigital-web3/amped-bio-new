@@ -33,7 +33,7 @@ A store goes live when the creator:
 6. has published a store policy (section 3a),
 7. has completed adult setup, only when the store has an 18+ product (Over 18, seller verified, current `ADULT_POLICY_VERSION` accepted).
 
-Before that, the Store tab shows the go live checklist and the public route returns not found. Item 5 opens the Get paid card, item 6 the Policy tab, item 7 Adult setup. `store.setLive` enforces all seven on the server. While `STORE_SALES_ENABLED` is off, the store renders for its owner in preview only (unchanged from PR 9).
+Before that, the Store tab shows the go live checklist and the public route returns not found. Item 5 opens the Get paid card, item 6 the Policy tab, item 7 Adult setup. `store.setLive` enforces all seven on the server. While the `storeSales` feature flag is off, the store renders for its owner in preview only (unchanged from PR 9). `storeSales` is a new entry in `packages/constants/src/feature-flags.ts` (`scope: "public"`, `default: false`, `env: {}`), added when sales are built and switched in admin › Feature flags with no rebuild or redeploy; no `STORE_SALES_ENABLED` variable. The server reads it with `isFeatureOn("storeSales")` (`apps/server/src/services/featureFlags.ts`), the client with `isFeatureOn("storeSales")` (`apps/client/src/config/featureFlags.ts`), the landing app with `useFeatureFlag("storeSales")`.
 
 ## 3. 18+ items (replaces the 18+ bullet in 3.6)
 
