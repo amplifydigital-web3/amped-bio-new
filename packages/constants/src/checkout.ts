@@ -81,9 +81,17 @@ export function checkoutResumeLabel(title: string): string {
 
 /**
  * What the pay sheet can do with an intent right now (docs/features/mobile-checkout.md
- * 5 and 10). Anything but ready shows its error state and keeps the intent open.
+ * 5 and 10). Paid is terminal and shows the paid screen. Anything else but ready shows its
+ * error state and keeps the intent open.
  */
-export const CHECKOUT_QUOTE_STATES = ["ready", "paused", "limit", "seller", "removed"] as const;
+export const CHECKOUT_QUOTE_STATES = [
+  "ready",
+  "paid",
+  "paused",
+  "limit",
+  "seller",
+  "removed",
+] as const;
 export type CheckoutQuoteState = (typeof CHECKOUT_QUOTE_STATES)[number];
 
 /**

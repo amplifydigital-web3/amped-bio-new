@@ -113,7 +113,8 @@ export async function quoteIntent(viewerUserId: number, idHex: string): Promise<
     if (status === "expired") throw notFound();
     return {
       ...base,
-      state: "removed",
+      // A paid intent stays paid even if the item was removed since
+      state: status === "paid" ? "paid" : "removed",
       item: null,
       creator: null,
       amount: "0",
@@ -146,7 +147,9 @@ export async function quoteIntent(viewerUserId: number, idHex: string): Promise<
 
   // Order matters: one state per sheet, the most specific cause first
   let state: CheckoutQuoteState = "ready";
-  if (settings.paymentsPaused) state = "paused";
+  // Paid is terminal: it never reads ready again, so the sheet cannot offer Pay twice
+  if (status === "paid") state = "paid";
+  else if (settings.paymentsPaused) state = "paused";
   else if (!wallet || (settings.pilotOnly && !settings.pilotCreators.includes(handle)))
     state = "seller";
   else if (countedToday >= settings.purchasesPerDayPerAccount) state = "limit";

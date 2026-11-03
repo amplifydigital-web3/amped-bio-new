@@ -188,7 +188,16 @@ describe("quoteIntent", () => {
   });
 });
 
-describe("quoteIntent: refused states", () => {
+describe("quoteIntent: terminal and refused states", () => {
+  it("a paid intent quotes paid, never ready, even when the item was removed since", async () => {
+    state.rows = [intent({ status: "paid" })];
+    expect((await quoteIntent(20, ID)).state).toBe("paid");
+    state.settings = { ...state.settings, paymentsPaused: true };
+    expect((await quoteIntent(20, ID)).state).toBe("paid");
+    state.item = { ...sellable(), deletedAt: new Date() };
+    expect((await quoteIntent(20, ID)).state).toBe("paid");
+  });
+
   it("refuses the mock provider in production", async () => {
     state.appEnv = "production";
     await expect(quoteIntent(20, ID)).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });

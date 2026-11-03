@@ -148,7 +148,7 @@ export function PayPage() {
   const q = quote.data;
   const item = q?.item;
 
-  if (intent.data?.status === "paid" || phase === "paid") {
+  if (intent.data?.status === "paid" || phase === "paid" || q?.state === "paid") {
     const itemHref = creator && item ? `${LANDING}/${creator.handle}/c/${item.publicId}` : pageHref;
     return (
       <SheetFrame

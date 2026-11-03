@@ -160,6 +160,13 @@ describe("PayPage", () => {
     expect(screen.queryByRole("button", { name: /^Pay / })).toBeNull();
   });
 
+  it("a paid quote shows the paid screen and never offers Pay again", async () => {
+    mocks.quote.mockResolvedValue(quote({ state: "paid", status: "paid" }));
+    renderPay();
+    expect(await screen.findByText("You paid @maya $3 USDC.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Pay / })).toBeNull();
+  });
+
   it("an ended checkout says so", async () => {
     mocks.get.mockResolvedValue({ id: ID, status: "expired", signedIn: true, item: null });
     renderPay();
