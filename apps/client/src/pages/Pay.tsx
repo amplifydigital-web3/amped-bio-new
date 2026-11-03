@@ -237,7 +237,14 @@ export function PayPage() {
     setAcceptedSignature(signature);
   };
 
-  const footer =
+  // Seller line on every pay sheet state: ready, short, price changed and failed (spec 5, acceptance 13)
+  const sellerLine = (
+    <p className="text-center text-[13px] leading-[18px] opacity-80">
+      {CHECKOUT_COPY.soldBy(creator?.name || (creator ? `@${creator.handle}` : "the creator"))}
+    </p>
+  );
+
+  const action =
     phase === "failed" ? (
       <SheetButton theme={theme} onClick={() => setPhase("sheet")}>
         Try again
@@ -265,15 +272,17 @@ export function PayPage() {
         {CHECKOUT_COPY.addUsdc}
       </SheetButton>
     ) : (
-      <>
-        <p className="text-center text-[13px] leading-[18px] opacity-80">
-          {CHECKOUT_COPY.soldBy(creator?.name || (creator ? `@${creator.handle}` : "the creator"))}
-        </p>
-        <SheetButton theme={theme} onClick={() => void pay()}>
-          Pay {usdcDollars(q.amount)} USDC
-        </SheetButton>
-      </>
+      <SheetButton theme={theme} onClick={() => void pay()}>
+        Pay {usdcDollars(q.amount)} USDC
+      </SheetButton>
     );
+
+  const footer = (
+    <>
+      {sellerLine}
+      {action}
+    </>
+  );
 
   return (
     <SheetFrame creator={creator} closeHref={pageHref} notes={notes} footer={footer}>
