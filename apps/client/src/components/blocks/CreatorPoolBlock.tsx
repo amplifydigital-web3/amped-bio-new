@@ -7,7 +7,7 @@ import { PoolBlock } from "@repo/constants";
 import { trpc, TESTNET_NOTICE } from "@repo/ui";
 import { getChainConfig } from "@repo/web3";
 import { cn } from "../../utils/cn";
-import { getButtonBaseStyle, getButtonEffectStyle } from "../../utils/styles";
+import { getButtonBaseStyle } from "../../utils/styles";
 
 interface CreatorPoolBlockProps {
   block: PoolBlock;
@@ -148,12 +148,12 @@ export function CreatorPoolBlock({ block, theme }: CreatorPoolBlockProps) {
           </div>
         )
       )}
+      {/* Spec 3.4 and 3.11: no creator hover or press effect inside a pool block */}
       <span
         role="presentation"
         className={cn(
           "flex min-h-commit w-full items-center gap-[13px] px-[21px] py-2",
-          getButtonBaseStyle(theme.buttonStyle),
-          getButtonEffectStyle(theme.buttonEffect)
+          getButtonBaseStyle(theme.buttonStyle)
         )}
         style={{ backgroundColor: theme.buttonColor, ...text }}
       >

@@ -68,6 +68,8 @@ export function playPress(
  * Full column width, min 55, a 21 icon at left, the label centered on the
  * button (a 21 spacer at right balances the icon), two lines then truncate.
  * The surface and hover come from the registry (button and buttonHover).
+ * effects false drops the creator's hover, press and ripple: pool blocks, stake
+ * flows and wallet views render no effect (theme engine v2 3.4 and 3.11).
  */
 export function CreatorButton({
   theme,
@@ -76,6 +78,7 @@ export function CreatorButton({
   href,
   onClick,
   newTab = true,
+  effects = true,
 }: {
   theme: AnyThemeConfig | null | undefined;
   icon?: ReactNode;
@@ -83,6 +86,8 @@ export function CreatorButton({
   href?: string;
   onClick?: () => void;
   newTab?: boolean;
+  /** false: no hover, press or ripple from the creator's look. Default true. */
+  effects?: boolean;
 }) {
   // D57: a stored link that is not http, https, mailto, tel or a site path
   // renders as a plain button with no href, so it can never run script
@@ -93,13 +98,13 @@ export function CreatorButton({
   const layout = look.v2.button.layout;
   // Phase 2 Button press row: a class press (Dip) or a ripple from the press point
   const press = look.buttonPress;
-  const ripple = press.render.kind === "waapi";
+  const ripple = effects && press.render.kind === "waapi";
   const className = cn(
     "flex min-h-commit w-full items-center gap-[13px] px-[21px] py-2",
     effectClassName(look.button),
     buttonSurfaceClass(look),
-    effectClassName(look.buttonHover),
-    effectClassName(press),
+    effects && effectClassName(look.buttonHover),
+    effects && effectClassName(press),
     ripple && "relative overflow-hidden",
     CREATOR_FOCUS
   );
@@ -107,7 +112,7 @@ export function CreatorButton({
     ? (event: PointerEvent<HTMLElement>) => playPress(press, look.colors, event)
     : undefined;
   // Editor chrome: the hover's Speed sets the transition; Default keeps its own
-  const speed = hoverSpeedMs(look);
+  const speed = effects ? hoverSpeedMs(look) : undefined;
   const style: CSSProperties = {
     backgroundColor: look.values.buttonColor,
     fontFamily: look.values.fontFamily,

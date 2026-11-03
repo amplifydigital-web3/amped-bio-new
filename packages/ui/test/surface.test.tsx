@@ -165,3 +165,35 @@ describe("CreatorButton hover and press", () => {
     expect(button({ buttonPressId: "buttonPress.ripple" })).toContain("relative overflow-hidden");
   });
 });
+
+// Theme Engine v2 3.4 and 3.11 (QA TH-Q24): pool blocks, stake flows and wallet views
+// render no creator effect. effects false drops the hover, the press and the ripple.
+
+describe("CreatorButton effects false", () => {
+  const plain = (theme: ThemeConfig) =>
+    renderToStaticMarkup(
+      <CreatorButton theme={theme} label="View pool" href="/i/pools/0xabc" effects={false} />
+    );
+
+  it("drops the hover, the press and the ripple the theme sets", () => {
+    const theme: ThemeConfig = {
+      buttonEffect: 9,
+      buttonEffectId: "buttonHover.fill-sweep",
+      buttonPressId: "buttonPress.ripple",
+    };
+    expect(button(theme)).toContain("hover:before:scale-x-100");
+    expect(button(theme)).toContain("relative overflow-hidden");
+    const html = plain(theme);
+    expect(html).not.toContain("hover:before:scale-x-100");
+    expect(html).not.toContain("overflow-hidden");
+    expect(html).not.toContain("transition-duration");
+    expect(plain({ buttonPressId: "buttonPress.dip" })).not.toContain("active:scale-[0.97]");
+  });
+
+  it("keeps the surface, the label and the link", () => {
+    const html = plain({ buttonStyle: 0 });
+    expect(html).toContain('href="/i/pools/0xabc"');
+    expect(html).toContain("View pool");
+    expect(html).toContain("min-h-commit");
+  });
+});
