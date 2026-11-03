@@ -1,8 +1,9 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { chromeIntentUrl, detectInAppBrowser } from "@repo/constants";
 import { InAppBrowserGate, PayHandoffGate } from "./HandoffCard";
+import { setFeatureFlagOverridesForTests } from "@/config/featureFlags";
 
 const ID = "ab".repeat(16);
 const LINK = `https://app.amped.bio/pay/${ID}`;
@@ -144,6 +145,9 @@ describe("InAppBrowserGate (board c4)", () => {
 });
 
 describe("PayHandoffGate", () => {
+  beforeEach(() => setFeatureFlagOverridesForTests({ checkout: true }));
+  afterEach(() => setFeatureFlagOverridesForTests({}));
+
   it("drops the query the page opened with, so the link carries the intent only", async () => {
     const writeText = vi.fn(async () => undefined);
     Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
@@ -158,5 +162,19 @@ describe("PayHandoffGate", () => {
     fireEvent.click(screen.getByRole("button", { name: "Copy link" }));
     await screen.findByRole("button", { name: "Link copied" });
     expect(writeText).toHaveBeenCalledWith(`${window.location.origin}/pay/${ID}`);
+  });
+
+  it("renders the page as is while the checkout flag is off", () => {
+    setFeatureFlagOverridesForTests({ checkout: false });
+    vi.spyOn(navigator, "userAgent", "get").mockReturnValue(UA.instagramIos);
+    render(
+      <MemoryRouter initialEntries={[`/pay/${ID}`]}>
+        <Routes>
+          <Route path="/pay/:intentId" element={<PayHandoffGate>pay sheet</PayHandoffGate>} />
+        </Routes>
+      </MemoryRouter>
+    );
+    expect(screen.getByText("pay sheet")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Copy link" })).toBeNull();
   });
 });

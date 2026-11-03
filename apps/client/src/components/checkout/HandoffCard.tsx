@@ -11,6 +11,7 @@ import {
 } from "@repo/constants";
 import { Button } from "@repo/ui";
 import { trackGAEvent } from "@/utils/ga";
+import { isFeatureOn } from "@/config/featureFlags";
 
 /**
  * The in app browser handoff (docs/features/mobile-checkout.md 7, board c4, PR CK-4).
@@ -156,6 +157,7 @@ export function InAppBrowserGate({
  */
 export function PayHandoffGate({ children }: { children: ReactNode }) {
   const { intentId = "" } = useParams();
+  if (!isFeatureOn("checkout")) return <>{children}</>;
   const path = checkoutIntentIdSchema.safeParse(intentId).success ? checkoutPayPath(intentId) : "/";
   return <InAppBrowserGate link={`${window.location.origin}${path}`}>{children}</InAppBrowserGate>;
 }
