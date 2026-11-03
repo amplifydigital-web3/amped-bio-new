@@ -453,6 +453,7 @@ export function FontCatalogPicker() {
   const nameFont = currentNameFont(config, values.fontFamily);
   const bodyFont = currentBodyFont(config, values.fontFamily);
   const current = role === "name" ? nameFont : bodyFont;
+  const currentFamily = current.family;
 
   // A new shelf, search or role starts at the shelf size again
   useEffect(() => setLimit(SHELF_TILES), [shelf, query, role]);
@@ -463,10 +464,17 @@ export function FontCatalogPicker() {
     const category = shelf === "popular" || shelf === "pairings" ? undefined : shelf;
     if (query.trim()) return searchFonts(families, query, category);
     // Popular shows the top 24; See all opens the whole catalog in rank order
-    if (shelf === "popular") return expanded ? rankFonts(families) : popularFonts(families);
+    if (shelf === "popular") {
+      if (expanded) return rankFonts(families);
+      // The picked face leads the shelf when it is not already on it (board 02)
+      const shelfFonts = popularFonts(families);
+      const picked = findFont(families, currentFamily);
+      if (!picked || shelfFonts.slice(0, SHELF_TILES).includes(picked)) return shelfFonts;
+      return [picked, ...shelfFonts.filter(entry => entry !== picked)];
+    }
     if (shelf === "pairings") return [];
     return rankFonts(families.filter(entry => entry.c === shelf));
-  }, [families, shelf, query, expanded]);
+  }, [families, shelf, query, expanded, currentFamily]);
 
   if (state.status === "loading") {
     return (
@@ -555,7 +563,7 @@ export function FontCatalogPicker() {
         label="Font shelf"
         value={shelf}
         onChange={setShelf}
-        className="flex-nowrap overflow-x-auto pb-1"
+        className="-mx-1 flex-nowrap overflow-x-auto px-1 py-1.5"
         options={[
           { value: "popular", label: "Popular" },
           { value: "pairings", label: "Pairings" },
@@ -568,7 +576,7 @@ export function FontCatalogPicker() {
 
       {showPairings ? (
         <PairingTiles
-          pairings={FONT_PAIRINGS}
+          pairings={expanded ? FONT_PAIRINGS : FONT_PAIRINGS.slice(0, SHELF_TILES)}
           families={catalog.families}
           current={{ name: nameFont.family, body: bodyFont.family }}
           name={name}
@@ -578,7 +586,17 @@ export function FontCatalogPicker() {
           onPreview={pairing => preview(pairingPatch(pairing))}
           onPreviewEnd={endPreview}
         />
-      ) : list.length === 0 ? (
+      ) : null}
+      {showPairings && !expanded && (
+        <Button
+          variant="secondary"
+          className="w-full"
+          onClick={() => setLimit(SHELF_TILES + PAGE_TILES)}
+        >
+          See all {FONT_PAIRINGS.length} pairings
+        </Button>
+      )}
+      {showPairings ? null : list.length === 0 ? (
         <p className="text-prism-meta text-prism-ink-2" role="status">
           No family matches {query.trim() ? `"${query.trim()}"` : "this shelf"}. Try another
           spelling or another shelf.

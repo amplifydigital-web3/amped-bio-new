@@ -85,6 +85,16 @@ describe("FontCatalogPicker", () => {
     expect(screen.getByRole("button", { name: /^See all 1,9\d\d families$/ })).toBeInTheDocument();
   });
 
+  it("leads the Popular shelf with the picked face and checks it", async () => {
+    state.config = { fontFamily: "Figtree", nameFont: { family: "Syne", weight: 700 } };
+    render(<FontCatalogPicker />);
+    const grid = await screen.findByRole("radiogroup", { name: "Name font" });
+    const tiles = within(grid).getAllByRole("radio");
+    expect(tiles).toHaveLength(8);
+    expect(tiles[0]).toHaveAccessibleName("Syne, variable");
+    expect(tiles[0]).toHaveAttribute("aria-checked", "true");
+  });
+
   it("writes the picked name face at the current weight", async () => {
     render(<FontCatalogPicker />);
     fireEvent.change(await screen.findByRole("searchbox", { name: "Search fonts" }), {
