@@ -2,11 +2,7 @@ import { useEffect, useState } from "react";
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router";
 import { BellOff, ChevronLeft, Flag, Inbox } from "lucide-react";
-import {
-  BROADCAST_REPORT_REASONS,
-  TELEGRAM_APP_STRINGS,
-  type BroadcastReportReasonValue,
-} from "@repo/constants";
+import { BROADCAST_REPORT_REASONS, type BroadcastReportReasonValue } from "@repo/constants";
 import {
   Button,
   Chip,
@@ -18,10 +14,6 @@ import {
   DialogTitle,
   EmptyState,
   ErrorCard,
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
   cn,
   trpc,
   trpcClient,
@@ -31,10 +23,6 @@ import { useDelayed } from "@/hooks/useDelayed";
 import { useEditor } from "@/contexts/EditorContext";
 import { Avatar, BroadcastBody, BroadcastFooter } from "./shared";
 import { BROADCAST_ON, longTime, shortTime } from "./utils";
-import { MESSAGES_ON } from "../messages/shared";
-import { MessagesTab } from "../messages/MessagesTab";
-import { FanMessagesSettings } from "../messages/FanMessagesSettings";
-import { InboxTelegramGroups } from "../messages/InboxTelegramGroups";
 
 function invalidateInbox(queryClient: ReturnType<typeof useQueryClient>) {
   void queryClient.invalidateQueries({ queryKey: trpc.broadcast.inbox.pathKey() });
@@ -425,63 +413,11 @@ export function UpdatesTab() {
   );
 }
 
-type InboxTab = "updates" | "messages" | "settings";
-
 /**
- * Inbox (spec 3.2). Updates are broadcasts (Build Board #1). With Messaging on
- * Telegram (#2, rows 113 and 114) the inbox gains Messages, the conversations
- * with fans and creators, and Settings, Fan messages. The tab lives in ?tab=;
- * a thread link (?t=) opens Messages and a broadcast link (?b=) opens Updates.
+ * The broadcast only Inbox (spec 3.2) while VITE_MESSAGES is off: Updates are
+ * broadcasts (Build Board #1). The Telegram era Messages and Settings tabs ended in
+ * PR M8; with VITE_MESSAGES on, the native Inbox (panels/inbox) holds conversations.
  */
 export function InboxPanel() {
-  const [params, setParams] = useSearchParams();
-  const S = TELEGRAM_APP_STRINGS;
-  if (!MESSAGES_ON)
-    return <div className="px-4 py-5 md:px-6">{BROADCAST_ON && <UpdatesTab />}</div>;
-
-  const requested = params.get("tab");
-  const fallback: InboxTab = BROADCAST_ON ? "updates" : "messages";
-  const tab: InboxTab =
-    requested === "messages" ||
-    requested === "settings" ||
-    (requested === "updates" && BROADCAST_ON)
-      ? requested
-      : params.has("t")
-        ? "messages"
-        : params.has("b") && BROADCAST_ON
-          ? "updates"
-          : fallback;
-  const setTab = (next: string) =>
-    setParams(current => {
-      const updated = new URLSearchParams(current);
-      updated.set("tab", next);
-      if (next !== "messages") {
-        updated.delete("t");
-        updated.delete("side");
-      }
-      if (next !== "updates") updated.delete("b");
-      return updated;
-    });
-
-  return (
-    <Tabs value={tab} onValueChange={setTab} className="flex flex-col gap-5 px-4 py-5 md:px-6">
-      <TabsList aria-label="Inbox sections" className="self-start">
-        {BROADCAST_ON && <TabsTrigger value="updates">{S.inboxTabs.updates}</TabsTrigger>}
-        <TabsTrigger value="messages">{S.inboxTabs.messages}</TabsTrigger>
-        <TabsTrigger value="settings">{S.inboxTabs.settings}</TabsTrigger>
-      </TabsList>
-      {BROADCAST_ON && (
-        <TabsContent value="updates">
-          <UpdatesTab />
-        </TabsContent>
-      )}
-      <TabsContent value="messages">
-        <MessagesTab />
-      </TabsContent>
-      <TabsContent value="settings" className="max-w-[720px] space-y-[21px]">
-        <FanMessagesSettings />
-        <InboxTelegramGroups />
-      </TabsContent>
-    </Tabs>
-  );
+  return <div className="px-4 py-5 md:px-6">{BROADCAST_ON && <UpdatesTab />}</div>;
 }

@@ -12,7 +12,6 @@
 import { Prisma, prisma } from "@repo/database";
 import { notifyBroadcastDelivered } from "../notifications/jobs";
 import { BROADCAST_LIMITS, BROADCAST_PAUSE_RULES } from "@repo/constants";
-import { enqueueTelegramBroadcast } from "../telegram/broadcast";
 
 const CHUNK = 1000;
 /** A SENDING broadcast untouched this long is treated as abandoned and resumed. */
@@ -184,11 +183,6 @@ export async function processBroadcast(
     console.log(`[broadcast] ${b.id} delivered to ${recipientCount} inboxes`);
     // Amped Messages (#2 r4, M4): a bell row and an optional push per recipient
     void notifyBroadcastDelivered(b.id);
-    // Messaging on Telegram (#2): members who linked Telegram and turned updates on
-    // get it there too, when the creator ticked Telegram. Never fails the broadcast.
-    void enqueueTelegramBroadcast(b.id).catch(error =>
-      console.error(`[broadcast] Telegram fan-out failed for ${b.id}`, error)
-    );
     return "sent";
   } catch (error) {
     console.error(
@@ -250,26 +244,6 @@ export async function sweepBroadcasts() {
     take: 50,
   });
   for (const { id } of pending) await processBroadcast(id);
-
-  // Messaging on Telegram (#2): the fan-out to telegram_outbox is fire and forget,
-  // so a crash between the SENT status and the enqueue would silently drop it.
-  // enqueueTelegramBroadcast is idempotent (only NOT_ELIGIBLE deliveries are
-  // considered), so re-running it for recent SENT broadcasts recovers the gap.
-  const recent = await prisma.broadcast.findMany({
-    where: {
-      status: "SENT",
-      sendTelegram: true,
-      completedAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
-    },
-    select: { id: true },
-    orderBy: { id: "desc" },
-    take: 20,
-  });
-  for (const { id } of recent) {
-    await enqueueTelegramBroadcast(id).catch(error =>
-      console.error(`[broadcast] Telegram fan-out recovery failed for ${id}`, error)
-    );
-  }
   return pending.length;
 }
 

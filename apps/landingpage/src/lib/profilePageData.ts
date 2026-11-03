@@ -18,12 +18,6 @@ export interface UserProfile {
   identity?: HandleUser["identity"];
   /** 112: the month the page joined, "YYYY-MM", for the RNS ID block */
   since?: string | null;
-  /** Messaging on Telegram (#2): "Messages on Telegram" beside the name. Never the username. */
-  telegramMark?: boolean;
-  /** Row 115: whether Message me on Telegram is live, the rule kind and the bot. Never an amount. */
-  telegramDoor?: HandleUser["telegramDoor"];
-  /** Board tg13: whether Join my Telegram group is live, the rule kind and the bot. */
-  telegramGroupDoor?: HandleUser["telegramGroupDoor"];
   /** Amped Messages (M6): whether Message me is live and the rule kind. Never an amount. */
   messageDoor?: HandleUser["messageDoor"];
 }
@@ -122,9 +116,6 @@ export function mapGetHandleData(result: HandleOutput, handle: string): ProfileP
       photoCmp: "",
       identity: user.identity ?? null,
       since: user.since ?? null,
-      telegramMark: user.telegramMark === true,
-      telegramDoor: user.telegramDoor ?? null,
-      telegramGroupDoor: user.telegramGroupDoor ?? null,
       messageDoor: user.messageDoor ?? null,
     },
     theme: theme ? (theme as unknown as Theme) : null,

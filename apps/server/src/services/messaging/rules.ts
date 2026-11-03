@@ -6,9 +6,8 @@ type DmRuleKind = MessageRuleKind;
 import { trustedEmailWhere } from "../../utils/verificationGrace";
 
 /**
- * Who may message an account (Amped Messages, Build Board #2 r4, spec 7.1 step 4), and
- * until M8 who may sit in a Telegram group. Evaluated against `Follow` (Fan Graph) and
- * `StakedPool` (pool fans). Moved here from services/telegram in PR M2.
+ * Who may message an account (Amped Messages, Build Board #2 r4, spec 7.1 step 4).
+ * Evaluated against `Follow` (Fan Graph) and `StakedPool` (pool fans).
  *
  * Rob, 2 Nov 2026: messaging stays open to every creator. These rules do not go through
  * the access engine, whose stake kinds need the counsel pilot allowlist

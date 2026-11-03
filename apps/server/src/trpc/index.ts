@@ -21,8 +21,6 @@ import { oauthAppsRouter } from "./oauthApps";
 import { followRouter } from "./follow";
 import { broadcastRouter } from "./broadcast";
 import { onboardingRouter } from "./onboarding";
-import { telegramRouter } from "./telegram";
-import { messagingRouter } from "./messaging";
 import { messagesRouter } from "./messages";
 import { realtimeRouter } from "./realtime";
 import { pushRouter } from "./push";
@@ -61,8 +59,6 @@ const mergedRouter = router({
   follow: followRouter,
   broadcast: broadcastRouter,
   onboarding: onboardingRouter,
-  telegram: telegramRouter,
-  messaging: messagingRouter,
   messages: messagesRouter,
   realtime: realtimeRouter,
   push: pushRouter,

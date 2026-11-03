@@ -444,7 +444,7 @@ export async function open<T>(
 
 /**
  * Users who pass a leaf rule for the owner, a page at a time, for broadcast
- * audiences and the Telegram group sweep (G2). Reads the mirror and Follow
+ * audiences (G2). Reads the mirror and Follow
  * tables; it never grants. Combinators are not supported here yet.
  */
 export async function eligibleUserIds(

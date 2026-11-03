@@ -36,7 +36,7 @@ import {
 } from "@/lib/signUpRecovery";
 import { PRIVACY_POLICY_URL } from "@/components/layout/PublicFooter";
 import { EMAIL_FIX } from "./SignInForm";
-import { MESSAGE_UI, TELEGRAM_APP_STRINGS } from "@repo/constants";
+import { MESSAGE_UI } from "@repo/constants";
 
 const emailSchema = z.string().email();
 const googleEnabled = Boolean(process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID);
@@ -56,10 +56,9 @@ const EMAIL_TAKEN = "This email already has an account.";
  * and no published page, then the person returns to the creator's page with
  * ?follow=1, which finishes the follow.
  *
- * Messaging on Telegram (#2, row 122): the same card from Message me on Telegram
- * (?intent=message) reads "Message {creator}" with the sign up line, and returns
- * with ?message=1, which opens the fan link sheet. The account is the same fan
- * account, so the server sees the follow intent.
+ * Amped Messages (M6): the same card from Message me (?intent=message) reads
+ * "Message {creator}" with the sign up line, and returns with ?message=1, which
+ * reopens the composer sheet with the text kept. The account is the same fan account.
  */
 export function FanRegisterForm() {
   const params = useSearchParams();
@@ -203,9 +202,7 @@ export function FanRegisterForm() {
       title={intent === "message" ? `Message ${creatorName}` : `Follow ${creatorName}`}
       subtitle={
         intent === "message"
-          ? process.env.NEXT_PUBLIC_MESSAGES === "true"
-            ? MESSAGE_UI.door.signUpLine(creatorName)
-            : TELEGRAM_APP_STRINGS.publicSignUpLine(creatorName)
+          ? MESSAGE_UI.door.signUpLine(creatorName)
           : "An account lets you follow creators and get their updates. You can make your own page later."
       }
       notice={

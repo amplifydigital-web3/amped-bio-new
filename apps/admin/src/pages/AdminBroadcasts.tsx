@@ -13,7 +13,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  Input,
   Textarea,
   trpc,
   type RouterOutputs,
@@ -81,15 +80,14 @@ function BroadcastCard({
 
 /**
  * Creator Pool Broadcast admin (Build Board #1): first-send review, flagged
- * sends (warn only, so these already reached members), reports, and the
- * invite-only pilot.
+ * sends (warn only, so these already reached members), reports, and senders with
+ * pause and resume. The invite-only pilot ended in PR M2; every pool owner can send.
  */
 export function AdminBroadcasts() {
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<Tab>("review");
   const [noteFor, setNoteFor] = useState<{ id: number; action: "reject" | "remove" } | null>(null);
   const [note, setNote] = useState("");
-  const [invitee, setInvitee] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const review = useQuery({
@@ -127,19 +125,6 @@ export function AdminBroadcasts() {
     onSuccess: refresh,
     onError,
   });
-  const invite = useMutation({
-    ...trpc.admin.broadcasts.invite.mutationOptions(),
-    onSuccess: () => {
-      setInvitee("");
-      refresh();
-    },
-    onError,
-  });
-  const revoke = useMutation({
-    ...trpc.admin.broadcasts.revokeInvite.mutationOptions(),
-    onSuccess: refresh,
-    onError,
-  });
   const resume = useMutation({
     ...trpc.admin.broadcasts.resume.mutationOptions(),
     onSuccess: refresh,
@@ -164,7 +149,7 @@ export function AdminBroadcasts() {
     { id: "review", label: "Review queue" },
     { id: "flagged", label: "Flagged sends" },
     { id: "reported", label: "Reports" },
-    { id: "senders", label: "Pilot senders" },
+    { id: "senders", label: "Senders" },
   ];
 
   const list = (
@@ -278,31 +263,14 @@ export function AdminBroadcasts() {
       {tab === "senders" && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Pilot senders</CardTitle>
+            <CardTitle className="text-lg">Senders</CardTitle>
             <p className="text-sm text-gray-600">
-              While BROADCAST_INVITE_ONLY is on, only invited pool owners can send. The invitation
-              must state the FTC disclosure rule for any post about early access.
+              Every pool owner can send. A paused sender cannot send until you resume them.
             </p>
           </CardHeader>
           <CardContent className="space-y-4">
-            <form
-              className="flex gap-2"
-              onSubmit={e => {
-                e.preventDefault();
-                if (invitee.trim()) invite.mutate({ who: invitee.trim() });
-              }}
-            >
-              <Input
-                value={invitee}
-                onChange={e => setInvitee(e.target.value)}
-                placeholder="@handle or email"
-              />
-              <Button type="submit" disabled={invite.isPending}>
-                Invite
-              </Button>
-            </form>
             {senders.isError ? (
-              <LoadError what="pilot senders" onRetry={() => void senders.refetch()} />
+              <LoadError what="senders" onRetry={() => void senders.refetch()} />
             ) : !senders.data ? (
               <p className="text-sm text-gray-500">Loading…</p>
             ) : (
@@ -310,7 +278,6 @@ export function AdminBroadcasts() {
                 <thead className="text-gray-500">
                   <tr>
                     <th className="py-2">Sender</th>
-                    <th>Invited</th>
                     <th>First approved</th>
                     <th>Paused</th>
                     <th />
@@ -322,7 +289,6 @@ export function AdminBroadcasts() {
                       <td className="py-2">
                         {s.user?.name ?? s.userId} {s.user?.handle ? `(@${s.user.handle})` : ""}
                       </td>
-                      <td>{s.invitedAt ? new Date(s.invitedAt).toLocaleDateString() : "No"}</td>
                       <td>
                         {s.firstApprovedAt
                           ? new Date(s.firstApprovedAt).toLocaleDateString()
@@ -337,15 +303,6 @@ export function AdminBroadcasts() {
                             onClick={() => resume.mutate({ userId: s.userId })}
                           >
                             Resume
-                          </Button>
-                        )}
-                        {s.invitedAt && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => revoke.mutate({ userId: s.userId })}
-                          >
-                            Revoke invite
                           </Button>
                         )}
                       </td>

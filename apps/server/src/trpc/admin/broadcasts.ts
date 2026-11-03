@@ -170,44 +170,6 @@ export const broadcastsAdminRouter = router({
     return rows.map(r => ({ ...r, user: byId.get(r.userId) ?? null }));
   }),
 
-  /** Invite a pool owner to the pilot, by handle or email. */
-  invite: adminProcedure
-    .input(z.object({ who: z.string().trim().min(1) }))
-    .mutation(async ({ input }) => {
-      const who = input.who.replace(/^@/, "");
-      const user = await prisma.user.findFirst({
-        where: { OR: [{ handle: who }, { email: who }] },
-        select: { id: true, wallet: { select: { creatorPools: { select: { id: true } } } } },
-      });
-      if (!user)
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "No account with that handle or email.",
-        });
-      if (!user.wallet?.creatorPools.length) {
-        throw new TRPCError({
-          code: "PRECONDITION_FAILED",
-          message: "That account does not own a pool.",
-        });
-      }
-      await prisma.broadcastSenderStatus.upsert({
-        where: { userId: user.id },
-        create: { userId: user.id, invitedAt: new Date() },
-        update: { invitedAt: new Date() },
-      });
-      return { ok: true, userId: user.id };
-    }),
-
-  revokeInvite: adminProcedure
-    .input(z.object({ userId: z.number().int() }))
-    .mutation(async ({ input }) => {
-      await prisma.broadcastSenderStatus.updateMany({
-        where: { userId: input.userId },
-        data: { invitedAt: null },
-      });
-      return { ok: true };
-    }),
-
   pause: adminProcedure
     .input(z.object({ userId: z.number().int(), reason: z.string().trim().min(1).max(255) }))
     .mutation(async ({ input }) => {

@@ -3,7 +3,6 @@
  * mapping and copy, account deletion, and the shared secret box.
  * Spec docs/features/messaging.md sections 4.4 and 6, decision msg-account-deletion.
  */
-import { createCipheriv, createHash, randomBytes } from "node:crypto";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("@repo/database", () => ({ prisma: {}, Prisma: { DbNull: "DbNull" } }));
@@ -11,7 +10,6 @@ vi.mock("@repo/database", () => ({ prisma: {}, Prisma: { DbNull: "DbNull" } }));
 import { env } from "../env";
 import { createSecretBox } from "../services/crypto/secretBox";
 import { decryptMessageBody, encryptMessageBody } from "../services/crypto/messageBody";
-import { decryptTelegramField, encryptTelegramField } from "../services/telegram/secret";
 import {
   anonymizeMessagingForUser,
   conversationPairKey,
@@ -356,22 +354,5 @@ describe("secret box", () => {
   it("message bodies store the empty string for an empty body", () => {
     expect(encryptMessageBody("")).toBe("");
     expect(decryptMessageBody("")).toBeNull();
-  });
-
-  it("still decrypts Telegram fields written by the old helper", () => {
-    env.TELEGRAM_SECRET_BOX_KEY = "tg-key";
-    // The pre M1 implementation, inlined: sha256("telegram-account:" + secret)
-    const key = createHash("sha256").update("telegram-account:tg-key").digest();
-    const iv = randomBytes(12);
-    const cipher = createCipheriv("aes-256-gcm", key, iv);
-    const ct = Buffer.concat([cipher.update("maya_vance", "utf8"), cipher.final()]);
-    const old = [
-      "v1",
-      iv.toString("base64"),
-      cipher.getAuthTag().toString("base64"),
-      ct.toString("base64"),
-    ].join(".");
-    expect(decryptTelegramField(old)).toBe("maya_vance");
-    expect(decryptTelegramField(encryptTelegramField("x"))).toBe("x");
   });
 });

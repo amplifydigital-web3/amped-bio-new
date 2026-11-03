@@ -14,8 +14,6 @@ import {
 import { sanitizeBlockConfig } from "../utils/sanitizeBlockConfig";
 import { logger } from "better-auth";
 import { getPublicTrackingPixels } from "./trackingPixels";
-import { showsTelegramMark } from "../services/telegram/accounts";
-import { telegramDoor, telegramGroupDoor } from "../services/messaging/door";
 import { indexableUserWhere, isUserIndexable } from "../utils/indexable";
 import {
   computeRnsIdentity,
@@ -215,8 +213,6 @@ const appRouter = router({
       });
 
       const blockOptions = rnsIdBlockOptions(blockRows);
-      const hasTelegramMessageBlock = blockRows.some(block => block.type === "telegram_message");
-      const hasTelegramGroupBlock = blockRows.some(block => block.type === "telegram_group");
       // Amped Messages (M6): the Message me block's door, read only when the page carries it
       // (a telegram_message row not yet migrated by 20261103020000 counts too)
       const hasMessageBlock = blockRows.some(
@@ -232,9 +228,6 @@ const appRouter = router({
         imageResult,
         identityResult,
         trackingPixelsResult,
-        telegramResult,
-        doorResult,
-        groupDoorResult,
         contentResult,
         messageDoorResult,
       ] = await Promise.allSettled([
@@ -252,12 +245,6 @@ const appRouter = router({
           block: blockOptions,
         }),
         getPublicTrackingPixels(user_id),
-        // Messaging on Telegram (#2): a mark only, never the creator's Telegram username (spec 3.8)
-        showsTelegramMark(user_id),
-        // Row 115: the Message me block's door, read only when the page carries the block
-        hasTelegramMessageBlock ? telegramDoor(user_id) : Promise.resolve(null),
-        // Board tg13: the Join group block's door, read only when the page carries the block
-        hasTelegramGroupBlock ? telegramGroupDoor(user_id) : Promise.resolve(null),
         // Public items only; drafts, 18+ and deleted ids are left out, and a
         // suspended page shows none, as getReadUrl would refuse them. Fails closed.
         contentIds.length && user.page_status === "PUBLISHED" && user.block === "no"
@@ -269,16 +256,21 @@ const appRouter = router({
       // The theme is the profile itself, so its failure is fatal
       if (themeResult.status === "rejected") throw themeResult.reason;
 
-      const publicBlocks = blockRows.map(block => ({
-        id: block.id,
-        user_id: block.user_id,
-        type: block.type,
-        order: block.order,
-        clicks: block.clicks,
-        config: sanitizeBlockConfig(block.type, block.config),
-        created_at: block.created_at,
-        updated_at: block.updated_at,
-      }));
+      // Telegram groups ended with Telegram (M8). The owner still gets the row, so the
+      // editor shows its notice until they remove it; visitors never receive it, and the
+      // page and preview render nothing for it
+      const publicBlocks = blockRows
+        .filter(block => isOwner || block.type !== "telegram_group")
+        .map(block => ({
+          id: block.id,
+          user_id: block.user_id,
+          type: block.type,
+          order: block.order,
+          clicks: block.clicks,
+          config: sanitizeBlockConfig(block.type, block.config),
+          created_at: block.created_at,
+          updated_at: block.updated_at,
+        }));
 
       // Any failure shows no chip (fails closed)
       const identity: PublicRnsIdentity =
@@ -302,12 +294,6 @@ const appRouter = router({
           // A privacy record, not an accident: the month only leaves the server
           // when the page carries a visible RNS ID block that asks for it.
           since: blockOptions.visible && created_at ? created_at.toISOString().slice(0, 7) : null,
-          // Messaging on Telegram (#2): "Messages on Telegram" beside the name. Fails closed.
-          telegramMark: telegramResult.status === "fulfilled" && telegramResult.value,
-          // Row 115: open, the rule kind and the bot. Null without the block. Fails closed.
-          telegramDoor: doorResult.status === "fulfilled" ? doorResult.value : null,
-          // Board tg13: open, the rule kind and the bot. Null without the block. Fails closed.
-          telegramGroupDoor: groupDoorResult.status === "fulfilled" ? groupDoorResult.value : null,
           // Amped Messages (M6): open and the rule kind, never an amount. Null without the block.
           messageDoor: messageDoorResult.status === "fulfilled" ? messageDoorResult.value : null,
         },

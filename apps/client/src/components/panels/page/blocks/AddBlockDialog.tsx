@@ -9,7 +9,6 @@ import {
   Loader2,
   MessageCircle,
   Plus,
-  Send,
   UserPlus,
   UsersRound,
   type LucideIcon,
@@ -19,7 +18,6 @@ import type { IconType } from "react-icons/lib";
 import {
   MESSAGE_UI,
   SINGLETON_BLOCK_TYPES,
-  TELEGRAM_APP_STRINGS,
   TELEGRAM_LINK,
   type BlockType,
   type MediaBlockPlatform,
@@ -52,7 +50,6 @@ export type NewBlockKind =
   | { type: "followers" }
   | { type: "rnsid" }
   | { type: "content" }
-  | { type: "telegram_message" }
   | { type: "message" };
 
 type SingletonType = (typeof SINGLETON_BLOCK_TYPES)[number];
@@ -65,10 +62,8 @@ const fanGraphOn = import.meta.env.VITE_FAN_GRAPH === "true";
 const rnsOn = import.meta.env.VITE_SHOW_RNS === "true";
 // Content system (Build Board #20, spec 3.7): items from the creator's library
 const contentOn = import.meta.env.VITE_CONTENT === "true";
-// Messaging on Telegram (Build Board #2, row 115): Message me on Telegram in Utility
-// Amped Messages (#2 r4, M6): Message me replaces Message me on Telegram in the picker
+// Amped Messages (#2 r4, M6): Message me in Utility
 const messagesOn = import.meta.env.VITE_MESSAGES === "true";
-const telegramOn = !messagesOn && import.meta.env.VITE_SHOW_TELEGRAM === "true";
 
 type Tile = {
   label: string;
@@ -146,16 +141,6 @@ const SECTIONS: { eyebrow: string; tiles: Tile[] }[] = [
               icon: MessageCircle,
               kind: { type: "message" as const },
               description: MESSAGE_UI.blockFields.pickerLine,
-            },
-          ]
-        : []),
-      ...(telegramOn
-        ? [
-            {
-              label: TELEGRAM_APP_STRINGS.messageBlockTitle,
-              icon: Send,
-              kind: { type: "telegram_message" as const },
-              description: TELEGRAM_APP_STRINGS.blockPickerTile,
             },
           ]
         : []),

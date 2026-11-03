@@ -15,9 +15,6 @@ import {
   getQuota,
   memberUserIds,
 } from "../../services/broadcast";
-import { findByUserId, isReachable } from "../../services/telegram/accounts";
-import { isTelegramConfigured } from "../../services/telegram/client";
-import { telegramReach } from "../../services/telegram/broadcast";
 import { verificationGate } from "../../utils/verificationGrace";
 import { bodySchema, ownedPool, storedFlags, titleSchema } from "./shared";
 
@@ -58,17 +55,6 @@ export const broadcastCreatorRouter = router({
         countSentBroadcasts(userId),
       ]);
       const members = pool ? await countMembers(pool.id, userId) : 0;
-      // Messaging on Telegram (#2), row 117: the composer's Telegram checkbox and count line
-      const telegramOn = isTelegramConfigured();
-      const telegramAccount = telegramOn ? await findByUserId(userId) : null;
-      const telegram = {
-        available: telegramOn,
-        creatorLinked: isReachable(telegramAccount),
-        reach:
-          telegramOn && pool && members > 0
-            ? await telegramReach(userId, await memberUserIds(pool.id, userId))
-            : 0,
-      };
       // Verification grace (Rob, 2026-10-10): a new creator sends without a
       // verified email for 30 days or EMAIL_VERIFICATION_GRACE_BROADCASTS sends
       const verification = verificationGate(
@@ -89,7 +75,6 @@ export const broadcastCreatorRouter = router({
         // The invite pilot ended in PR M2 (msg-invite); pauses still stop sending
         canSend: !status?.pausedAt,
         paused: !!status?.pausedAt,
-        telegram,
       };
     }),
 
@@ -107,8 +92,6 @@ export const broadcastCreatorRouter = router({
         idempotencyKey: z.string().min(8).max(64),
         /** The creator saw the word list warning and chose to send anyway */
         confirmFlags: z.boolean().default(false),
-        /** Messaging on Telegram (#2): also deliver to members who turned on Telegram updates */
-        sendTelegram: z.boolean().default(false),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -179,12 +162,6 @@ export const broadcastCreatorRouter = router({
       // creator must have seen it and the phrases are kept for admin follow-up.
       const flags = checkBroadcastContent(input.title, input.body);
 
-      // The checkbox is client-gated on a reachable link; the server refuses it
-      // here too, so a stale client cannot queue a broadcast Telegram can never
-      // deliver
-      const telegramUsable = input.sendTelegram
-        ? isTelegramConfigured() && isReachable(await findByUserId(userId))
-        : false;
       if (flags.length > 0 && !input.confirmFlags) {
         throw new TRPCError({
           code: "PRECONDITION_FAILED",
@@ -209,7 +186,6 @@ export const broadcastCreatorRouter = router({
               creatorUserId: userId,
               poolId: pool.id,
               audienceKind: "ALL_MEMBERS",
-              sendTelegram: telegramUsable,
               title: input.title,
               body: input.body,
               idempotencyKey: input.idempotencyKey,

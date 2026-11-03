@@ -1,7 +1,6 @@
 /**
  * Amped Messages (Build Board #2, revision 4), shared by server and clients.
- * Spec: docs/features/messaging.md sections 5 and 7. Replaces TELEGRAM_LIMITS for
- * messaging; the Telegram constants stay until PR M8 removes Telegram.
+ * Spec: docs/features/messaging.md sections 5 and 7.
  *
  * Caps are defaults. Admins change them under SiteSettings keys messaging.caps.*
  * (spec 7.6); the server reads the setting first and falls back to these values.
@@ -59,7 +58,7 @@ export const DELETED_ACCOUNT_LABEL = "Deleted account";
 
 /**
  * Who can message me (msg-rules). Mirrors the Prisma DmRuleKind enum, which gained
- * NOBODY in PR M2. Telegram groups keep DM_RULE_KINDS (without NOBODY) until M8.
+ * NOBODY in PR M2.
  */
 export const MESSAGE_RULE_KINDS = [
   "ANYONE",
@@ -330,6 +329,14 @@ export const MESSAGE_UI = {
     failed: "Your message was not sent. Try again.",
   },
 } as const;
+
+/** Phrases `pnpm run check:copy` rejects in messaging copy, beyond BROADCAST_BANNED_TERMS. */
+export const MESSAGE_BANNED_PHRASES = [
+  "verified by",
+  "message all your fans",
+  "trevo reward",
+  "revo price",
+] as const;
 
 /** Every Amped Messages string, for `pnpm run check:copy` (spec acceptance 13). */
 export function collectMessageCopy(): string[] {

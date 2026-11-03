@@ -61,9 +61,9 @@ function BlockIcon({ block }: { block: BlockType }) {
             ? UsersRound
             : block.type === "rnsid"
               ? IdCard
-              : block.type === "message"
+              : block.type === "message" || block.type === "telegram_message"
                 ? MessageCircle
-                : block.type === "telegram_message" || block.type === "telegram_group"
+                : block.type === "telegram_group"
                   ? Send
                   : block.type === "content"
                     ? Library

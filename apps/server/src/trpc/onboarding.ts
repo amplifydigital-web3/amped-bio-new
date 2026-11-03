@@ -93,8 +93,6 @@ async function readStatus(userId: number) {
     // the checklist. Not now hides the card for PUBLISH_CARD_SNOOZE_DAYS.
     pageStatus: user?.page_status ?? "PUBLISHED",
     publishCardDismissed: isPublishCardSnoozed(record.publish_card_dismissed_at),
-    // Messaging on Telegram (#2), checklist item 6: set when wizard A step 3 completes
-    telegramSetup: !!record.telegram_setup_at,
   };
 }
 
@@ -105,7 +103,6 @@ const markInput = z.object({
     "checklistDismissed",
     "analyticsCardDismissed",
     "publishCardDismissed",
-    "telegramSetup",
   ]),
   // Undo of Hide checklist clears the moment instead of setting it
   clear: z.boolean().optional(),
@@ -117,7 +114,6 @@ const COLUMN = {
   checklistDismissed: "checklist_dismissed_at",
   analyticsCardDismissed: "analytics_card_dismissed_at",
   publishCardDismissed: "publish_card_dismissed_at",
-  telegramSetup: "telegram_setup_at",
 } as const;
 
 export const onboardingRouter = router({

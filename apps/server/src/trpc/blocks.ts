@@ -2,7 +2,9 @@ import { privateProcedure, publicProcedure, router } from "./trpc";
 import { prisma } from "@repo/database";
 import { TRPCError } from "@trpc/server";
 import {
+  RETIRED_TELEGRAM_GROUP_NOTICE,
   SINGLETON_BLOCK_TYPES,
+  isRetiredBlockType,
   addBlockSchema,
   blockIdParamSchema,
   blockSchema,
@@ -71,11 +73,7 @@ export const blocksRouter = router({
   editBlock: privateProcedure.input(blockSchema).mutation(async ({ ctx, input }) => {
     const userId = ctx.user!.sub;
     const { id, type, order } = input;
-    const config = await keepOwnedContentIds(
-      userId,
-      type,
-      sanitizeBlockConfig(type, input.config)
-    );
+    const config = await keepOwnedContentIds(userId, type, sanitizeBlockConfig(type, input.config));
 
     try {
       const block = await prisma.block.findUnique({
@@ -170,6 +168,15 @@ export const blocksRouter = router({
   addBlock: privateProcedure.input(addBlockSchema).mutation(async ({ ctx, input }) => {
     const userId = ctx.user!.sub;
     const { type } = input;
+    if (isRetiredBlockType(type)) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message:
+          type === "telegram_group"
+            ? RETIRED_TELEGRAM_GROUP_NOTICE
+            : "Add the Message me block instead.",
+      });
+    }
     const config = await keepOwnedContentIds(userId, type, sanitizeBlockConfig(type, input.config));
 
     try {

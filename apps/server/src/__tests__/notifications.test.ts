@@ -35,10 +35,6 @@ vi.mock("../utils/email/transport", () => ({
     return { transport: "smtp", id: "x", detail: null };
   },
 }));
-vi.mock("../services/telegram/client", () => ({
-  isTelegramConfigured: () => false,
-  getTelegramBot: () => null,
-}));
 vi.mock("../utils/fileUrlResolver", () => ({ getFileUrl: async () => null }));
 
 import { env } from "../env";

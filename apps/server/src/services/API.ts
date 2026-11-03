@@ -10,8 +10,6 @@ import blocksSchemasRouter from "../routes/blocks-schemas";
 import messageEmailRouter from "../routes/messageEmail";
 import healthRouter from "../routes/health";
 import analyticsRouter from "../routes/analytics";
-import telegramRouter from "../routes/telegram";
-import telegramOidcRouter from "../routes/telegramOidc";
 import { contentCallbackRouter, contentJobRouter, streamWebhookRouter } from "../routes/content";
 import onrampWebhookRouter from "../routes/onramp";
 
@@ -95,10 +93,6 @@ app.use(apiCors);
 // parser because it reads the raw request stream itself.
 app.use("/mcp", mcpRouter);
 
-// Telegram webhook (Build Board #2). Registered before the global JSON parser with its
-// own body limit; it checks the secret header, dedupes and writes the update, nothing else.
-app.use("/webhooks/telegram", telegramRouter);
-
 // Content system (Build Board #20): Cloudflare Stream webhook and the processor
 // Worker callback and job read. All are signed over the raw body, so they parse it
 // themselves before the global JSON parser.
@@ -137,8 +131,6 @@ app.use("/.well-known", wellKnownRouter);
 app.use("/api/blocks/schemas", blocksSchemasRouter);
 app.use("/health", healthRouter);
 app.use("/api/analytics", analyticsRouter);
-// Log In with Telegram callback (Build Board #2). After cookieParser: it reads the session.
-app.use("/telegram", telegramOidcRouter);
 
 app.get("/", (req, res) => {
   res.redirect(env.APP_URL);

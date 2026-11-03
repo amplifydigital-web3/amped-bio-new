@@ -80,7 +80,7 @@ export function destinationForPanel(panel: EditorPanelType): DestinationId | nul
     case "rns":
       return "wallet";
     case "inbox":
-      // The Telegram era inbox has no rail item; only the native Inbox does
+      // The broadcast only inbox (VITE_MESSAGES off) has no rail item; the native Inbox does
       return isFlagOn("VITE_MESSAGES") ? "inbox" : null;
     case "home":
     case "explore":

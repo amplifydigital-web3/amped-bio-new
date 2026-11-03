@@ -6,12 +6,10 @@ import {
   BROADCAST_ALTERNATIVES,
   BROADCAST_LIMITS,
   BROADCAST_POLICY,
-  TELEGRAM_APP_STRINGS,
   checkBroadcastContent,
 } from "@repo/constants";
 import {
   Button,
-  Checkbox,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -26,8 +24,6 @@ import {
 import { toast } from "@/components/ui/toast";
 import { BroadcastBody, BroadcastFooter, Avatar } from "./shared";
 
-const TELEGRAM_ON = import.meta.env.VITE_SHOW_TELEGRAM === "true";
-
 interface ComposerProps {
   chainId: string;
   poolName: string;
@@ -36,8 +32,6 @@ interface ComposerProps {
   creatorAvatar?: string | null;
   leftToday: number;
   nextSendReviewed: boolean;
-  /** Messaging on Telegram (#2), row 117. Absent or unavailable: no Telegram checkbox. */
-  telegram?: { available: boolean; creatorLinked: boolean; reach: number };
   onCancel: () => void;
   onSent: (id: number) => void;
 }
@@ -60,7 +54,6 @@ export function Composer({
   creatorAvatar,
   leftToday,
   nextSendReviewed,
-  telegram,
   onCancel,
   onSent,
 }: ComposerProps) {
@@ -70,8 +63,6 @@ export function Composer({
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [policyOpen, setPolicyOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const showTelegram = TELEGRAM_ON && !!telegram?.available;
-  const [sendTelegram, setSendTelegram] = useState(false);
   const keyRef = useRef(newKey());
   const bodyRef = useRef<HTMLTextAreaElement>(null);
 
@@ -87,8 +78,6 @@ export function Composer({
         body,
         idempotencyKey: keyRef.current,
         confirmFlags,
-        // A stale checked state must not send when the link went away mid-composition
-        sendTelegram: showTelegram && sendTelegram && !!telegram?.creatorLinked,
       }),
     onSuccess: res => {
       setConfirmOpen(false);
@@ -169,30 +158,6 @@ export function Composer({
             </div>
           </div>
         </div>
-
-        {showTelegram && telegram && (
-          <div>
-            <Checkbox
-              checked={sendTelegram && telegram.creatorLinked}
-              disabled={!telegram.creatorLinked}
-              onCheckedChange={setSendTelegram}
-              helper={
-                !telegram.creatorLinked
-                  ? TELEGRAM_APP_STRINGS.composerNotLinked
-                  : telegram.reach > 0
-                    ? TELEGRAM_APP_STRINGS.composerReach(telegram.reach)
-                    : TELEGRAM_APP_STRINGS.composerReachZero
-              }
-            >
-              {TELEGRAM_APP_STRINGS.composerChannelLabel}
-            </Checkbox>
-            {sendTelegram && phrases.length > 0 && (
-              <p className="mt-1 text-prism-meta text-prism-ink-2">
-                {TELEGRAM_APP_STRINGS.composerFlaggedNote}
-              </p>
-            )}
-          </div>
-        )}
 
         <Input
           label="Title"

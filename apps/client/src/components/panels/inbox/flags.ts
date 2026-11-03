@@ -1,7 +1,8 @@
 /**
  * Amped Messages (Build Board #2 r4, PR M5). The native Inbox, the rail item, the bell
  * center and Account, Messages. Behind VITE_MESSAGES: on in development and staging,
- * off in production until staging sign off. Off keeps the Telegram era inbox.
+ * off in production until staging sign off. Off keeps the broadcast only inbox behind the
+ * top bar button (Telegram ended in M8).
  */
 export const MESSAGES_V2 = import.meta.env.VITE_MESSAGES === "true";
 

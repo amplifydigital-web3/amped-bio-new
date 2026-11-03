@@ -312,7 +312,6 @@ export function BroadcastsTab({ chainId }: { chainId: string }) {
         creatorAvatar={profile.photoUrl}
         leftToday={quota.leftToday}
         nextSendReviewed={quota.nextSendReviewed}
-        telegram={overview.data.telegram}
         onCancel={() => setParam("compose", null)}
         onSent={id =>
           setParams(

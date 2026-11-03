@@ -14,7 +14,7 @@ export * from "./blocks";
 export * from "./banner";
 export * from "./reward-pool";
 export * from "./testnet";
-export * from "./telegram";
+export * from "./community";
 export * from "./messages";
 export * from "./chains";
 export * from "./site-settings";

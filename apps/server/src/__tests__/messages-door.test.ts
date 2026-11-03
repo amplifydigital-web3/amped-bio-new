@@ -15,10 +15,6 @@ vi.mock("@repo/database", async () => {
   };
 });
 vi.mock("../utils/cache", () => ({ getRedisClient: () => null }));
-vi.mock("../services/telegram/client", () => ({
-  isTelegramConfigured: () => false,
-  getTelegramBot: () => null,
-}));
 vi.mock("../utils/fileUrlResolver", () => ({ getFileUrl: async () => null }));
 
 import { DEFAULT_MESSAGE_BLOCK_LABEL, blockConfigSchemaFor } from "@repo/constants";

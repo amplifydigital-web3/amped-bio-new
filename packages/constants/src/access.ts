@@ -30,20 +30,13 @@ export type LiveAccessRuleKind = (typeof LIVE_ACCESS_RULE_KINDS)[number];
 /** Kinds that read a stake. They need the pilot allowlist while counsel reviews (spec 3.11). */
 export const STAKE_ACCESS_RULE_KINDS = ["pool_member", "stake_min"] as const;
 
-export const ACCESS_RESOURCE_TYPES = [
-  "block",
-  "content",
-  "broadcast",
-  "live_event",
-  "dm",
-  "telegram_group",
-] as const;
+export const ACCESS_RESOURCE_TYPES = ["block", "content", "broadcast", "live_event", "dm"] as const;
 export type AccessResourceType = (typeof ACCESS_RESOURCE_TYPES)[number];
 // block id, content publicId, etc.
 export type AccessResource = { type: AccessResourceType; id: string };
 
 /** Block types a rule can lock. Pool, referral, follow, followers and rnsid are never gated. */
-export const GATABLE_BLOCK_TYPES = ["link", "media", "text", "telegram_group"] as const;
+export const GATABLE_BLOCK_TYPES = ["link", "media", "text"] as const;
 
 export const ACCESS_REASONS = [
   "ok",

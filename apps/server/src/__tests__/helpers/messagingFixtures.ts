@@ -1,8 +1,7 @@
-import { encryptTelegramField } from "../../services/telegram/secret";
 import type { createFakeDb } from "./fakeMessagingDb";
 
 /**
- * People for the messaging suites (Build Board #2, PR 3). Creator Maya (1) with a
+ * People for the Amped Messages suites. Creator Maya (1) with a
  * published page and a pool; fans Jordan (2) and Sam (3); a second creator Ana (4).
  */
 export const MAYA = 1;
@@ -39,7 +38,7 @@ export function seedPeople(fake: Fake) {
 
 export function openMessages(fake: Fake, creatorUserId = MAYA, over: Record<string, unknown> = {}) {
   // M2: "enabled: false" is ruleKind NOBODY; the invite pilot is gone
-  const { enabled, invitedAt: _invitedAt, ...rest } = over;
+  const { enabled, ...rest } = over;
   fake.table("messagingSettings").push({
     userId: creatorUserId,
     ruleKind: enabled === false ? "NOBODY" : "ANYONE",
@@ -54,29 +53,6 @@ export function openMessages(fake: Fake, creatorUserId = MAYA, over: Record<stri
   });
 }
 
-export function linkTelegram(
-  fake: Fake,
-  userId: number,
-  telegramUserId: number,
-  over: Record<string, unknown> = {}
-) {
-  fake.table("telegramAccount").push({
-    id: Buffer.alloc(16, userId),
-    userId,
-    telegramUserId: BigInt(telegramUserId),
-    username: encryptTelegramField(`tg_user_${userId}`),
-    firstName: null,
-    photoUrl: null,
-    botAccess: true,
-    blockedAt: null,
-    showTelegramOnBio: true,
-    shareUsername: false,
-    linkedAt: new Date(),
-    lastSeenAt: null,
-    ...over,
-  });
-}
-
 export function follow(fake: Fake, followerId: number, creatorId: number) {
   fake.table("follow").push({
     id: fake.table("follow").length + 1,
@@ -84,8 +60,4 @@ export function follow(fake: Fake, followerId: number, creatorId: number) {
     creator_id: creatorId,
     created_at: new Date(),
   });
-}
-
-export function outboxRows(fake: Fake, kind?: string) {
-  return fake.table("telegramOutbox").filter(row => !kind || row.kind === kind);
 }

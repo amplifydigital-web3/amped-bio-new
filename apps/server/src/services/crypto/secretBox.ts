@@ -2,9 +2,8 @@ import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:
 
 /**
  * Field encryption at rest with AES-256-GCM. One scheme for every purpose, each under
- * its own derived key so the secrets rotate independently. Moved out of
- * services/telegram/secret.ts for Amped Messages (Build Board #2 r4, spec 4.4); the
- * Telegram fields keep their exact key derivation, so stored values still decrypt.
+ * its own derived key so the secrets rotate independently (Amped Messages, Build Board
+ * #2 r4, spec 4.4).
  *
  * Format: v1.<iv base64>.<auth tag base64>.<ciphertext base64>
  */
@@ -17,7 +16,7 @@ export interface SecretBox {
 }
 
 /**
- * @param purpose a fixed label mixed into the key ("telegram-account", "direct-message")
+ * @param purpose a fixed label mixed into the key ("direct-message")
  * @param secret  returns the configured secret at call time, so tests can change env
  * @param label   names the key in the decrypt failure log
  */

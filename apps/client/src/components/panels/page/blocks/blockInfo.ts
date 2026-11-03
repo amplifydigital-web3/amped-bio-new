@@ -1,4 +1,4 @@
-import { MESSAGE_UI, TELEGRAM_APP_STRINGS, type BlockType } from "@repo/constants";
+import { MESSAGE_UI, type BlockType } from "@repo/constants";
 import { getPlatformName, getPlatformUrl, platforms, type PlatformId } from "@/utils/platforms";
 
 // Titles, meta lines and validity for block rows (Screen Review 036 I05, I10)
@@ -38,11 +38,9 @@ export function blockTitle(block: BlockType) {
     case "message":
       return MESSAGE_UI.blockFields.title;
     case "telegram_message":
-      return import.meta.env.VITE_MESSAGES === "true"
-        ? MESSAGE_UI.blockFields.title
-        : TELEGRAM_APP_STRINGS.messageBlockTitle;
+      return MESSAGE_UI.blockFields.title;
     case "telegram_group":
-      return TELEGRAM_APP_STRINGS.groupBlockTitle;
+      return "Telegram group";
     case "content":
       return block.config.label || "Content";
     default:

@@ -16,8 +16,8 @@ import {
 // Content: Themes, Files; Money: Pools, USDC; Access: OAuth clients.
 // Blocks is not rendered (088 I09). Broadcasts shipped after the review and
 // Blocks is not rendered (088 I09). Broadcasts shipped after the review and
-// sits in Content so its page stays reachable. Telegram (Build Board #2, row
-// 120) sits beside it: reports, paused senders, the pilot and bot health. USDC
+// sits in Content so its page stays reachable. Messaging (Build Board #2 r4) sits
+// beside it: reports, paused people, caps and the kill switch. USDC
 // (Build Board #29, spec 3.8) joins Money after Pools, and Payments (AmpedPay,
 // Build Board #50, spec docs/features/ampedpay.md 3.8) after USDC. ndau conversions were
 // removed from the admin: they are processed manually through the support
@@ -101,9 +101,8 @@ export const ADMIN_DESTINATIONS: AdminDestination[] = [
     group: "content",
     dock: false,
   },
-  // Amped Messages (Build Board #2 r4, M7, board m6): replaces Telegram in the rail. It
-  // moves under Safety when Adult Content Review ships. /telegram stays reachable (no rail
-  // item) for bot health and groups until M8 removes Telegram.
+  // Amped Messages (Build Board #2 r4, M7, board m6): replaced Telegram in the rail. It
+  // moves under Safety when Adult Content Review ships. /telegram redirects here (M8).
   {
     id: "messaging",
     path: "/messaging",

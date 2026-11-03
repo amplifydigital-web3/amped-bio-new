@@ -15,7 +15,6 @@ import { FollowBlock } from "./blocks/FollowBlock";
 import { FollowersBlock } from "./blocks/FollowersBlock";
 import { RnsIdBlock } from "./blocks/RnsIdBlock";
 import { ContentBlockPreview } from "./blocks/ContentBlockPreview";
-import { TelegramGroupPreview, TelegramMessagePreview } from "./blocks/TelegramMessageBlock";
 import { MessageBlockPreview } from "./blocks/MessageBlockPreview";
 import { isHTML } from "@/utils/htmlutils";
 import { type BlockType, DEFAULT_RNSID_CONFIG, safeHref, sanitizeRichHtml } from "@repo/constants";
@@ -59,7 +58,6 @@ const VIDEO_BACKDROP = "#14141C";
 
 const fanGraphOn = import.meta.env.VITE_FAN_GRAPH === "true";
 const rnsOn = import.meta.env.VITE_SHOW_RNS === "true";
-const telegramOn = import.meta.env.VITE_SHOW_TELEGRAM === "true";
 const messagesOn = import.meta.env.VITE_MESSAGES === "true";
 // Theme Engine v2 (#28): the preview mounts the shared CreatorPage shell, so it
 // draws what the public page draws (spec 3.4, closes D10)
@@ -284,7 +282,7 @@ export function Preview({
       );
     }
     // Amped Messages (#2 r4, M6): Message me, and a telegram_message row not yet migrated
-    if (block.type === "message" || (messagesOn && block.type === "telegram_message")) {
+    if (block.type === "message" || block.type === "telegram_message") {
       if (!messagesOn) return null;
       return (
         <ErrorBoundary key={block.id} fallback={fallback}>
@@ -292,23 +290,8 @@ export function Preview({
         </ErrorBoundary>
       );
     }
-    // Messaging on Telegram (#2, row 115 and board tg13)
-    if (block.type === "telegram_message") {
-      if (!telegramOn) return null;
-      return (
-        <ErrorBoundary key={block.id} fallback={fallback}>
-          <TelegramMessagePreview block={block} theme={themeConfig} />
-        </ErrorBoundary>
-      );
-    }
-    if (block.type === "telegram_group") {
-      if (!telegramOn) return null;
-      return (
-        <ErrorBoundary key={block.id} fallback={fallback}>
-          <TelegramGroupPreview block={block} theme={themeConfig} />
-        </ErrorBoundary>
-      );
-    }
+    // Telegram groups ended in M8: the row keeps its notice in the editor, the page drops it
+    if (block.type === "telegram_group") return null;
     return (
       <ErrorBoundary key={block.id} fallback={fallback}>
         <TextBlock block={block} theme={themeConfig} />

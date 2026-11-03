@@ -18,10 +18,6 @@ vi.mock("@repo/database", async () => {
 });
 // No Redis in unit tests: the bus, presence and the rate limiter run in process
 vi.mock("../utils/cache", () => ({ getRedisClient: () => null }));
-vi.mock("../services/telegram/client", () => ({
-  isTelegramConfigured: () => false,
-  getTelegramBot: () => null,
-}));
 vi.mock("../utils/fileUrlResolver", () => ({ getFileUrl: async () => null }));
 
 import { env } from "../env";

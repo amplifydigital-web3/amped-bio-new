@@ -88,7 +88,7 @@ export interface CreatorPageProps {
   /** Pause motion (041 I02): looping effects show their settled look. */
   paused?: boolean;
   profile: { name: string; photo?: string | null; bio?: string | null };
-  /** Inline after the name inside the h1 (verified mark, Telegram mark). */
+  /** Inline after the name inside the h1 (the verified mark). */
   nameExtras?: ReactNode;
   /** Under the name (the RNS identity chip). Wrapped and centered here. */
   identity?: ReactNode;

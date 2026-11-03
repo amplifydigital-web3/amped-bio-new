@@ -71,6 +71,9 @@ jobs:
       - name: Compliance copy check
         run: pnpm run check:copy
 
+      - name: No Telegram or invite gate (Amped Messages M8)
+        run: pnpm run check:telegram
+
   media-toolbox:
     # The processor's container code against the real tools: sharp, ffmpeg, ClamAV,
     # poppler, qpdf, unzip. Fixtures (EICAR, GPS PNG, renamed EXE, zip bomb, tagged

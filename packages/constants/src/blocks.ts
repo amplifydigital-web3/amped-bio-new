@@ -273,6 +273,19 @@ export type BlockType =
   | ContentBlock
   | MessageBlock;
 
+/**
+ * Block types no page may add any more (Amped Messages, PR M8). Telegram ended: a
+ * telegram_message row became a message row in 20261103020000, and a telegram_group row
+ * stays in the editor with RETIRED_TELEGRAM_GROUP_NOTICE and never renders on the page.
+ */
+export const RETIRED_BLOCK_TYPES = ["telegram_message", "telegram_group"] as const;
+export const RETIRED_TELEGRAM_GROUP_NOTICE =
+  "Telegram groups are no longer supported. Add a Community link instead.";
+
+export function isRetiredBlockType(type: string): boolean {
+  return (RETIRED_BLOCK_TYPES as readonly string[]).includes(type);
+}
+
 /** Block types a page holds at most once. The Add block dialog opens the existing row. */
 export const SINGLETON_BLOCK_TYPES = [
   "referral",

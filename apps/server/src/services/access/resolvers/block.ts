@@ -3,8 +3,8 @@ import { GATABLE_BLOCK_TYPES } from "@repo/constants";
 import type { Gate, Resolver } from "../types";
 
 /**
- * Blocks (gating spec 3.6, G1). Only link, media, text and telegram_group can be
- * gated; any other block type resolves as public whatever its column says.
+ * Blocks (gating spec 3.6, G1). Only link, media and text can be gated (Telegram groups
+ * ended in M8); any other block type resolves as public whatever its column says.
  * The content resolver ships with content PR 8 (decision GQ1).
  */
 export const blockResolver: Resolver = {

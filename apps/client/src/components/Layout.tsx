@@ -8,8 +8,6 @@ import { INBOX_ON } from "./panels/broadcast/utils";
 import { MessagesInbox } from "./panels/inbox/MessagesInbox";
 import { MessagesRealtime } from "./panels/inbox/realtime";
 import { MESSAGES_V2 } from "./panels/inbox/flags";
-import { TelegramWizard } from "./panels/messages/TelegramWizard";
-import { MESSAGES_ON } from "./panels/messages/shared";
 import { RNSPanel } from "./panels/rns/RNSPanel";
 import { HomePanel } from "./panels/home/HomePanel";
 import { MyWalletPanel } from "./panels/wallet/MyWalletPanel";
@@ -82,7 +80,7 @@ function ActivePanel({ panel }: { panel: EditorPanelType }) {
     case "my-pool":
       return <MyPoolDestination />;
     case "inbox":
-      // Amped Messages (#2 r4, M5) replaces the Telegram era inbox behind VITE_MESSAGES
+      // Amped Messages (#2 r4, M5) replaces the broadcast only inbox behind VITE_MESSAGES
       if (MESSAGES_V2) return <MessagesInbox />;
       return INBOX_ON ? <InboxPanel /> : null;
     case "account":
@@ -178,8 +176,6 @@ export function Layout({ bannerData, bannerLoading }: LayoutProps) {
         </div>
 
         <MobileDock />
-        {/* Messaging on Telegram (#2), wizard A: ?wizard=telegram on any route (spec 3.11a) */}
-        {MESSAGES_ON && <TelegramWizard />}
       </div>
     </ShellNavigationProvider>
   );
