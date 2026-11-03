@@ -32,6 +32,10 @@ function portSchema(fallback: number) {
 }
 
 // ================ environment schema ================
+// The product flags listed in packages/constants/src/feature-flags.ts
+// (CHECKOUT_ENABLED, USDC_ENABLED, ...) are only fallbacks: an admin's
+// site_settings row wins. Read them with isFeatureOn (services/featureFlags.ts),
+// never as env.X, and add new product flags to that registry, not here.
 const envSchema = z.object({
   // The environment the app is running in
   APP_ENV: z.enum(["development", "production", "testing", "staging"]).default("development"),
@@ -235,8 +239,8 @@ const envSchema = z.object({
   TELEGRAM_OIDC_CLIENT_SECRET: z.string().default(""),
   // Encrypts username, firstName and photoUrl on telegram_accounts. Falls back to BETTER_AUTH_SECRET.
   TELEGRAM_SECRET_BOX_KEY: z.string().default(""),
-  // Amped Messages kill switch (spec 7.1). False makes every Inbox read only. Admin can
-  // override it at runtime (SiteSettings messaging.enabled, PR M7).
+  // Fallback of the `messages` feature flag (admin Feature flags) when it has no row.
+  // Off makes every Inbox read only (spec 7.1).
   MESSAGING_ENABLED: boolSchema(true),
   // Gated creator groups (phase 2)
   TELEGRAM_GROUPS: boolSchema(false),
