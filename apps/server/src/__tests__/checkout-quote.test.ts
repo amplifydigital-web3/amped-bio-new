@@ -19,6 +19,7 @@ const state = vi.hoisted(() => ({
   rows: [] as Row[],
   wallet: { address: "0xabc" } as { address: string } | null,
   countedToday: 0,
+  seller: { pass: true } as { pass: boolean; reason?: string },
   mockPrice: null as string | null,
   settings: {
     paymentsPaused: false,
@@ -84,6 +85,9 @@ vi.mock("../utils/fileUrlResolver", () => ({
   ),
 }));
 
+const checkIdentity = vi.hoisted(() => vi.fn());
+vi.mock("../services/identity/checks", () => ({ checkIdentity }));
+
 import { quoteIntent } from "../services/checkout/quote";
 
 const ID = "0f".repeat(16);
@@ -106,6 +110,9 @@ beforeEach(() => {
   state.rows = [intent()];
   state.wallet = { address: "0xabc" };
   state.countedToday = 0;
+  state.seller = { pass: true };
+  checkIdentity.mockReset();
+  checkIdentity.mockImplementation(async () => state.seller);
   state.mockPrice = null;
   state.settings = {
     ...state.settings,
@@ -175,6 +182,37 @@ describe("quoteIntent", () => {
     expect((await quoteIntent(20, ID)).state).toBe("seller");
     state.settings = { ...state.settings, pilotCreators: ["ana", "maya"] };
     expect((await quoteIntent(20, ID)).state).toBe("ready");
+  });
+
+  it("a creator without a verified seller pass cannot take payments (identity checks 5.3)", async () => {
+    for (const reason of [
+      "not_verified",
+      "no_name",
+      "name_expired",
+      "name_not_bound",
+      "unavailable",
+    ]) {
+      state.seller = { pass: false, reason };
+      expect((await quoteIntent(20, ID)).state).toBe("seller");
+    }
+    expect(checkIdentity).toHaveBeenCalledWith(10, "seller");
+    state.seller = { pass: true };
+    expect((await quoteIntent(20, ID)).state).toBe("ready");
+  });
+
+  it("the seller check runs after paused and the wallet, before the daily limit", async () => {
+    state.settings = { ...state.settings, paymentsPaused: true };
+    state.seller = { pass: false, reason: "no_name" };
+    expect((await quoteIntent(20, ID)).state).toBe("paused");
+    state.settings = { ...state.settings, paymentsPaused: false };
+    state.wallet = null;
+    expect((await quoteIntent(20, ID)).state).toBe("seller");
+    expect(checkIdentity).not.toHaveBeenCalled();
+    state.wallet = { address: "0xabc" };
+    state.countedToday = 20;
+    expect((await quoteIntent(20, ID)).state).toBe("seller");
+    state.seller = { pass: true };
+    expect((await quoteIntent(20, ID)).state).toBe("limit");
   });
 
   it("the daily purchase limit stops a new payment", async () => {
