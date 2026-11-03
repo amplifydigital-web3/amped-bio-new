@@ -239,8 +239,8 @@ const envSchema = z.object({
   TELEGRAM_OIDC_CLIENT_SECRET: z.string().default(""),
   // Encrypts username, firstName and photoUrl on telegram_accounts. Falls back to BETTER_AUTH_SECRET.
   TELEGRAM_SECRET_BOX_KEY: z.string().default(""),
-  // Amped Messages kill switch (spec 7.1). False makes every Inbox read only. Admin can
-  // override it at runtime (SiteSettings messaging.enabled, PR M7).
+  // Fallback of the `messages` feature flag (admin Feature flags) when it has no row.
+  // Off makes every Inbox read only (spec 7.1).
   MESSAGING_ENABLED: boolSchema(true),
   // Gated creator groups (phase 2)
   TELEGRAM_GROUPS: boolSchema(false),
