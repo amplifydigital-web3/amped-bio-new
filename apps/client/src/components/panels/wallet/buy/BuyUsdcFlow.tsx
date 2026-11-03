@@ -12,7 +12,11 @@ import {
   Smartphone,
 } from "lucide-react";
 import {
+  CHECKOUT_COPY,
   COINBASE_TERMS,
+  checkoutFundingCents,
+  checkoutIntentFromPath,
+  checkoutPayPath,
   ONRAMP_COPY,
   ONRAMP_FRAME_ERRORS,
   ONRAMP_LIMITS,
@@ -89,7 +93,8 @@ function usdcFromUnits(units: string | null | undefined) {
 function deviceWalletPay(): WalletPayMode {
   if (typeof window === "undefined") return "apple_pay";
   // Coinbase's Google Pay link targets Android WebViews only
-  const androidWebView = /Android/i.test(window.navigator.userAgent) && /;\s*wv\)/.test(window.navigator.userAgent);
+  const androidWebView =
+    /Android/i.test(window.navigator.userAgent) && /;\s*wv\)/.test(window.navigator.userAgent);
   return androidWebView ? "google_pay" : "apple_pay";
 }
 
@@ -142,6 +147,16 @@ function safeReturn(value: string | null) {
   return value && value.startsWith("/") && !value.startsWith("//") ? value : null;
 }
 
+/** A checkout's shortfall in USDC units from ?need=, or null. */
+function needUnits(value: string | null): bigint | null {
+  return value && /^[1-9]\d{0,15}$/.test(value) ? BigInt(value) : null;
+}
+
+/** "$5" for whole dollars, "$7.26" otherwise. */
+function dollarsFromCents(cents: number) {
+  return cents % 100 === 0 ? String(cents / 100) : (cents / 100).toFixed(2);
+}
+
 /**
  * Screen Review 138, boards o1, o2, o4, o5, o6 and o7 (spec 3.7). Buy USDC
  * through Coinbase at /wallet?fund=usdc. Coinbase is the seller: the Amount
@@ -159,7 +174,12 @@ export default function BuyUsdcFlow() {
   const wallet = useWalletContext();
   const open = params.get("fund") === "usdc";
   const sessionParam = params.get("session");
-  const returnTo = safeReturn(params.get("return"));
+  // From a short balance on the pay sheet (mobile checkout 8): ?ci={intent}&need={units}
+  const checkoutIntent = checkoutIntentFromPath(`/pay/${params.get("ci") ?? ""}`);
+  const checkoutNeed = checkoutIntent ? needUnits(params.get("need")) : null;
+  const returnTo = checkoutIntent
+    ? checkoutPayPath(checkoutIntent)
+    : safeReturn(params.get("return"));
 
   const [phase, setPhase] = useState<Phase>(sessionParam ? "handoff" : "amount");
   const [amount, setAmount] = useState("25");
@@ -176,6 +196,8 @@ export default function BuyUsdcFlow() {
   const miniApp = useMemo(inTelegramMiniApp, []);
   const amountRef = useRef(amount);
   amountRef.current = amount;
+  const [prefill, setPrefill] = useState<{ amount: string; raisedToMinimum: boolean } | null>(null);
+  const prefilledFor = useRef<string | null>(null);
 
   // The redirect back from Coinbase opens the panel on its session
   useEffect(() => {
@@ -218,6 +240,30 @@ export default function BuyUsdcFlow() {
       maxCents: Math.max(...open.map(entry => entry.maxCents)),
     };
   }, [accountPath, walletPath]);
+
+  // The checkout's intent waits for funds while the fan buys USDC (mobile checkout 8)
+  const awaitFunds = useMutation(trpc.checkout.awaitFunds.mutationOptions());
+  const awaitFundsFor = useRef<string | null>(null);
+  const markAwaiting = useRef(awaitFunds.mutate);
+  markAwaiting.current = awaitFunds.mutate;
+  useEffect(() => {
+    if (!open || !checkoutIntent || awaitFundsFor.current === checkoutIntent) return;
+    awaitFundsFor.current = checkoutIntent;
+    markAwaiting.current({ id: checkoutIntent });
+  }, [open, checkoutIntent]);
+
+  // Prefill the shortfall, or Coinbase's minimum when the shortfall is smaller. USDC is
+  // dollars, so the prefill applies to a USD purchase only
+  useEffect(() => {
+    if (!open || !checkoutIntent || !checkoutNeed || !path || phase !== "amount") return;
+    if (currency !== "USD" || prefilledFor.current === checkoutIntent) return;
+    prefilledFor.current = checkoutIntent;
+    const funding = checkoutFundingCents(checkoutNeed, path.minCents);
+    const value = dollarsFromCents(funding.cents);
+    setAmount(value);
+    setPrefill({ amount: value, raisedToMinimum: funding.raisedToMinimum });
+  }, [open, checkoutIntent, checkoutNeed, path, phase, currency]);
+  const showMinimumLine = !!prefill?.raisedToMinimum && prefill.amount === amount.trim() && !!path;
 
   // 064 I06: one amount error, named by the fix
   const amountError = useMemo(() => {
@@ -422,6 +468,8 @@ export default function BuyUsdcFlow() {
         next.delete("fund");
         next.delete("session");
         next.delete("return");
+        next.delete("ci");
+        next.delete("need");
         return next;
       },
       { replace: true }
@@ -663,7 +711,9 @@ export default function BuyUsdcFlow() {
                 navigate(target);
               }}
             >
-              Back to the item
+              {checkoutIntentFromPath(session.returnTo)
+                ? CHECKOUT_COPY.backToCheckout
+                : "Back to the item"}
               <ArrowRight aria-hidden />
             </Button>
           )}
@@ -853,6 +903,11 @@ export default function BuyUsdcFlow() {
           }
           error={amountError}
         />
+        {showMinimumLine && path && (
+          <p role="status" className="font-prism text-prism-meta text-prism-ink-2">
+            {CHECKOUT_COPY.coinbaseMinimum(`$${dollarsFromCents(path.minCents)}`)}
+          </p>
+        )}
         <AmountPresets
           presets={ONRAMP_LIMITS.presets.map(value => ({ label: value, value }))}
           onPick={setAmount}

@@ -1,9 +1,9 @@
 # RNS as on-chain identity: phase 2 (two way binding)
 
-Status: spec for approval, 27 Oct 2026. Build Board: D25 "RNS as on-chain identity on the profile" (Step 1, priority 12).
+Status: spec for approval, 27 Oct 2026. QA fixes 3 Nov 2026 (rows 346 to 348; project doc claude/amped-screen-full-qa-seller-2026-11-03.md). Build Board: D25 "RNS as on-chain identity on the profile" (Step 1, priority 12).
 Owner: Rob Frasca. Drafted by Claude.
 Baseline: `development` at a3ce333.
-Design: RNS two way binding, https://claude.ai/artifact/DNtf2TeM2UquQQeiG5MK4Q
+Design: RNS two way binding, https://claude.ai/artifact/DNtf2TeM2UquQQeiG5MK4Q (boards B1 to B3 with their states and the 1440 frames, redrawn 3 Nov)
 Earlier work: RNS ID block #33 (`docs/features/rns-id-block.md`), PRs #265, #341, #342. Project docs: analysis (30 Sep) and staging review (10 Oct).
 
 ## 1. Where phase 1 left it
@@ -35,7 +35,15 @@ Checks 1 to 3 are today's `checkRnsBinding`. Check 4 is new. The `url` key alrea
 
 ## 3. Reverse record
 
-Publish adds one optional row, "Show this name for my wallet", which calls `REVERSE_REGISTRAR.setName(name)` in the same transaction batch as the text records. Default on for the first publish (decision B2). Reading: `rnsSummary` already resolves names for addresses; it prefers the reverse name when it is set and bound.
+Publish adds one optional row, "Show this name for my wallet", which calls `REVERSE_REGISTRAR.setName(name)`. Default on for the first publish (decision B2). Reading: `rnsSummary` already resolves names for addresses; it prefers the reverse name when it is set and bound.
+
+Transactions (QA 3 Nov, RN-Q1). Publish today is one resolver call (`setText` or `multicallWithNodeCheck`, `apps/client/src/components/panels/wallet/rns/name/PublishFlow.tsx:93-112`). `setName` lives on `REVERSE_REGISTRAR`, a different contract (`apps/server/src/services/rnsSummary.ts:78-82`). With the reverse row on, Publish is **two transactions**: the wallet confirms twice and pays two fees. The Review step says "Two transactions" and shows the summed fee estimate. Where the wallet supports `wallet_sendCalls` (EIP-5792), RN2 sends both calls as one batch and the Review step says "One confirmation in your wallet". With the reverse row off, it stays one transaction.
+
+The reverse row is Set primary (QA 3 Nov, RN-Q3). The wallet's Primary chip comes from the reverse lookup (`apps/client/src/components/panels/wallet/rns/MyRnsNames.tsx:40`). Card #45 left Set primary open because it needs a reverse registrar transaction and its own review step (`home-get-trevo-rns-cards.md`, section 2). Decision for Rob on #45 and #25, recorded in section 7 as RN-Q3. If B2 stands, Set primary on a wallet name card opens this Publish flow with only the reverse row checked, and #45 needs no separate flow.
+
+### 3.1 Point to this wallet (QA 3 Nov, from identity checks VS-Q4)
+
+RN2 also adds a name page flow `flow=point` for a name the wallet owns whose resolver `addr` is another address. It calls the resolver `setAddr(node, wallet)`. Steps and parts as Publish: Profile is skipped, Review (Network fee (estimate), Balance after, ComplianceCard), Confirm in wallet, result. The Get paid card (identity checks 5.2) links to it for `not_bound`.
 
 Chain note: `REVERSE_REGISTRAR` is set on Libertas testnet and is the zero address on the Revolution devnet config (`packages/web3/src/index.ts` line 46). There is no mainnet chain config yet (`AVAILABLE_CHAINS` is Libertas testnet and Revolution devnet). The row is hidden when the address is zero.
 
@@ -54,7 +62,7 @@ Change in `computeRnsIdentity`:
 
 Existing Verified pages lose the badge until the owner publishes once. Before the switch, a one time email and an editor notice ask owners with a one way binding to publish (about two minutes, one transaction). The switch is behind `RNS_BADGE_TWO_WAY` so it turns on after the notice period (decision B3).
 
-The seller check in `docs/features/identity-checks.md` (revision 2, S1) uses `checkRnsBinding(...).ok`, the one way rule, so selling is not blocked by a missing `url` record.
+Sellers follow the same rule (X-Q1, Rob 3 Nov). The seller check in `docs/features/identity-checks.md` (revision 4, S1) requires `checkRnsBinding(...)` to return `ok` and `twoWay`; one way fails with `name_not_linked` and the Get paid card shows Publish to your name. It turns on with `RNS_BADGE_TWO_WAY`, after the same notice period, and the notice email and editor notice also tell sellers bound one way that their store stops taking payments until they publish. Today `apps/server/src/services/identity/checks.ts:143` uses `.ok`, the one way rule; RN3 changes it.
 
 ## 5. One RNS module
 
@@ -73,12 +81,20 @@ The client hooks and the server services import from `@repo/web3/rns`. Behavior 
 
 Design boards cover:
 
-- B1 Publish sheet with the `url` row marked "Links this name to your Amped.Bio page" and the reverse row.
-- B2 Identity sheet (owner) with the new "Linked both ways" line, and the nudge when only one way.
-- B3 Handle changed after publish: the RNS section shows "Your name still points to amped.bio/{old}. Publish to update it."
+- B1 Publish. The shipped Publish flow stays: step bar (Profile, Review, Confirm in wallet), Network fee (estimate), Balance after and the ComplianceCard with `TESTNET_NOTICE` (`PublishFlow.tsx:9,17,214-221`). RN2 adds two things to the Profile step only (RN-Q2):
+  - The `url` row: "Page link", "amped.bio/{handle}. Links this name to your Amped.Bio page." Unchecked, it shows "Your name will not link to your page."
+  - The reverse row: "Show this name for my wallet", "Wallets and explorers show {full name} instead of {short address}." Hidden when `REVERSE_REGISTRAR` is the zero address.
+  - Each row is one 44 px target (the whole row toggles the checkbox) (RN-Q5).
+  - States (RN-Q4): reverse row hidden; Network fee: not available with Retry; declined ("You cancelled in your wallet. Nothing changed."); failed ("Publish did not complete" with Retry); desktop SidePanel 508 wide at 1440. All reuse the shipped cards.
+- B2 Identity sheet (owner) with the new "Linked both ways" line, and the nudge when only one way. Both carry the shipped footnote "Verified means the identity check passed. It is not an endorsement." (`packages/ui/src/prism/rns-identity.tsx:77`) (RN-Q6). B2b keeps the "Verified by Authbase" row, so the owner sees that only the link is missing (RN-Q8). States (RN-Q7): loading; Authbase unavailable (`rnsTrust` returns unavailable: "We could not check Authbase right now. Try again in a minute." with Try again); Authbase not verified with two way binding (name chip, Verify with Authbase); Authbase expired (Verify again); name expired (Extend); notice period before `RNS_BADGE_TWO_WAY` turns on (one way still Verified, with "From {date}, Verified needs your name linked both ways. Publish to your name to keep it."); desktop at 1440.
+- B3 Handle changed after publish, in the Page panel, phone and 1440 (RN-Q9). Copy (RN-Q10): "You changed your page link to amped.bio/{new}. Publish to update your name." Sellers need two way binding (X-Q1), so the prompt adds "Until you do, your store does not take payments." for an account with a seller pass or a live store.
 - B4 Public chip and sheet, unchanged for visitors except the badge rule.
 
 ## 7. Decisions for Rob (recommended first)
+
+All decisions in this section are open until Rob answers on the card.
+
+**X-Q1. Two way for sellers (decided, Rob 3 Nov).** Sellers need two way binding, matching the badge rule.
 
 **`badge-rule` (open on the card).** Recommended: two way binding plus Authbase VERIFIED. Why: binding proves control of both sides, Authbase proves the person. Alternative: one way binding plus Authbase (today).
 
@@ -92,6 +108,8 @@ Design boards cover:
 
 **B3. Existing Verified pages.** Recommended: 14 days of notice, then the two way rule turns on. Why: no surprise loss of the badge. Alternative: turn it on at once.
 
+**RN-Q3. Reverse row and Set primary (open, #25 and #45).** Recommended: one flow. The reverse row in Publish is the Set primary action; Set primary on a wallet name card opens Publish with only that row checked. Alternative: a separate Set primary flow on #45 with its own review step.
+
 `agent-model` and `public-attributes` stay open for the phase 3 and phase 4 specs.
 
 ## 8. Build
@@ -99,8 +117,8 @@ Design boards cover:
 | PR | Scope | Size |
 | --- | --- | --- |
 | RN1 | `packages/web3/src/rns` module, imports moved, no behavior change | 1.5 days |
-| RN2 | `url` read in the binding, `twoWay`, Publish rows (url label, reverse), Identity sheet states, handle change state | 1.5 days |
-| RN3 | `RNS_BADGE_TWO_WAY` flag, badge rule, notice email and editor notice | 0.5 day |
+| RN2 | `url` read in the binding, `twoWay`, Publish rows (url label, reverse) inside the shipped Profile step, two transactions or one `wallet_sendCalls` batch (3), `flow=point` (3.1), Identity sheet states and footnote (6), handle change state | 2 days |
+| RN3 | `RNS_BADGE_TWO_WAY` flag, badge rule, seller check `twoWay` and `name_not_linked` (X-Q1), notice email and editor notice (with the seller line) | 1 day |
 
 ## 9. Acceptance
 
@@ -108,9 +126,14 @@ Design boards cover:
 2. Changing the handle makes `twoWay` false and shows the publish prompt; publishing restores it.
 3. With the flag on, a VERIFIED owner with a one way binding shows the name chip, not Verified, and sees the nudge.
 4. Publishing with the reverse row on makes the wallet's reverse lookup return the name.
-5. The seller check passes on a one way binding.
+5. With the flag on, the seller check fails on a one way binding with `name_not_linked` and passes after Publish. (X-Q1)
 6. After RN1 the client and server contain no RNS subgraph query outside `packages/web3/src/rns`.
 7. Typecheck, build and tests pass. Copy has no em or en dashes.
+8. With the reverse row on and no `wallet_sendCalls` support, Review says "Two transactions" and the fee is the sum of both estimates. (RN-Q1)
+9. Publish keeps the step bar, Balance after and the ComplianceCard with `TESTNET_NOTICE`. (RN-Q2)
+10. On a chain whose `REVERSE_REGISTRAR` is the zero address, the reverse row does not render. (RN-Q4)
+11. Every Identity sheet state that shows Verified carries the not an endorsement footnote. (RN-Q6)
+12. `flow=point` sets the resolver `addr` of an owned name to the wallet, and the seller check then passes the binding. (3.1)
 
 ## 10. Open questions
 

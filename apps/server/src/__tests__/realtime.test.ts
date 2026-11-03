@@ -47,6 +47,17 @@ const send = (senderId: number, recipientId: number, body = "hi") =>
   sendDirect({ senderId, recipientId, body });
 const messages = (sub: number) => messagesRouter.createCaller({ user: { sub } } as never);
 
+/**
+ * Replay orders and compares by the timestamp inside the UUID v7, and `uuidv7()` fills
+ * the 74 low bits with random bytes, so two ids from the same millisecond sort randomly.
+ * Wait for the clock to move on before creating the next message, like two sends from a
+ * person always would.
+ */
+async function nextMillisecond() {
+  const start = Date.now();
+  while (Date.now() === start) await new Promise(resolve => setTimeout(resolve, 0));
+}
+
 /** Collect events from realtime.events until `count` arrive. */
 async function collect(
   sub: number,
@@ -137,7 +148,9 @@ describe("replay", () => {
   it("sends messages after lastEventId, oldest first, then unread totals", async () => {
     friends(MAYA, JORDAN);
     const first = await send(JORDAN, MAYA, "one");
+    await nextMillisecond();
     const second = await send(JORDAN, MAYA, "two");
+    await nextMillisecond();
     const third = await send(MAYA, JORDAN, "three");
     const events = await replay(MAYA, idToHex(first.messageId));
     expect(events.map(e => e.event.type)).toEqual(["message.new", "message.new", "unread.changed"]);
@@ -153,6 +166,7 @@ describe("replay", () => {
     await send(SAM, ANA, "not for Maya");
     expect((await replay(MAYA, marker)).map(e => e.event.type)).toEqual(["unread.changed"]);
     const conversationId = (await send(JORDAN, MAYA)).conversationId;
+    await nextMillisecond();
     for (let i = 0; i < REPLAY_MAX + 1; i += 1) {
       fake.db.table("directMessage").push({
         id: uuidv7(),
@@ -194,6 +208,7 @@ describe("realtime.events", () => {
   it("replays after lastEventId before going live", async () => {
     friends(MAYA, JORDAN);
     const first = await send(JORDAN, MAYA, "seen");
+    await nextMillisecond();
     await send(JORDAN, MAYA, "missed");
     const got = await collect(MAYA, 2, { lastEventId: idToHex(first.messageId) });
     expect(got[0].event.message.body).toBe("missed");

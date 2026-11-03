@@ -60,7 +60,10 @@ const RELATIONS: Record<string, Record<string, Rel>> = {
 };
 
 /** Single column unique keys checked on create (P2002), per model. */
-const UNIQUE: Record<string, string[]> = { conversation: ["pairKey"] };
+const UNIQUE: Record<string, string[]> = {
+  conversation: ["pairKey"],
+  notificationJob: ["dedupeKey"],
+};
 
 const COMPOSITE: Record<string, string[]> = {
   creatorUserId_fanUserId: ["creatorUserId", "fanUserId"],
@@ -148,6 +151,7 @@ const DEFAULTS: Record<string, () => Row> = {
     claimedAt: null,
     doneAt: null,
     error: null,
+    dedupeKey: null,
     createdAt: new Date(),
   }),
   pushSubscription: () => ({ userAgent: null, failedAt: null, createdAt: new Date() }),
@@ -381,6 +385,8 @@ export function createFakeDb() {
       create: async (args: Row) => {
         const row = { ...(DEFAULTS[model]?.() ?? {}), ...args.data };
         for (const field of UNIQUE[model] ?? []) {
+          // Like MySQL, a unique index allows any number of NULLs
+          if (row[field] === null || row[field] === undefined) continue;
           if (table(model).some(other => same(other[field], row[field]))) {
             throw new FakeKnownRequestError("P2002");
           }
