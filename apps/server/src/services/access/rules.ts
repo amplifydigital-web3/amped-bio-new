@@ -2,7 +2,7 @@
  * Access rules: load, validate and manage (gating spec 3.6). A stored row whose
  * params fail its kind's zod schema is treated as invalid and refuses.
  */
-import { prisma } from "@repo/database";
+import { prisma, type Prisma } from "@repo/database";
 import {
   ACCESS_RULE_KINDS,
   ACCESS_RULE_PARAMS,
@@ -13,6 +13,10 @@ import {
 import { TRPCError } from "@trpc/server";
 import { cache } from "../../utils/cache";
 import { uuidv7 } from "../../utils/uuid-v7";
+import { assertStakeKindsAllowed } from "./allowlist";
+
+/** prisma, or the client of a transaction in progress */
+export type Db = Parameters<Parameters<typeof prisma.$transaction>[0]>[0] | typeof prisma;
 
 export type LoadedRule = {
   id: string;
@@ -100,8 +104,8 @@ export async function loadRule(
   return rule;
 }
 
-async function ownerPool(ownerUserId: number, poolId: number): Promise<boolean> {
-  const pool = await prisma.creatorPool.findUnique({
+async function ownerPool(db: Db, ownerUserId: number, poolId: number): Promise<boolean> {
+  const pool = await db.creatorPool.findUnique({
     where: { id: poolId },
     select: { wallet: { select: { userId: true } } },
   });
@@ -111,15 +115,18 @@ async function ownerPool(ownerUserId: number, poolId: number): Promise<boolean> 
 /** Turns creator input into stored params. Stake minimums arrive as whole tREVO. */
 async function toStoredParams(
   ownerUserId: number,
-  input: AccessRuleInput
+  input: AccessRuleInput,
+  db: Db = prisma
 ): Promise<Record<string, unknown>> {
   switch (input.kind) {
     case "follower":
       return {};
     case "pool_member":
     case "stake_min": {
+      // Pilot allowlist (OB-Q65): same refusal as content.update
+      assertStakeKindsAllowed(ownerUserId, [input.kind]);
       // v1 decision 3: only the owner's own pool
-      if (!(await ownerPool(ownerUserId, input.params.poolId))) {
+      if (!(await ownerPool(db, ownerUserId, input.params.poolId))) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Pick your own pool." });
       }
       if (input.kind === "pool_member") return { poolId: input.params.poolId };
@@ -130,7 +137,7 @@ async function toStoredParams(
     case "any":
     case "all": {
       // 2 to 4 leaves, depth 1, all the owner's own
-      const leaves = await prisma.accessRule.findMany({
+      const leaves = await db.accessRule.findMany({
         where: { id: { in: input.params.ruleIds.map(hexToId) } },
         select: { ownerUserId: true, kind: true },
       });
@@ -145,6 +152,10 @@ async function toStoredParams(
           message: "Combine 2 to 4 of your own single rules.",
         });
       }
+      assertStakeKindsAllowed(
+        ownerUserId,
+        leaves.map(leaf => leaf.kind)
+      );
       return { ruleIds: input.params.ruleIds };
     }
   }
@@ -152,20 +163,21 @@ async function toStoredParams(
 
 export async function createRule(
   ownerUserId: number,
-  input: AccessRuleInput & { name?: string | null; opensToAllAt?: Date | null }
+  input: AccessRuleInput & { name?: string | null; opensToAllAt?: Date | null },
+  db: Db = prisma
 ) {
-  const params = await toStoredParams(ownerUserId, input);
+  const params = await toStoredParams(ownerUserId, input, db);
   // Belt and braces: the stored shape must pass the read schema too
   if (!ACCESS_RULE_PARAMS[input.kind].safeParse(params).success) {
     throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid rule" });
   }
   const id = uuidv7();
-  await prisma.accessRule.create({
+  await db.accessRule.create({
     data: {
       id,
       ownerUserId,
       kind: input.kind,
-      params,
+      params: params as Prisma.InputJsonObject,
       name: input.name ?? null,
       opensToAllAt: input.opensToAllAt ?? null,
     },
@@ -267,4 +279,45 @@ export async function listRules(ownerUserId: number) {
       };
     })
   );
+}
+
+/**
+ * Deletes a rule when it is inline (name null) and nothing references it: no
+ * item (accessRuleId or baseAccessRuleId), no block, no any or all rule. Its
+ * inline leaves follow by the same test. Saved rules are never deleted here
+ * (content gating 3.5). Run inside the transaction that changed the reference.
+ */
+export async function cleanupInlineRule(db: Db, idHex: string): Promise<string[]> {
+  const deleted: string[] = [];
+  const row = await db.accessRule.findUnique({
+    where: { id: hexToId(idHex) },
+    select: { ownerUserId: true, name: true, kind: true, params: true },
+  });
+  if (!row || row.name !== null) return deleted;
+  const id = hexToId(idHex);
+  const [blocks, items, combos] = await Promise.all([
+    db.block.count({ where: { accessRuleId: id } }),
+    db.contentItem.count({ where: { OR: [{ accessRuleId: id }, { baseAccessRuleId: id }] } }),
+    db.accessRule.findMany({
+      where: { ownerUserId: row.ownerUserId, kind: { in: ["any", "all"] } },
+      select: { params: true },
+    }),
+  ]);
+  const inCombos = combos.some(combo =>
+    ((combo.params as { ruleIds?: string[] })?.ruleIds ?? []).includes(idHex)
+  );
+  if (blocks + items > 0 || inCombos) return deleted;
+  await db.accessRule.delete({ where: { id } });
+  deleted.push(idHex);
+  if (row.kind === "any" || row.kind === "all") {
+    for (const leaf of (row.params as { ruleIds?: string[] })?.ruleIds ?? []) {
+      deleted.push(...(await cleanupInlineRule(db, leaf)));
+    }
+  }
+  return deleted;
+}
+
+/** Drop cached rows after the transaction that deleted them commits. */
+export async function forgetRules(idHexes: string[]) {
+  await Promise.all(idHexes.map(id => cache.delete(ruleKey(id))));
 }

@@ -20,6 +20,8 @@ import { privateProcedure, router } from "./trpc";
 import { hitRateLimit } from "../utils/rateLimit";
 import { uuidv7 } from "../utils/uuid-v7";
 import { openDecision } from "../services/content/access";
+import { check, viewerFrom } from "../services/access";
+import { isFeatureOn } from "../services/featureFlags";
 
 export const progressRouter = router({
   get: privateProcedure
@@ -56,7 +58,13 @@ export const progressRouter = router({
       where: { publicId: input.publicId },
       include: { user: { select: { page_status: true, block: true } } },
     });
-    if (!item || !openDecision(item, item.user, { userId })) return { saved: false };
+    if (!item) return { saved: false };
+    // Content gating 3.3: the engine decides once the flag is on; a refused viewer is ignored
+    const allowed = isFeatureOn("accessGating")
+      ? (await check(viewerFrom(ctx), { type: "content", id: item.publicId }, { intent: "open" }))
+          .allowed
+      : openDecision(item, item.user, { userId }) !== null;
+    if (!allowed) return { saved: false };
 
     const durationMs = input.durationMs ?? item.durationMs ?? null;
     const positionMs = durationMs ? Math.min(input.positionMs, durationMs) : input.positionMs;
