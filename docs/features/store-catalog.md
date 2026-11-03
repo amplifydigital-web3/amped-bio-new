@@ -136,9 +136,9 @@ Supersedes the text named at the top of this file. Source: findings ST-Q1 to ST-
 4. An 18+ product with a tagged performer who has no valid release with the creator cannot be activated (`release_missing`).
 5. No store, product page, store block or editor string contains "Yours to keep", "a month", "monthly" or the word price, and every amount reads `$N USDC` (`scripts/check-compliance-copy.ts`).
 6. The storefront, product page, pay sheet and receipt each name the creator as seller and link the store policy version.
+7. 18+ products are absent from server HTML, the store block, sitemaps, `llms.txt`, JSON-LD and share tags for viewers without a pass.
 8. The Over 18 sheet and every 18+ product page show `ALABAMA_HEALTH_WARNINGS` and `SAMHSA_HELPLINE_NOTICE` byte for byte, at 16 or larger, never collapsed (interim, AD-D1).
 9. No pay sheet seller line contains "discretion" or "Payments are final" (CK-D1).
-7. 18+ products are absent from server HTML, the store block, sitemaps, `llms.txt`, JSON-LD and share tags for viewers without a pass.
 
 ## For counsel
 
