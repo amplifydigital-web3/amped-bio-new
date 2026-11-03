@@ -287,7 +287,7 @@ v1 section 3.9 stands. Additions:
 2. `AccessRule`, `AccessEvent`, `Block.accessRuleId`, content foreign key.
 3. `check`, `checkBatch`, `open`, `eligibleUserIds`, resolver registry, preconditions, kinds follower, pool_member, stake_min, any, all.
 4. Messaging, Telegram and broadcast run through the engine with no behavior change except the two fixes.
-5. Gated link, text and media blocks with `/go`, locked DTO, `checkPage`, rule picker and unlock sheet, behind `ACCESS_GATING_ENABLED`.
+5. Gated link, text and media blocks with `/go`, locked DTO, `checkPage`, rule picker and unlock sheet, behind the `accessGating` feature flag.
 6. Leak test in CI.
 
 ### P1
@@ -350,7 +350,7 @@ While messaging runs before G2, its evaluator (`telegram/rules.ts`) stays in pla
 
 Critical path to the first paid unlock: G0 (done), I1, G1, content PR 8, store PR 9 with S1, store PR 10, G4.
 
-Flags: `ACCESS_GATING_ENABLED` (server), `VITE_ACCESS_GATING` (client and landing), `ACCESS_STAKE_KINDS_ALLOWLIST` (creator ids for pool kinds while counsel reviews).
+Flags live in site_settings, set from the admin with no rebuild or redeploy (Rob, 3 Nov). The `accessGating` feature flag (`packages/constants/src/feature-flags.ts`, admin › Feature flags) switches the engine on the server, client and landing app. The site setting `access_stake_kinds_allowlist` holds the creator ids for pool kinds while counsel reviews, as comma separated user ids. `ACCESS_GATING_ENABLED` and `ACCESS_STAKE_KINDS_ALLOWLIST` stay in the server environment only as fallbacks while no row is set. No new environment variable is added for a flag, an allowlist or an amount.
 
 ## 7. Decisions for Rob (recommended first)
 
@@ -393,9 +393,12 @@ Lagging (90 days after paid goes live): share of creators with any paid or membe
 
 ## Revision log
 
+- 2026-11-03: Flags in site_settings. `accessGating` is a feature flag (#421) and the stake allowlist is the `access_stake_kinds_allowlist` site setting. `VITE_ACCESS_GATING` is dropped.
+
 - 2026-11-03: C8 Full QA. CQ1: content attachments on broadcasts move to Broadcast phase 2. CQ2: content PR 8 builds `access.checkPage` for content cards and G3 extends it to blocks. C8 build spec in `docs/features/content-gating.md`.
+
 - 2026-10-30: Full QA against `development` f8bd0bb. GQ1: all gating schema in one G1 migration, `block` resolver in G1, `content` resolver moves to content PR 8 (needs #348). GQ2: rule references `Restrict`, `AccessRule.owner` `NoAction`, deletion order in AD2, never `SetNull`. Identity result mapping and new reason `identity_unavailable`. Suspended viewers refuse. zod params per kind. No decision cache without Redis. `TelegramGroup` rules (#383) in G2. AccessEvent privacy entries. G1 depends on G0 and I1.
 - 2026-10-28: G0 row and units paragraph matched to PR #357: convert at comparison time with `wholeTokensToWei`, no data migration. G1 stores wei in `AccessRule`; G2 maps `stakeMin` through `wholeTokensToWei`.
 - 2026-10-24: Rob: staking is tREVO or REVO only, never USDC. Deployed staking contracts are not changed; gating reads stakes and compares them to the amount the creator sets. The admin minimum stays in the contracts (`_minStake`). v1's 1 REVO app floor removed; `pool_member` is any stake. Acceptance 1 added.
-- 2026-10-23 (later): Rob's direction applied. Age precondition uses the Authbase Over 18 attribute through the shared identity check (G7 removed). Seller verification precondition on paid and member. Sequence: messaging and content live before the engine; G0 before messaging launch.
+- 2026-10-23 (later): Rob's direction applied. Age precondition uses the Authbase Over 18 attribute through the shared identity check (G7 removed). Seller verification precondition on paid and member. Sequence: messaging and content live before the engine; G0 before messaging goes live.
 - 2026-10-23: v2. Reconciled to development at 48ca154. Audit found no engine, two defects in the messaging evaluator, UUID rule ids on content, the media gateway in place of CloudFront. Added preconditions (blocked, age, early access), one call `open`, `paid` soft unlock, `member` from #25, `rns_verified` defined, adoption of messaging, Telegram and broadcast, and a PR plan G0 to G7.
