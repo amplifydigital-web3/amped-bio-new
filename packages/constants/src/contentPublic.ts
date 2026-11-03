@@ -110,6 +110,8 @@ export interface ContentGate {
   summary: string;
   /** True when the rule reads a stake: the unlock card shows TESTNET_NOTICE and ACCESS_STAKE_DISCLOSURE */
   stake: boolean;
+  /** The creator's pool page for Go to the pool. Public already; never an amount. */
+  poolAddress?: string | null;
 }
 
 /** The item page's server data (spec 3.7). No playback URLs. A locked item has no description, chapters or captions. */

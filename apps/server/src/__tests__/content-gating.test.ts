@@ -62,6 +62,7 @@ const db = vi.hoisted(() => {
     creatorPool: {
       findUnique: vi.fn(async () => ({ wallet: { userId: state.poolOwner } })),
       findFirst: vi.fn(async () => ({ id: POOL })),
+      findMany: vi.fn(async () => [{ id: POOL, poolAddress: "0xpool" }]),
     },
     contentItem: {
       findUnique: vi.fn(async ({ where, include }: any) => {
@@ -639,7 +640,12 @@ describe("leak test, content part (gating acceptance 5)", () => {
     const locked = bio.cards[gated.publicId]!;
     expect(locked).toMatchObject({
       cover: null,
-      gate: { kind: "stake_min", summary: "Fans with a minimum stake", stake: true },
+      gate: {
+        kind: "stake_min",
+        summary: "Fans with a minimum stake",
+        stake: true,
+        poolAddress: "0xpool",
+      },
     });
     expect(locked.blur).toContain("tok:blur");
     forbidden(JSON.stringify(locked));

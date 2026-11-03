@@ -104,3 +104,20 @@ export function openDecision(
   }
   return isPublicItem(item, creator) ? "public" : null;
 }
+
+/** The listed test (LISTED_ITEM_WHERE) for one loaded item and its creator. */
+export function isListedItem(
+  item: Omit<ItemFields, "accessRuleId">,
+  creator: CreatorFields | null
+): boolean {
+  return (
+    item.status === "READY" &&
+    item.publishState === "PUBLISHED" &&
+    item.moderationState === "CLEAR" &&
+    !item.adult &&
+    item.deletedAt === null &&
+    creator !== null &&
+    creator.page_status === PUBLIC_CREATOR_WHERE.page_status &&
+    creator.block === PUBLIC_CREATOR_WHERE.block
+  );
+}

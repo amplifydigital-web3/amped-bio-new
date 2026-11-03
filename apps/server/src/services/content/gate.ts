@@ -40,10 +40,32 @@ export async function gatesFor(ruleIds: Uint8Array[]): Promise<Map<string, Conte
   const leaves = leafIds.length
     ? await prisma.accessRule.findMany({
         where: { id: { in: [...new Set(leafIds)].map(id => Buffer.from(id, "hex")) } },
-        select: { id: true, kind: true },
+        select: { id: true, kind: true, params: true },
       })
     : [];
   const leafKind = new Map(leaves.map(leaf => [hex(leaf.id), leaf.kind]));
+  // The pool a stake rule reads, for Go to the pool. Pool pages are public.
+  const poolOf = (rule: { kind: string; params: unknown }) =>
+    isStake(rule.kind) ? Number((rule.params as { poolId?: unknown })?.poolId) || null : null;
+  const leafPool = new Map(leaves.map(leaf => [hex(leaf.id), poolOf(leaf)]));
+  const rulePool = new Map(
+    rules.map(rule => [
+      hex(rule.id),
+      poolOf(rule) ??
+        ((rule.params as { ruleIds?: string[] })?.ruleIds ?? [])
+          .map(id => leafPool.get(id) ?? null)
+          .find(id => id !== null) ??
+        null,
+    ])
+  );
+  const poolIds = [...new Set([...rulePool.values()].filter((id): id is number => id !== null))];
+  const pools = poolIds.length
+    ? await prisma.creatorPool.findMany({
+        where: { id: { in: poolIds } },
+        select: { id: true, poolAddress: true },
+      })
+    : [];
+  const poolAddress = new Map(pools.map(pool => [pool.id, pool.poolAddress]));
   for (const rule of rules) {
     const kind = knownKind(rule.kind);
     const stake =
@@ -52,7 +74,13 @@ export async function gatesFor(ruleIds: Uint8Array[]): Promise<Map<string, Conte
         ((rule.params as { ruleIds?: string[] })?.ruleIds ?? []).some(id =>
           isStake(leafKind.get(id) ?? "")
         ));
-    out.set(hex(rule.id), { kind, summary: ACCESS_RULE_SUMMARIES[kind], stake });
+    const pool = rulePool.get(hex(rule.id)) ?? null;
+    out.set(hex(rule.id), {
+      kind,
+      summary: ACCESS_RULE_SUMMARIES[kind],
+      stake,
+      ...(stake ? { poolAddress: pool === null ? null : (poolAddress.get(pool) ?? null) } : {}),
+    });
   }
   // A rule that went missing still locks the item (default deny)
   for (const id of unique) {

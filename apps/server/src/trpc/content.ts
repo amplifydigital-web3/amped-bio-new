@@ -78,7 +78,7 @@ import {
   publicFeed,
   publicItem,
 } from "../services/content/publicView";
-import { isPublicItem } from "../services/content/access";
+import { isListedItem, isPublicItem } from "../services/content/access";
 import {
   buildDownload,
   buildPlayback,
@@ -1114,7 +1114,12 @@ export const contentRouter = router({
       include: { user: { select: { page_status: true, block: true } } },
     });
     const viewerId = viewerUserId(ctx);
-    if (!item || (!isPublicItem(item, item.user) && item.userId !== viewerId)) {
+    // A locked item is on public pages too once gating is on, so it can be reported
+    const visible =
+      item &&
+      (isPublicItem(item, item.user) ||
+        (isFeatureOn("accessGating") && isListedItem(item, item.user)));
+    if (!item || (!visible && item.userId !== viewerId)) {
       throw new TRPCError({ code: "NOT_FOUND", message: VIEWER_MESSAGES.notFound });
     }
     await prisma.contentReport.create({
