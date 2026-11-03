@@ -93,7 +93,7 @@ const db = vi.hoisted(() => {
     contentAsset: {
       findMany: vi.fn(async ({ where }: any) => assets.filter(row => matches(row, where))),
     },
-    block: { count: vi.fn(async () => 0) },
+    block: { count: vi.fn(async () => 0), findMany: vi.fn(async () => []) },
     accessRule: {
       create: vi.fn(async ({ data }: any) => {
         rules.set(hex(data.id), { ...data, opensToAllAt: null, version: 1 });

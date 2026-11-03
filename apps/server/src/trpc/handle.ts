@@ -27,6 +27,7 @@ import { matchReserved } from "../services/reservedHandles";
 import { enforceRateLimits } from "../utils/rateLimit";
 import { getVisitorIp } from "../services/analytics/visitorIp";
 import { publicCardsFor } from "../services/content/publicView";
+import { publicBlocksFor } from "../services/access/blocks";
 import type { ContentBlockConfig, ContentCard } from "@repo/constants";
 
 export const SITEMAP_MAX_PAGE_SIZE = 10000;
@@ -261,16 +262,21 @@ const appRouter = router({
       // The theme is the profile itself, so its failure is fatal
       if (themeResult.status === "rejected") throw themeResult.reason;
 
-      const publicBlocks = blockRows.map(block => ({
-        id: block.id,
-        user_id: block.user_id,
-        type: block.type,
-        order: block.order,
-        clicks: block.clicks,
-        config: sanitizeBlockConfig(block.type, block.config),
-        created_at: block.created_at,
-        updated_at: block.updated_at,
-      }));
+      // G3: gated link, media and text blocks leave as the locked DTO (or not at all
+      // while the accessGating flag is off). Never the URL, body or embed.
+      const publicBlocks = await publicBlocksFor(
+        blockRows.map(block => ({
+          id: block.id,
+          user_id: block.user_id,
+          type: block.type,
+          order: block.order,
+          clicks: block.clicks,
+          config: sanitizeBlockConfig(block.type, block.config),
+          created_at: block.created_at,
+          updated_at: block.updated_at,
+        })),
+        blockRows
+      );
 
       // Any failure shows no chip (fails closed)
       const identity: PublicRnsIdentity =

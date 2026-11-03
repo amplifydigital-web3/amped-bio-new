@@ -12,6 +12,7 @@ import analyticsRouter from "../routes/analytics";
 import telegramRouter from "../routes/telegram";
 import telegramOidcRouter from "../routes/telegramOidc";
 import { contentCallbackRouter, contentJobRouter, streamWebhookRouter } from "../routes/content";
+import { goRouter } from "../routes/go";
 import onrampWebhookRouter from "../routes/onramp";
 
 import mcpRouter from "../routes/mcp";
@@ -131,6 +132,8 @@ app.use("/trpc", trpcMiddleware as any);
 app.use("/.well-known", wellKnownRouter);
 app.use("/api/blocks/schemas", blocksSchemasRouter);
 app.use("/health", healthRouter);
+// Gated link redirect (access gating G3); reads the session cookie
+app.use("/go", goRouter);
 app.use("/api/analytics", analyticsRouter);
 // Log In with Telegram callback (Build Board #2). After cookieParser: it reads the session.
 app.use("/telegram", telegramOidcRouter);
