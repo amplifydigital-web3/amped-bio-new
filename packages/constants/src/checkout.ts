@@ -151,6 +151,10 @@ export const CHECKOUT_COPY = {
   feeIncluded: "Includes the Amped.Bio fee",
   short: (amount: string) => `You need ${amount} USDC more.`,
   addUsdc: "Add USDC in Wallet",
+  backToCheckout: "Back to checkout",
+  coinbaseMinimum: (min: string) =>
+    `Coinbase's smallest purchase is ${min}. The rest stays in your wallet.`,
+  onTheWay: "Your USDC is on its way. Go back to Amped.Bio to finish.",
   checking: "Checking your payment. It can only go through once.",
   paid: (handle: string, amount: string) => `You paid @${handle} ${amount} USDC.`,
   priceChanged: (was: string, now: string) =>
@@ -163,3 +167,23 @@ export const CHECKOUT_COPY = {
   failed: "The payment did not go through. Nothing was taken from your wallet.",
   ended: "This checkout has ended. Start again from the page.",
 } as const;
+
+/** The intent a return path points at, or null for any other path. */
+export function checkoutIntentFromPath(path: string | null | undefined): string | null {
+  const match = path ? /^\/pay\/([0-9a-f]{32})$/.exec(path) : null;
+  return match ? match[1]! : null;
+}
+
+/**
+ * The Buy USDC prefill for a short balance (mobile checkout 8): the shortfall in whole
+ * cents, rounded up, or Coinbase's minimum when the shortfall is smaller.
+ */
+export function checkoutFundingCents(
+  shortUnits: bigint,
+  minCents: number
+): { cents: number; raisedToMinimum: boolean } {
+  const need = Number((shortUnits + 9_999n) / 10_000n);
+  return need < minCents
+    ? { cents: minCents, raisedToMinimum: true }
+    : { cents: need, raisedToMinimum: false };
+}
