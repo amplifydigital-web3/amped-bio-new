@@ -20,6 +20,9 @@ const PrismGallery = lazy(() =>
 
 // Mobile checkout (CK-2). Lazy, so the editor bundle carries none of it
 const PayPage = lazy(() => import("./pages/Pay").then(module => ({ default: module.PayPage })));
+const CheckoutReturnPage = lazy(() =>
+  import("./pages/CheckoutReturn").then(module => ({ default: module.CheckoutReturnPage }))
+);
 
 function AppRouter() {
   return (
@@ -50,6 +53,15 @@ function AppRouter() {
                 <PayPage />
               </Suspense>
             </ProtectedRoute>
+          }
+        />
+        {/* CK-3: Coinbase returns here from a checkout. No session needed, nothing named */}
+        <Route
+          path="/r/:intentId"
+          element={
+            <Suspense fallback={<div className="prism-room min-h-dvh" />}>
+              <CheckoutReturnPage />
+            </Suspense>
           }
         />
         {/* Legacy /@handle/edit/... URLs are normalized to the panel route by Editor */}

@@ -258,7 +258,10 @@ export function PayPage() {
         </SheetButton>
       </>
     ) : shortBy > 0n ? (
-      <SheetButton theme={theme} href={`/wallet?fund=usdc&ci=${intentId}`}>
+      <SheetButton
+        theme={theme}
+        href={`/wallet?fund=usdc&ci=${intentId}&need=${shortBy.toString()}`}
+      >
         {CHECKOUT_COPY.addUsdc}
       </SheetButton>
     ) : (

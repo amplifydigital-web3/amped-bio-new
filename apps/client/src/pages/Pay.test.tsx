@@ -126,8 +126,18 @@ describe("PayPage", () => {
     renderPay();
     expect(await screen.findByText("You need $2 USDC more.")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Add USDC in Wallet" }).getAttribute("href")).toBe(
-      `/wallet?fund=usdc&ci=${ID}`
+      `/wallet?fund=usdc&ci=${ID}&need=2000000`
     );
+  });
+
+  it("back from a sandbox purchase, the sheet reads the chain balance and stays short", async () => {
+    // Coinbase sandbox delivers nothing on chain: Arrived in Wallet never enables Pay here
+    mocks.get.mockResolvedValue({ id: ID, status: "awaiting_funds", signedIn: true, item: null });
+    mocks.balance = 1_000_000n;
+    renderPay();
+    expect(await screen.findByText("You need $2 USDC more.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Pay / })).toBeNull();
+    expect(screen.getByRole("link", { name: "Add USDC in Wallet" })).toBeInTheDocument();
   });
 
   it("a changed price shows Was and Now before Pay", async () => {
