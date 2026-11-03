@@ -50,7 +50,7 @@ Superseded:
 - `checkout.start` (public, 20 a minute per user or IP), `checkout.get` (public; the first signed in reader claims an unclaimed intent; a creator cannot claim an intent on their own page; an item removed since start reads as expired), `checkout.resumable` (private, the resume bar).
 - `?via=` is copied into the intent at start. The `ci` parameter rides sign up and sign in in the landing app.
 - The resume bar (`CheckoutResumeBar`) in `apps/client`: "Finish buying {item}", shown only to the intent's own signed in fan.
-- Flags: `CHECKOUT_ENABLED` (server), `VITE_CHECKOUT` (client). Both off in production.
+- Flag: the `checkout` feature flag (registry `packages/constants/src/feature-flags.ts`), switched in admin › Feature flags with no rebuild or redeploy. The server reads it with `isFeatureOn("checkout")` (`apps/server/src/services/featureFlags.ts`), the client with `isFeatureOn("checkout")` (`apps/client/src/config/featureFlags.ts`), the landing app with `useFeatureFlag("checkout")`. `CHECKOUT_ENABLED` (server) and `VITE_CHECKOUT` (client) are only the fallback while no admin row is set. Off in production.
 - Ended intents are purged 30 days after they end unless they became a purchase (privacy parameters).
 
 ## 4. The flow
