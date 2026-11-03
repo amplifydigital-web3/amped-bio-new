@@ -95,14 +95,16 @@ Every person who appears in an 18+ item, other than the creator, must be on the 
 
 Flow (boards ar5 and sp8):
 
+Scope (SP-Q36, Rob 3 Nov): one release per performer per creator relationship, signed at this invite, covering all content that creator produces with that performer (store policy spec 4.0).
+
 1. Creator taps Add a person, types a display name, and shares the invite link (`app.amped.bio/appear/{token}`, single use, 14 days).
 2. The person opens the link, signs in or creates an account (no page, Fan Graph page_status rules), and passes `checkIdentity(person, "age_over_18")` with Authbase. Their wallet is made on sign up, so Authbase links to it.
 3. The person sets the release options (store policy spec 4.1) with the release's labels: where the creator may sell (Store (one time purchase), Memberships, Paid messages, Broadcast, Live stream), other platforms (Nowhere else, or Also on with a text field), face shown or not, tag or not, payment (No payment, a fixed fee with an amount field, or a revenue share as a percent of the creator's share, stored as bps of the creator share).
 4. The person reads the full release (`RELEASE_VERSION`) with every field and option filled, scrolled to the end before Sign enables, then confirms they gave the creator a copy of their ID and every name they have used, ticks consent and types their full legal name. Amped stores the typed name, the options, the filled text and its hash, the timestamp, the version, the check outcome and the check date and reference (snapshot at signing). It does not store the IP until counsel adds it to release section 10 (store policy spec 4.3). It never stores an ID image. Both parties get a copy (release section 12).
-5. The creator countersigns in People. Only then does the person show Ready.
-6. The person can withdraw consent at any time from Account, Appearing in, or with the report reason "I appear in this and withdraw consent". Withdrawal hides every item they appear in on receipt and opens a case per item (section 7.4).
+5. The creator countersigns in People. Only then does the person show Ready, and only Ready people can be tagged on an item.
+6. The person can withdraw consent at any time from Account, Appearing in, or with the report reason "I appear in this and withdraw consent". Withdrawal ends that one release: it hides every item that release covers on receipt and opens a case per item (section 7.4). Releases with other creators are not affected.
 
-A person may appear for several creators. Each creator relationship has its own release.
+A person may appear for several creators. Each creator relationship has its own release. Each 18+ item records which release covers each tagged person (`ContentItemPerson.releaseId`). Submit and publish are refused with `release_missing` while any tagged person has no valid release with that creator (both signatures, not withdrawn, version not marked for re signing).
 
 ### 5.3 Item editor 18+ section
 
@@ -306,6 +308,7 @@ model CreatorAdultProfile {
   @@map("creator_adult_profiles")
 }
 
+// One row is one release: one performer with one creator (SP-Q36). A re sign after withdrawal or a required version is a new row.
 model AppearingPerson {
   id              Bytes     @id @db.Binary(16)
   creatorUserId   Int       @map("creator_user_id")
@@ -334,6 +337,8 @@ model AppearingPerson {
 model ContentItemPerson {
   contentItemId Bytes @map("content_item_id") @db.Binary(16)
   personId      Bytes @map("person_id") @db.Binary(16)
+  releaseId     Bytes @map("release_id") @db.Binary(16)      // the AppearingPerson row (signed release) that covers this person, set at tagging
+  productionDates Json @map("production_dates")               // recording dates for this item, listed as covered content
   @@id([contentItemId, personId])
   @@map("content_item_people")
 }
@@ -523,7 +528,7 @@ Launch gate for 18+: counsel approval (done, 3 Nov 2026); the operational items 
 ## 17. Acceptance
 
 1. A creator without both identity passes, the accepted policy version and a custodian cannot turn on 18+, and the API refuses an 18+ label from them even when the client is bypassed.
-2. An 18+ item with a person who has no Ready release (both signatures) cannot be submitted.
+2. An 18+ item with a person who has no valid release with that creator (both signatures, not withdrawn) cannot be submitted or published, and the API refuses it with `release_missing`.
 3. An item cannot be placed on a surface excluded by the release of any person in it.
 4. No 18+ item is CLEAR without a recorded reviewer decision with all checks ticked.
 5. F1: label, process explicit, unlabel, publish is refused and a case opens.
@@ -563,6 +568,7 @@ Launch gate for 18+: counsel approval (done, 3 Nov 2026); the operational items 
 
 ## Revision log
 
-- 2026-11-03: Revision 3 (QA fixes). 5.2 steps 3 and 4: release labels, full text before Sign, check reference snapshot, no IP until counsel adds it, copies to both parties. Data model: releaseText, releaseHash, checkReference, checkDate; releaseIp removed. Release scope per item or per creator is held (SP-Q36).
+- 2026-11-03: SP-Q36 decided: one release per performer per creator, signed at the invite; ContentItemPerson.releaseId and productionDates; withdrawal per release; release_missing on submit and publish.
+- 2026-11-03: Revision 3 (QA fixes). 5.2 steps 3 and 4: release labels, full text before Sign, check reference snapshot, no IP until counsel adds it, copies to both parties. Data model: releaseText, releaseHash, checkReference, checkDate; releaseIp removed.
 - 2026-11-03: Revision 2. First repo copy. Counsel approval recorded (D3, Q3, Q4). Release is the creator's document with options, ID confirmation and countersignature; custodian of records step; surface rule; withdraw consent reason; Age result and Store policy case types; L1; launch gate updated to COUNSEL-ADULT 10.3.
 - 2026-10-24: Revision 1. Spec for approval, project copy `claude/amped-adult-content-review-spec-2026-10-24.md`.

@@ -150,6 +150,15 @@ model StorePolicyVersion {
 
 ## 4. Performer release
 
+### 4.0 Scope (SP-Q36, decided by Rob 3 Nov)
+
+- One release per performer per creator relationship. It is signed at the People invite, before any item exists, and covers all content that creator produces with that performer on Amped.bio.
+- A performer who appears for several creators signs a separate release with each one.
+- Each 18+ item records, for every tagged performer, which signed release covers them (`ContentItemPerson.releaseId`, set when the creator tags the person).
+- Submit and publish are refused on the server (`release_missing`) while any tagged performer has no valid release with that creator. A release is valid when both signatures exist, it is not withdrawn, and its `RELEASE_VERSION` is not one counsel has marked as needing re signing.
+- Withdrawal and expiry apply per release. Withdrawing the release with one creator hides every item that release covers, and only those. A new release version that counsel marks as required asks the performer to re sign; until they do, existing items stay up and no new item can tag them.
+- Release text change: `docs/legal/performer-release.md` names one item today. The per creator wording is a required counsel edit (For counsel 5). Until counsel issues it, the app fills the existing fields with the per creator scope and boards mark that sentence as pending counsel.
+
 ### 4.1 Flow (sp8, extends adult content review 5.2 and board ar5)
 
 1. The creator adds a person in People and shares the invite link.
@@ -157,9 +166,8 @@ model StorePolicyVersion {
 3. The person sets the options from release sections 3 to 5, with the release's own labels (SP-Q42): Store (one time purchase), Memberships, Paid messages, Broadcast, Live stream; Nowhere else, or Also on with a text field (1 to 120); May be shown or Must not be shown; Creator may tag @handle, or No tag; No payment, A fixed fee (amount field in USD, paid by the creator outside Amped), or A revenue share (percent of the creator's share, 1 to 50, stored as bps).
 4. The person reads the full release (SP-Q37): `RELEASE_VERSION` 1 Part B, sentence for sentence, with every field filled (parties, content description, production dates, item reference, check date and reference, governing law) and the chosen options shown as ticked boxes. The text scrolls inside the screen; Sign stays disabled with "Read to the end to sign" until the end of the text is reached. Then the person confirms they gave the creator their ID and every name used, ticks consent, and types their full legal name. Sign release is the `lg` primary button (indigo, 55). It is not the commit color (SP-Q43).
 5. After signing, both parties get a copy (release section 12): a PDF of the filled text and both signature times, emailed to each party and kept under Account, Appearing in (performer) and People (creator).
-6. The creator countersigns in People, on phone and desktop. The person is Ready for that creator only after the countersignature.
-
-HELD (SP-Q36, Rob and counsel): whether the release is signed per item (at submit, when the creator tags the person) or per creator (at the People invite). The release text names one item and its production dates. Until the decision, boards fill `{item_reference}` and `{production_date}` from the item the creator tags, and this section, adult content review 5.2 and sp8 keep their current wording on Ready.
+6. The creator countersigns in People, on phone and desktop. The person is Ready for that creator only after the countersignature, and only then can the creator tag them on an item.
+7. Item tagging: the item editor's Who appears lists each person with their release status (Ready, Waiting to sign, Waiting for you, Withdrawn). Only Ready people can be tagged. The creator enters the production dates per item; they are stored on `ContentItemPerson` and listed in the app as the release's covered content.
 
 States the boards draw (SP-Q41): invite link expired or used ("This invite has expired or was used. Ask {creator} for a new link."); Over 18 not passed (Try again, Get help); under 18 ("You cannot appear in 18+ content on Amped." No retry, nothing about the creator's content shows again); withdrawal from Account, Appearing in (confirm sheet: "Withdraw consent for {creator}'s content? The content is hidden at once and {creator} must take it off sale everywhere within 48 hours."); the creator's People row Waiting for {person} to sign; Countersign with the release text; the countersign refusal (4.2).
 
@@ -168,7 +176,7 @@ States the boards draw (SP-Q41): invite link expired or used ("This invite has e
 - Surfaces: an item with this person cannot be placed on a surface the release does not allow. The item editor greys those surfaces out with "Not allowed by {person}'s release".
 - Face not shown and No tag are shown to the reviewer on the case view (ad2) as checks.
 - Revenue share (SP-Q40): the release states a percent of the creator's share. Store it as `shareOfCreatorBps` (100 to 5,000) in `releaseOptions`. At quote, the split builder (PAY-2) computes the partner row as `floor(creatorBpsBeforePartners * shareOfCreatorBps / 10000)` and takes it from the creator row, after the platform fee and any promoter rows.
-- Countersign check: refuse when the worst case breaks the contract. Worst case is the maximum platform fee (`MAX_FEE_BPS`, 1,000), the maximum promoter row the creator has enabled (C12) and every partner row already Ready on that item. Refuse when the creator row would fall under `minCreatorBps`, or the row count would exceed `maxRecipients`. Read both from the AmpedPay contract (`minCreatorBps()`, `maxRecipients()`), cached per quote window; never a fixed 6 or 5,000 in app code (`packages/contracts/src/AmpedPay.sol`, `packages/constants/src/payments.ts` defaults are fallbacks only).
+- Countersign check: refuse when the worst case breaks the contract. Worst case is the maximum platform fee (`MAX_FEE_BPS`, 1,000), the maximum promoter row the creator has enabled (C12) and every partner row already on items covered by this release. The same check runs again when the creator tags the person on an item, and refuses the tag if that item breaks the floor or the row cap. Refuse when the creator row would fall under `minCreatorBps`, or the row count would exceed `maxRecipients`. Read both from the AmpedPay contract (`minCreatorBps()`, `maxRecipients()`), cached per quote window; never a fixed 6 or 5,000 in app code (`packages/contracts/src/AmpedPay.sol`, `packages/constants/src/payments.ts` defaults are fallbacks only).
 - Countersign refusal copy, on the People countersign screen: "This share would leave you under the 50% minimum on a sale with a promoter. Ask {person} to lower it, or turn off promoters for this item." and "This item already has the most people who can be paid per sale ({max}). Remove a paid row first."
 - Withdrawal from Account, Appearing in, or the report form ("I appear in this and withdraw consent") hides every item with that person on receipt and opens a case per item (adult content review 7.4).
 
@@ -246,10 +254,16 @@ Drafted for counsel. Nothing here is on a board as final text.
 2. Store title (template A.4). With the default `{store_name}` "{seller_name} Store", the Part B title reads "{seller_name} Store Store Policy". May the renderer use `{seller_name}` in the title when the store title is the default? Boards use a store titled with the seller name until counsel answers.
 3. Access word (SP-Q45). The approved access line "Yours to keep" predates Part B section 3 (licence, not ownership; kept while the item is in the store and the account is in good standing). Proposed: "In your Library". Alternatives: "Ongoing", "Keep in your Library".
 4. Signer IP (SP-Q39). Should Amped store the signer's IP address as signature evidence? If yes, add it to release section 10 with a `RELEASE_VERSION` bump. Until then R4 does not store it.
-5. Release scope (SP-Q36, held). Per item (signed when the creator tags the person on submit) or per creator (signed at the People invite). The text names one item and its production dates. Needs Rob and counsel.
+5. Release text for the per creator scope (SP-Q36, decided by Rob 3 Nov: one release per performer per creator). Required counsel edit to `docs/legal/performer-release.md`, with a `RELEASE_VERSION` bump. Proposed wording, not final:
+   - Opening paragraph: "It covers all content that Creator records with Performer and sells on Amped.bio, from the date of this release until Performer withdraws consent (the "Content"). The app lists each item and its recording dates."
+   - Part A step 1: the creator adds each person who appears at the People invite, before any item; tagging an item links it to the signed release.
+   - Part A step 5, section 10 and the closing line: replace "the item reference" with "the list of items this release covers".
+   - Section 2 first bullet stays ("on every date the Content was recorded").
+   - Until counsel issues it, the app fills `{content_description}` with "all content {creator} records with {performer} on Amped.bio", `{production_date}` with "the dates listed for each item in the app" and `{item_reference}` with "each item listed in the app".
 
 ## Revision log
 
-- 2026-11-03: Revision 3. QA fixes SP-Q1 to SP-Q49 except SP-Q36 (held): one notice constant and band, seller name for both modes, link detector and publish errors, template update and day 31, past versions, refund summaries, footers, go live numbering and step 7 owner, release shown in full before signing, check reference, IP, revenue share bps, countersign states, For counsel list.
+- 2026-11-03: SP-Q36 decided: one release per performer per creator, signed at the People invite, covering all content with that creator; items record the covering release; publish refused without a valid release; withdrawal per release. Release text edit moved to For counsel 5.
+- 2026-11-03: Revision 3. QA fixes SP-Q1 to SP-Q49: one notice constant and band, seller name for both modes, link detector and publish errors, template update and day 31, past versions, refund summaries, footers, go live numbering and step 7 owner, release shown in full before signing, check reference, IP, revenue share bps, countersign states, For counsel list.
 - 2026-11-03: Revision 2. Checklist steps renumbered 6 and 7 after #419; CK-2 carries the seller line only; policy sheet and version move to CK-5; #419 added.
 - 2026-11-03: Revision 1. Store policy modes, versions, surfaces and go live steps; release options and countersignature; PR map.
