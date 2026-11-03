@@ -187,7 +187,7 @@ describe("usdcDollars (decision D6)", () => {
   it("drops whole cents, keeps two places otherwise and rounds a remainder up", async () => {
     const { usdcDollars, usdcDollarsLabel } = await import("@repo/constants");
     expect(usdcDollars(3_000_000n)).toBe("$3");
-    expect(usdcDollars("12500000"));
+    expect(usdcDollars("12500000")).toBe("$12.50");
     expect(usdcDollars(1_234_567_890n)).toBe("$1,234.57");
     expect(usdcDollars(1n)).toBe("$0.01");
     expect(usdcDollars(2_999_999n)).toBe("$3");
