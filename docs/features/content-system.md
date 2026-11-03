@@ -752,7 +752,7 @@ Recipient { address to; uint16 bps; uint8 role; } // role: 0 creator, 1 platform
 - User content on `ampedusercontent.com` with a sandbox CSP and `nosniff`. No SVG, HTML or scripts.
 - No public bucket, no `r2.dev`, no presigned GET for viewers.
 - Presigned uploads bind type and length.
-- Quotas per user. `CONTENT_UPLOADS_ENABLED` and `STORE_SALES_ENABLED` stop uploads or sales during an incident.
+- Quotas per user. The site_settings feature flags `contentUploads` and `storeSales` (`packages/constants/src/feature-flags.ts`, switched in admin, Feature flags, no redeploy) stop uploads or sales during an incident. `CONTENT_UPLOADS_ENABLED` stays only as the server fallback while no admin row is set; there is no `STORE_SALES_ENABLED` (store catalog section 2).
 - Secrets in the server secret store: R2 keys, Stream API token, Stream signing key, Stream webhook secret, media token keys, processor secret, PhotoDNA and classifier keys. Worker secrets set with `wrangler secret`.
 - Logs never include tokens or full signed URLs.
 
@@ -884,13 +884,13 @@ About 44 engineer days in total. PRs 3, 4 and 5 can run in parallel after PR 2.
 
 **PR 1. `fix/uploads-sdk-v3-validation`.** Replaces the v2 `getSignedUrlPromise` PUT signing in `S3Service` with `@aws-sdk/s3-request-presigner` and removes `aws-sdk` from `apps/server/package.json`. Confirm steps compare HeadObject `ContentLength` with the declared size and read the first 4 KB to check the real type. Tests for both. Closes the Build Board fix cards Remove AWS SDK v2 and Enforce upload size and file type. No user facing change.
 
-**PR 2. `feat/content-foundation`.** Migration for `ContentItem`, `ContentAsset`, `UserStorageQuota`, `ContentReport`, `CopyrightNotice`, `BlockedContentHash`. `packages/constants/src/content.ts`. `apps/server/src/services/cloudflare/` with `r2.ts` (S3 client on the R2 endpoint, presigned PUT and multipart), `stream.ts` (TUS upload URL, clip, captions, downloads, token signing), `mediaToken.ts` (gateway token signer, shared format in `packages/constants/src/mediaToken.ts`). `content` router: createUpload, signParts, completeUpload, abortUpload, list, get, update, getStorage. Routes `POST /webhooks/cloudflare-stream` and `POST /internal/content/processed`. Env and secrets per 3.17. Flags `CONTENT_UPLOADS_ENABLED=false`, `VITE_CONTENT=false`. Tests: validation, quota reservation, webhook and callback signatures, token format.
+**PR 2. `feat/content-foundation`.** Migration for `ContentItem`, `ContentAsset`, `UserStorageQuota`, `ContentReport`, `CopyrightNotice`, `BlockedContentHash`. `packages/constants/src/content.ts`. `apps/server/src/services/cloudflare/` with `r2.ts` (S3 client on the R2 endpoint, presigned PUT and multipart), `stream.ts` (TUS upload URL, clip, captions, downloads, token signing), `mediaToken.ts` (gateway token signer, shared format in `packages/constants/src/mediaToken.ts`). `content` router: createUpload, signParts, completeUpload, abortUpload, list, get, update, getStorage. Routes `POST /webhooks/cloudflare-stream` and `POST /internal/content/processed`. Env and secrets per 3.17. Feature flags `contentUploads` and `content`, off (site_settings; the env names are fallbacks only). Tests: validation, quota reservation, webhook and callback signatures, token format.
 
 **PR 3. `feat/media-gateway`.** New `apps/media-gateway` (Wrangler, TypeScript, R2 binding `CONTENT`, KV binding `TAKEDOWN`). Token verify with two key rotation, path match, takedown check, cache by key, Range, headers per 3.6. Tests with the Workers Vitest pool. CI gains typecheck and test for the Worker. Deploy is `wrangler deploy` run by Gustavo per environment until deploy automation exists.
 
 **PR 4. `feat/media-processor`.** New `apps/media-processor`: Queue consumer Worker plus a Container image (ffmpeg, sharp, ClamAV with a daily signature update, poppler, qpdf). The API publishes jobs and serves them on `POST /internal/content/job`. Steps per 3.5 with idempotent writes. PhotoDNA and classifier adapters with a mock adapter on staging until keys arrive. Callback client. Dead letter queue handling. Tests per step with fixture files (EICAR, GPS PNG, renamed EXE, zip bomb, 30 second MP3).
 
-**PR 5. `feat/content-library-ui`.** Content destination with the Library tab (cs1), upload dialog with R2 multipart and `tus-js-client` for video (cs2), item editor with Public only (cs3; other rules show Later), storage meter, empty, loading and error states (cs8). Autosave. Flag `VITE_CONTENT`.
+**PR 5. `feat/content-library-ui`.** Content destination with the Library tab (cs1), upload dialog with R2 multipart and `tus-js-client` for video (cs2), item editor with Public only (cs3; other rules show Later), storage meter, empty, loading and error states (cs8). Autosave. Feature flag `content`.
 
 **PR 6. `feat/content-public-pages`.** `content` block type in the five places, block editor, landingpage routes `/{handle}/c/{publicId}` and `/{handle}/content`, `listForBio`, `feed`, `getPublic`, `getReadUrl` for public items, publish, unpublish, delete, restore, the purge job, Report content, JSON-LD for public items, sitemap and `llms.txt` entries. Boards cs4, cs6, cs7.
 
@@ -898,9 +898,9 @@ About 44 engineer days in total. PRs 3, 4 and 5 can run in parallel after PR 2.
 
 **PR 8. `feat/content-gating`.** Registers the `content` resolver, the rule picker in the item editor (Everyone, Followers, Members, Pool fans, Fans with a minimum stake, Paid, Any of), locked cards, `getPreview` with clip tokens and audio previews, grant to URL exchange, the stream rule, broadcast attachments, cs5. Members and Paid show Later until PR 10 and PR 11.
 
-**PR 9. `feat/store-catalog`.** Migration for `StoreSettings`, `Offer`, `OfferItem` and the `offerItems` back relation on `ContentItem`. `store` router for settings, products, public, product, listForBio. Store tab with Storefront and Products (st1, st2, st3), storefront and product pages (st6, st7, st8), `store` block type (st10), product rule writing. The store renders for its owner in preview only while `STORE_SALES_ENABLED` is off.
+**PR 9. `feat/store-catalog`.** Migration for `StoreSettings`, `Offer`, `OfferItem` and the `offerItems` back relation on `ContentItem`. `store` router for settings, products, public, product, listForBio. Store tab with Storefront and Products (st1, st2, st3), storefront and product pages (st6, st7, st8), `store` block type (st10), product rule writing. The store renders for its owner in preview only while the `storeSales` feature flag is off.
 
-**PR 10. `feat/store-checkout`.** Migration for `SplitRecipient` (read by the split builder, empty until admins add partners) and the `Purchase` columns. `via` on `payments.quote` and `pay.prepare`, the pay sheet additions (st9), purchase to access wiring, `Offer.salesCount` from the indexer, Library Purchased rows, the go live checklist and `store.setLive`, Sales view with CSV and refunds (st5), the store copy scan. Flag `STORE_SALES_ENABLED` plus the pilot allowlist.
+**PR 10. `feat/store-checkout`.** Migration for `SplitRecipient` (read by the split builder, empty until admins add partners) and the `Purchase` columns. `via` on `payments.quote` and `pay.prepare`, the pay sheet additions (st9), purchase to access wiring, `Offer.salesCount` from the indexer, Library Purchased rows, the go live checklist and `store.setLive`, Sales view with CSV and refunds (st5), the store copy scan. Feature flag `storeSales` plus the pilot allowlist.
 
 **PR 11. `feat/store-membership`.** Membership tab with the plan editor (st4), membership card on the store and the `membership` block type, Also in membership on products, `any(member, paid)` rule writing, Join from the product page.
 
@@ -920,6 +920,53 @@ About 44 engineer days in total. PRs 3, 4 and 5 can run in parallel after PR 2.
 10. Open the classifier vendor account. Apply for PhotoDNA Cloud Service during beta so it is live before general availability.
 11. Register the DMCA agent. Publish the copyright policy page.
 12. Wrangler access for Gustavo per environment.
+
+### 3.19 Full QA fixes, 3 Nov 2026 (rows 127, 129, 151 to 156)
+
+Screen Review Full QA against development 98db33f, content gating C8 (`docs/features/content-gating.md`, PR #418 and #433), store catalog C9 (#419), store policy (#420) and mobile checkout (#412). Where this section and an earlier part of 3.1 disagree, this section wins. Where C8 and this section disagree on gating, C8 wins. QA2 boards are on the Content system and Store and paid cards design pages.
+
+**Boards.**
+
+| Row | Was | Now |
+|---|---|---|
+| 151 | cs1, desktop only, rail without Inbox and People, filters Gated and For sale | cs-q1 (1440) and cs-q2 (390). The shipped rail (`apps/client/src/components/shell/destinations.ts`). Filters from `CONTENT_COPY.filters` (`apps/client/src/components/panels/content/copy.ts`): All, kinds, Drafts, In review, Recently removed. Gated and For sale join with C8 and C9 |
+| 152 | cs2, desktop only | cs2 plus the phone sheet on cs-q2. Lines read `CONTENT_COPY.upload` and `CONTENT_COPY.errors` verbatim. The `contentUploads` flag off state ("Uploads are not open yet") is drawn |
+| 153 | cs3, Members and Paid live, "Any of", no testnet line, no people | cs-q3 (1440) and cs-q4 (390). Picker per C8 4.1. People in this item with the release status per person |
+| 154 | cs4 (phone superseded by s1 per C8 4.2) | s1 plus st-q1. Every button reads `$N USDC` (mobile checkout D6). A Pool fans card shows `TESTNET_NOTICE` once in the block |
+| 155 | cs5 (phone superseded by s1), stake panel with member words | s1 plus st-q1 and st-q2: Pool fans state per C8 4.2, Paid state with the seller line under Buy, unavailable state when the seller check fails (gating spec 3.4). Supersedes Screen Review row 371 |
+| 156 | cs8 | cs8 plus cs-q5: uploads closed, load error, blocked, in review, recently removed, failed with the code line |
+| 127 | cs6 | cs6 plus cs-q6: Images chip (`SITE_CONTENT_COPY.kinds`), locked cards carry the rule summary only, a Pool fans card adds `TESTNET_NOTICE` |
+| 129 | cs7 | cs7 plus the store policy link on the purchase row (store policy 3.4) |
+
+**Rules the boards and the build follow.**
+
+1. Amounts on fan surfaces read `$N USDC` (mobile checkout D6). Locked cards carry the gate summary from `ACCESS_RULE_SUMMARIES` and no amount until PR 10; after PR 10 the Buy button carries the amount, never the card text.
+2. Any surface that shows a pool or tREVO, including a Pool fans card or label on the bio, the feed or the item page, shows `TESTNET_NOTICE` (`packages/constants/src/testnet.ts`) once per surface. Stake unlock steps show it above `ACCESS_STAKE_DISCLOSURE` (C8 4.2, 4.3). No board types the disclosure; boards show the constant slot until counsel returns the text.
+3. A bundle only item reads the summary Paid. "In a bundle" is not a rule label.
+4. Locked item page with a Buy or Join action shows "Sold by {seller}. Store policy" under the action bar (store policy 3.4, product page row). The pay sheet carries the counsel sentences "Sold by {seller} on Amped.bio. Your purchase is from {seller}, not from Amped." and the Store policy link, with no discretion sentence (CK-D1, Rob 3 Nov).
+5. When the owner fails `checkIdentity(seller)`, `paid` and `member` rules answer `kind_unavailable` with hint `unavailable` (gating spec 3.4). The item page shows "Not available right now" with Back to the page. Existing buyers keep access.
+6. **People in this item.** The item editor lists every tagged person with their release status with this creator (store policy section 4, performer release `RELEASE_VERSION` 1). The release is signed once per performer per creator at the People invite. Each item records which release covers each tagged performer: the item's people rows point to the `AppearingPerson` row (with its `releaseVersion` and `creatorSignedAt`) for that creator (adult content review section 10, store policy 4.3). Surfaces the release excludes are greyed out (store policy 4.2). `content.publish` refuses with `PRECONDITION_FAILED`, "Every person in this item needs a release with you first.", while a tagged performer has no valid release with the item's creator. The editor disables Publish and shows the same line with Send release.
+
+**Code changes required (build steps).**
+
+| File | Function or line | Change | PR |
+|---|---|---|---|
+| `apps/client/src/components/panels/content/copy.ts` | `CONTENT_COPY.editor.rules` (lines 281 to 289) | Labels from `ACCESS_RULE_SUMMARIES`: `any` reads "Any of these"; Followers helper "Anyone who follows you on Amped. Free for fans."; Members and Paid helper "Needs a verified seller" with "Verify to sell." when the seller check fails | C8 |
+| `apps/client/src/components/panels/content/ItemEditor.tsx` | `AccessCard` | Render `TESTNET_NOTICE` under the picker when Pool fans, Fans with a minimum stake or an Any of these with a stake leaf is shown | C8 |
+| `apps/client/src/components/panels/content/ItemEditor.tsx` and `PublishCard.tsx` | publish action | People in this item section and the publish refusal in rule 6 | R4 (store policy) |
+| `apps/server/src/trpc/content.ts` | `content.publish` | Refuse while a tagged performer lacks a valid release (rule 6) | R4 |
+| `apps/landingpage/src/app/[handle]/c/[publicId]/page.tsx` | `generateMetadata`, `robots` (line 46) | `index: false` for a locked item (C8 3.2); today every item is indexed | C8 |
+| `apps/landingpage/src/components/content/ContentCardView.tsx`, `FeedPageView.tsx`, `ItemPageView.tsx` | locked card and page | Import `TESTNET_NOTICE` and render it per rule 2; seller line per rule 4 after PR 10 | C8, PR 10 |
+| `scripts/check-compliance-copy.ts` | scan | Fail on a pool or tREVO surface without `TESTNET_NOTICE`, and on "In a bundle" used as a rule label | C8 |
+
+**Acceptance additions.**
+
+26. A Pool fans card on the bio, the feed or the item page renders `TESTNET_NOTICE` verbatim, imported from `@repo/constants`.
+27. Publish refuses an item with a tagged performer who has no valid release with that creator, in the API and in the editor.
+28. A locked item page for a gated item renders `noindex`.
+29. Every editor board ships at 1440 and 390.
+
+**For counsel.** Nothing new. `ACCESS_STAKE_DISCLOSURE` text is pending under C8 "For counsel".
 
 ### 3.18 Edits this spec makes to other specs
 
@@ -979,6 +1026,8 @@ About 44 engineer days in total. PRs 3, 4 and 5 can run in parallel after PR 2.
 - USDC wallet and on-ramp spec (#29, #5): docs/features/usdc-wallet-onramp.md
 
 ## Revision log
+
+- 2026-11-03: Full QA fixes (3.19): QA2 boards, testnet and seller line rules, People in this item and the release check on publish, code steps with files, feature flags replace env switches.
 
 - 2026-09-26: First spec. S3 and CloudFront, Mux, Public or Members only, payments on hold.
 - 2026-10-08: Rob's decisions applied on the fork: Cloudflare Stream for video, adult content behind age verification, CSAM vendor to discuss, Phase 2 counsel review in parallel.
