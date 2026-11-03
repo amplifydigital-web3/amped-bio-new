@@ -20,6 +20,7 @@ import {
 } from "@repo/ui";
 import { toast } from "@/components/ui/toast";
 import { TelegramBotStartNotice } from "../messages/TelegramBotStartNotice";
+import { isFeatureOn } from "../../../config/featureFlags";
 
 // Messaging on Telegram (Build Board #2), Screen Review row 112, board tg1.
 // The Telegram link sits at the top of Account, Connected apps. Not linked: one
@@ -27,7 +28,7 @@ import { TelegramBotStartNotice } from "../messages/TelegramBotStartNotice";
 // switches, 087 D1) and Unlink. Log In with Telegram returns to this row with
 // ?telegram=<result>, which becomes a toast or a local error.
 
-export const TELEGRAM_ON = import.meta.env.VITE_SHOW_TELEGRAM === "true";
+export const TELEGRAM_ON = isFeatureOn("telegram");
 
 const RESULT_ERRORS: Record<string, string> = {
   conflict: S.errors.alreadyLinked,

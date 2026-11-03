@@ -4,9 +4,8 @@
  * Uploads also need CONTENT_UPLOADS_ENABLED on the API; the library reads
  * that from content.getStorage (uploadsOpen) and disables Upload when it is off.
  */
-const on = (value: string | undefined) => value === "true";
-
+import { isFeatureOn } from "../featureFlags";
 export const CONTENT_FLAGS = {
   /** Content destination with the Library tab (cs1, cs2, cs3, cs8) */
-  library: on(import.meta.env.VITE_CONTENT),
+  library: isFeatureOn("content"),
 } as const;
