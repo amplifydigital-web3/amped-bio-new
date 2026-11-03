@@ -38,6 +38,7 @@ Not limited:
 | MCP | `routes/mcp.ts`, mounted at `/mcp` | Agent loops |
 | Analytics collector | `services/analytics/collector.ts` | Own limiter, per process only |
 | Referral reads, RNS lookups, theme gallery | various public procedures | Low |
+| Amped Card (#58, not built) | `GET /api/card/{token}.vcf`, `card.public`, `card.addHandoff` | Contact file scraping. Limits in `docs/features/contact-card.md` section 5: vCard 30 per minute per IP, shared with the Save contact block |
 
 Identity: `getVisitorIp(req)` (`services/analytics/visitorIp.ts`) walks `X-Forwarded-For` past private and Cloudflare hops and reads `CF-Connecting-IP` behind Cloudflare. Express `trust proxy` is set from `env.TRUST_PROXY`.
 
@@ -128,6 +129,7 @@ One shared helper in `packages/ui` reads `data.code === "TOO_MANY_REQUESTS"` and
 | Any button action | The existing toast pattern: "Slow down for a moment. Try again in {seconds} s." |
 | Public page (SSR) | A 429 from `getHandle` renders the page error state ("This page did not load. Try again.") with a Retry button, never the 404 |
 | Uploads | The upload row shows "Upload limit reached for now. Try again in {minutes} min." |
+| Amped Card page | "Too many saves from this network. Try again in a minute." with Try again (contact-card.md section 7) |
 
 Copy is in the design boards.
 
