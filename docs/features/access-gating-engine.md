@@ -197,7 +197,7 @@ model AccessEvent {
 - `ContentItem.accessRuleId` gets its foreign key to `AccessRule` (`onDelete: Restrict`). No code writes the column today, so no row breaks the key. `baseAccessRuleId` stays as the content spec defines it.
 - Delete behavior (GQ2, Rob 30 Oct): `AccessRule.owner` uses `onDelete: NoAction`, not Cascade. A user delete then cannot remove a rule an item still points to. The account deletion job (#13 AD2) deletes content items and blocks, then the user's rules, then the user. `SetNull` is never used on a rule reference: it would make a gated item public.
 - `params` has a zod schema per kind in `@repo/constants/src/access.ts`, checked on create, update and read. A row that fails to parse refuses (default deny).
-- `Broadcast` gains `accessRuleId` when Broadcast phase 2 needs it, not before.
+- `Broadcast` gains `accessRuleId` when Broadcast phase 2 needs it, not before. Content attachments on broadcasts ship there too, with a `broadcast` resolver (CQ1, Rob 3 Nov); content PR 8 does not build them.
 - `CreatorMessagingSettings` and `TelegramGroup` (#383) keep `ruleKind` and `stakeMin` (whole tREVO) in G2. Both map onto engine kinds at read time, with `wholeTokensToWei` for the minimum. A later migration may replace them with `accessRuleId`; nothing in this build depends on it.
 - Privacy (AGENTS.md): `AccessEvent.viewerKey` for signed out viewers is the daily salted hash used by visit counting, never reversible or cross creator, and never the IP. G1 adds access events to the retention list in `docs/legal/privacy-parameters.md` (25 months, like visit events) and one line to the notice, section 4: "When you open or try to open a locked item, we record that it happened so the creator can see how their locks perform." Bump `CONSENT_POLICY_VERSION` with it.
 - A rule in use cannot be deleted (`CONFLICT` with the count). `kind` is immutable. Owner of rule must equal owner of resource on attach.
@@ -222,7 +222,7 @@ tRPC `access` router:
 
 | Procedure | Auth | Purpose |
 | --- | --- | --- |
-| `access.checkPage` | public | Decisions for every gated block and content card on a bio, after hydration |
+| `access.checkPage` | public | Decisions for every gated block and content card on a bio, after hydration. Content PR 8 builds it for content cards; G3 adds blocks (CQ2, Rob 3 Nov) |
 | `access.check` | public | One decision, `intent` render or open |
 | `access.openBlock` | public* | Text or media block body, through `open` |
 | `access.rules.list`, `create`, `update`, `delete`, `stats` | private | Creator rules and stats |
@@ -331,8 +331,8 @@ Each PR is one branch into `development`, labeled by type, with a handoff doc fo
 | G0 | `fix/stake-min-units` (PR #357) | `wholeTokensToWei` in constants; STAKE_MIN converts the stored whole tREVO `stakeMin` to wei at comparison time, so no data migration and no settings change; follower rule uses `trustedEmailWhere`; tests with real units | none | 0.5 day |
 | G1 | `feat/access-core` | Constants contract and zod params, one Prisma migration (`AccessRule`, `AccessEvent`, `Block.accessRuleId`, content foreign key, delete rules in 3.6), engine, resolver for `block`, kinds follower, pool_member, stake_min, any, all, identity mapping (3.4), caching, `bumpViewer` hooks in follow, unfollow, remove, block, unblock and `identity.recheck` (stake decisions are never cached, so stake confirm needs no hook), rules router behind flag, privacy entries (3.6). No UI. Label `migration`. | G0 (#357), I1 | 4 days |
 | G2 | `refactor/access-adopt` | `rules.ts`, `messaging/access.ts`, Telegram group sweep and broadcast audience call the engine. Resolvers `dm` and `telegram_group`, reading both `CreatorMessagingSettings` and `TelegramGroup` rules. | G1, #383 | 1.5 days |
-| G3 | `feat/access-blocks` | Locked DTO, `checkPage`, `/go`, `openBlock`, `blocks.setAccessRule`, rule picker on the block row, unlock sheet in landing app, leak test, copy check. No schema (in G1). Needs the gating boards redrawn first (3.10). | G1 | 4 days |
-| Content PR 8 | `feat/content-gating` | Content resolver built on `services/content/access.ts` from #348, `getReadUrl` through `open`, locked cards, item editor picker | G1, #348 | content plan |
+| G3 | `feat/access-blocks` | Locked DTO, blocks in `checkPage` (content PR 8 builds it for content cards), `/go`, `openBlock`, `blocks.setAccessRule`, rule picker on the block row, unlock sheet in landing app, leak test, copy check. No schema (in G1). Needs the gating boards redrawn first (3.10). | G1 | 4 days |
+| Content PR 8 | `feat/content-gating` | Content resolver built on `services/content/access.ts` from #348, `getReadUrl` and `getPreview` through `open`, `access.checkPage` for content cards, locked cards, item editor picker. Build spec: `docs/features/content-gating.md` | G1, #348 | 5 days |
 | G4 | `feat/access-paid` | `UsdcPaymentVerifier`, `paid` live, soft unlock, `purchase_pending` | Content PR 10 | 1.5 days |
 | G5 | `feat/access-member` | Membership reader, `member` live | Memberships phase C | 1 day |
 | G6 | `feat/access-insights` | Rules and stats page, events, nightly leak scan, early access date | G3 | 2 days |
@@ -393,6 +393,7 @@ Lagging (90 days after paid goes live): share of creators with any paid or membe
 
 ## Revision log
 
+- 2026-11-03: C8 Full QA. CQ1: content attachments on broadcasts move to Broadcast phase 2. CQ2: content PR 8 builds `access.checkPage` for content cards and G3 extends it to blocks. C8 build spec in `docs/features/content-gating.md`.
 - 2026-10-30: Full QA against `development` f8bd0bb. GQ1: all gating schema in one G1 migration, `block` resolver in G1, `content` resolver moves to content PR 8 (needs #348). GQ2: rule references `Restrict`, `AccessRule.owner` `NoAction`, deletion order in AD2, never `SetNull`. Identity result mapping and new reason `identity_unavailable`. Suspended viewers refuse. zod params per kind. No decision cache without Redis. `TelegramGroup` rules (#383) in G2. AccessEvent privacy entries. G1 depends on G0 and I1.
 - 2026-10-28: G0 row and units paragraph matched to PR #357: convert at comparison time with `wholeTokensToWei`, no data migration. G1 stores wei in `AccessRule`; G2 maps `stakeMin` through `wholeTokensToWei`.
 - 2026-10-24: Rob: staking is tREVO or REVO only, never USDC. Deployed staking contracts are not changed; gating reads stakes and compares them to the amount the creator sets. The admin minimum stays in the contracts (`_minStake`). v1's 1 REVO app floor removed; `pool_member` is any stake. Acceptance 1 added.
