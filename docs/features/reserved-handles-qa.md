@@ -47,7 +47,7 @@ Any signed in account can call Better Auth's update user endpoint on auth.amped.
 - Reserved status moved from danger red to ink. Release is the only danger button.
 - New states drawn: loading, error, empty, no match (RA1e, RA1n, RA1x), reserve errors (RA2e, RA2f), 20+ collisions (RA3b), Release and Unassign confirms (RA4c to RA4f), Holders on phone (RA6m).
 - Example brand name `linktree` replaced with made up names, since the project holds a Linktree partnership analysis.
-- System chip count corrected to 49 (48 words and the `_` prefix).
+- System chip count corrected to 49 (48 words and the `_` prefix). Corrected again on 3 Nov to 50: the code holds 49 words, including `tg` for the shipped /tg route, plus the `_` prefix.
 
 | Measure (1280 and 320, light and dark, 100 and 200 percent text) | Before | After |
 | --- | --- | --- |
