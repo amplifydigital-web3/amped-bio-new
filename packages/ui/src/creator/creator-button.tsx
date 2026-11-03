@@ -64,12 +64,25 @@ export function playPress(
 }
 
 /**
+ * Drops hover and press variants (hover:, active:, also behind motion-safe:) from a
+ * class list. A few button styles carry their own hover (Neon, Floating, Minimal), so a
+ * surface that must render no effect strips them and keeps the rest of the look.
+ */
+export function stillClasses(className: string): string {
+  return className
+    .split(/\s+/)
+    .filter(token => token && !/(^|:)(hover|active):/.test(token))
+    .join(" ");
+}
+
+/**
  * 040 I06: one button anatomy for link, referral and pool calls to action.
  * Full column width, min 55, a 21 icon at left, the label centered on the
  * button (a 21 spacer at right balances the icon), two lines then truncate.
  * The surface and hover come from the registry (button and buttonHover).
- * effects false drops the creator's hover, press and ripple: pool blocks, stake
- * flows and wallet views render no effect (theme engine v2 3.4 and 3.11).
+ * effects false drops the creator's hover, press and ripple, and the hover a button
+ * style carries itself: pool blocks, stake flows and wallet views render no effect
+ * (theme engine v2 3.4 and 3.11).
  */
 export function CreatorButton({
   theme,
@@ -101,7 +114,7 @@ export function CreatorButton({
   const ripple = effects && press.render.kind === "waapi";
   const className = cn(
     "flex min-h-commit w-full items-center gap-[13px] px-[21px] py-2",
-    effectClassName(look.button),
+    effects ? effectClassName(look.button) : stillClasses(effectClassName(look.button)),
     buttonSurfaceClass(look),
     effects && effectClassName(look.buttonHover),
     effects && effectClassName(press),

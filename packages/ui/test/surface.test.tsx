@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { upgradeTheme, type ThemeConfig } from "@repo/constants";
 import { CreatorPage } from "../src/creator/creator-page";
-import { CreatorButton } from "../src/creator/creator-button";
+import { CreatorButton, stillClasses } from "../src/creator/creator-button";
 import { lookFor } from "../src/creator/look";
 import {
   BORDER_STYLE_CLASSES,
@@ -190,10 +190,32 @@ describe("CreatorButton effects false", () => {
     expect(plain({ buttonPressId: "buttonPress.dip" })).not.toContain("active:scale-[0.97]");
   });
 
+  it("drops the hover a button style carries itself and keeps its surface", () => {
+    // Floating (v1 7) lifts on hover, Neon (v1 5) glows brighter on hover
+    expect(button({ buttonStyle: 7 })).toContain("motion-safe:hover:-translate-y-1");
+    const floating = plain({ buttonStyle: 7 });
+    expect(floating).not.toContain("hover:");
+    expect(floating).toContain("shadow-md");
+    const neon = plain({ buttonStyle: 5 });
+    expect(neon).not.toContain("hover:");
+    expect(neon).toContain("shadow-[0_0_15px_var(--amped-glow)]");
+  });
+
   it("keeps the surface, the label and the link", () => {
     const html = plain({ buttonStyle: 0 });
     expect(html).toContain('href="/i/pools/0xabc"');
     expect(html).toContain("View pool");
     expect(html).toContain("min-h-commit");
+  });
+});
+
+describe("stillClasses", () => {
+  it("removes hover and press variants, also behind motion-safe, and keeps the rest", () => {
+    expect(
+      stillClasses(
+        "rounded-lg bg-gray-100 motion-safe:hover:-translate-y-1 hover:shadow-lg active:scale-95 transition-transform"
+      )
+    ).toBe("rounded-lg bg-gray-100 transition-transform");
+    expect(stillClasses("")).toBe("");
   });
 });

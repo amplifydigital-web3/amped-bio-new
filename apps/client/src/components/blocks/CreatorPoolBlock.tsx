@@ -4,7 +4,7 @@ import { formatEther } from "viem";
 import { useQuery } from "@tanstack/react-query";
 import type { ThemeConfig } from "../../types/editor";
 import { PoolBlock } from "@repo/constants";
-import { trpc, TESTNET_NOTICE } from "@repo/ui";
+import { stillClasses, trpc, TESTNET_NOTICE } from "@repo/ui";
 import { getChainConfig } from "@repo/web3";
 import { cn } from "../../utils/cn";
 import { getButtonBaseStyle } from "../../utils/styles";
@@ -153,7 +153,7 @@ export function CreatorPoolBlock({ block, theme }: CreatorPoolBlockProps) {
         role="presentation"
         className={cn(
           "flex min-h-commit w-full items-center gap-[13px] px-[21px] py-2",
-          getButtonBaseStyle(theme.buttonStyle)
+          stillClasses(getButtonBaseStyle(theme.buttonStyle))
         )}
         style={{ backgroundColor: theme.buttonColor, ...text }}
       >
