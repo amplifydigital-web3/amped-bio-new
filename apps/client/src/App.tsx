@@ -10,6 +10,7 @@ import { signInUrl } from "./components/shell/ShellGate";
 import { useReferralHandler } from "./hooks/useReferralHandler";
 import { ExternalRedirect, NewVersionDialog, ToastCard, useAuth } from "@repo/ui";
 import { ERROR_TOAST_DURATION } from "@/components/ui/toast";
+import { PayHandoffGate } from "@/components/checkout/HandoffCard";
 
 // Internal Prism component gallery for review (not linked in the app). Served in
 // development, testing and staging builds only, never in production.
@@ -48,11 +49,14 @@ function AppRouter() {
         <Route
           path="/pay/:intentId"
           element={
-            <ProtectedRoute>
-              <Suspense fallback={<div className="prism-room min-h-dvh" />}>
-                <PayPage />
-              </Suspense>
-            </ProtectedRoute>
+            // CK-4: in an in app browser the handoff card shows before sign in
+            <PayHandoffGate>
+              <ProtectedRoute>
+                <Suspense fallback={<div className="prism-room min-h-dvh" />}>
+                  <PayPage />
+                </Suspense>
+              </ProtectedRoute>
+            </PayHandoffGate>
           }
         />
         {/* CK-3: Coinbase returns here from a checkout. No session needed, nothing named */}

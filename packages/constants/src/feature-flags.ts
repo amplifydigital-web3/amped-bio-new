@@ -126,6 +126,14 @@ export const FEATURE_FLAGS = {
     default: false,
     env: { client: "VITE_SHOW_BROADCAST" },
   },
+  messages: {
+    label: "Amped Messages",
+    description:
+      "Amped Messages: direct messages on the API (sends refuse while off), the Inbox in the app and the Message me door on public pages.",
+    scope: "public",
+    default: false,
+    env: { server: "MESSAGING_ENABLED", client: "VITE_MESSAGES", landing: "NEXT_PUBLIC_MESSAGES" },
+  },
   creatorPool: {
     label: "Creator pool",
     description:

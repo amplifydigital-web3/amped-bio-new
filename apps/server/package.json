@@ -20,6 +20,7 @@
     "usdc:records": "tsx -r dotenv/config scripts/usdc-records.ts",
     "pools:backfill-stats": "tsx -r dotenv/config scripts/pools-backfill-stats.ts",
     "blocks:unsafe-urls": "tsx -r dotenv/config scripts/unsafe-block-urls.ts",
+    "messages:copy-threads": "tsx -r dotenv/config scripts/messages-copy-threads.ts",
     "email:dev": "email dev --dir src/utils/email",
     "test": "vitest run",
     "test:unit": "vitest run --exclude src/__tests__/oauth-endpoints.test.ts --exclude src/__tests__/oauth-e2e.test.ts",

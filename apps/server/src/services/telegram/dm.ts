@@ -83,6 +83,7 @@ export function refusalText(reason: MessagingRefusalReason, creatorName: string)
     case "sender_paused":
       return s.senderPaused;
     case "disabled":
+    case "closed":
     case "blocked":
       return s.dmPausedOrBlocked(creatorName);
   }
@@ -324,7 +325,7 @@ export async function handlePrivateText(ctx: Context) {
 
   // A creator writing without replying to a fan's message
   const settings = await getCreatorSettings(account.userId);
-  if (settings?.enabled) {
+  if (settings && settings.ruleKind !== "NOBODY") {
     const hasThreads = await prisma.messageThread.count({
       where: { creatorUserId: account.userId },
     });

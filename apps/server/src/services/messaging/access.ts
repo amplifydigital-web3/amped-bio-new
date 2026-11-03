@@ -1,6 +1,5 @@
-import { prisma, type CreatorMessagingSettings, type DmRuleKind } from "@repo/database";
+import { prisma, type MessagingSettings, type DmRuleKind } from "@repo/database";
 import { TELEGRAM_LIMITS } from "@repo/constants";
-import { env } from "../../env";
 import { creatorPoolIds, evaluateRule, type RuleRefusal } from "../telegram/rules";
 
 /**
@@ -16,6 +15,7 @@ import { creatorPoolIds, evaluateRule, type RuleRefusal } from "../telegram/rule
 
 export type MessagingRefusalReason =
   | "disabled"
+  | "closed"
   | "blocked"
   | "not_follower"
   | "not_member"
@@ -42,13 +42,17 @@ const HOUR = 60 * 60 * 1000;
 const DAY = 24 * HOUR;
 
 export async function getCreatorSettings(userId: number) {
-  return prisma.creatorMessagingSettings.findUnique({ where: { userId } });
+  return prisma.messagingSettings.findUnique({ where: { userId } });
 }
 
-/** Fan messages are on for this creator: switched on, not paused, invited in the pilot. */
-export function settingsOpen(settings: CreatorMessagingSettings | null): boolean {
-  if (!settings || !settings.enabled || settings.pausedAt) return false;
-  if (env.MESSAGING_INVITE_ONLY && !settings.invitedAt) return false;
+/**
+ * Fan messages are on for this creator on the Telegram era path: a settings row whose
+ * rule is not NOBODY and that is not paused. The invite pilot ended in PR M2 (msg-invite).
+ * The new direct message path (services/messaging/direct.ts) treats a missing row as the
+ * defaults instead.
+ */
+export function settingsOpen(settings: MessagingSettings | null): boolean {
+  if (!settings || settings.ruleKind === "NOBODY" || settings.pausedAt) return false;
   return true;
 }
 
@@ -215,7 +219,7 @@ export async function checkCreatorReportThreshold(creatorUserId: number, now = n
   if (reporters.size < Math.max(5, Math.ceil(threads * 0.01))) return false;
   const settings = await getCreatorSettings(creatorUserId);
   if (!settings || settings.pausedAt) return false;
-  await prisma.creatorMessagingSettings.update({
+  await prisma.messagingSettings.update({
     where: { userId: creatorUserId },
     data: { pausedAt: now, pausedReason: `${reporters.size} fans reported in 7 days` },
   });

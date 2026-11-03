@@ -38,18 +38,19 @@ export function seedPeople(fake: Fake) {
 }
 
 export function openMessages(fake: Fake, creatorUserId = MAYA, over: Record<string, unknown> = {}) {
-  fake.table("creatorMessagingSettings").push({
+  // M2: "enabled: false" is ruleKind NOBODY; the invite pilot is gone
+  const { enabled, invitedAt: _invitedAt, ...rest } = over;
+  fake.table("messagingSettings").push({
     userId: creatorUserId,
-    enabled: true,
-    ruleKind: "ANYONE",
+    ruleKind: enabled === false ? "NOBODY" : "ANYONE",
     stakeMin: null,
     dailyNewThreadCap: 50,
     replyFromTelegram: true,
-    invitedAt: new Date(),
+    readReceipts: true,
     pausedAt: null,
     pausedReason: null,
     updatedAt: new Date(),
-    ...over,
+    ...rest,
   });
 }
 
