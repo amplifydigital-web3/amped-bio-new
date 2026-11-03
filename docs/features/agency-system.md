@@ -1,6 +1,6 @@
 # Agency System
 
-Status: Draft for Rob's review, 3 Nov 2026. Written in the Full QA pass of 3 Nov (finding AG-Q1, rows 167 to 179). Nothing here is built. The 17 decisions on Build Board card #38 are still open; this spec builds the recommended answer for each and says so.
+Status: Draft for Rob's review, 3 Nov 2026. Written in the Full QA pass of 3 Nov (finding AG-Q1, rows 167 to 179). Nothing here is built. The 17 decisions on Build Board card #38 are still open; this spec builds the recommended answer for each and says so. Rob decided AG-D1 to AG-D5 on 3 Nov (section 3.2).
 Owner: Rob Frasca. Drafted by Claude for Rob and Gustavo.
 Build Board: #38 Agency System.
 Source: project docs `claude/amped-agency-spec-2026-10-14.md` (spec, baseline 8a8c222), `claude/amped-agency-overview-2026-10-14.md`, `claude/amped-agency-research-2026-10-14.md`. This file replaces the project spec. Where they differ, this file wins.
@@ -41,12 +41,12 @@ Each row is still open on the Build Board. This spec builds the recommended answ
 | --- | --- | --- | --- |
 | commission-base | What is the commission a percentage of? | The creator's share after the 5% platform fee and any promoter. The fan price never changes | Share of the gross price; a fee added on top |
 | commission-band | Allowed range | 0% to 30%. Above 20% needs a second plain language confirmation and a yearly reconfirmation | 10% to 30% flat; up to 50% |
-| streams | Which sales carry commission | Chosen per agreement from memberships, store, tips and live tickets. Brand deals wait for AG-D1. Pool staking and anything in tREVO never carry commission | All sales |
+| streams | Which sales carry commission | Chosen per agreement from memberships, store, tips and live tickets. Brand deals are out in v1 (AG-D1). Pool staking and anything in tREVO never carry commission | All sales |
 | leave-notice | Leaving | Leave any time. Access ends at once. Commission runs to the signed notice end (default 30 days, max 90), then stops in code, renewals included | Commission stops at once; access through notice |
-| brand-tail | Post term tail | 0 to 12 months, brand deals logged during the term only, half rate in the second half. Waits for AG-D1 | No tail |
+| brand-tail | Post term tail | 0 to 12 months, brand deals logged during the term only, half rate in the second half. Off in v1 (AG-D1) | No tail |
 | one-agency | Agencies per creator | One commissioned agency at a time | Several with separate scopes |
 | review-publish | Creator approval of agency edits | Off by default. The creator can turn on Review before publish | On by default |
-| team-label | Do fans see staff replies | Yes. Team, or AI assisted, on every staff or agent message, always on | Terms only |
+| team-label | Do fans see staff replies | Yes. Team on every staff message, always on. A reply sent from an AI suggestion shows Team and Suggested by AI (AG-D3) | Terms only |
 | adult-agencies | 18+ creators | Not in the pilot. After the #28 controls, the attestation and the red flag queue, behind the `agencyAdult` flag | Never; from day one |
 | verification | Agency checks | Phase 1: email and website review. Before any commission: KYB, sanctions on owners and the payout wallet, W-9 or W-8 | Full KYB before phase 1 |
 | pricing | Agency pricing | Free in the pilot and beta up to 25 creators, then Agency Pro by roster size in USDC, Amped as seller | 1% of commission; per seat |
@@ -57,15 +57,17 @@ Each row is still open on the Build Board. This spec builds the recommended answ
 | analytics-access | Agency analytics | Full creator analytics in scope. Revenue only for roles with revenue access. No fan level exports | Revenue for every role |
 | agency-record | Agency Record | Phase 2 counts only. Phase 4 adds growth and verified reviews | No record |
 
-### 3.2 Opened by the 3 Nov Full QA (Rob)
+### 3.2 Decided by Rob, 3 Nov
 
-| Id | Question | Recommended | Alternative |
+Raised by the Full QA and decided by Rob on 3 Nov (`qa/DECISIONS_2026-11-03b.md` items 10 to 14).
+
+| Id | Question | Decision | Alternative not taken |
 | --- | --- | --- | --- |
-| AG-D1 | Do brand deal payments run through Amped? The brand portal says Amped does not process collaboration payments (`docs/features/brand-portal.md` line 12). The October agency spec routed them through AmpedPay with the agency row | Not in v1. Deals (ag10) tracks status and terms only. The brand deals stream and the brand tail stay off (`agencyBrandPay` flag off) until AmpedPay and counsel cover brand payments | Route through AmpedPay with the agency row; track off platform deals with no commission row |
-| AG-D2 | Does the fan see the agency share? | No. The seller line stays `CHECKOUT_COPY.soldBy(creator)`. The split shows to the creator (Sales) and the agency (statements) only | A receipt line "Includes a share for {agency}" |
-| AG-D3 | AI suggested replies in the team inbox | Off in v1 (`agencyAiDrafts` flag off). Turn on only after counsel clears the processor, the privacy notice names it, and the creator opts in per account | Ship with the AI assisted label in phase 3 |
-| AG-D4 | Can staff accept a message request for the creator? Replying accepts in Amped Messages (`docs/features/messaging.md` line 52) | Yes for staff with the inbox scope. Accepting writes an audit row and the creator sees it in Activity | Creator only; staff can read Requests but not reply |
-| AG-D5 | When does an agency show Verified agency? | Only after KYB passes. Phase 1 agencies show "Agency" with no badge | Badge after the phase 1 email and website review |
+| AG-D1 | Do brand deal payments run through Amped? The brand portal says Amped does not process collaboration payments (`docs/features/brand-portal.md` line 12). The October agency spec routed them through AmpedPay with the agency row | No brand deal payments through Amped in v1. Deals (ag10) is a tracker. `agencyBrandPay` stays off. The brand deals stream and the brand tail are not offered | Route through AmpedPay with the agency row; track off platform deals with no commission row |
+| AG-D2 | Does the fan see the agency share? | No. The seller line names the creator only: `CHECKOUT_COPY.soldBy(creator)`. The split shows to the creator (Sales) and the agency (statements) only | A receipt line "Includes a share for {agency}" |
+| AG-D3 | AI suggested replies in the team inbox | On, with the rules in 8.3.1: labeled "Suggested by AI", staff review and send it themselves, the creator can turn suggestions off, only the thread being answered goes to the provider, the privacy notice names the provider before launch. `agencyAiDrafts` defaults on | Off in v1 |
+| AG-D4 | Can staff accept a message request for the creator? Replying accepts in Amped Messages (`docs/features/messaging.md` line 52) | Yes. Staff with the inbox scope can accept a message request for the creator. Audited and shown in Activity | Creator only; staff can read Requests but not reply |
+| AG-D5 | When does an agency show Verified agency? | Only after KYB passes (`Agency.kybStatus` passed). Before that the agency page, chip and creator surfaces show "Agency" with no badge | Badge after the phase 1 email and website review |
 
 ## 4. Phases and flags
 
@@ -73,7 +75,7 @@ Each row is still open on the Build Board. This spec builds the recommended answ
 | --- | --- | --- |
 | 1 Manage, no money | Agency accounts, staff and roles, invite and request, terms without commission, acting as and the switcher, Page, Content, Design and Motion access, roster home and analytics, groups, audit log, Leave agency, the private check, notifications | `agency` (public, default false) |
 | 2 Get paid | KYB, commission in the terms, EIP-712 signature, agency split row, membership end dates, statements, agency page blocks, Agency Record v1 | `agencyCommission` (server, default false), `agencyPage` (public, default false) |
-| 3 Talk and deal | Team inbox in Amped Messages with assignment and the Team label, staff broadcasts, deals tracker, media kit, theme kits | `agencyInbox` (public), `agencyBrandPay` (server, AG-D1), `agencyAiDrafts` (public, AG-D3), all default false |
+| 3 Talk and deal | Team inbox in Amped Messages with assignment and the Team label, staff broadcasts, deals tracker, media kit, theme kits | `agencyInbox` (public), `agencyBrandPay` (server, AG-D1), `agencyAiDrafts` (public, AG-D3, default true); the others default false |
 | 4 Grow, 5 Agents | Record v2, reviews, performance commission, Roster Pass, scouting, agent seats on RNS | Later, no date |
 | 18+ creators | Adult agencies (decision adult-agencies) | `agencyAdult` (server, default false) |
 
@@ -191,6 +193,7 @@ model Representation {
   bulkOptOut          Boolean   @default(false) @map("bulk_opt_out")
   creatorScopes       Json      @map("creator_scopes")
   showOnRoster        Boolean   @default(false) @map("show_on_roster")
+  aiSuggestions       Boolean   @default(true) @map("ai_suggestions")  // creator can turn off (AG-D3)
   activatedAt         DateTime? @map("activated_at")
   noticeEndsAt        DateTime? @map("notice_ends_at")
   endedAt             DateTime? @map("ended_at")
@@ -267,7 +270,7 @@ model SafetyCheck {
 
 Changes to existing tables:
 
-- `DirectMessage` (`packages/database/prisma/schema.prisma` line 1867): add `sentByUserId Int? @map("sent_by_user_id")` (the staff member when it differs from `senderId`) and `senderLabel String? @db.VarChar(8)` (`team` or `ai`). The bubble shows the label to both sides. The fan never sees the staff member's name.
+- `DirectMessage` (`packages/database/prisma/schema.prisma` line 1867): add `sentByUserId Int? @map("sent_by_user_id")` (the staff member when it differs from `senderId`) and `senderLabel String? @db.VarChar(8)` (`team` or `ai`; `ai` when the staff member sent an AI suggestion). The bubble shows "Team", or "Team" and "Suggested by AI", to both sides. The fan never sees the staff member's name.
 - `SplitRecipient` (#20): add `representationId Bytes?` and `endsAt DateTime?`; `role` gains `agency`.
 - AmpedMemberships (#25): per recipient `uint64 endsAt` in the stored split. A renewal after `endsAt` pays that row's bps to the creator. Lands before the contract audit.
 
@@ -317,7 +320,7 @@ No scope reaches `telegram.*`. Telegram routers are being removed under #2.
 - `agency.analytics.rollup({ groupId?, range })`, capped at 500 creators.
 - `agency.statements.list|export` (phase 2).
 - `agency.applications.*` (phase 2). Applying needs a signed in account.
-- Creator side `account.agency.*`: `get`, `narrowScopes`, `setReviewBeforePublish`, `setBulkOptOut`, `showOnRoster`, `safetyCheck.submit`, `getHelp`, `leave`.
+- Creator side `account.agency.*`: `get`, `narrowScopes`, `setReviewBeforePublish`, `setBulkOptOut`, `setAiSuggestions`, `showOnRoster`, `safetyCheck.submit`, `getHelp`, `leave`.
 
 ### 8.3 Team inbox (phase 3)
 
@@ -328,7 +331,17 @@ The team inbox is Amped Messages read across the roster. It is not a second mess
 - Request rules hold. Links stay plain text until accepted. A staff reply accepts the request (AG-D4) and writes `inbox.request.accept`.
 - Assignment and team notes live in `agency_thread_meta` (thread id, assignee, notes). Notes never reach the fan.
 - About this fan shows the relation to this creator only: Follower since, Member since, purchases with this creator. Never other creators on the roster.
-- AI suggested replies stay off (AG-D3).
+- AI suggested replies are on (AG-D3). Rules in 8.3.1.
+
+### 8.3.1 AI suggested replies (AG-D3)
+
+1. `agency.inbox.suggest({ conversationId })` returns one suggestion. Allowed when `agencyAiDrafts` is on, the staff member has the inbox scope and `Representation.aiSuggestions` is true. Otherwise `FORBIDDEN ai_suggestions_off`.
+2. Input to the provider is the thread being answered only: the decrypted messages of that one conversation, newest 30, plus the creator's display name. No other threads, no About this fan data, no team notes, no fan email or wallet, no other creator's data. The server builds the prompt; the client never sends content.
+3. The suggestion shows in the composer area under the label "Suggested by AI". Actions: Use and edit (puts the text in the composer), Dismiss. Nothing sends automatically. The staff member presses Send.
+4. A message sent from a suggestion, edited or not, stores `senderLabel` `ai`. The fan sees "Team" and "Suggested by AI" under the bubble.
+5. The creator turns suggestions off in Account, Agency ("AI suggested replies for my inbox", checked by default). Off takes effect on the next request.
+6. Audit: `inbox.ai.suggest` (thread id, no text) and the send as `inbox.reply` with label ai. The provider call is logged without message text.
+7. Launch gate: the privacy notice names the AI provider as a processor (For counsel C4). The flag stays on in code and the admin turns it off for production until counsel signs off.
 
 ### 8.4 Safety
 
@@ -361,9 +374,9 @@ In app (bell) and email (SMTP2GO): request received (agency), invite received (c
 | ag6 Sign terms | `/account?tab=agency` | 390 sheet, 1440 value panel | Private check, second confirmation above 20%, binding one way, wallet rejected, signed |
 | ag7 Account, Agency | `/account?tab=agency` | 1440, 390 | No agency, invite waiting, notice running, ended |
 | ag8 Leave | sheet | 390 sheet, 1440 dialog | Leaving, could not leave, left |
-| ag9 Team inbox | `/inbox` | 1440, 390 | Requests folder, no messages, access narrowed |
+| ag9 Team inbox | `/inbox` | 1440, 390 | Requests folder, no messages, access narrowed, AI suggestion, suggestions turned off |
 | ag10 Deals | `/deals` | 1440, 390 | Empty, waiting on creator, AG-D1 notice |
-| ag11 Agency page | `/{handle}` | 390, 1440 | Sign in to apply, sent, closed to applications |
+| ag11 Agency page | `/{handle}` | 390, 1440 | Sign in to apply, sent, closed to applications, before KYB (no badge) |
 | ag12 Team | `/team` | 1440, 390 | Invite staff sheet, two factor missing |
 | ag13 Statements | `/analytics?tab=commission` | 1440, 390 | Empty month, CSV failed |
 
@@ -377,7 +390,9 @@ All strings in `packages/constants/src/agency.ts` and checked by `check:copy`. N
 - Not a verified seller: "To sign terms with a commission, finish Get paid first. Your terms are signed with the wallet you get paid in."
 - Apply sheet: "Never share your password with an agency. Report an agency that asks for an upfront fee."
 - Not a talent agency notice: text from counsel (section 14, C1). Until then the boards show the October draft and mark it Counsel.
-- Team label: "Team". AI label: "AI assisted" (AG-D3).
+- Team label: "Team". AI label: "Suggested by AI" (AG-D3).
+- Creator setting: "AI suggested replies for my inbox", meta "Northlight staff see a suggestion they can edit and send. Only the thread being answered is shared with the AI provider."
+- Before KYB: badge text "Agency" (AG-D5).
 
 ## 10. Analytics events
 
@@ -402,6 +417,10 @@ Server `track()` through the #11 registry: `agency_created`, `agency_verified`, 
 15. Agency lists never contain fan email or wallet addresses.
 16. A staff member without two factor can open only Account settings.
 17. Every agency flag is a `FEATURE_FLAGS` entry and reads from site_settings.
+18. A suggestion request sends only the answered thread to the provider; a test asserts the prompt holds no other conversation, note or fan field.
+19. A suggestion never sends without a staff Send. The sent message shows "Suggested by AI" to the fan.
+20. With the creator's AI setting off, `agency.inbox.suggest` returns `ai_suggestions_off` and the board shows no suggestion.
+21. An agency without KYB passed shows "Agency" and no Verified agency badge on every surface.
 
 ## 12. Build plan
 
@@ -422,7 +441,7 @@ Server `track()` through the #11 registry: `agency_created`, `agency_verified`, 
 C1. The "Amped.Bio is not a talent agency" notice on ag6, ag10 and the agency page, and licensing attestation wording (CA, NY, FL).
 C2. Money transmission position on the agency row in the creator's split. Section 8 of the Adult Content Policy covers the creator's share and Amped's fee only.
 C3. Tax treatment of the agency leg, statements, W-9 and W-8.
-C4. Team and AI labels (N.Z. v. Fenix, CA SB 243), and the AI processor for suggested replies (AG-D3, privacy-parameters line 30).
+C4. Team and AI labels (N.Z. v. Fenix, CA SB 243). Privacy notice line, required before launch of AI suggested replies (AG-D3, privacy-parameters line 30): the privacy notice must name the AI provider as a processor of message content from the thread being answered, used to draft a reply for agency staff. Counsel to write the line and confirm the processor terms.
 C5. Agencies as processors of fan data (DPA), and audit log retention of 24 months.
 C6. Adult agencies: 2257 secondary producer position when an agency manages 18+ content, the attestation and the red flag queue.
 C7. High share confirmation copy and the yearly reconfirmation.
@@ -430,3 +449,4 @@ C7. High share confirmation copy and the yearly reconfirmation.
 ## Revision log
 
 - 3 Nov 2026, Full QA (AG-Q1 to AG-Q59). Ported the 14 Oct project spec into the repo. Inbox scope moved from Telegram to Amped Messages. Added the creator only list, seller of record section, verified seller rule on terms, site_settings flags, `DirectMessage.sentByUserId` and `senderLabel`, read audit, frames and states for every board, AG-D1 to AG-D5 for Rob, For counsel.
+- 3 Nov 2026, Rob's decisions AG-D1 to AG-D5. AG-D3 changed: AI suggested replies on with section 8.3.1 rules, `Representation.aiSuggestions`, `agencyAiDrafts` default on, privacy line under For counsel C4. AG-D5 badge rule applied (AG-Q50).
