@@ -110,6 +110,13 @@ export function PayPage() {
   const creator = quote.data?.creator ?? null;
   const theme = creator?.theme ?? null;
   const pageHref = creator ? `${LANDING}/${creator.handle}` : LANDING;
+  // Seller line on every sheet state where the creator is known: ready, short, price
+  // changed, failed and paid (mobile checkout spec 5 CK-Q2, acceptance 13)
+  const sellerLine = creator ? (
+    <p className="text-center text-[13px] leading-[18px] opacity-80">
+      {CHECKOUT_COPY.soldBy(creator.name || `@${creator.handle}`)}
+    </p>
+  ) : null;
   const notes = (
     <>
       {ON_TESTNET && (
@@ -156,9 +163,12 @@ export function PayPage() {
         closeHref={pageHref}
         notes={notes}
         footer={
-          <SheetButton theme={theme} href={itemHref}>
-            Open
-          </SheetButton>
+          <>
+            {sellerLine}
+            <SheetButton theme={theme} href={itemHref}>
+              Open
+            </SheetButton>
+          </>
         }
       >
         <SheetMessage
@@ -236,13 +246,6 @@ export function PayPage() {
     setSeen(signature);
     setAcceptedSignature(signature);
   };
-
-  // Seller line on every pay sheet state: ready, short, price changed and failed (spec 5, acceptance 13)
-  const sellerLine = (
-    <p className="text-center text-[13px] leading-[18px] opacity-80">
-      {CHECKOUT_COPY.soldBy(creator?.name || (creator ? `@${creator.handle}` : "the creator"))}
-    </p>
-  );
 
   const action =
     phase === "failed" ? (

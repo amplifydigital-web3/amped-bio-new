@@ -121,6 +121,17 @@ describe("PayPage", () => {
     expect(screen.getByRole("link", { name: "Open" }).getAttribute("href")).toMatch(
       /\/maya\/c\/abc123$/
     );
+    expect(screen.getByText(SELLER_LINE)).toBeInTheDocument();
+  });
+
+  it("names the creator handle in the seller line when there is no display name", async () => {
+    mocks.quote.mockResolvedValue(quote({ creator: { ...quote().creator, name: "" } }));
+    renderPay();
+    expect(
+      await screen.findByText(
+        "Sold by @maya on Amped.bio. Your purchase is from @maya, not from Amped."
+      )
+    ).toBeInTheDocument();
   });
 
   it("a short balance names the gap and hands off to Wallet with the intent", async () => {
