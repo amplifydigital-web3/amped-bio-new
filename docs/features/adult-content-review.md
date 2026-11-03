@@ -304,7 +304,7 @@ Escalate (or a CSAM match, or a child report) does the following at once: hides 
 
 Evidence path (R1 service, run by Escalate and by a CSAM match; from content PR 7): `preserveEvidence(caseId, publicId)` copies the original and the served renditions, server side, from the content bucket to the evidence bucket (`amped-evidence`, its own R2 token, bucket lock retention 1 year, REPORT Act 2024), with a JSON manifest (sha256, size, upload time, uploader user id, IPs held for that account, the report text). It writes `SafetyEvent` `evidence_preserved` with the object keys and `preservedUntil`, never a URL. No token for the evidence bucket ever leaves the server. Only after the copy succeeds does C7a delete the Stream video and the R2 objects; until then the item is hidden (`blocked:` with reason `child_safety`).
 
-Alerting (R1): a child safety case sends the safety lead an email and an SMS within 1 minute, and the on call list from Settings gets the same (Q6, Q8). The message carries the case number and a link, never the creator, the title or media.
+Alerting (R1): a child safety case sends the safety lead an email and an SMS within 1 minute, and the on call list from Settings gets the same (Q6). SMS goes through Twilio (Q8, Rob 3 Nov) from a Messaging Service with a dedicated sender number; the server reads `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` and `TWILIO_MESSAGING_SERVICE_SID`. A failed SMS is retried twice and then logged as `[safety] ALERT sms failed`; the email still goes. The message carries the case number and a link, never the creator, the title or media. On call phone numbers are staff data, kept in Settings, visible to safety leads only; Twilio is added to the processor list in `docs/legal/privacy-parameters.md` for staff contact data.
 
 The child safety case view (board ad2, third frame; QA AD-Q39) shows no media and no thumbnail. It carries: the escalation note, what was done automatically (hidden, uploads and store frozen, account suspended pending approval), the evidence copy state (preserved until {date}, 1 year, REPORT Act), and a "CyberTipline report" panel: Report filed (required before close), CyberTipline report number, filed at, filed by. The case cannot close without a report number or a safety lead note that the matter is not reportable. These go in `SafetyEvent.detail` with action `ncmec_report` (number, filedAt, preservedUntil); no new table. Reviewers can also escalate trafficking or coercion signs (COUNSEL-ADULT 7.3): Escalate offers "Child safety" and "Trafficking or coercion"; the second opens a Critical case for the safety lead without the media lock.
 
@@ -628,7 +628,7 @@ Counts only, no media and no requester data: `safety_case_opened` (type), `safet
 | --- | --- | --- | --- | --- |
 | F1 | `fix/content-adult-unlabel` | Unlabel holds the item; `explicitAt`; test | #348 (merged) | 0.5 day |
 | C7a | `feat/content-takedown` | Edge state, outbox and loop, KV and Stream hide, cache purge, gateway `p` and `a` token checks, `hideItems` and `restoreItems` (`docs/features/content-takedown.md`) | #348, #442 | 3 days |
-| R1 | `feat/safety-foundation` | Tables in section 10, roles and the admin app gate (8.8), SafetyEvent writer, settings defaults, `ADULT_POLICY_VERSION` and `RELEASE_VERSION`. From content PR 7: the hash blocklist service (reasons, `phash`, `caseId`, Unblock), `preserveEvidence` and the evidence bucket, the child safety alert channel (email now, SMS per Q8). Hide and restore come from C7a | I1 (merged), C7a | 3 days |
+| R1 | `feat/safety-foundation` | Tables in section 10, roles and the admin app gate (8.8), SafetyEvent writer, settings defaults, `ADULT_POLICY_VERSION` and `RELEASE_VERSION`. From content PR 7: the hash blocklist service (reasons, `phash`, `caseId`, Unblock), `preserveEvidence` and the evidence bucket, the child safety alert channel (email and Twilio SMS). Hide and restore come from C7a | I1 (merged), C7a | 3 days |
 | R2 | `feat/safety-queue` | Admin Safety rail group, Queue, Case view with blur and reveal, decisions, store policy cases, notices to creators, keyboard. From content PR 7: Block this file on Remove, the delivery line and Retry, Escalate runs `preserveEvidence` and the alert, the Blocked files list in Settings (ad6b), Safety reveal tokens with `a: "safety"` | R1 | 4.5 days |
 | R3 | `feat/takedown` | Public form and status page, Requests desk, identical copy search, the withdraw consent reason, `content.report` hides on `csam` with the abuse guard (7.1), `CONTENT_REPORT_LABELS` and reasons per 7.1, notices, footer links. From content PR 7: the copyright notice form and status page (ar8), counter notice (ar9), copyright requests in the desk (ad3b), repeat infringer counting, copyright analytics | R1 | 5 days |
 | R4 | `feat/adult-setup` | Creator 18+ setup with the custodian step, People and invites, release options, signature and countersignature, the surface rule behind `releaseAllowsSurface`, item editor section, submit for review, privacy notice entries | R1 | 4 days |
@@ -710,7 +710,7 @@ Drafted for counsel. Nothing here is on a board as final text.
 | Q5 | StopNCII partnership terms | Rob | D9 only |
 | Q6 | Who holds `safety_lead` at launch, and the child safety on call list | Rob, ops | R2 go live |
 | Q7 | Reviewer staffing: in house or a vendor for the 1 business day target | Rob | Scale, not pilot |
-| Q8 | SMS provider for child safety alerts (Twilio or the email to SMS gateway of the on call phones) | Rob, ops | R1 alert channel (email ships first) |
+| Q8 | SMS provider for child safety alerts | Rob | Answered 3 Nov 2026: Twilio |
 | Q9 | DMCA designated agent: who is named, and the postal address on the copyright policy page | Rob, counsel | R3 and L1 go live |
 
 ## 19. Sources
@@ -723,6 +723,8 @@ Drafted for counsel. Nothing here is on a board as final text.
 - Cloudflare KV, Stream signed URLs and cache purge: sources in `docs/features/content-takedown.md`.
 
 ## Revision log
+
+- 2026-11-03: Q8 answered by Rob: Twilio sends child safety SMS alerts (8.5). Secrets and the privacy processor entry added.
 
 - 2026-11-03: Revision 6. Content PR 7 split (16a): C7a builds the delivery stop; R1 gains the hash blocklist service, the evidence path and the alert channel; R2 gains Block this file, the delivery line and the Blocked files list; R3 gains the copyright desk (7.5), counter notices and repeat infringers. Case type Copyright, `TakedownRequest.kind`, `BlockedContentHash` columns, API, notifications, analytics, acceptance 28 to 32, Q8 and Q9. Boards ad2b, ad3b, ad6b, ar8, ar9, tk1, tk2.
 
