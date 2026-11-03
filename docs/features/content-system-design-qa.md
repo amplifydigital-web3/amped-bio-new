@@ -58,3 +58,12 @@ Every board is rendered from source at 1.5x (desktop) or 2x (phone) and checked 
 
 - CSAM: Rob moved PhotoDNA to after beta (12 Oct). Beta is invite only with the Cloudflare CSAM Scanning Tool on; no board changes.
 - mb6 on the memberships page is still the 8 Oct Prism colored sheet with Buy USDC inside. st9 is the correct pattern for creator payments; mb6 should be retired or redrawn on #25.
+
+## 6. Full QA, 3 Nov 2026
+
+Full QA against development 98db33f, C8 (#418, #433), C9 (#419), store policy (#420) and mobile checkout (#412). Findings CT-Q1 to CT-Q58 in the QA2 content group report. Fixes are in `docs/features/content-system.md` 3.19.
+
+- New boards on the Content system page: cs-q1 library 1440, cs-q2 library, upload and closed states at 390, cs-q3 item editor 1440, cs-q4 item editor 390, cs-q5 states, cs-q6 feed with a Pool fans card.
+- New boards on Store and paid cards on phone: st-q1 content block and Pool fans item page, st-q2 Paid item page with the seller line and the unavailable state (rows 154, 155).
+- cs4 and cs5 phone layouts stay superseded by s1 (C8 4.2). cs5's stake panel is withdrawn: it used member words and a non verbatim testnet line.
+- Gate: every QA2 board has 0 dashes, 0 banned words, 0 targets under 44, 0 contrast failures, no sideways scroll.
