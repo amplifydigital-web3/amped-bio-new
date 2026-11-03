@@ -269,13 +269,19 @@ The four Prism 2.2 gating screens (rule picker, locked bio, unlock sheet, rules 
 4. Rule picker: Early access date row ("Open to everyone on").
 5. Locked content card with price and duration, matching R11 (sticky buy bar).
 6. Rule picker (30 Oct QA): Followers is live in G1, not Later; stake labels read "Pool fans" and "Fans with a minimum stake" (3.5), not "Pool members" and "Members with a minimum stake". The boards are redrawn with deltas 1 to 6 before G3.
+7. Rules and stats live in People, Access tab, not My Pool (Rob's decision 6, revised in the 3 Nov QA fix pass). Followers, Members and Paid rules have nothing to do with a pool, and My Pool only renders behind `VITE_SHOW_CREATOR_POOL`. People tabs: Followers, Members (MB-1), Access (G6). On phones People sits in More. My Pool keeps the tabs Amped Messages gives it: Overview with the Broadcast card (Screen Review row 321). No Broadcasts or Telegram tab, and no rules.
+8. Access insights show totals only: by rule, by refusal reason and by item. Never a fan's name, handle, avatar or wallet address, and no per fan rows or times (Fan Graph 3.8, privacy notice line in 3.6). `access.rules.stats` returns aggregates only; a bucket under 5 viewers is shown as "Under 5".
+9. The Access tab has empty ("No rules yet"), loading and flag off states; with the `accessGating` feature flag off the tab is not rendered. Pilot copy: "Pool rules are open to pilot creators while counsel reviews them."
+10. Block row actions match `BlockRow.tsx`: eye, More (Delete inside) and collapse. The picker sits inside the open row from G3, behind the `accessGating` feature flag.
+11. Unlock sheet frames per hint: `view_pool` (eyebrow "Pool fans", title "You have no stake in this pool"), `link_wallet`, `view_pool` on `stake_below_min`, `unavailable` on `chain_unavailable` (Try again), `follow`, `confirm_email`, `verify_age` hand off, `unavailable` on `kind_unavailable`. A viewer who qualifies opens on tap with no sheet. Boards: https://claude.ai/artifact/WWAqVBfubtYhYwmNHdaAKC (ge1 to ge4) and https://claude.ai/artifact/2MTfnbcQPAkBkCRBseGyrL (mb1, mb4), redrawn 3 Nov.
 
 ### 3.11 Compliance
 
 v1 section 3.9 stands. Additions:
 
 - Stake disclosure shows on every unlock sheet step for `pool_member` and `stake_min`, and for `any` or `all` with a stake leaf. Never on follower, paid or member sheets.
-- No amount, rate, NRR, rank or reward figure appears on a locked card or unlock sheet. Pool links open the pool page and never start a stake.
+- No amount, rate, NRR, rank or reward figure appears on a locked card or unlock sheet. Pool links open the pool page and never start a stake. One exception: the `stake_below_min` step shows the creator's required minimum to the viewer after open (3.5). It is never in public HTML.
+- The disclosure is the `ACCESS_STAKE_DISCLOSURE` constant from `packages/constants/src/compliance.ts` (content gating 4.3), shown below `TESTNET_NOTICE`. Stake gate copy is checked against `ACCESS_BANNED_TERMS`: no "member" or "membership" on a stake gate.
 - Paid and member copy follows the payment flow rules (creator branded, fan pays the creator, fee shown inside).
 - The copy check script covers gating surfaces in client and landing app and fails on banned terms and on em and en dashes.
 
@@ -335,7 +341,7 @@ Each PR is one branch into `development`, labeled by type, with a handoff doc fo
 | Content PR 8 | `feat/content-gating` | Content resolver built on `services/content/access.ts` from #348, `getReadUrl` and `getPreview` through `open`, `access.checkPage` for content cards, locked cards, item editor picker. Build spec: `docs/features/content-gating.md` | G1, #348 | 5 days |
 | G4 | `feat/access-paid` | `UsdcPaymentVerifier`, `paid` live, soft unlock, `purchase_pending` | Content PR 10 | 1.5 days |
 | G5 | `feat/access-member` | Membership reader, `member` live | Memberships phase C | 1 day |
-| G6 | `feat/access-insights` | Rules and stats page, events, nightly leak scan, early access date | G3 | 2 days |
+| G6 | `feat/access-insights` | `access.rules.stats` (aggregates only, 3.10 delta 8), People Access tab with empty, loading and flag off states (3.10 deltas 7 to 9), events, nightly leak scan, early access date | G3 | 2 days |
 
 The age precondition needs no PR of its own: G1 calls `checkIdentity` from I1.
 
@@ -394,6 +400,7 @@ Lagging (90 days after paid goes live): share of creators with any paid or membe
 ## Revision log
 
 - 2026-11-03: Flags in site_settings. `accessGating` is a feature flag (#421) and the stake allowlist is the `access_stake_kinds_allowlist` site setting. `VITE_ACCESS_GATING` is dropped.
+- 2026-11-03: QA fix pass (rows 365 to 368, 370). 3.10 deltas 7 to 11: rules and stats move to People, Access; totals only; empty, loading and flag off states; block row actions; unlock sheet frames per hint. 3.11: the required minimum shows only in the `stake_below_min` step; the disclosure is `ACCESS_STAKE_DISCLOSURE`. G6 scope updated.
 
 - 2026-11-03: C8 Full QA. CQ1: content attachments on broadcasts move to Broadcast phase 2. CQ2: content PR 8 builds `access.checkPage` for content cards and G3 extends it to blocks. C8 build spec in `docs/features/content-gating.md`.
 
