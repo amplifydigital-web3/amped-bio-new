@@ -4,6 +4,7 @@ import { USDC_EIP3009_ABI } from "@repo/web3";
 import { env } from "../../env";
 import { paymentChain, paymentClient, usdcAddress } from "./chain";
 import { recordUsdcTransfers, transfersFromLogs } from "./events";
+import { isFeatureOn } from "../featureFlags";
 
 /**
  * USDC indexer (spec 3.4): every 30 seconds, reads USDC Transfer logs to and
@@ -116,11 +117,11 @@ export async function indexUsdcOnce(): Promise<number> {
 let timer: NodeJS.Timeout | null = null;
 let running = false;
 
-/** Started from bootstrap.ts. No-op until USDC_ENABLED. */
+/** Started from bootstrap.ts. Each tick is a no-op while the usdc flag is off. */
 export function startUsdcIndexer() {
-  if (!env.USDC_ENABLED || timer) return;
+  if (timer) return;
   const tick = async () => {
-    if (running) return;
+    if (running || !isFeatureOn("usdc")) return;
     running = true;
     try {
       await indexUsdcOnce();

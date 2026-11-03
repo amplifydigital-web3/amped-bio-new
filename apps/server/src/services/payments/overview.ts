@@ -9,6 +9,7 @@ import { accountState } from "./accounts";
 import { ampedPayAddress, readContractState, readSafeState, safeAddress } from "./onchain";
 import { safeMode } from "./safe";
 import { contractLimits, limitsFromState, paymentSettings } from "./settings";
+import { isFeatureOn } from "../featureFlags";
 
 /**
  * Admin, Payments, Overview (board a1, spec 3.8). Status, changes waiting on approval, the
@@ -58,7 +59,7 @@ export async function paymentsOverview(now = new Date()) {
   const production = paymentChain.id === 8453;
 
   return {
-    enabled: env.PAYMENTS_ENABLED,
+    enabled: isFeatureOn("payments"),
     environment: production ? ("production" as const) : ("staging" as const),
     network: paymentChain.name,
     chainId: paymentChain.id,

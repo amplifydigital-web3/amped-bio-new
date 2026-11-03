@@ -1,8 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { trpc } from "@repo/ui";
+import { isFeatureOn } from "../../../config/featureFlags";
 
 /** Creator Pool Broadcast (Build Board #1). Behind VITE_SHOW_BROADCAST. */
-export const BROADCAST_ON = import.meta.env.VITE_SHOW_BROADCAST === "true";
+export const BROADCAST_ON = isFeatureOn("broadcast");
 
 const sameDay = (a: Date, b: Date) => a.toDateString() === b.toDateString();
 
@@ -29,7 +30,7 @@ export function longTime(value: string | Date) {
 }
 
 /** Messaging on Telegram (#2): the inbox also holds conversations. Behind VITE_SHOW_TELEGRAM. */
-const MESSAGES_ON = import.meta.env.VITE_SHOW_TELEGRAM === "true";
+const MESSAGES_ON = isFeatureOn("telegram");
 
 const POLL = { refetchInterval: 60_000, refetchOnWindowFocus: true, staleTime: 30_000 } as const;
 

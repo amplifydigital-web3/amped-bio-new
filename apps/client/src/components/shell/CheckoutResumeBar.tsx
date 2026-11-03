@@ -3,10 +3,11 @@ import { ShoppingBag, X } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { Button, trpc } from "@repo/ui";
 import { checkoutResumeLabel } from "@repo/constants";
+import { isFeatureOn } from "../../config/featureFlags";
 
 /** Mobile checkout (Build Board #49). Off until VITE_CHECKOUT is "true". */
 // eslint-disable-next-line react-refresh/only-export-components
-export const CHECKOUT_ON = import.meta.env.VITE_CHECKOUT === "true";
+export const CHECKOUT_ON = isFeatureOn("checkout");
 
 const DISMISS_KEY = "amped:checkout-resume-dismissed";
 
