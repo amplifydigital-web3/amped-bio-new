@@ -8,14 +8,15 @@ import { quoteIntent } from "../services/checkout/quote";
 import { awaitFunds } from "../services/checkout/funds";
 import { getClientIp } from "../services/analytics/requestContext";
 import { enforceRateLimits } from "../utils/rateLimit";
+import { isFeatureOn } from "../services/featureFlags";
 
 function requireEnabled() {
-  if (!env.CHECKOUT_ENABLED) {
+  if (!isFeatureOn("checkout")) {
     throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Checkout is not available yet." });
   }
 }
 
-// Checkout intents (Build Board #49, PR CK-1). Behind CHECKOUT_ENABLED. The pay
+// Checkout intents (Build Board #49, PR CK-1). Behind the checkout feature flag. The pay
 // page (CK-2) reads an intent with get; Buy and Join call start.
 export const checkoutRouter = router({
   // Buy, Join, Renew and Tip: works signed out, so a public page can start it
@@ -64,7 +65,7 @@ export const checkoutRouter = router({
 
   // The resume bar on app load: Finish buying {item}
   resumable: privateProcedure.query(async ({ ctx }) => {
-    if (!env.CHECKOUT_ENABLED) return null;
+    if (!isFeatureOn("checkout")) return null;
     return resumableIntent(ctx.user!.sub);
   }),
 });
