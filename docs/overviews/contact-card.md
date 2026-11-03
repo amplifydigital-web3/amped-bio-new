@@ -45,8 +45,8 @@ Under the button sit Follow on Amped.Bio (the existing Follow, with an unticked 
 - **Phase 2.** Pass updates pushed to phones when the name, photo or verification changes (the Verified line returns on the pass); Share my details; agency roster cards.
 - **Phase 3.** Printed NFC cards that open the same link.
 
-## What Rob needs to decide or start
+## Decided and next steps
 
-- D5: the Wallet issuer entity, then the Apple Developer account (Pass Type ID, certificate) and the Google Wallet issuer account with a publishing access request.
-- D13: the Android memory phrase.
+- D5 (3 Nov): passes are issued by Oneiro N.A., Inc., dba Amplify Digital, shown as Amped.Bio. Next: the Apple Developer account (Pass Type ID, certificate) and the Google Wallet issuer account with a publishing access request.
+- D13 (3 Nov): Android shows "Open Wallet. Show. Saved." iPhone keeps "Double press. Show. Saved."
 - Counsel: the privacy notice items in spec section 11.

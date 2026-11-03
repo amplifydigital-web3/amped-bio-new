@@ -1,6 +1,6 @@
 # Amped Card spec: QR contact card and Wallet passes
 
-Build Board #58. Drafted by Claude for Rob Frasca, 2026-10-27. Revision 2, 2026-10-27, after design QA. Revision 3, 2026-11-03, after Full QA (findings AC2-Q1 to AC2-Q40, `qa2/card/qa.md`). Overview: `docs/overviews/contact-card.md`. Design page: Amped Card Boards, https://claude.ai/artifact/MKgoGGj2aPvLGA9raRdwnF. Status: design done, two decisions open (section 3, D5 and D13).
+Build Board #58. Drafted by Claude for Rob Frasca, 2026-10-27. Revision 2, 2026-10-27, after design QA. Revision 3, 2026-11-03, after Full QA (findings AC2-Q1 to AC2-Q40, `qa2/card/qa.md`). Overview: `docs/overviews/contact-card.md`. Design page: Amped Card Boards, https://claude.ai/artifact/MKgoGGj2aPvLGA9raRdwnF. Status: design done. D5 and D13 decided by Rob on 3 Nov.
 
 ## 1. Goal
 
@@ -48,10 +48,10 @@ Each decision has the recommended answer, why, and the alternatives. D1 to D4, D
 **D4. Phone and email.**
 - Recommended: optional phone, email, company, title, website and location (city and country) in the shared contact record (D12), empty by default. The account email is never used.
 
-**D5. Wallet issuer. Open for Rob.**
-- Recommended: Apple Developer account and Google Wallet issuer under the operator named in `docs/legal` (Oneiro N.A., Inc., dba Amplify Digital), with "Amped.Bio" as `organizationName` and `cardTitle` on the pass.
+**D5. Wallet issuer. Decided 3 Nov.**
+- Decision: Apple Developer account and Google Wallet issuer under the operator named in `docs/legal` (Oneiro N.A., Inc., dba Amplify Digital), with "Amped.Bio" as `organizationName` and `cardTitle` on the pass.
 - Why: the legal texts and the account emails already name that entity, so the pass issuer matches the privacy notice.
-- Alternative: a separate Amplify Digital entity. Then the privacy notice and the email footer change with it.
+- Rejected: a separate Amplify Digital entity.
 
 **D6. Pass design (revised in revision 3).**
 - Recommended: Apple generic pass and Google Wallet generic pass. Front shows avatar, name, @handle and a square QR. Background and text colors come from the owner's theme, checked for contrast, with Prism defaults as fallback. Phase 1 passes carry no Verified line, because a phase 1 pass never updates and a verification or name can lapse. The card page shows the live Verified chip. The Verified line returns on the pass in phase 2, when passes update on every verification change.
@@ -70,11 +70,10 @@ Each decision has the recommended answer, why, and the alternatives. D1 to D4, D
 
 **D12. Relation to the Save contact block.** One contact record and one vCard builder for both. The record fields are name, first and last name, title, company, email, phone, website and location. The block's QR points to the card's stable link; `amped.bio/{handle}/contact` redirects to it. The block's access rule (SC3) applies to its typed details on both surfaces.
 
-**D13. Android memory phrase. Open for Rob.**
-- Recommended: iPhone keeps "Double press. Show. Saved." Android uses "Open Wallet. Show. Saved." in the guide, success and Home reminder.
+**D13. Android memory phrase. Decided 3 Nov.**
+- Decision: iPhone keeps "Double press. Show. Saved." Android uses "Open Wallet. Show. Saved." in the guide, success and Home reminder.
 - Why: double pressing the side button opens Apple Wallet on every iPhone. Android has no gesture that opens Google Wallet on every device.
-- Alternative: one phrase for both, "Open. Show. Saved."
-- Alternative: keep "Double press" on Android with a line naming Google Wallet. Wrong on most Android phones.
+- Rejected: one phrase for both; "Double press" on Android.
 
 ## 4. Data model
 
@@ -226,7 +225,7 @@ Rules:
 ## 8. Wallet passes
 
 **Apple.**
-- `formatVersion: 1`, `passTypeIdentifier: "pass.bio.amped.card"`, `teamIdentifier` from the D5 account, `serialNumber` = `WalletPass.serial`, `organizationName: "Amped.Bio"`, `description: "Amped Card for {name}"` (VoiceOver reads it), style `generic`.
+- `formatVersion: 1`, `passTypeIdentifier: "pass.bio.amped.card"`, `teamIdentifier` from the Oneiro N.A., Inc. Apple Developer account (D5), `serialNumber` = `WalletPass.serial`, `organizationName: "Amped.Bio"`, `description: "Amped Card for {name}"` (VoiceOver reads it), style `generic`.
 - `barcodes: [{ format: "PKBarcodeFormatQR", message: "https://amped.bio/c/{token}?s=w", messageEncoding: "iso-8859-1", altText: "amped.bio/c/{token}" }]`.
 - Fields: header "AMPED CARD", primary name, secondary @handle. No Verified field in phase 1 (D6). Back fields: "Show this code" how-to, Your page, Card link, Change what is on it (`app.amped.bio/page?tab=card`). No "Last updated" field.
 - Images: `icon.png`, `logo.png` (Amped.Bio mark), `thumbnail.png` (avatar), each at 1x, 2x, 3x.
@@ -288,7 +287,8 @@ Owners see card views, downloads and follows on Home and in Analytics, Overview.
 ## 12. Dependencies and setup
 
 - `ampedCard` public flag in `packages/constants/src/feature-flags.ts`, default off, checked on the server in every card route.
-- Apple Developer Program membership, Pass Type ID, signing certificate (D5).
+- Apple Developer Program membership under Oneiro N.A., Inc., dba Amplify Digital (D5), Pass Type ID, signing certificate.
+- Google Wallet issuer account under the same entity (D5).
 - Google Wallet issuer account, business profile, a Generic class with callbacks, then Request Publishing Access. Until approved, passes reach test accounts only and their titles start with TEST ONLY.
 - #16 fix-email-exposure, #57 fix-link-url-scheme, #11 analytics foundation, #22 Fan Graph (Follow), #54 Save contact block, rate limiting, suspended pages, account deletion.
 
@@ -332,7 +332,7 @@ Owners see card views, downloads and follows on Home and in Analytics, Overview.
 - D6: no Verified line on phase 1 passes (AC2-Q21).
 - D10: one Wallet button per device (AC2-Q1).
 - D12: website and location join the record, matching the Save contact block spec (AC2-Q18).
-- D13 added: Android phrase, open for Rob (AC2-Q7).
+- D13 added: Android phrase (AC2-Q7). D5 and D13 decided by Rob on 3 Nov as recommended.
 - QR sources `w`, `p`, `a`, `b` and the Apple and Google QR values (AC2-Q4, AC2-Q23).
 - Apple required keys; Google skinny JWT, origins, alternateText and layout (AC2-Q22, AC2-Q24, AC2-Q25).
 - Wallet add confirmed by Apple registration and Google callbacks (AC2-Q11).
