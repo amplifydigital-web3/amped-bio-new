@@ -157,7 +157,7 @@ Rate limits (`apps/server/src/utils/rateLimit.ts`, fixed windows on the existing
 ### 3.6 Where the UI lives
 
 - **Creator page frame (039).** `ProfileView` capsule, behind `NEXT_PUBLIC_FAN_GRAPH`: follower count (13/16, "New on Amped" under 10, absent when hidden), Follow or Following, View pool (only when the creator has a pool and no pool block). At 390 the count sits above the buttons. Hides on scroll down as before. The owner sees Edit page, never Follow. Components: `components/follow/useFollow.ts`, `components/follow/FollowControls.tsx`.
-- **People destination.** Rail group Page: Page, Design, Analytics, People (Content joins when #20 ships), behind `VITE_FAN_GRAPH`. v1 has no tabs (one view, Followers); Broadcasts joins as a tab in phase 2. Header row: Followers eyebrow, period select and Export CSV, as Analytics (093) does. Tiles use the Analytics tile anatomy. On phones People sits in More. `components/panels/people/PeoplePanel.tsx`.
+- **People destination.** Rail group Page: Page, Design, Analytics, People (Content joins when #20 ships), behind `VITE_FAN_GRAPH`. v1 has no tabs (one view, Followers). Later tabs, in this order: Followers, Members (memberships MB-1: members of the USDC plan with the seller status row, grace and readiness states; the plan itself is edited in Store, Membership), Access (gating G6: rules and totals, aggregates only). Broadcast moved to Amped Messages and is not a People tab. Header row: Followers eyebrow, period select and Export CSV, as Analytics (093) does. Tiles use the Analytics tile anatomy. On phones People sits in More. `components/panels/people/PeoplePanel.tsx`.
 - **Explore, Following.** A third tab after Users and Pools, behind `VITE_FAN_GRAPH`. The Users label stays until #9 renames it Creators. `components/panels/explore/components/FollowingTab.tsx`.
 - **Follow block and Followers block (phase 1c, [follow-blocks.md](follow-blocks.md)).** Creator-styled blocks added from Add block, People. `components/blocks/FollowBlock.tsx` and `components/blocks/FollowersBlock.tsx` in both apps, the shared card in `packages/ui/src/creator/followers-card.tsx`.
 - **Not in this build (phase 1b):** Home Followers card, Home Make your own page card, Analytics Follows series and Campaigns Follows column, JSON-LD follower count.
@@ -165,14 +165,14 @@ Rate limits (`apps/server/src/utils/rateLimit.ts`, fixed windows on the existing
 ### 3.7 Gating and broadcast
 
 - Gating engine `follower` kind becomes live: passes when an ACTIVE `Follow` exists from the viewer to the rule owner. `params` stays empty. Pending follows do not pass.
-- The rule builder adds Followers between Everyone and Pool members, with the helper "Anyone who follows you on Amped. Free for fans."
+- The rule builder adds Followers between Everyone and Pool fans, with the helper "Anyone who follows you on Amped. Free for fans."
 - Broadcast adds a `FOLLOWERS` audience kind. This changes the broadcast spec: `BroadcastAudienceKind` gains a value, `Broadcast.poolId` becomes nullable, and the composer opens for any creator with followers, not only pool owners. Consent events gain the sources `follow_sheet` and `follow_menu`. Delivery goes to the Inbox of every ACTIVE follower. Email goes only to followers who opted in for this creator, under the existing consent and unsubscribe rules. The composer counts "followers" and "followers who get email" separately.
 
 ### 3.8 Privacy, consent and compliance
 
 - The first-follow sheet states three facts, word for word as rows: Maya sees "Your name, @handle and photo"; Stays private "Your email"; Everyone sees "The follower count". It ends with "Free. Unfollow any time." and a Privacy Policy link.
 - Fans can see and change, per creator: shown publicly, email updates, unfollow. Their Following list is private to them.
-- Creators never receive a follower's email, wallet address or visit history. The Followers list does not join `AnalyticsEvent` rows to people.
+- Creators never receive a follower's email, wallet address or visit history. The Followers list does not join `AnalyticsEvent` rows to people. The same holds for the Members and Access tabs: Members shows name and handle only; Access shows totals only, never who unlocked.
 - Follow counts are not rewards and carry no value. No copy may say earn, reward, points, tokens or perks next to Follow until #23 ships and counsel approves the follow quest. `apps/server/src/__tests__/fan-graph.test.ts` scans the follow UI files, including the two block renderers and the configurator, for these words and fails the test run on a match.
 - GDPR basis: performing the service the fan asked for (the follow). Data export (ws-account-deletion) includes the fan's follows and the creator's followers list without other people's emails.
 - Counsel reviews: the disclosure sentence, the fan account terms, and the follower export.

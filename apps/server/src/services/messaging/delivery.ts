@@ -67,7 +67,7 @@ export async function deliverDmJob(job: TelegramOutbox): Promise<void> {
 
   const recipientId = payload.to === "creator" ? thread.creatorUserId : thread.fanUserId;
   if (payload.to === "creator") {
-    const settings = await prisma.creatorMessagingSettings.findUnique({
+    const settings = await prisma.messagingSettings.findUnique({
       where: { userId: thread.creatorUserId },
       select: { replyFromTelegram: true },
     });

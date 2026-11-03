@@ -92,7 +92,6 @@ beforeEach(() => {
     TELEGRAM_GROUPS: true,
     TELEGRAM_MINIAPP: true,
     TELEGRAM_BOT_TOKEN: TOKEN,
-    MESSAGING_INVITE_ONLY: false,
   });
 });
 

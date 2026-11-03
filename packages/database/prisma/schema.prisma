@@ -80,11 +80,16 @@ model User {
   telegramAccount         TelegramAccount?
   telegramGroups          TelegramGroup[]
   telegramLinkEvents      TelegramLinkEvent[]
-  messagingSettings       CreatorMessagingSettings?
+  messagingSettings       MessagingSettings?
   messagingSenderStatus   MessagingSenderStatus?
   threadsAsCreator        MessageThread[]           @relation("ThreadCreator")
   threadsAsFan            MessageThread[]           @relation("ThreadFan")
   messageReports          MessageReport[]
+  // Amped Messages (Build Board #2, revision 4), spec docs/features/messaging.md section 6
+  conversationMembers     ConversationMember[]
+  directMessagesSent      DirectMessage[]           @relation("DirectMessageSender")
+  notifications           Notification[]            @relation("NotificationRecipient")
+  pushSubscriptions       PushSubscription[]
 
   // USDC in the wallet (#29): first time the fan opened USDC on Base. The
   // indexer watches this address from then on, and its first screening runs.
@@ -991,6 +996,11 @@ model NotificationPreference {
   // RNS name expiry emails (global row only). null means on: they are account
   // notices, not marketing. false turns them off.
   rnsRemindersEnabled Boolean?
+  // Amped Messages (#2 r4), global row only. Web Push on this account's devices; on by default
+  // once the person turns it on per device (the subscription is the device level consent).
+  pushEnabled         Boolean   @default(true)
+  // Email reminder for a message unread after 30 minutes. On by default, one tap off.
+  messageEmailEnabled Boolean   @default(true)
   mutedUntil          DateTime?
   updatedAt           DateTime  @updatedAt
 
@@ -1641,26 +1651,30 @@ enum DmRuleKind {
   PAID_MEMBER // Memberships (#25); no one qualifies until it ships
   POOL_MEMBER // "Pool fans only"
   STAKE_MIN // "Fans with a minimum stake"
+  NOBODY // Amped Messages (#2 r4): only existing conversations. Messaging only, never a group rule.
 }
 
-model CreatorMessagingSettings {
+// Amped Messages (#2 r4, PR M2): every account has one, creator or fan. Renamed from
+// creator_messaging_settings; invitedAt dropped with the invite pilot and enabled replaced by
+// ruleKind NOBODY (accounts that had messages off migrate to NOBODY).
+model MessagingSettings {
   userId            Int        @id
-  enabled           Boolean    @default(false)
+  // No row means the defaults: Followers and members. NOBODY replaces the old enabled flag.
   ruleKind          DmRuleKind @default(FOLLOWER)
   // STAKE_MIN only: whole tREVO as a decimal string, compared like StakedPool.stakeAmount
   stakeMin          String?    @db.VarChar(80)
   dailyNewThreadCap Int        @default(50)
   replyFromTelegram Boolean    @default(true)
-  // MESSAGING_INVITE_ONLY pilot: set by an admin invite
-  invitedAt         DateTime?
   // Set by an admin or by the report threshold (spec 3.9); Fan messages stay off while set
   pausedAt          DateTime?
   pausedReason      String?    @db.VarChar(255)
+  // Amped Messages (#2 r4): off hides when this person has read, and when others have
+  readReceipts      Boolean    @default(true)
   updatedAt         DateTime   @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@map("creator_messaging_settings")
+  @@map("messaging_settings")
 }
 
 // A fan's ability to send. pausedUntil null with pausedAt set means paused until an admin resumes.
@@ -1762,21 +1776,189 @@ enum MessageReportReason {
 
 model MessageReport {
   id             Bytes               @id @db.Binary(16)
-  threadId       Bytes               @db.Binary(16)
+  // Null on reports filed against conversations (PR M2)
+  threadId       Bytes?              @db.Binary(16)
   messageId      Bytes?              @db.Binary(16)
   reporterUserId Int
   reason         MessageReportReason
   note           String?             @db.VarChar(500)
+  // Amped Messages (#2 r4). Set on reports filed against the new tables; threadId stays
+  // for reports filed before the switch. bodySnapshotEnc keeps the reported text after unsend.
+  conversationId  Bytes?             @db.Binary(16)
+  directMessageId Bytes?             @db.Binary(16)
+  bodySnapshotEnc String?            @db.Text
   // Set when an admin closes the report
   resolvedAt     DateTime?
   createdAt      DateTime            @default(now())
 
-  thread   MessageThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  thread   MessageThread? @relation(fields: [threadId], references: [id], onDelete: Cascade)
   reporter User          @relation(fields: [reporterUserId], references: [id], onDelete: Cascade)
 
   @@index([threadId])
   @@index([createdAt])
+  @@index([conversationId])
   @@map("message_reports")
+}
+
+// ===== Amped Messages (Build Board #2, revision 4), PR M1 =====
+// Spec: docs/features/messaging.md section 6. Native direct messages between any two
+// accounts. Amped is the system of record and the transport. UUID v7 Binary(16) ids;
+// DirectMessage ids are time ordered, so they double as the page cursor and the
+// realtime event id. One to one in v1; members per conversation leave room for groups.
+
+enum ConversationKind {
+  DIRECT
+}
+
+enum MemberFolder {
+  PRIMARY
+  REQUESTS
+}
+
+enum MemberState {
+  ACTIVE
+  BLOCKED
+  LEFT
+}
+
+model Conversation {
+  id            Bytes            @id @db.Binary(16)
+  kind          ConversationKind @default(DIRECT)
+  // DIRECT: "{lowUserId}:{highUserId}" (conversationPairKey), one conversation per pair
+  pairKey       String?          @unique @db.VarChar(32)
+  createdById   Int
+  lastMessageId Bytes?           @db.Binary(16)
+  lastMessageAt DateTime?
+  createdAt     DateTime         @default(now())
+
+  members  ConversationMember[]
+  messages DirectMessage[]
+
+  @@index([lastMessageAt])
+  @@map("conversations")
+}
+
+model ConversationMember {
+  conversationId  Bytes        @db.Binary(16)
+  userId          Int
+  folder          MemberFolder @default(PRIMARY)
+  state           MemberState  @default(ACTIVE)
+  // Null while the conversation sits in REQUESTS for this member; set on Accept or reply
+  acceptedAt      DateTime?
+  lastReadId      Bytes?       @db.Binary(16)
+  lastReadAt      DateTime?
+  // Messages from the other side since this member last read (inbox badge)
+  unread          Int          @default(0)
+  mutedUntil      DateTime?
+  archivedAt      DateTime?
+  // Delete for me: messages up to and including this id are hidden for this member
+  clearedBeforeId Bytes?       @db.Binary(16)
+  joinedAt        DateTime     @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  // Restrict: an account deletion anonymizes its messaging rows first (msg-account-deletion)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@id([conversationId, userId])
+  @@index([userId, folder, archivedAt])
+  @@map("conversation_members")
+}
+
+model DirectMessage {
+  id             Bytes     @id @db.Binary(16)
+  conversationId Bytes     @db.Binary(16)
+  // Null only after the sender's account was deleted (anonymizeMessagingForUser clears
+  // the body and detaches the sender first; Restrict makes a skipped step fail loudly)
+  senderId       Int?
+  // AES-256-GCM envelope (services/crypto/secretBox.ts, the Telegram field scheme)
+  bodyEnc        String    @db.Text
+  bodyLength     Int
+  // A repeat of a send with the same key returns the first message
+  idempotencyKey String?   @db.VarChar(64)
+  // Financial promise terms the content check matched. Warn only, stored for admins.
+  flaggedTerms   Json?
+  // Unsend for everyone (15 minute window). The body is cleared; reports keep their snapshot.
+  unsentAt       DateTime?
+  createdAt      DateTime  @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User?        @relation("DirectMessageSender", fields: [senderId], references: [id], onDelete: Restrict)
+
+  @@unique([conversationId, idempotencyKey])
+  @@index([conversationId, id])
+  @@index([senderId, createdAt])
+  @@map("direct_messages")
+}
+
+enum NotificationKind {
+  MESSAGE
+  REQUEST
+  BROADCAST
+}
+
+// One bell row per thing to see. Repeats collapse into the unseen row for the same
+// groupKey (conv:{id} or broadcast:{id}) by bumping count; the collapse is done in code.
+model Notification {
+  id        Bytes            @id @db.Binary(16)
+  userId    Int
+  kind      NotificationKind
+  actorId   Int?
+  refId     Bytes?           @db.Binary(16)
+  groupKey  String           @db.VarChar(64)
+  count     Int              @default(1)
+  seenAt    DateTime?
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  user User @relation("NotificationRecipient", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, groupKey, seenAt])
+  @@index([userId, createdAt])
+  @@map("notifications")
+}
+
+// A Web Push subscription for one device. A 404 or 410 from the push service deletes it.
+model PushSubscription {
+  id        Bytes     @id @db.Binary(16)
+  userId    Int
+  endpoint  String    @unique @db.VarChar(512)
+  p256dh    String    @db.VarChar(128)
+  auth      String    @db.VarChar(64)
+  userAgent String?   @db.VarChar(255)
+  failedAt  DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("push_subscriptions")
+}
+
+enum NotificationJobStatus {
+  PENDING
+  CLAIMED
+  DONE
+  FAILED
+}
+
+// Push and email reminder jobs, claimed by the notification loop (Redis lock, one instance).
+model NotificationJob {
+  id        Bytes                 @id @db.Binary(16)
+  // push | email
+  channel   String                @db.VarChar(8)
+  userId    Int
+  payload   Json
+  status    NotificationJobStatus @default(PENDING)
+  attempts  Int                   @default(0)
+  runAfter  DateTime              @default(now())
+  claimedAt DateTime?
+  doneAt    DateTime?
+  error     String?               @db.VarChar(255)
+  createdAt DateTime              @default(now())
+
+  @@index([status, runAfter])
+  @@index([userId, createdAt])
+  @@map("notification_jobs")
 }
 
 // RNS name expiry emails. One row per user, name, registration expiry and

@@ -38,6 +38,8 @@ export function refusalMessage(reason: MessagingRefusalReason, creatorName: stri
       return copy.sender_cap;
     case "sender_paused":
       return copy.sender_paused;
+    case "closed":
+      return copy.disabled(creatorName);
     default:
       return copy[reason](creatorName);
   }

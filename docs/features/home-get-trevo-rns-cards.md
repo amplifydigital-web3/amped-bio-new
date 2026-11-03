@@ -61,6 +61,12 @@ My RNS names (now "Your RNS names") is a two column card grid, one column below 
 | Set primary on a card | Not in this PR | There is no set primary flow yet. It needs a reverse registrar transaction and its own review step | Add a Set primary flow and put it on non primary cards |
 | "On your page" on a card | Not in this PR | The list query has no page binding per name | Read the binding per card |
 
+The Wallet RNS names canvas shows only what shipped (QA 3 Nov, rows 358, WR-Q1 to WR-Q4, WR-Q6 to WR-Q8): Manage, Extend, Renew now and Verify; the error, connect and indexing states; the shipped empty and loading states; the tab label "RNS" and the search label "Search RNS names". Set primary and "On your page" appear only on a board marked Proposed. Set primary waits on decision RN-Q3 (`rns-identity-phase2.md`, section 7).
+
+## 2.1 Follow up (QA 3 Nov 2026)
+
+**Wallet Verified chip (WR-Q5).** The chip on every name card means the wallet is Authbase verified (`apps/client/src/components/panels/wallet/rns/MyRnsNames.tsx:41-43,105`). The public Verified needs the name bound to the page (`apps/server/src/services/rnsIdentity.ts:293`), and two way binding once `RNS_BADGE_TWO_WAY` is on. Owners see Verified on names that show no badge in public. Required change: in `MyRnsNames.tsx`, render the chip as "Wallet verified" (a `RowBadge` with the shield icon, not `VerifiedChip`) on every card, and keep `VerifiedChip` with the label "Verified" only on the card whose label equals `user.revo_name` when `computeRnsIdentity` reports verified. Test: a second name in a verified wallet shows "Wallet verified", not "Verified".
+
 ## 3. Files
 
 | File | Change |
@@ -86,7 +92,14 @@ My RNS names (now "Your RNS names") is a two column card grid, one column below 
 - `eslint`: no errors.
 - New Vitest tests: `fundRow.test.ts` (6) and `shareTargets.test.ts` (2), all passing.
 
-## 5. Staging QA
+## 5. QA follow ups (3 Nov 2026, Screen Review row 357)
+
+The design record was updated to match the code (AC-Q30, AC-Q32, AC-Q33): the Testnet card shows `TESTNET_NOTICE`, the stat strip reads Unclaimed and the button Review and claim rewards, the Wallet row reads "Faucet: Ready.", sent, paused and empty use the code lines, the rail is the grouped shipped rail, the mobile share is the icon share row, and the Fund dialog frame was removed (it keeps its own faucet request). Two code gaps remain for a follow up PR:
+
+1. Testnet line in the faucet card (AC-Q31). `apps/client/src/components/panels/wallet/faucet/FaucetCard.tsx` renders a local `TESTNET_LINE` ("Testnet only. tREVO has no cash value."). The rule is the code constant wherever tREVO shows, and on phones the Testnet card sits below the section. Change: import `TESTNET_NOTICE` from `@repo/constants` (or `@repo/ui`) and render it in place of `TESTNET_LINE`; delete the local constant. Alternative for Rob: approve adding "tREVO has no cash value." to `TESTNET_NOTICE` in `packages/constants/src/testnet.ts`, which then changes every surface. Acceptance: grep finds no testnet string literal in `FaucetCard.tsx`.
+2. Suspense fallback (AC-Q34). `apps/client/src/components/panels/home/GetTrevoSection.tsx` wraps `RefereeCard`, `FaucetCard` and `InviteCard` in `<Suspense>` with no fallback, so the cards appear late with no placeholder and the layout jumps. Change: pass `fallback` with the card skeletons (`FaucetSkeleton` exported from `FaucetCard.tsx`, and an invite skeleton of the same shape). Acceptance: on a throttled network the section shows two card skeletons before the chunks load.
+
+## 6. Staging QA
 
 1. Home shows Get tREVO under Page status. At 1360 and up the faucet and invite cards sit side by side.
 2. The faucet in each state: setup with open steps, ready, request sent, cooldown ring, paused.
