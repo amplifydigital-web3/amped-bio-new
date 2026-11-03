@@ -11,6 +11,7 @@ import {
 } from "../services/authbase";
 import { pickShownAttributes, rnsIdBlockOptions } from "../services/rnsIdentity";
 import { env } from "../env";
+import { isFeatureOn } from "../services/featureFlags";
 
 // Screen Review 105 I04, 106 I08: one Notify me for RNS attributes and facets.
 const IDENTITY_NEXT = "rns_identity_next";
@@ -59,7 +60,7 @@ export const authbaseRouter = router({
   // publicAttributes tells the name page whether the 079 D2 rule is live.
   isConfigured: publicProcedure.query(() => ({
     configured: isAuthbaseConfigured(),
-    publicAttributes: isAuthbaseConfigured() && env.RNS_PUBLIC_ATTRIBUTES,
+    publicAttributes: isAuthbaseConfigured() && isFeatureOn("rnsPublicAttributes"),
   })),
 
   // Public identity lookup for any wallet, mirroring the rns-backend proxy at
@@ -84,7 +85,7 @@ export const authbaseRouter = router({
         // unless 079 D2 is turned on and the wallet is Verified.
         // The owner reads their own attributes through getMyStatus.
         let attributes: Record<string, string> = {};
-        if (env.RNS_PUBLIC_ATTRIBUTES && status.verified) {
+        if (isFeatureOn("rnsPublicAttributes") && status.verified) {
           const owner = await prisma.userWallet.findUnique({
             where: { address: input.address.toLowerCase() },
             select: { user: { select: { blocks: { select: { type: true, config: true } } } } },

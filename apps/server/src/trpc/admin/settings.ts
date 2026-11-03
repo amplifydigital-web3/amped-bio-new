@@ -1,7 +1,8 @@
 import { adminProcedure, router } from "../trpc";
 import { z } from "zod";
 import { prisma } from "@repo/database";
-import { SITE_SETTINGS } from "@repo/constants";
+import { FEATURE_FLAG_KEYS, SITE_SETTINGS, type FeatureFlagKey } from "@repo/constants";
+import { listFeatureFlags, setFeatureFlag } from "../../services/featureFlags";
 
 export const settingsRouter = router({
   getFaucetStatus: adminProcedure.query(async () => {
@@ -77,5 +78,21 @@ export const settingsRouter = router({
           value_type: "STRING",
         },
       });
+    }),
+
+  // Feature flags (packages/constants/src/feature-flags.ts): every flag with its row and fallback
+  listFeatureFlags: adminProcedure.query(() => listFeatureFlags()),
+
+  /** Turn a flag on or off, or pass null to drop the row so every app uses its environment again */
+  setFeatureFlag: adminProcedure
+    .input(
+      z.object({
+        key: z.enum(FEATURE_FLAG_KEYS as [FeatureFlagKey, ...FeatureFlagKey[]]),
+        value: z.boolean().nullable(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      await setFeatureFlag(input.key, input.value, ctx.user!.sub);
+      return { ok: true };
     }),
 });
