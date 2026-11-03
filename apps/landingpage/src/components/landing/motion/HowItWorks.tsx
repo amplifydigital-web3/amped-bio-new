@@ -13,7 +13,7 @@ import { useMotionOff } from "./motionState";
 //
 // No library: sticky positioning, IntersectionObserver and Prism CSS. The pool
 // step shows mechanics only (no amounts, rates or outcomes). Counsel reviews
-// it before NEXT_PUBLIC_SHOW_MOTION turns on in production.
+// it before the motion feature flag turns on in production.
 
 const STEPS = [
   { title: "Claim your page", body: "Pick a URL. Amped.Bio checks it as you type." },

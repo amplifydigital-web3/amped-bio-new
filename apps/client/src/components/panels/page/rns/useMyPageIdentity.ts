@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { trpcClient, type RouterOutputs } from "@repo/ui";
 import { RNSID_ATTRIBUTE_SWITCH, type RnsIdBlockConfig } from "@repo/constants";
+import { isFeatureOn } from "../../../../config/featureFlags";
 
 export type MyPageIdentity = RouterOutputs["rns"]["getMyPageIdentity"];
 export type MyRnsNames = RouterOutputs["rns"]["listMyNames"];
@@ -9,7 +10,7 @@ export type RnsDisplay = MyPageIdentity["display"];
 export const MY_PAGE_IDENTITY_KEY = ["rns", "myPageIdentity"] as const;
 export const MY_RNS_NAMES_KEY = ["rns", "myNames"] as const;
 
-const showRns = import.meta.env.VITE_SHOW_RNS === "true";
+const showRns = isFeatureOn("rns");
 
 /**
  * Screen Review 108 I07, I08, I11: the owner's RNS name, its state now, the

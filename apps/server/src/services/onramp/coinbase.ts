@@ -1,5 +1,6 @@
 import { env } from "../../env";
 import { CdpClient } from "../usdc/cdp";
+import { isFeatureOn } from "../featureFlags";
 
 /**
  * Buy USDC through Coinbase (Build Board #5), spec 3.5. The Onramp calls go
@@ -29,7 +30,7 @@ export function setOnrampApiForTests(api: OnrampApi | null) {
 
 /** On when the server switch is on and a CDP API key is present. */
 export function isOnrampConfigured(): boolean {
-  return env.ONRAMP_ENABLED && !!env.CDP_API_KEY_ID && !!env.CDP_API_KEY_SECRET;
+  return isFeatureOn("onramp") && !!env.CDP_API_KEY_ID && !!env.CDP_API_KEY_SECRET;
 }
 
 export function onrampApi(): OnrampApi {

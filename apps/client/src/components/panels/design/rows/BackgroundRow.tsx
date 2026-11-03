@@ -22,6 +22,7 @@ import { backgroundThumb, useDesign } from "../kit/useDesign";
 import { useThemeActions } from "../kit/useThemeActions";
 import { GradientPicker, TextureChips } from "./GradientPicker";
 import { lookOf, type Texture } from "../kit/gradientLook";
+import { isFeatureOn } from "../../../../config/featureFlags";
 
 // Screen Review 023. The Background row in Design Style.
 
@@ -36,7 +37,7 @@ const CATEGORIES: { value: Category; label: string }[] = [
 ];
 
 // Theme Engine v2 (#28, phase 2): the gradient grid, builder and textures (board 10)
-const themeV2On = import.meta.env.VITE_SHOW_THEME_V2 === "true";
+const themeV2On = isFeatureOn("themeV2");
 
 // v2 moves the four image gradients to Photos; the Gradients grid is CSS only
 const GRADIENTS: Background[] = themeV2On ? backgroundColors : [...gradients, ...backgroundColors];
