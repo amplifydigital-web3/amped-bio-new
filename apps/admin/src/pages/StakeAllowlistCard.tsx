@@ -7,8 +7,8 @@ import { WordBadge } from "../kit/WordBadge";
 
 // Stake rules pilot (Build Board #21, access gating spec 6). Creator user ids whose
 // Pool fans and Fans with a minimum stake rules are live while counsel reviews.
-// Saved in site_settings (access_stake_kinds_allowlist). The API reads it on every
-// stake check. Use environment drops the row, so ACCESS_STAKE_KINDS_ALLOWLIST applies.
+// Saved in site_settings (access_stake_kinds_allowlist). Every API instance applies a
+// change within 15 seconds. Use environment drops the row, so ACCESS_STAKE_KINDS_ALLOWLIST applies.
 
 const IDS_PATTERN = /^\s*\d+(\s*,\s*\d+)*\s*$/;
 
@@ -17,7 +17,9 @@ function parseCreatorIds(text: string): number[] | null {
   if (text.trim() === "") return [];
   if (!IDS_PATTERN.test(text)) return null;
   const ids = text.split(",").map(value => Number(value.trim()));
-  return ids.every(id => Number.isSafeInteger(id) && id > 0) ? ids : null;
+  // Same bounds as the API: users.id is a signed INT, at most 500 creators
+  const valid = ids.every(id => Number.isSafeInteger(id) && id > 0 && id <= 2_147_483_647);
+  return valid && ids.length <= 500 ? ids : null;
 }
 
 export function StakeAllowlistCard() {
@@ -85,8 +87,8 @@ export function StakeAllowlistCard() {
         </h2>
         <p className="text-prism-meta text-prism-ink-2">
           Creators on this list can use Pool fans and Fans with a minimum stake while counsel
-          reviews. Everyone else sees them as not available yet. The API applies a change on the
-          next check.
+          reviews. Everyone else sees them as not available yet. Changes reach the API within 15
+          seconds.
         </p>
         <p className="text-prism-meta text-prism-ink-2">
           Environment: ACCESS_STAKE_KINDS_ALLOWLIST ({data.environmentValue.trim() || "empty"}).

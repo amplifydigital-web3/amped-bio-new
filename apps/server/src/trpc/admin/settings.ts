@@ -3,8 +3,19 @@ import { z } from "zod";
 import { prisma } from "@repo/database";
 import { FEATURE_FLAG_KEYS, SITE_SETTINGS, type FeatureFlagKey } from "@repo/constants";
 import { listFeatureFlags, setFeatureFlag } from "../../services/featureFlags";
-import { stakeKindsAllowlist } from "../../services/access/engine";
+import {
+  parseStakeKindsAllowlist,
+  readStakeKindsAllowlist,
+  setStakeKindsAllowlist,
+} from "../../services/access/engine";
 import { env } from "../../env";
+
+/** users.id is a signed INT: anything above it can never match a creator */
+const USER_ID_MAX = 2_147_483_647;
+
+export const stakeKindsAllowlistInput = z.object({
+  userIds: z.array(z.number().int().positive().max(USER_ID_MAX)).max(500).nullable(),
+});
 
 export const settingsRouter = router({
   getFaucetStatus: adminProcedure.query(async () => {
@@ -100,15 +111,9 @@ export const settingsRouter = router({
 
   // Access gating stake pilot (Build Board #21, spec 6): creator ids whose stake rules are live
   getStakeKindsAllowlist: adminProcedure.query(async () => {
-    const row = await prisma.siteSettings.findUnique({
-      where: { setting_key: SITE_SETTINGS.ACCESS_STAKE_KINDS_ALLOWLIST },
-    });
-    const list = await stakeKindsAllowlist();
-    const userIds = list
-      .split(",")
-      .map(value => value.trim())
-      .filter(value => /^\d+$/.test(value))
-      .map(Number);
+    // One fresh read, so the list and its source always agree
+    const { value, source } = await readStakeKindsAllowlist({ fresh: true });
+    const userIds = [...new Set(parseStakeKindsAllowlist(value))];
     // Handles so the admin sees who is on the list; an id with no user shows as unknown
     const users = userIds.length
       ? await prisma.user.findMany({
@@ -124,31 +129,16 @@ export const settingsRouter = router({
         handle: handles.get(id) ?? null,
         found: handles.has(id),
       })),
-      source: row ? ("setting" as const) : ("environment" as const),
+      source,
       environmentValue: env.ACCESS_STAKE_KINDS_ALLOWLIST,
     };
   }),
 
   /** Set the creator ids, or pass null to drop the row and use the environment value again */
   setStakeKindsAllowlist: adminProcedure
-    .input(z.object({ userIds: z.array(z.number().int().positive()).max(500).nullable() }))
+    .input(stakeKindsAllowlistInput)
     .mutation(async ({ ctx, input }) => {
-      const key = SITE_SETTINGS.ACCESS_STAKE_KINDS_ALLOWLIST;
-      if (input.userIds === null) {
-        await prisma.siteSettings.deleteMany({ where: { setting_key: key } });
-      } else {
-        const value = [...new Set(input.userIds)].sort((a, b) => a - b).join(",");
-        await prisma.siteSettings.upsert({
-          where: { setting_key: key },
-          create: { setting_key: key, setting_value: value, value_type: "STRING" },
-          update: { setting_value: value, value_type: "STRING" },
-        });
-      }
-      console.info(
-        `[access admin] admin ${ctx.user!.sub} set the stake allowlist to ${
-          input.userIds === null ? "environment default" : input.userIds.length + " creators"
-        }`
-      );
+      await setStakeKindsAllowlist(input.userIds, ctx.user!.sub);
       return { ok: true };
     }),
 });
