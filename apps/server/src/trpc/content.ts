@@ -78,7 +78,12 @@ import {
   publicFeed,
   publicItem,
 } from "../services/content/publicView";
-import { isListedItem, isPublicItem } from "../services/content/access";
+import {
+  isListedItem,
+  isPublicItem,
+  ownerCanOpen,
+  servedAssetsClean,
+} from "../services/content/access";
 import {
   buildDownload,
   buildPlayback,
@@ -1161,11 +1166,25 @@ export const contentRouter = router({
         decision,
       } satisfies ContentPreview;
     }
-    const item = await prisma.contentItem.findUnique({ where: { publicId: input.publicId } });
-    if (!item) throw new TRPCError({ code: "NOT_FOUND", message: VIEWER_MESSAGES.notFound });
-    const assets = await prisma.contentAsset.findMany({
-      where: { contentItemId: item.id, role: { in: [...PREVIEW_ASSET_ROLES] } },
+    const item = await prisma.contentItem.findUnique({
+      where: { publicId: input.publicId },
+      include: { user: { select: { page_status: true, block: true } } },
     });
+    // Belt and braces: a refusal that is not about availability (kind_unavailable
+    // after an engine error, for one) must not preview an item nobody may see
+    const visible =
+      item &&
+      (decision.reason === "owner" ? ownerCanOpen(item) : isListedItem(item, item.user));
+    if (!item || !visible) {
+      throw new TRPCError({ code: "NOT_FOUND", message: VIEWER_MESSAGES.notFound });
+    }
+    const allAssets = await prisma.contentAsset.findMany({ where: { contentItemId: item.id } });
+    if (!servedAssetsClean(allAssets)) {
+      throw new TRPCError({ code: "NOT_FOUND", message: VIEWER_MESSAGES.notFound });
+    }
+    const assets = allAssets.filter(asset =>
+      (PREVIEW_ASSET_ROLES as readonly string[]).includes(asset.role)
+    );
     try {
       return { ...(await buildPreview(item, assets)), decision } satisfies ContentPreview;
     } catch (error) {

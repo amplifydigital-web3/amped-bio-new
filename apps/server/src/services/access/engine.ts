@@ -33,7 +33,12 @@ import { hexToId, idToHex, loadRule, type LoadedRule } from "./rules";
 import type { Gate, Resolver, Viewer } from "./types";
 
 type Intent = "render" | "open";
-export type CheckOptions = { intent?: Intent; fresh?: boolean };
+export type CheckOptions = {
+  intent?: Intent;
+  fresh?: boolean;
+  /** False skips the AccessEvent, for repeated internal checks such as progress writes */
+  record?: boolean;
+};
 
 // ── Resolver registry ───────────────────────────────────────────
 const resolvers = new Map<AccessResourceType, Resolver>();
@@ -340,8 +345,11 @@ async function decide(
 ): Promise<AccessDecision> {
   if (!gate) return refuse("not_found", { action: "none" });
 
-  // Owner always passes, including drafts (preview)
-  if (viewer.userId !== null && viewer.userId === gate.ownerUserId) return allow("owner");
+  // The owner passes, including drafts (preview), unless the resolver says even
+  // the owner may not open it (content moderation BLOCKED, like ownerCanOpen)
+  if (viewer.userId !== null && viewer.userId === gate.ownerUserId) {
+    return gate.ownerCanOpen === false ? refuse("not_found", { action: "none" }) : allow("owner");
+  }
   if (!gate.available) return refuse("not_found", { action: "none" });
 
   const owner = await loadOwner(gate.ownerUserId);
@@ -412,7 +420,7 @@ export async function check(
     });
     result = refuse("kind_unavailable", { action: "unavailable" });
   }
-  if (gate && result.reason !== "owner") {
+  if (gate && result.reason !== "owner" && opts.record !== false) {
     void recordEvent(resource, gate, viewer, result, intent, false);
   }
   return result;

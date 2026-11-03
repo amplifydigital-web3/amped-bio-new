@@ -595,7 +595,52 @@ describe("progress (3.3)", () => {
   });
 });
 
+describe("owner and moderation BLOCKED (ownerCanOpen)", () => {
+  it("lets the owner open a draft or held item but never a blocked one", async () => {
+    const draft = addItem({ publishState: "DRAFT", accessRuleId: addRule("follower", {}) });
+    expect((await contentResolver.get(draft.publicId))!.ownerCanOpen).toBe(true);
+    const owner = await content(OWNER).getReadUrl({ publicId: draft.publicId });
+    expect(owner.decision?.reason).toBe("owner");
+
+    const blocked = addItem({ moderationState: "BLOCKED", accessRuleId: addRule("follower", {}) });
+    expect(await contentResolver.get(blocked.publicId)).toMatchObject({
+      available: false,
+      ownerCanOpen: false,
+    });
+    await expect(
+      content(OWNER).getReadUrl({ publicId: blocked.publicId })
+    ).rejects.toMatchObject({ code: "NOT_FOUND" });
+    await expect(
+      content(OWNER).getPreview({ publicId: blocked.publicId })
+    ).rejects.toMatchObject({ code: "NOT_FOUND" });
+    expect(await progress(OWNER).set({ publicId: blocked.publicId, positionMs: 5000 })).toEqual({
+      saved: false,
+    });
+    expect(db.progress).toHaveLength(0);
+  });
+
+  it("keeps the owner out when a served asset failed its scan", async () => {
+    const item = addItem();
+    db.assets.find(a => a.contentItemId === item.id && a.role === "COVER")!.scanStatus =
+      "INFECTED";
+    expect((await contentResolver.get(item.publicId))!.ownerCanOpen).toBe(false);
+    expect(await progress(OWNER).set({ publicId: item.publicId, positionMs: 5000 })).toEqual({
+      saved: false,
+    });
+  });
+});
+
 describe("access events (3.6)", () => {
+  it("records no event for a progress write", async () => {
+    db.state.follows.add(FAN);
+    const item = addItem({ accessRuleId: addRule("follower", {}) });
+    for (let i = 0; i < 3; i += 1) {
+      await progress(FAN).set({ publicId: item.publicId, positionMs: 5000 + i });
+    }
+    await new Promise(resolve => setTimeout(resolve, 0));
+    expect(db.events).toHaveLength(0);
+  });
+
   it("records one locked render per viewer and item in 10 minutes", async () => {
     const item = addItem({ accessRuleId: addRule("follower", {}) });
     const resources = [{ type: "content" as const, id: item.publicId }];
