@@ -17,6 +17,7 @@ import {
 } from "./look";
 import { NameText } from "./name-effect";
 import { ParticlesLayer } from "./particles-layer";
+import { ShaderLayer, type EffectDrop } from "./shader-layer";
 import { gradientScene, textureStyle } from "./scene";
 import { containerSurfaceClass } from "./surface";
 
@@ -118,6 +119,13 @@ export interface CreatorPageProps {
    * forces it with Device budget; the public page reads lowPower().
    */
   device?: "strong" | "typical" | "weak";
+  /**
+   * SHOW_THEME_SHOWCASE (phase 3, TE-3a): showcase engines run. Off, a WebGL
+   * scene paints its poster only.
+   */
+  showcase?: boolean;
+  /** A layer dropped to its still version (spec 3.7, theme_effect_dropped). */
+  onEffectDropped?: (drop: EffectDrop) => void;
 }
 
 export function CreatorPage({
@@ -136,6 +144,8 @@ export function CreatorPage({
   bottomPadding = DEFAULT_BOTTOM,
   entranceKey,
   device,
+  showcase = false,
+  onEffectDropped,
 }: CreatorPageProps) {
   const look = lookFor(theme);
   const sizes = SIZE[size];
@@ -188,6 +198,16 @@ export function CreatorPage({
           style={{ backgroundImage: `url(${background.value})` }}
         />
       ) : null}
+      {/* Phase 3: a WebGL scene base paints its poster, then the shader */}
+      <ShaderLayer
+        entry={look.shader}
+        params={look.shaderParams}
+        colors={look.colors}
+        paused={paused}
+        device={device}
+        showcase={showcase}
+        onDrop={onEffectDropped}
+      />
       {texture && <div className="pointer-events-none absolute inset-0" style={texture} />}
       {renderOverlay ? (
         renderOverlay(particlesEffect, paused)

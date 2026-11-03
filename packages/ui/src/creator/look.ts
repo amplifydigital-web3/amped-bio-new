@@ -45,6 +45,9 @@ export interface CreatorLook {
   overlay: EffectEntry | null;
   /** The overlay's params from the v2 slot (empty for v1 configs). */
   overlayParams: ParamValues;
+  /** A WebGL scene base (phase 3), or null. Its poster paints first. */
+  shader: EffectEntry | null;
+  shaderParams: ParamValues;
   /** The creator's colors as effects read them (theme color mode). */
   colors: ThemeColors;
 }
@@ -103,6 +106,15 @@ export function v1Values(v2: ThemeConfigV2): ThemeConfig {
 
 const CACHE = new WeakMap<object, CreatorLook>();
 
+function shaderOf(v2: ThemeConfigV2): { shader: EffectEntry | null; shaderParams: ParamValues } {
+  const base = v2.scene.base;
+  if (base.type !== "shader") return { shader: null, shaderParams: {} };
+  const entry = findEffect(base.id);
+  return entry?.engine === "webgl" && !entry.retired
+    ? { shader: entry, shaderParams: base.params ?? {} }
+    : { shader: null, shaderParams: {} };
+}
+
 /** The look for a theme config. Missing or empty configs get the v1 defaults. */
 export function lookFor(theme: AnyThemeConfig | null | undefined): CreatorLook {
   if (theme && CACHE.has(theme)) return CACHE.get(theme)!;
@@ -120,6 +132,7 @@ export function lookFor(theme: AnyThemeConfig | null | undefined): CreatorLook {
     name: getEffect("name", v2.name.id),
     overlay: overlay && overlay.id !== "scene.none" ? overlay : null,
     overlayParams: v2.scene.overlay?.params ?? {},
+    ...shaderOf(v2),
     colors: {
       button: values.buttonColor || THEME_DEFAULTS.buttonColor,
       buttonText: text,

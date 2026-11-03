@@ -219,6 +219,8 @@ export function ProfileView({
   const telegramMarkOn = useFeatureFlag("telegram");
   // Theme Engine v2 (#28): the shared CreatorPage shell, staging first
   const themeV2 = useFeatureFlag("themeV2");
+  // Theme Engine v2 phase 3 (TE-3a): showcase engines, staging first
+  const themeShowcase = useFeatureFlag("themeShowcase");
 
   // Pause motion (041 I02): read the remembered choice once on the client
   useEffect(() => {
@@ -662,6 +664,7 @@ export function ProfileView({
       bottomPadding={`calc(89px + env(safe-area-inset-bottom, 0px) + ${cardShowing ? cardHeight + 13 : 0}px)`}
       entranceKey={normalizedHandle}
       device={weakDevice ? "weak" : undefined}
+      showcase={themeShowcase}
     />
   ) : (
     <div
