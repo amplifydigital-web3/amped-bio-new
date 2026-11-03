@@ -4,7 +4,7 @@ import { destinationForPanel, dockComposition, enabledDestinations } from "./des
 describe("Inbox destination (Amped Messages, M5, spec 8.1)", () => {
   afterEach(() => vi.unstubAllEnvs());
 
-  it("is not in the rail while VITE_MESSAGES is off, and the old inbox has no rail item", () => {
+  it("is not in the rail while the messages flag is off, and the old inbox has no rail item", () => {
     vi.stubEnv("VITE_MESSAGES", "false");
     expect(enabledDestinations().map(d => d.id)).not.toContain("inbox");
     expect(destinationForPanel("inbox")).toBeNull();

@@ -43,7 +43,7 @@ export const DESTINATIONS: Destination[] = [
   { id: "home", label: "Home", icon: Home, group: "start" },
   { id: "explore", label: "Explore", icon: Search, group: "start" },
   // Amped Messages (#2 r4, M5, spec 8.1): the Inbox with the unread conversations badge
-  { id: "inbox", label: "Inbox", icon: MessageCircle, group: "start", flag: "VITE_MESSAGES" },
+  { id: "inbox", label: "Inbox", icon: MessageCircle, group: "start", flag: "messages" },
   { id: "page", label: "Page", icon: LayoutPanelTop, group: "page" },
   // Content system (#20, decision 7): uploads, the library and later Store and Live
   { id: "content", label: "Content", icon: Library, group: "page", flag: "content" },
@@ -83,7 +83,7 @@ export function destinationForPanel(panel: EditorPanelType): DestinationId | nul
       return "wallet";
     case "inbox":
       // The Telegram era inbox has no rail item; only the native Inbox does
-      return isFlagOn("VITE_MESSAGES") ? "inbox" : null;
+      return isFlagOn("messages") ? "inbox" : null;
     case "home":
     case "explore":
     case "page":

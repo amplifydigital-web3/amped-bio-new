@@ -29,7 +29,7 @@ const B = MESSAGE_UI.bell;
 /**
  * The bell center (spec 8.1 item 3, board m1): the unseen count on the bell; a popover
  * on desktop and a sheet on phones lists the latest 20 alerts, with Mark all as seen.
- * Opening a conversation marks its alerts seen. Replaces the Telegram era InboxButton behind VITE_MESSAGES.
+ * Opening a conversation marks its alerts seen. Replaces the Telegram era InboxButton behind the messages feature flag.
  */
 export function BellCenter() {
   const { authUser } = useAuth();

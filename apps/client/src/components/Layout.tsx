@@ -83,7 +83,7 @@ function ActivePanel({ panel }: { panel: EditorPanelType }) {
     case "my-pool":
       return <MyPoolDestination />;
     case "inbox":
-      // Amped Messages (#2 r4, M5) replaces the Telegram era inbox behind VITE_MESSAGES
+      // Amped Messages (#2 r4, M5) replaces the Telegram era inbox behind the messages feature flag
       if (MESSAGES_V2) return <MessagesInbox />;
       return INBOX_ON ? <InboxPanel /> : null;
     case "account":
