@@ -257,7 +257,7 @@ Scale notes: the hot reads are the inbox list (`conversation_members` by `userId
 5. Caps: per conversation per hour, per day, new conversations per day, the recipient's `dailyNewThreadCap`, new account cap. Refuse `sender_cap` or `cap_reached`.
 6. Allowed, folder REQUESTS. While the recipient has not accepted, the sender's 4th message refuses `awaiting_accept`.
 
-The env check `MESSAGING_INVITE_ONLY` and `settings.invitedAt` are removed. `MESSAGING_ENABLED` (default true) is the kill switch. When false, sends refuse `disabled` and the Inbox reads only.
+The env check `MESSAGING_INVITE_ONLY` and `settings.invitedAt` are removed. The kill switch is the `messages` feature flag (admin › Feature flags), resolved on the API with `isFeatureOn("messages")`; without an admin row it falls back to the server variable `MESSAGING_ENABLED` (default true). When off, sends refuse `disabled` and the Inbox reads only.
 
 ### 7.2 Sending (`services/messaging/send.ts`)
 
@@ -303,7 +303,7 @@ Roles: admin and moderator (both exist). safety_lead joins when Adult Content Re
 
 ### 8.1 Shell
 
-1. Rail: Inbox (MessageCircle icon) in the Start group after Explore, behind `VITE_MESSAGES`. A count badge shows unread conversations, capped at 99+. Requests and broadcasts never raise it; they count on their tab and on the bell. Badge: 20 high pill, 13/16 700 white on #5650A2 (6.85:1), tabular figures (Prism v1.1 addition pending approval).
+1. Rail: Inbox (MessageCircle icon) in the Start group after Explore, behind the `messages` feature flag (admin › Feature flags). A count badge shows unread conversations, capped at 99+. Requests and broadcasts never raise it; they count on their tab and on the bell. Badge: 20 high pill, 13/16 700 white on #5650A2 (6.85:1), tabular figures (Prism v1.1 addition pending approval).
 2. Phone dock: Home, Page, Inbox, Wallet, More. Design moves to More.
 3. Top bar bell: count of unseen alerts in a small pill on the bell. The popover (desktop) or sheet (phone) lists alerts with avatar, "@handle sent you a message", time, and an unread mark. Mark all as seen. View all opens Inbox.
 4. Toast (D21 convention): G1 clear, r13, min 55, bottom left of the context field (above the dock on phones), sender and first line, one ghost action Reply, dismisses after 5 s. Never for muted conversations, never while that conversation is open.
