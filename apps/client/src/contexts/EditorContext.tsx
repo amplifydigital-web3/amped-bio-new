@@ -33,6 +33,7 @@ import {
 } from "./unsavedEdits";
 import { useNavigate, useLocation } from "react-router";
 import { MY_PAGE_IDENTITY_KEY } from "@/components/panels/page/rns/useMyPageIdentity";
+import { isFeatureOn } from "../config/featureFlags";
 
 /**
  * Autosave status shown in the top bar (Screen Review 002 I02, D11).
@@ -180,7 +181,7 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
         }));
         // 108 I02: the stored RNS name comes from the owner's private read.
         // Wallet name pages compare against it.
-        if (import.meta.env.VITE_SHOW_RNS === "true") {
+        if (isFeatureOn("rns")) {
           void queryClient
             .fetchQuery({
               queryKey: MY_PAGE_IDENTITY_KEY,

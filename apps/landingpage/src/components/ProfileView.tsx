@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Pause, Pencil, Play, Send } from "lucide-react";
 import { TELEGRAM_APP_STRINGS } from "@repo/constants";
+import { useFeatureFlag } from "@/components/providers/FeatureFlagsProvider";
 import { getPlatformIcon } from "@/lib/platforms";
 import { trpcClient } from "@/lib/trpc";
 import { normalizeHandle } from "@/lib/handle";
@@ -212,16 +213,16 @@ export function ProfileView({
   const effectiveHandle = rawHandle || DEFAULT_HANDLE;
   const normalizedHandle = normalizeHandle(effectiveHandle);
   // Fan Graph (#22): Follow lives in the frame capsule (decision 2)
-  const followEnabled =
-    process.env.NEXT_PUBLIC_FAN_GRAPH === "true" && normalizedHandle !== DEFAULT_HANDLE;
+  const fanGraphOn = useFeatureFlag("fanGraph");
+  const followEnabled = fanGraphOn && normalizedHandle !== DEFAULT_HANDLE;
   const followState = useFollow(normalizedHandle, !!authUser, authPending || !followEnabled);
-  const showRns = process.env.NEXT_PUBLIC_SHOW_RNS === "true";
-  const telegramMarkOn = process.env.NEXT_PUBLIC_SHOW_TELEGRAM === "true";
+  const showRns = useFeatureFlag("rns");
+  const telegramMarkOn = useFeatureFlag("telegram");
   // Amped Messages (#2 r4, M6): the native Message me block; a telegram_message row not
   // yet migrated renders as one too
-  const messagesOn = process.env.NEXT_PUBLIC_MESSAGES === "true";
+  const messagesOn = useFeatureFlag("messages");
   // Theme Engine v2 (#28): the shared CreatorPage shell, staging first
-  const themeV2 = process.env.NEXT_PUBLIC_SHOW_THEME_V2 === "true";
+  const themeV2 = useFeatureFlag("themeV2");
 
   // Pause motion (041 I02): read the remembered choice once on the client
   useEffect(() => {

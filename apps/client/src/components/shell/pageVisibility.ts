@@ -1,12 +1,13 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { trpc } from "@repo/ui";
+import { isFeatureOn } from "../../config/featureFlags";
 
 // QA-008 (Fan Graph #22). An account made from Follow has an unpublished page
 // until its owner publishes it. While unpublished, nothing in the editor
 // pretends the page is live: View page, Copy page link and Share are disabled
 // with the reason below. Accounts with a published page see no change.
 
-export const FAN_GRAPH = import.meta.env.VITE_FAN_GRAPH === "true";
+export const FAN_GRAPH = isFeatureOn("fanGraph");
 
 export const PUBLISH_FIRST = "Publish your page first.";
 

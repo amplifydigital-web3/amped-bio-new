@@ -19,13 +19,14 @@ import {
   type HoverTile,
   type PressId,
 } from "../kit/motionLook";
+import { isFeatureOn } from "../../../../config/featureFlags";
 
 // Screen Review 028, 029 and 030. The Motion rows.
 
 const REDUCED_MOTION_LINE = "Your visitors with reduced motion see a still version.";
 
 // Theme Engine v2 (#28, phase 2): five core hovers and the Button press row (board 09)
-const themeV2On = import.meta.env.VITE_SHOW_THEME_V2 === "true";
+const themeV2On = isFeatureOn("themeV2");
 const BUTTON_EFFECTS = hoverTiles(themeV2On);
 
 // The hover effect as a playing state, for specimens (028 I02). Matches the
