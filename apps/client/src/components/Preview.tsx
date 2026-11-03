@@ -63,6 +63,8 @@ const telegramOn = isFeatureOn("telegram");
 // Theme Engine v2 (#28): the preview mounts the shared CreatorPage shell, so it
 // draws what the public page draws (spec 3.4, closes D10)
 const themeV2On = isFeatureOn("themeV2");
+// Theme Engine v2 fonts (2b): the preview loads catalog faces with the picker
+const fontCatalogOn = themeV2On && isFeatureOn("fontCatalog");
 
 interface PreviewProps {
   isEditing: boolean;
@@ -344,6 +346,7 @@ export function Preview({
         // Editor chrome: Device budget and Pause motion for the preview only
         device={previewMotion.device}
         paused={previewMotion.paused}
+        loadFonts={fontCatalogOn}
         profile={{
           name: profile.name,
           photo: profile.photoCmp || profile.photoUrl,

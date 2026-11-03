@@ -104,6 +104,14 @@ export const FEATURE_FLAGS = {
     default: false,
     env: { client: "VITE_SHOW_THEME_V2", landing: "NEXT_PUBLIC_SHOW_THEME_V2" },
   },
+  fontCatalog: {
+    label: "Font catalog",
+    description:
+      "The Text row font catalog: about 1,900 Google Fonts families, a Name font and a Body font, weight, italics and width and optical size sliders. Needs Theme v2. Staging only until font delivery ships, because catalog fonts still load from Google.",
+    scope: "public",
+    default: false,
+    env: {},
+  },
   motion: {
     label: "Landing motion",
     description: "The landing page hero light, headline motion and How it works.",

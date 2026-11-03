@@ -137,6 +137,7 @@ export {
   type CreatorPageProps,
   type CreatorPageSize,
 } from "./creator/creator-page";
+export { CreatorFontLinks, bodyFontPick, creatorFontHrefs } from "./creator/fonts";
 export { CreatorButton, CREATOR_FOCUS, clampedFontSize, playPress } from "./creator/creator-button";
 // Theme Engine v2 phase 2: the name entrances (Name row, board 08)
 export {

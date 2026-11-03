@@ -15,6 +15,7 @@ import {
   overlayParticlesId,
   playingOverlay,
 } from "./look";
+import { CreatorFontLinks } from "./fonts";
 import { NameText } from "./name-effect";
 import { ParticlesLayer } from "./particles-layer";
 import { gradientScene, textureStyle } from "./scene";
@@ -78,7 +79,8 @@ function isHtml(text: string) {
 /** The creator's font and text color, for slots that set their own text (footer). */
 export function creatorTextStyle(theme: AnyThemeConfig | null | undefined): CSSProperties {
   const look = lookFor(theme);
-  return { fontFamily: look.values.fontFamily, color: lookFontColor(look) };
+  // Phase 2b: the body's weight, italic and axes (empty for the v1 look)
+  return { fontFamily: look.values.fontFamily, color: lookFontColor(look), ...look.bodyFace };
 }
 
 export interface CreatorPageProps {
@@ -118,6 +120,11 @@ export interface CreatorPageProps {
    * forces it with Device budget; the public page reads lowPower().
    */
   device?: "strong" | "typical" | "weak";
+  /**
+   * Phase 2b fonts (spec 3.8): load the stylesheets for catalog faces. The
+   * apps pass the fontCatalog flag; off, the page draws only the base fonts.
+   */
+  loadFonts?: boolean;
 }
 
 export function CreatorPage({
@@ -136,6 +143,7 @@ export function CreatorPage({
   bottomPadding = DEFAULT_BOTTOM,
   entranceKey,
   device,
+  loadFonts = false,
 }: CreatorPageProps) {
   const look = lookFor(theme);
   const sizes = SIZE[size];
@@ -149,7 +157,12 @@ export function CreatorPage({
   const texture = textureStyle(background);
   // Phase 2 Name row: Settle, Applies to and the text entrances
   const weak = device === "weak";
-  const nameStyle = { ...textStyle, ...nameLoopStyle(look, paused, weak) };
+  // Phase 2b: the name's own face over the body font, when the theme has one
+  const nameStyle = {
+    ...textStyle,
+    ...(look.nameFace ?? {}),
+    ...nameLoopStyle(look, paused, weak),
+  };
   const bioEffect = nameOnBio(look) ? effectClassName(look.name, paused) : undefined;
   const bioStyle = bioEffect ? nameStyle : textStyle;
 
@@ -279,11 +292,14 @@ export function CreatorPage({
     </div>
   );
 
+  const fonts = loadFonts ? <CreatorFontLinks theme={theme} profile={profile} /> : null;
+
   if (embedded) {
     // The editor: the scene stays put outside the scroller and fills the
     // device while the page scrolls inside it (QA-024)
     return (
       <div className="relative flex h-full flex-col" style={lookCssVars(look)}>
+        {fonts}
         {backgroundLayer}
         <div className="relative z-[1] flex-1 overflow-auto">{column}</div>
         {frame}
@@ -294,6 +310,7 @@ export function CreatorPage({
   // 039 I05: the background is fixed to the viewport; the document scrolls
   return (
     <div className="relative min-h-dvh" style={lookCssVars(look)}>
+      {fonts}
       {backgroundLayer}
       {column}
       {frame}
