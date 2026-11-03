@@ -18,6 +18,9 @@ const PrismGallery = lazy(() =>
   import("./pages/PrismGallery").then(module => ({ default: module.PrismGallery }))
 );
 
+// Mobile checkout (CK-2). Lazy, so the editor bundle carries none of it
+const PayPage = lazy(() => import("./pages/Pay").then(module => ({ default: module.PayPage })));
+
 function AppRouter() {
   return (
     <>
@@ -38,6 +41,17 @@ function AppRouter() {
             }
           />
         )}
+        {/* Mobile checkout (Build Board #49, CK-2): the creator branded pay sheet */}
+        <Route
+          path="/pay/:intentId"
+          element={
+            <ProtectedRoute>
+              <Suspense fallback={<div className="prism-room min-h-dvh" />}>
+                <PayPage />
+              </Suspense>
+            </ProtectedRoute>
+          }
+        />
         {/* Legacy /@handle/edit/... URLs are normalized to the panel route by Editor */}
         <Route
           path="/:handle/edit/:panel?"
