@@ -1,15 +1,25 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ChevronLeft, Share2 } from "lucide-react";
 import { contentCardMeta, type ContentPublicItem } from "@repo/constants";
-import { ChapterList, MediaPlayer, cn } from "@repo/ui";
-import { contentFeedPath, playerItemFromCard, resolverFor } from "@/lib/content";
+import {
+  ChapterList,
+  MediaPlayer,
+  PhotoViewer,
+  PlayerActions,
+  UpNextList,
+  cn,
+  useOptionalPlayer,
+} from "@repo/ui";
+import { useFeatureFlag } from "@/components/providers/FeatureFlagsProvider";
+import { contentFeedPath, fetchUpNext, playerItemFromCard, resolverFor } from "@/lib/content";
 import { CardCover } from "./ContentCardView";
 import { DownloadButton } from "./DownloadButton";
 import { PdfViewer } from "./PdfViewer";
-import { ReportContentButton } from "./ReportDialog";
+import { ReportContentButton, ReportDialog } from "./ReportDialog";
 import { SITE_CONTENT_COPY as copy } from "./copy";
 import { CREATOR_FOCUS_RING } from "./theme";
 
@@ -60,8 +70,38 @@ function ShareButton({ title }: { title: string }) {
 export function ItemPageView({ item }: { item: ContentPublicItem }) {
   const { creator } = item;
   const timed = item.kind === "video" || item.kind === "audio";
-  const playerItem = playerItemFromCard(item, creator, item.chapters);
-  const resolve = resolverFor(item.publicId);
+  const playerItem = useMemo(
+    () => playerItemFromCard(item, creator, item.chapters),
+    [item, creator]
+  );
+  const resolve = useMemo(() => resolverFor(item.publicId), [item.publicId]);
+  const router = useRouter();
+  const player = useOptionalPlayer();
+  // FL-1: up next from the creator, the queue and the phone action row
+  const fanLibrary = useFeatureFlag("fanLibrary");
+  const playerV2 = fanLibrary && timed;
+  const [reporting, setReporting] = useState(false);
+  const creatorName = creator.name || `@${creator.handle}`;
+  const reportItems = [{ publicId: item.publicId, title: item.title }];
+
+  const setUpNext = player?.setUpNext;
+  useEffect(() => {
+    if (!playerV2 || !setUpNext) return;
+    let live = true;
+    void fetchUpNext(creator, item.publicId)
+      .then(entries => live && setUpNext(entries))
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [playerV2, creator, item.publicId, setUpNext]);
+
+  // Swipe down on the phone video: back to where the fan came from, and the
+  // mini player carries on there (the provider lives in the handle layout)
+  const minimize = () => {
+    if (window.history.length > 1) router.back();
+    else router.push(`/${creator.handle}`);
+  };
 
   return (
     <article>
@@ -74,15 +114,17 @@ export function ItemPageView({ item }: { item: ContentPublicItem }) {
       </div>
 
       {timed ? (
-        <MediaPlayer item={playerItem} resolve={resolve} poster={item.cover?.src ?? null} />
+        <MediaPlayer
+          item={playerItem}
+          resolve={resolve}
+          poster={item.cover?.src ?? null}
+          onMinimize={playerV2 ? minimize : undefined}
+          creatorName={creatorName}
+        />
       ) : item.kind === "image" ? (
         item.cover ? (
-          <img
-            src={item.cover.src}
-            srcSet={item.cover.srcSet || undefined}
-            sizes="(min-width: 640px) 610px, 100vw"
-            alt={item.title}
-            className="w-full rounded-[13px] bg-black/10 object-contain"
+          <PhotoViewer
+            images={[{ src: item.cover.src, srcSet: item.cover.srcSet, alt: item.title }]}
           />
         ) : null
       ) : item.documentFormat === "pdf" ? (
@@ -107,14 +149,27 @@ export function ItemPageView({ item }: { item: ContentPublicItem }) {
         </p>
       )}
 
+      {playerV2 && (
+        <PlayerActions
+          item={playerItem}
+          resolve={resolve}
+          onReport={() => setReporting(true)}
+          note={item.allowDownload ? null : copy.downloadsOff}
+          creatorName={creatorName}
+          className="mt-[21px]"
+        />
+      )}
+
       {timed && (
         <ChapterList
           item={playerItem}
           resolve={resolve}
-          className="mt-[21px]"
+          className={cn("mt-[21px]", playerV2 && "hidden md:block")}
           headingClassName="opacity-80"
         />
       )}
+
+      {playerV2 && <UpNextList item={playerItem} creatorName={creatorName} className="mt-[21px]" />}
 
       {item.allowDownload ? (
         <DownloadButton publicId={item.publicId} className="mt-[21px]" />
@@ -127,8 +182,9 @@ export function ItemPageView({ item }: { item: ContentPublicItem }) {
 
       <div className="mt-[21px] flex flex-wrap items-center justify-between gap-[13px]">
         <ReportContentButton
-          items={[{ publicId: item.publicId, title: item.title }]}
+          items={reportItems}
           label={copy.report}
+          className={cn(playerV2 && "md:hidden")}
         />
         <Link
           href={contentFeedPath(creator.handle)}
@@ -140,6 +196,7 @@ export function ItemPageView({ item }: { item: ContentPublicItem }) {
           {copy.seeAll}
         </Link>
       </div>
+      {reporting && <ReportDialog items={reportItems} onClose={() => setReporting(false)} />}
     </article>
   );
 }

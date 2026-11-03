@@ -164,6 +164,14 @@ export const FEATURE_FLAGS = {
     default: false,
     env: { client: "VITE_CONTENT" },
   },
+  fanLibrary: {
+    label: "Fan Library",
+    description:
+      "Fan Library (Build Board #26): up next and the queue on public item pages, and the Library pages as they ship (FL-1 to FL-7).",
+    scope: "public",
+    default: false,
+    env: {},
+  },
   contentUploads: {
     label: "Content uploads",
     description:
