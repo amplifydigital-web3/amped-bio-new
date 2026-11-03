@@ -251,6 +251,11 @@ const envSchema = z.object({
   // The Mini App page endpoint, follow and share (phase 3). Counsel confirms TON safe mode first.
   TELEGRAM_MINIAPP: boolSchema(false),
 
+  // Amped Messages (Build Board #2 r4), spec docs/features/messaging.md 4.4 and 7.1.
+  // Encrypts direct message bodies and report snapshots. Falls back to BETTER_AUTH_SECRET.
+  // Set once per environment: rotating it makes stored messages unreadable.
+  MESSAGES_SECRET_BOX_KEY: z.string().default(""),
+
   // USDC in the wallet (Build Board #29), spec docs/features/usdc-wallet-onramp.md 3.3 and 3.4.
   // Master switch for gasless sends and the indexer. Off until the CDP relayer account exists.
   USDC_ENABLED: boolSchema(false),
