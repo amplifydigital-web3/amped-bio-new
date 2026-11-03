@@ -29,6 +29,7 @@ import { useSupportWidget } from "./shell/useSupportWidget";
 import { useLayoutEffect } from "react";
 import { cn, markTransitionCommitted } from "@repo/ui";
 import type { EditorPanelType } from "@/types/editor.ts";
+import { isFeatureOn } from "../config/featureFlags";
 
 interface LayoutProps {
   bannerData?: {
@@ -62,7 +63,7 @@ function ActivePanel({ panel }: { panel: EditorPanelType }) {
     case "analytics":
       return <AnalyticsPanel />;
     case "people":
-      return import.meta.env.VITE_FAN_GRAPH === "true" ? <PeoplePanel /> : null;
+      return isFeatureOn("fanGraph") ? <PeoplePanel /> : null;
     case "content":
       return CONTENT_FLAGS.library ? <ContentPanel /> : null;
     case "explore":
@@ -85,7 +86,7 @@ function ActivePanel({ panel }: { panel: EditorPanelType }) {
     case "rns":
       // 077 I03: no RNS header in the top bar. The legacy rns panel only
       // redirects old /rns?t= links to the Wallet RNS tab.
-      return import.meta.env.VITE_SHOW_RNS === "true" ? <RNSPanel /> : null;
+      return isFeatureOn("rns") ? <RNSPanel /> : null;
     default:
       return null;
   }

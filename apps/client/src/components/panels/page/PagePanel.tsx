@@ -1,8 +1,9 @@
 import { ProfileHeaderCard } from "./header/ProfileHeaderCard";
 import { BlocksSection } from "./blocks/BlocksSection";
 import { RnsSection } from "./rns/RnsSection";
+import { isFeatureOn } from "../../../config/featureFlags";
 
-const showRns = import.meta.env.VITE_SHOW_RNS === "true";
+const showRns = isFeatureOn("rns");
 
 /**
  * Page destination (D01, D03, D18). The profile header card, the RNS section
