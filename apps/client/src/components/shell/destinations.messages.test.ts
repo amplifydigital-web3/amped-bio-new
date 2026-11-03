@@ -1,19 +1,18 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
+import { setFeatureFlagOverridesForTests } from "../../config/featureFlags";
 import { destinationForPanel, dockComposition, enabledDestinations } from "./destinations";
 
 describe("Inbox destination (Amped Messages, M5, spec 8.1)", () => {
-  afterEach(() => vi.unstubAllEnvs());
+  afterEach(() => setFeatureFlagOverridesForTests({}));
 
   it("is not in the rail while the messages flag is off, and the old inbox has no rail item", () => {
-    vi.stubEnv("VITE_MESSAGES", "false");
+    setFeatureFlagOverridesForTests({ messages: false });
     expect(enabledDestinations().map(d => d.id)).not.toContain("inbox");
     expect(destinationForPanel("inbox")).toBeNull();
   });
 
   it("sits in Start after Explore, and the dock is Home, Page, Inbox, Wallet, More", () => {
-    vi.stubEnv("VITE_MESSAGES", "true");
-    vi.stubEnv("VITE_SHOW_WALLET", "true");
-    vi.stubEnv("VITE_SHOW_CREATOR_POOL", "true");
+    setFeatureFlagOverridesForTests({ messages: true, wallet: true, creatorPool: true });
     const enabled = enabledDestinations();
     const ids = enabled.map(d => d.id);
     expect(ids.indexOf("inbox")).toBe(ids.indexOf("explore") + 1);
