@@ -19,13 +19,24 @@ import {
   createRule,
   deleteRule,
   listRules,
+  open,
   updateRule,
   viewerFrom,
 } from "../services/access";
 import { findPublicCreator } from "../services/content/publicView";
-import { open } from "../services/access";
 import { isLockable } from "../services/access/blocks";
 import { sanitizeBlockConfig } from "../utils/sanitizeBlockConfig";
+import { enforceRateLimits } from "../utils/rateLimit";
+import { isFeatureOn } from "../services/featureFlags";
+
+const ruleIdInput = z.string().regex(/^[0-9a-f]{32}$/);
+const opensToAllAtInput = z.string().datetime().nullable().optional();
+
+function requireEnabled() {
+  if (!isFeatureOn("accessGating")) {
+    throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Gating is not available yet." });
+  }
+}
 
 /** The block's own config, built only inside a pass (G3). */
 async function revealBlock(blockId: number): Promise<BlockReveal | null> {
@@ -45,17 +56,6 @@ async function revealBlock(blockId: number): Promise<BlockReveal | null> {
     platform: str("platform"),
     ...(str("content") ? { content: str("content") } : {}),
   };
-}
-import { enforceRateLimits } from "../utils/rateLimit";
-import { isFeatureOn } from "../services/featureFlags";
-
-const ruleIdInput = z.string().regex(/^[0-9a-f]{32}$/);
-const opensToAllAtInput = z.string().datetime().nullable().optional();
-
-function requireEnabled() {
-  if (!isFeatureOn("accessGating")) {
-    throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Gating is not available yet." });
-  }
 }
 
 // Access gating engine (Build Board #21, PR G1). Behind the accessGating feature flag.
