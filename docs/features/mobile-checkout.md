@@ -86,11 +86,11 @@ Route `app.amped.bio/pay/{intent}` in `apps/client`. A full screen sheet on phon
 
 **Header wording.** "Paying @handle" on every money sheet (Full QA P2 14).
 
-**Seller line (COUNSEL-ADULT v1.1, store policy spec 3.4, board sp6).** The creator is the seller of record. The first two sentences are counsel text from `docs/legal/creator-storefront-policy.md` (fixed notice), verbatim: "Sold by {seller} on Amped.bio. Your purchase is from {seller}, not from Amped." `{seller}` is the creator's display name until C9, then the seller name from the store policy. CK-5 adds a Store policy link that opens the live `StorePolicyVersion` in a sheet and returns to Pay. The line replaces the earlier "Payments are final. Refunds are at the creator's discretion." Whether a refund sentence follows (built today: "Refunds are at {seller}'s discretion.") is decision CK-D1 for Rob; until he answers, the build drops it, because it is not counsel text and contradicts a store policy on refund Option B.
+**Seller line (COUNSEL-ADULT v1.1, store policy spec 3.4, board sp6).** The creator is the seller of record. The first two sentences are counsel text from `docs/legal/creator-storefront-policy.md` (fixed notice), verbatim: "Sold by {seller} on Amped.bio. Your purchase is from {seller}, not from Amped." `{seller}` is the creator's display name until C9, then the seller name from the store policy. CK-5 adds a Store policy link that opens the live `StorePolicyVersion` in a sheet and returns to Pay. The line replaces the earlier "Payments are final. Refunds are at the creator's discretion." Nothing follows the two counsel sentences (decision CK-D1, Rob 3 Nov). CK-5 adds the Store policy link after them. The built sentence "Refunds are at {seller}'s discretion." is dropped, and "Payments are final." is not restored. The seller line names the creator only, never an agency (AG-D2).
 
 Build steps (Full QA 2):
 
-- `packages/constants/src/checkout.ts` `CHECKOUT_COPY.soldBy`: return the two counsel sentences only (CK-Q1).
+- `packages/constants/src/checkout.ts` `CHECKOUT_COPY.soldBy`: return the two counsel sentences only (CK-Q1, CK-D1).
 - `apps/client/src/pages/Pay.tsx`: render the seller line in the sheet notes on every state where the creator is known: ready, short, price changed, failed and paid. Today it shows only on ready (lines 240 to 276) (CK-Q2).
 - `apps/client/src/components/checkout/PaySheet.tsx` `SheetFrame`: the shared Verified chip beside the creator name. `Pay.tsx`: the cover beside the title and a Network fee row reading "Paid by Amped.Bio" (CK-Q7). CK-5 scope.
 - Price changed while short (`Pay.tsx` lines 245 to 259): the footer reads "Add USDC in Wallet" after the fan accepts the new price, never "Pay" when Pay cannot run (CK-Q9).
@@ -109,6 +109,11 @@ An 18+ item never reaches the pay sheet without an `age_over_18` pass (identity 
 - The creator page shows one "Adult items" card with no title, cover or count before a pass (identity checks 4.4).
 - Buy on an 18+ item, or opening `/pay/{intent}` for one without a pass, opens the Over 18 check at `app.amped.bio/age-check?returnTo=/pay/{intent}` with the copy and states of identity checks 4.2.
 - After a pass the pay sheet opens with the 18+ tag beside the title.
+- **Alabama HB 164 notices (AD-D1, Rob 3 Nov). Interim, pending counsel.** Source: Alabama Act 2024 HB 164 (enrolled), Section 9, effective 1 Oct 2024; an adult website is one with more than 33 1/3 percent of content harmful to minors (Section 2). Counsel answers in writing whether and where it applies. Until then:
+  - The three Section 9(a)(1) warnings (`ALABAMA_HEALTH_WARNINGS`) show on the Over 18 sheet and on the 18+ landing (the Adult items card and the 18+ shelf), to every viewer.
+  - The Section 9(a)(2) helpline notice (`SAMHSA_HELPLINE_NOTICE`) shows on every 18+ page: the 18+ pay sheet, the 18+ fail closed sheet and the 18+ item page.
+  - Section 9(c): Prism body 16 or larger, full contrast, never collapsed or behind a toggle.
+  - The text is verbatim statute. Do not edit it. The banned word and dash rules do not apply to it. Both constants live in `packages/constants/src/compliance.ts`. Board c6 and c9.
 - **Until A1 ships the check (#423).** `apps/client` has no `/age-check` route. The redirect on `development` (`Pay.tsx` lines 103 to 108) lands on a dead page. #423 fails closed: an 18+ item shows "This item is for over 18s. It cannot be bought here yet." (`CHECKOUT_COPY.over18`) with Back to the page and no Pay. Board c9. #423 must merge before the checkout flag turns on anywhere (CK-Q3).
 - An `under_18` result refuses the item as identity checks 4.2 and 4.5 say. The intent ends as expired. Nothing about the item shows again.
 - A short balance follows the same Wallet rule as every other item (section 8).
@@ -121,7 +126,7 @@ An 18+ item never reaches the pay sheet without an `age_over_18` pass (identity 
 
 **iPhone (QA1).** Instagram blocks `x-safari-https://`, and `window.open` gives a blank screen. Universal Links need a native app. So the iPhone card shows two drawn steps for the app the fan is in (the menu, then Open in browser), with Copy link as the only button. No button that cannot work.
 
-**Sign in token (CK-4b, not built).** CK-4 merged on 3 Nov without the token (`packages/constants/src/inAppBrowser.ts` lines 44 to 48). The card says "The link opens this checkout. It does not sign anyone in." Whether to build the token at all is decision CK-D2. If it is built, these rules hold:
+**No sign in token in v1 (CK-D2, Rob 3 Nov).** CK-4 merged on 3 Nov without the token (`packages/constants/src/inAppBrowser.ts` lines 44 to 48) and v1 ships that way. The fan signs in again in Chrome or Safari. The card says "The link opens this checkout. It does not sign anyone in." If a later version adds a token, these rules hold:
 
 - A copied link carries the intent only. It never signs anyone in.
 - The token rides only on the direct handoff (Android's Open in Chrome).
@@ -186,7 +191,7 @@ Memberships ship after one time purchases (D8). The join sheet is drawn now so M
 - "Every 30 days" everywhere. The contract counts 30 days, not a month. Every amount carries USDC.
 - Review copy: "$5 USDC today, then $5 USDC every 30 days from your wallet. Cancel any time." The allowance line moves to a Details row.
 - How renewals work says what happens when the 12 charge allowance is used up: a new allowance is asked for 7 days before. Proposed for MB-1; Rob confirms on #25.
-- Renewal readiness 3 days before a charge and a 7 day grace with reminders on day 1, 3 and 6 (D7). Reminders go by push and email, plus decision CK-D3 for a third channel. No Telegram.
+- Renewal readiness 3 days before a charge and a 7 day grace with reminders on day 1, 3 and 6 (D7). Reminders go by push, email and the in app bell notification (CK-D3, Rob 3 Nov). No Telegram and no Amped Messages thread.
 - Renewal Add USDC links open Wallet Buy USDC (spec 8), never a stacked sheet: `/wallet?fund=usdc&need={units}&returnTo=/library/memberships`. Build step (MB-1): `BuyUsdcFlow.tsx` reads `need` only with a checkout `ci` today (lines 177 to 181); MB-1 reads it for a renewal source too (CK-Q74).
 - Seller pass lapsed: the join sheet shows "Not taking new members right now" with no Join (amendment 3.1). Board c2.
 
@@ -222,7 +227,6 @@ Every money flow passes on each row before the pilot opens. Runs after CK-5.
 | CK-2 | `feat/pay-route` | `/pay/{intent}`, one screen sheet, fresh quote and Price changed, `CreatorThemeScope`, legibility guard, `$N USDC` formatter, the explainer line, the staging line, error states c7 and c8, Checking, the Over 18 redirect, a mock `PaymentProvider`, the seller line without a policy link. Buy on public pages calls `checkout.start` and navigates | CK-1 | 3 |
 | CK-3 | `feat/checkout-wallet-handoff` | Add USDC in Wallet with the prefill and the Coinbase minimum line, `awaiting_funds`, Back to checkout, `/r/{intent}`, sandbox Arrived never enables Pay | CK-2 | 1.5 |
 | CK-4 | `feat/webview-handoff` | Merged 3 Nov (#417). Webview detection, per app menu steps on iPhone, Open in Chrome on Android, Copy link with the intent only. No token | CK-1 | 3 |
-| CK-4b | `feat/handoff-token` | Only if decision CK-D2 says build it: `checkout.handoffToken` on Android's Open in Chrome, the section 7 rules | CK-4, security review | 1.5 |
 | Follow ups | `fix/414-review-followups` (#423), `fix/416-review-followups` (#424) | #423: `checkoutProvider()` refuses the mock in production and on mainnet, `paid` quote state, 18+ fails closed. #424: conditional `awaitFunds` update, `awaitFunds` only with checkout on. Both target merged branches: retarget to `development`. #423 needs a rebase (conflict in `checkout-quote.test.ts`) | CK-2, CK-3 | 0.5 |
 | CK-5 | `feat/checkout-live` | The sheet calls PAY-2 in place of the mock. Unlock on the first confirmation. Promoter line from the intent. Store policy link and sheet, `storePolicyVersionId` on the intent at quote, Store policy changed, version carried to the Purchase | CK-2, PAY-2, C9 | 2.5 |
 
@@ -283,13 +287,15 @@ These sections are superseded here rather than edited in place, as `docs/feature
 ## 17. Open items
 
 - Counsel: D5 (no checkbox on one time purchases), D6 (`$3 USDC` display), soft unlock, 7 day grace, the step up threshold, the handoff token. These are in the existing counsel packet.
-- Decision CK-D2: build the handoff token (CK-4b) or not. A security review comes first if it is built.
 - Real device test of every app in section 13 before the checkout flag turns on (CK-4 merged before it ran).
-- Decisions CK-D1 (refund sentence), CK-D3 (third reminder channel) and CK-D4 (fan dock), Full QA 2.
+- Counsel: whether and where Alabama HB 164 Section 9 applies (AD-D1 text is interim).
+- Fan shell: the shipped dock (Home, Page, Inbox, Wallet, More, Library under More) stays until a fan shell is specced (CK-D4). That shell uses rail Start Home, Explore, Library, Inbox and fan dock Home, Library, Inbox, Wallet, More (CT-D1).
 - Rob confirms the allowance renewal line for MB-1 on #25.
 - Desktop pay sheet boards before C9.
 
 ## Revision log
+
+- 2026-11-03: Revision 3.1. Rob's decisions on the Full QA 2 list: CK-D1 (counsel sentences only, then the Store policy link), CK-D2 (no token in v1; CK-4b row removed), CK-D3 (bell as the third renewal channel), CK-D4 and CT-D1 (docks), AD-D1 (Alabama HB 164 Section 9 warnings and SAMHSA helpline on the 18+ steps, interim pending counsel). Boards c1, c4, c5, c6 and c9 updated.
 
 - 2026-11-03: Revision 3 (Full QA 2, checkout group). Seller line in counsel's words on every sheet state; refund sentence held for CK-D1. CK-4 as merged without the token (CK-4b, CK-D2). Over 18 fails closed until A1, quote refusal, ended and paid states (#423). Follow ups #423 and #424 to retarget. Join chips Every 30 days and Yearly; seller lapsed join state; renewal Add USDC through Wallet. No Telegram surfaces. Build steps for the Verified chip, cover, network fee row, Checking on return, Prism tokens. Boards c1 to c8 redrawn as Prism 2.2 HTML from the code; c9 added.
 
