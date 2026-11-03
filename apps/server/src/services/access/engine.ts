@@ -35,7 +35,7 @@ import type { Gate, Resolver, Viewer } from "./types";
 type Intent = "render" | "open";
 export type CheckOptions = { intent?: Intent; fresh?: boolean };
 
-// ── Resolver registry ───────────────────────────────────
+// ── Resolver registry ───────────────────────────────────────────
 const resolvers = new Map<AccessResourceType, Resolver>();
 
 export function registerResolver(type: AccessResourceType, resolver: Resolver) {
