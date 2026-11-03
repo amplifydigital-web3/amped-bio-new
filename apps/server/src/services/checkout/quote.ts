@@ -20,6 +20,7 @@ import {
 } from "@repo/constants";
 import { getFileUrl } from "../../utils/fileUrlResolver";
 import { paymentSettings } from "../payments/settings";
+import { checkoutProvider } from "./provider";
 import { effectiveStatus, hexToIntentId, intentIdToHex, notFound, resolveTarget } from "./intents";
 
 export type CheckoutQuote = {
@@ -78,6 +79,8 @@ function mockAmount(min: bigint, max: bigint): bigint {
  * gets the same not found as an unknown id, so nothing about the purchase leaks.
  */
 export async function quoteIntent(viewerUserId: number, idHex: string): Promise<CheckoutQuote> {
+  // Safety rail: refuses the mock provider in production and on mainnet, whatever the flags
+  const provider = checkoutProvider();
   const row = await prisma.checkoutIntent.findUnique({
     where: { id: hexToIntentId(idHex) },
     select: {
@@ -98,7 +101,7 @@ export async function quoteIntent(viewerUserId: number, idHex: string): Promise<
   const base = {
     id: intentIdToHex(row.id),
     status,
-    provider: "mock" as const,
+    provider,
     feeBps: settings.platformFeeBps,
     quotedAt: now.toISOString(),
     validUntil: new Date(now.getTime() + settings.quoteWindowSeconds * 1000).toISOString(),

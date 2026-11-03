@@ -19,6 +19,8 @@ const state = vi.hoisted(() => ({
   rows: [] as Row[],
   wallet: { address: "0xabc" } as { address: string } | null,
   countedToday: 0,
+  appEnv: "staging",
+  testnetChain: true,
   settings: {
     paymentsPaused: false,
     platformFeeBps: 500,
@@ -68,6 +70,22 @@ vi.mock("@repo/database", () => ({
   },
 }));
 
+vi.mock("../env", () => ({
+  env: {
+    get APP_ENV() {
+      return state.appEnv;
+    },
+  },
+}));
+
+vi.mock("../services/usdc/chain", () => ({
+  paymentChain: {
+    get testnet() {
+      return state.testnetChain;
+    },
+  },
+}));
+
 vi.mock("../services/payments/settings", () => ({
   paymentSettings: vi.fn(async () => state.settings),
 }));
@@ -79,6 +97,7 @@ vi.mock("../utils/fileUrlResolver", () => ({
 }));
 
 import { quoteIntent } from "../services/checkout/quote";
+import { checkoutProvider, mockProviderAllowed } from "../services/checkout/provider";
 
 const ID = "0f".repeat(16);
 
@@ -100,6 +119,8 @@ beforeEach(() => {
   state.rows = [intent()];
   state.wallet = { address: "0xabc" };
   state.countedToday = 0;
+  state.appEnv = "staging";
+  state.testnetChain = true;
   state.settings = {
     ...state.settings,
     paymentsPaused: false,
@@ -164,6 +185,31 @@ describe("quoteIntent", () => {
   it("the daily purchase limit stops a new payment", async () => {
     state.countedToday = 20;
     expect((await quoteIntent(20, ID)).state).toBe("limit");
+  });
+});
+
+describe("quoteIntent: refused states", () => {
+  it("refuses the mock provider in production", async () => {
+    state.appEnv = "production";
+    await expect(quoteIntent(20, ID)).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  });
+
+  it("refuses the mock provider on a mainnet payment chain", async () => {
+    state.testnetChain = false;
+    await expect(quoteIntent(20, ID)).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  });
+});
+
+describe("checkoutProvider (mock safety rail)", () => {
+  it("allows the mock only outside production and on a test chain", () => {
+    expect(mockProviderAllowed({ appEnv: "staging", testnetChain: true })).toBe(true);
+    expect(mockProviderAllowed({ appEnv: "development", testnetChain: true })).toBe(true);
+    expect(mockProviderAllowed({ appEnv: "production", testnetChain: true })).toBe(false);
+    expect(mockProviderAllowed({ appEnv: "staging", testnetChain: false })).toBe(false);
+    expect(checkoutProvider({ appEnv: "staging", testnetChain: true })).toBe("mock");
+    expect(() => checkoutProvider({ appEnv: "production", testnetChain: false })).toThrow(
+      "Checkout is not available yet."
+    );
   });
 });
 
