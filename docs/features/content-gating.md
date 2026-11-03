@@ -1,7 +1,7 @@
 # Content gating (content PR 8)
 
 Build Board #20 (Content system) and #21 (Access gating engine). PR C8, branch `feat/content-gating`.
-Revision 1, 3 Nov 2026. Written after the C8 Full QA against `development` at 0500800b, which has G1 (#398), I1 (#397) and content PR 6 (#348).
+Revision 2, 3 Nov 2026. Written after the C8 Full QA against `development` at 0500800b, which has G1 (#398), I1 (#397) and content PR 6 (#348).
 
 Supersedes these parts of `docs/features/content-system.md`: in 3.6, the **Access check** and **Broadcast attachments** bullets; in 3.10, the auth column for `content.getPreview` and `content.getReadUrl`; in 3.16, the **PR 8** paragraph; in 3.15, "broadcast attachments" in the Phase 2 row. Where the content spec and this document disagree on PR 8, this document wins. Everything else in the content spec and in `docs/features/access-gating-engine.md` stands.
 
@@ -86,6 +86,7 @@ access?: null | { ruleId: string } | AccessRuleInput | { kind: "any"; leaves: Ac
 - Refused for `pool_member` and `stake_min`, including inside `any`, when the owner is not on the stake allowlist: `FORBIDDEN`, "Not available for your page yet." `access.rules.create` gets the same check.
 - Refused for kinds outside `LIVE_ACCESS_RULE_KINDS` (Members and Paid until PR 10 and PR 11).
 - An 18+ item may carry a rule. The age check runs before the rule (gating 3.4).
+- Placement of an 18+ item with people who appear on a surface (store, memberships, paid messages, Broadcast, live) must be allowed by every person's release (`docs/features/store-policy.md` 4.2). C8 writes rules only; the check is built in R4, which refuses rule writing for an excluded surface. C8 leaves a `releaseAllowsSurface` hook that returns true until R4.
 
 **Inline rule cleanup.** When an item's rule changes or is cleared, its previous rule is deleted in the same transaction if it is inline (`name` null) and nothing else references it: no `ContentItem.accessRuleId` or `baseAccessRuleId`, no `Block.accessRuleId`, no `any` or `all` rule. Its inline leaves follow by the same test. Saved rules are never deleted by this. `purge.ts` deletes the item first, then runs the same cleanup, which keeps the AD2 order (items and blocks, then rules, then the user).
 
@@ -134,5 +135,7 @@ Flags: `ACCESS_GATING_ENABLED` (server) and `VITE_ACCESS_GATING` (client), both 
 Not in C8: broadcast attachments (CQ1), block locks (G3), Members and Paid (PR 10 and PR 11), the store (PR 9).
 
 ## Revision log
+
+- 2026-11-03: Revision 2. One rule from the performer release: excluded surfaces are refused at rule writing from R4; C8 adds the hook only. Source: #420.
 
 - 2026-11-03: Revision 1. Written from the C8 Full QA (0 P0, 4 P1, 7 P2) with Rob's answers to CQ1 and CQ2. Replaces the grant model with `open`, moves broadcast attachments out, adds `access.checkPage` for content, splits the public filters, and adds the rule writing, stake allowlist, inline cleanup, flag, progress and download rules, and applies the 10 minute render event deduplication from gating spec 3.2.
