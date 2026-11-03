@@ -602,10 +602,12 @@ All four use the same `getHandle` path and return not found for an unpublished p
 | Products | All active products in the creator's sort order, kind chips (All, Video, Audio, Downloads, Bundles), product cards with cover, title, kind, length or item count, amount, access line | none active |
 | Free | Public items, newest 6, View all opens `/{handle}/content` | none public |
 | Live | Upcoming ticketed and members only streams from #27 | #27 not live or none scheduled |
-| About | The About text and the refund line | always shows the refund line |
-| Footer | Powered by Amped.Bio mark, Report store | never |
+| About | The About text | no About text |
+| Buying here | Seller name, the refund summary from the store policy, Read the store policy (store policy spec 3.4, board sp5) | never |
+| Footer | Store policy, Report store, Powered by Amped.Bio mark | never |
 
-- The creator picks the section order in Storefront settings. Header and Footer are fixed.
+- The creator picks the section order in Storefront settings. Header, Buying here and Footer are fixed.
+- The store policy lives at `/{handle}/store/policy` and in the Store tab, Policy (`docs/features/store-policy.md`, boards sp1 to sp4).
 - Product cards never show staking words, pool figures or tREVO. Amounts read `3 USDC`. The word price is not used in copy.
 - Layouts: Grid (2 columns on phones, 3 on desktop), List (one row per product), Feature (first product full width, then grid).
 - Signed out fans see the full store. Buy and Join open sign up with `?next=` back to the product.
@@ -629,6 +631,8 @@ All four use the same `getHandle` path and return not found for an unpublished p
 2. USDC on Base ready in the wallet (#29).
 3. One active product or an active membership plan.
 4. Email verified (the verification grace rule ends at go live, because sales send receipts).
+5. Store policy published (store policy spec 3.5).
+6. Adult setup complete, only when the store has an 18+ product (store policy spec 3.5).
 
 Pausing the store hides it and stops new sales. Existing buyers and members keep access.
 
@@ -979,6 +983,8 @@ About 44 engineer days in total. PRs 3, 4 and 5 can run in parallel after PR 2.
 - USDC wallet and on-ramp spec (#29, #5): docs/features/usdc-wallet-onramp.md
 
 ## Revision log
+
+- 2026-11-03: Store policy. Buying here replaces the refund line, footer link, policy route, go live steps 5 and 6. See `docs/features/store-policy.md`.
 
 - 2026-09-26: First spec. S3 and CloudFront, Mux, Public or Members only, payments on hold.
 - 2026-10-08: Rob's decisions applied on the fork: Cloudflare Stream for video, adult content behind age verification, CSAM vendor to discuss, Phase 2 counsel review in parallel.
