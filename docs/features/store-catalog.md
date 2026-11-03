@@ -1,7 +1,7 @@
 # Store catalog (content PR 9): changes before build
 
 Build Board #20 (Content system) and the identity checks card. PR C9, branch `feat/store-catalog`.
-Revision 1, 3 Nov 2026. Baseline: `development` at 0500800b.
+Revision 2, 3 Nov 2026. Baseline: `development` at 0500800b.
 
 This file records what changed for content PR 9 since `docs/features/content-system.md` was written on 12 Oct. That file is too large to edit through the connector, so this one lists each change and supersedes the text it names. The next PR that edits `content-system.md` folds these changes into it. Checkout changes to 3.8 and 3.9 are in `docs/features/mobile-checkout.md` section 16 (#412), not here.
 
@@ -29,16 +29,31 @@ A store goes live when the creator:
 2. has a USDC address on Base,
 3. has a verified email,
 4. has one active product or an active plan,
-5. passes the seller check in section 1.
+5. passes the seller check in section 1,
+6. has published a store policy (section 3a),
+7. has completed adult setup, only when the store has an 18+ product (Over 18, seller verified, current `ADULT_POLICY_VERSION` accepted).
 
-Before that, the Store tab shows the go live checklist and the public route returns not found. Item 5 opens the Get paid card. While `STORE_SALES_ENABLED` is off, the store renders for its owner in preview only (unchanged from PR 9).
+Before that, the Store tab shows the go live checklist and the public route returns not found. Item 5 opens the Get paid card, item 6 the Policy tab, item 7 Adult setup. `store.setLive` enforces all seven on the server. While `STORE_SALES_ENABLED` is off, the store renders for its owner in preview only (unchanged from PR 9).
 
 ## 3. 18+ items (replaces the 18+ bullet in 3.6)
 
 - Public lists, `getReadUrl` and `getPreview` refuse 18+ items for viewers without a passed Over 18 check: `checkIdentity(viewer, "age_over_18")`, built in I1 and wired through the gating engine (`docs/features/content-gating.md`).
 - A creator turns on the 18+ label only with their own Over 18 and seller passes (identity checks A2). A1 builds this.
 - An 18+ product is never in the sitemap, `llms.txt`, JSON-LD or share tags. Its product page renders only behind the age gate.
-- 18+ go live also waits on the counsel gate in `claude/amped-counsel-adult-policy-2026-11-03.md` section 10.3. C9 does not change that gate.
+- Counsel approved COUNSEL-ADULT v1.1 on 3 Nov 2026 (`docs/legal/adult-content-policy.md`). 18+ go live still waits on the operational items in its section 10.3. C9 does not change that gate.
+
+## 3a. Store policy (new in C9)
+
+The creator is the seller of record, so every store carries a store policy in the creator's name. Full spec: `docs/features/store-policy.md` sections 3.1 to 3.7. Template: `docs/legal/creator-storefront-policy.md`. C9 builds:
+
+- Migration: `StorePolicyVersion` (UUIDv7), `StoreSettings.policyDraft` and `StoreSettings.livePolicyVersionId`. Label `migration`.
+- Store tab, fifth tab Policy: Standard (seller name, refund option, contact) or Own policy (paste or upload, six confirmations, outside payment links refused). Boards sp1 to sp3.
+- `/{handle}/store/policy` with the fixed Sold by notice, version and date (sp4).
+- Storefront Buying here card in place of the refund line, Store policy in the footer, and the line under Buy on the product page (sp5, on s2 and s3).
+- `store.policy.get`, `saveDraft`, `preview`, `publish`, and the public `store.publicPolicy`.
+- Item 6 of the go live checklist (sp7).
+
+Not in C9: the policy link on the pay sheet (CK-5), the version on Purchase and CheckoutIntent (PAY-2), and on Membership (MB-1).
 
 ## 4. Boards
 
@@ -49,6 +64,12 @@ The 24 Oct phone boards replace the phone layouts drawn on 12 Oct:
 | s2 | Storefront, phone | 162 | st6 |
 | s3 | Product page, phone, sticky buy bar | 164 | st8 |
 | k1 | Creator Products, quick editor, go live checklist with the identity item | 157 to 159 | Phone versions of st1, st2, st3 |
+| sp1 to sp3 | Store tab Policy, desktop and phone | 322 to 324 | New |
+| sp4 | Public store policy page | 325 | New |
+| sp5 | Buying here card, footer, product page line (on s2 and s3) | 326 | Refund line on s2 |
+| sp7 | Go live checklist items 6 and 7 (on k1 and st1) | 328 | New rows on k1 |
+
+Store policy boards: https://claude.ai/artifact/TErq8QL9fn31ENpgo6nD1r
 
 Desktop boards stay: st1, st2, st3 (Store tab), st7 (storefront), st10 (store block). st9 (the pay sheet) is replaced by the mobile checkout boards c1 to c8 (#412). k2 (Sales and refund) belongs to PR 10.
 
@@ -63,4 +84,5 @@ Desktop boards stay: st1, st2, st3 (Store tab), st7 (storefront), st10 (store bl
 
 ## Revision log
 
+- 2026-11-03: Revision 2. Go live items 6 (store policy) and 7 (adult setup), section 3a store policy scope for C9, boards sp1 to sp5 and sp7, counsel approval recorded. Source: #420.
 - 2026-11-03: Revision 1. Seller check with S5 and RN1, store visibility item 5, the 18+ rule, phone boards s2, s3 and k1, open items. Replaces and deletes `docs/fixes/content-system-authbase.patch`.
