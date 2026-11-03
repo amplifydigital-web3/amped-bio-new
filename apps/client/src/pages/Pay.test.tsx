@@ -101,7 +101,9 @@ describe("PayPage", () => {
     expect(screen.getByText("Includes the Amped.Bio fee (5.00%)")).toBeInTheDocument();
     expect(screen.getByText("Balance after")).toBeInTheDocument();
     expect(screen.getByText(/USDC is a digital dollar/)).toBeInTheDocument();
-    expect(screen.getByText(/Payments are final/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/^Sold by .+ on Amped\.bio\. You buy from .+, not Amped\./)
+    ).toBeInTheDocument();
     expect(screen.getByText("Test checkout. No USDC moves.")).toBeInTheDocument();
     expect(screen.queryByRole("checkbox")).toBeNull();
   });

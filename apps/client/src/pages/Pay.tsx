@@ -263,7 +263,9 @@ export function PayPage() {
       </SheetButton>
     ) : (
       <>
-        <p className="text-center text-[13px] leading-[18px] opacity-80">{CHECKOUT_COPY.final}</p>
+        <p className="text-center text-[13px] leading-[18px] opacity-80">
+          {CHECKOUT_COPY.soldBy(creator?.name || (creator ? `@${creator.handle}` : "the creator"))}
+        </p>
         <SheetButton theme={theme} onClick={() => void pay()}>
           Pay {usdcDollars(q.amount)} USDC
         </SheetButton>

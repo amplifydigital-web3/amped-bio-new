@@ -144,7 +144,12 @@ export function usdcDollarsLabel(units: string | bigint): string {
 /** Pay sheet copy (mobile checkout 5, 8, 9 and 10). Boards c1, c5, c7, c8. No dashes. */
 export const CHECKOUT_COPY = {
   paying: (handle: string) => `Paying @${handle}`,
-  final: "Payments are final. Refunds are at the creator's discretion.",
+  /**
+   * Seller line (COUNSEL-ADULT v1.1, docs/features/store-policy.md 3.4, board sp6). The creator
+   * is the seller of record. CK-5 swaps the last sentence for the store policy link.
+   */
+  soldBy: (seller: string) =>
+    `Sold by ${seller} on Amped.bio. You buy from ${seller}, not Amped. Refunds are at ${seller}'s discretion.`,
   explainer: "USDC is a digital dollar. 1 USDC equals 1 US dollar.",
   staging: "Test USDC on Base Sepolia. It has no value.",
   mock: "Test checkout. No USDC moves.",
