@@ -61,8 +61,14 @@ export const progressRouter = router({
     if (!item) return { saved: false };
     // Content gating 3.3: the engine decides once the flag is on; a refused viewer is ignored
     const allowed = isFeatureOn("accessGating")
-      ? (await check(viewerFrom(ctx), { type: "content", id: item.publicId }, { intent: "open" }))
-          .allowed
+      ? (
+          await check(
+            viewerFrom(ctx),
+            { type: "content", id: item.publicId },
+            // A progress write is not an unlock: no AccessEvent per save
+            { intent: "open", record: false }
+          )
+        ).allowed
       : openDecision(item, item.user, { userId }) !== null;
     if (!allowed) return { saved: false };
 
