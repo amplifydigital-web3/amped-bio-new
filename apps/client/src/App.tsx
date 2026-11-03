@@ -10,12 +10,19 @@ import { signInUrl } from "./components/shell/ShellGate";
 import { useReferralHandler } from "./hooks/useReferralHandler";
 import { ExternalRedirect, NewVersionDialog, ToastCard, useAuth } from "@repo/ui";
 import { ERROR_TOAST_DURATION } from "@/components/ui/toast";
+import { PayHandoffGate } from "@/components/checkout/HandoffCard";
 
 // Internal Prism component gallery for review (not linked in the app). Served in
 // development, testing and staging builds only, never in production.
 const SHOW_PRISM_GALLERY = import.meta.env.MODE !== "production";
 const PrismGallery = lazy(() =>
   import("./pages/PrismGallery").then(module => ({ default: module.PrismGallery }))
+);
+
+// Mobile checkout (CK-2). Lazy, so the editor bundle carries none of it
+const PayPage = lazy(() => import("./pages/Pay").then(module => ({ default: module.PayPage })));
+const CheckoutReturnPage = lazy(() =>
+  import("./pages/CheckoutReturn").then(module => ({ default: module.CheckoutReturnPage }))
 );
 
 function AppRouter() {
@@ -38,6 +45,29 @@ function AppRouter() {
             }
           />
         )}
+        {/* Mobile checkout (Build Board #49, CK-2): the creator branded pay sheet */}
+        <Route
+          path="/pay/:intentId"
+          element={
+            // CK-4: in an in app browser the handoff card shows before sign in
+            <PayHandoffGate>
+              <ProtectedRoute>
+                <Suspense fallback={<div className="prism-room min-h-dvh" />}>
+                  <PayPage />
+                </Suspense>
+              </ProtectedRoute>
+            </PayHandoffGate>
+          }
+        />
+        {/* CK-3: Coinbase returns here from a checkout. No session needed, nothing named */}
+        <Route
+          path="/r/:intentId"
+          element={
+            <Suspense fallback={<div className="prism-room min-h-dvh" />}>
+              <CheckoutReturnPage />
+            </Suspense>
+          }
+        />
         {/* Legacy /@handle/edit/... URLs are normalized to the panel route by Editor */}
         <Route
           path="/:handle/edit/:panel?"

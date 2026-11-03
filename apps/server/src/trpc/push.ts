@@ -2,6 +2,7 @@ import { z } from "zod";
 import { privateProcedure, publicProcedure, router } from "./trpc";
 import { enforceRateLimits } from "../utils/rateLimit";
 import {
+  pushEndpointSchema,
   removeSubscription,
   saveSubscription,
   vapidPublicKey,
@@ -18,7 +19,8 @@ export const pushRouter = router({
   subscribe: privateProcedure
     .input(
       z.object({
-        endpoint: z.string().url().max(512).startsWith("https://"),
+        // Known push services only (SSRF): the job loop POSTs to this URL
+        endpoint: pushEndpointSchema,
         keys: z.object({ p256dh: z.string().min(16).max(128), auth: z.string().min(8).max(64) }),
         userAgent: z.string().max(255).nullish(),
       })
