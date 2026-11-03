@@ -116,9 +116,16 @@ function uidOf(body: unknown): string {
   return typeof uid === "string" && /^[a-f0-9]{32}$/.test(uid) ? uid : "unknown";
 }
 
-/** 2xx is delivered. 404 means that API has no webhook secret set, so a retry cannot help. */
+/** Status logged for a target whose URL or forward secret is not set on this Worker. */
+export const NOT_CONFIGURED = -1;
+
+/**
+ * 2xx is delivered. 404 means that API has no webhook secret set, and NOT_CONFIGURED
+ * means this Worker has no URL or secret for it: a retry cannot help either, and a
+ * 502 would make Stream retry every event for the environment that is configured.
+ */
 function delivered(status: number): boolean {
-  return (status >= 200 && status < 300) || status === 404;
+  return (status >= 200 && status < 300) || status === 404 || status === NOT_CONFIGURED;
 }
 
 async function forward(
@@ -130,7 +137,7 @@ async function forward(
   const url = target === "production" ? env.PRODUCTION_TARGET : env.STAGING_TARGET;
   const secret =
     target === "production" ? env.PRODUCTION_FORWARD_SECRET : env.STAGING_FORWARD_SECRET;
-  if (!url || !secret) return 0;
+  if (!url || !secret) return NOT_CONFIGURED;
   try {
     const response = await fetch(url, {
       method: "POST",

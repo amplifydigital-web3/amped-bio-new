@@ -184,6 +184,18 @@ describe("POST /cloudflare-stream", () => {
     ).toBe(200);
   });
 
+  it("skips a target with no URL or secret instead of making Stream retry the other one", async () => {
+    const captured = stubTargets();
+    const partial: RouterEnv = { ...routerEnv, STAGING_FORWARD_SECRET: "" };
+    expect((await handle(await streamRequest(ready()), partial, NOW)).status).toBe(200);
+    expect(captured.map(item => item.url)).toEqual([routerEnv.PRODUCTION_TARGET]);
+    const noUrl: RouterEnv = { ...routerEnv, PRODUCTION_TARGET: "" };
+    expect(
+      (await handle(await streamRequest(ready({ env: "production" })), noUrl, NOW)).status
+    ).toBe(200);
+    expect(captured).toHaveLength(1);
+  });
+
   it("accepts a signed body that is not JSON without forwarding", async () => {
     const captured = stubTargets();
     const res = await handle(await streamRequest(null, { raw: "not json" }), routerEnv, NOW);

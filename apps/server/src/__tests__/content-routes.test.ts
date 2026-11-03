@@ -56,6 +56,7 @@ beforeEach(() => {
   state.applyProcessorCallback.mockClear();
   job.buildProcessorJob.mockClear();
   Object.assign(env, {
+    APP_ENV: "testing",
     CF_STREAM_WEBHOOK_SECRET: "stream-secret",
     CONTENT_PROCESSOR_SECRET: "processor-secret",
   });

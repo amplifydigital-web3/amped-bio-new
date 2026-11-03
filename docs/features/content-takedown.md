@@ -139,8 +139,8 @@ R1 (`adult-content-review.md` 16a) builds on these and adds the Safety tables. R
 | --- | --- | --- |
 | `CF_TAKEDOWN_NAMESPACE_ID` | API secret store | The `TAKEDOWN` namespace id (`takedown`, `takedown-staging`) |
 | `CF_KV_API_TOKEN` | API secret store | API token with Workers KV Storage Edit on that account |
-| `CF_MEDIA_ZONE_ID` | API secret store | Zone id of `ampedusercontent.com` (staging: `ampedusercontent-staging.com`) |
-| `CF_CACHE_PURGE_TOKEN` | API secret store | API token with Zone Cache Purge on that zone |
+| `CF_MEDIA_ZONE_ID` | API secret store | Zone id of `amped.bio`, which holds both media hosts (`usercontent.amped.bio`, staging `usercontent.staging.amped.bio`) since the single account change (`docs/fixes/single-account-usercontent.md`) |
+| `CF_CACHE_PURGE_TOKEN` | API secret store | API token with Zone Cache Purge on that zone. The zone also serves the app, the site and the API, and staging and production share it, so the API only ever purges URLs on its own `MEDIA_GATEWAY_ORIGIN` |
 | `CF_STREAM_API_TOKEN` | exists | Already has Stream Edit; used for `allowedOrigins` |
 
 Without the KV values the loop logs `[content] ALERT edge sync not configured` once a minute and leaves items dirty, and the admin tile shows "Not configured". Delivery behaves as today; nothing is marked synced that is not.
