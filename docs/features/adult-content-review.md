@@ -1,10 +1,10 @@
 # Adult content review and the Safety admin
 
-Status: revision 5, 3 Nov 2026 (Rob's decisions AD-D1 and AD-D2). Revision 4: Full QA AD-Q1 to AD-Q53. Revision 2, 3 Nov 2026. Build Board #28 (Adult content compliance, 18+). Revision 1 was approved by Rob on the Build Board card (24 to 26 Oct); outside counsel approved the policy, the 2257 position and the release on 3 Nov 2026.
+Status: revision 6, 3 Nov 2026 (content PR 7 split into C7a and R1 to R3, section 16a). Revision 5: Rob's decisions AD-D1 and AD-D2. Revision 4: Full QA AD-Q1 to AD-Q53. Revision 2, 3 Nov 2026. Build Board #28 (Adult content compliance, 18+). Revision 1 was approved by Rob on the Build Board card (24 to 26 Oct); outside counsel approved the policy, the 2257 position and the release on 3 Nov 2026.
 Owner: Rob Frasca. Drafted by Claude.
 Baseline: `development` at 0500800 (2 Nov), with I1 (#397), G1 (#398) and content PR 6 (#348) merged. `docs/features/identity-checks.md`, `docs/features/content-system.md` sections 3.5, 3.11 and PR 7.
 Texts: `docs/legal/adult-content-policy.md` (COUNSEL-ADULT v1.1, `ADULT_POLICY_VERSION` 1.1), `docs/legal/performer-release.md` (`RELEASE_VERSION` 1). Store policy and release options: `docs/features/store-policy.md`.
-Designs: "Adult content review" design page, https://claude.ai/artifact/LHQbtepDpgxEmLqoZzVVc7 (boards ar1 to ar7, ad1 to ad8), and the release options board sp8 on https://claude.ai/artifact/TErq8QL9fn31ENpgo6nD1r. Screen Review rows 190 to 203, 314 and 329.
+Designs: "Adult content review" design page, https://claude.ai/artifact/LHQbtepDpgxEmLqoZzVVc7 (boards ar1 to ar7, ad1 to ad8), and the release options board sp8 on https://claude.ai/artifact/TErq8QL9fn31ENpgo6nD1r. Screen Review rows 190 to 203, 314 and 329. Revision 6 boards ad2b, ad3b, ad6b, ar8, ar9, tk1 and tk2 on "Takedown and Safety additions", https://claude.ai/artifact/41WUvZcFU7KLVm1KBb86ta (Screen Review rows 372 to 378).
 
 Counsel note: this spec states product rules and the controls that support them. Counsel approved the positions in COUNSEL-ADULT v1.1 section 10.2 on 3 Nov 2026. 18+ go live still waits on the operational items in its section 10.3.
 
@@ -220,6 +220,29 @@ States on board ar7 (QA AD-Q31): the form with phone (optional), detail (optiona
 
 When a person who appears withdraws consent (5.2 step 6), Safety hides each published item they appear in, opens one case per item, and follows 7.3. The creator takes the item off sale everywhere they control it within 48 hours (release section 7). The item comes back only if the reviewer finds the person does not appear.
 
+### 7.5 Copyright notices (DMCA), from content PR 7
+
+Content PR 7 is split (`docs/features/content-takedown.md`, C7a). Its DMCA tools land here, in R3, beside Take It Down, because both are notice and action desks with a clock.
+
+**Notice form.** Public at `amped.bio/copyright`, linked from every page footer, the Report reason "It copies my work" and the copyright policy page (L1). No account needed. Fields follow 17 U.S.C. 512(c)(3):
+
+1. The work: what was copied (text) and an optional link to the original.
+2. Where it is: one or more Amped.Bio links.
+3. Contact: name, postal address, email (required), phone (optional).
+4. Statement: "I believe in good faith that this use is not authorized by the copyright owner, its agent or the law." Required checkbox.
+5. Statement: "The information in this notice is accurate, and under penalty of perjury, I am the owner or authorized to act for the owner." Required checkbox.
+6. Signature: full name typed.
+
+On submit: a number (CN-2026-000123), an email with it, and a status page `amped.bio/copyright/{number}?k={key}`. A notice missing a field gets "We need one more thing" naming the field; nothing is disabled yet (512(c)(3)(B) lets a service treat a deficient notice as not received, but the reviewer sees it so the sender can fix it).
+
+**What happens.** A complete notice opens a Copyright case (due 1 business day). Unlike Take It Down, the item is not hidden on receipt: the reviewer decides. Disable (the item is hidden with reason `copyright` through `hideItems`, products paused, the hash offered to the blocklist with reason `copyright`) or Not valid (reason sent to the sender). The creator gets a notice with the claimed work, the sender's name and email (512(g)(2)(A) and (3) need them for a counter notice; never the postal address or phone), and a Counter notice button.
+
+**Counter notice.** From the creator's notice (board ar9). Fields follow 512(g)(3): the item (prefilled), a statement under penalty of perjury that the item was removed by mistake or misidentification, name, address and phone, consent to the jurisdiction of the federal court for their address (or any judicial district where Amped may be found, outside the US), and that they accept service from the sender, plus a typed signature. On submit the case moves to Counter notice, Safety forwards a copy to the sender, and the item is restored no sooner than 10 and no later than 14 business days after receipt, unless the sender tells Safety they filed an action (Claimant filed suit, with the court and case number). A restore needs a reviewer to press Restore inside the window; past day 12 the case is overdue on the queue.
+
+**Repeat infringers.** Three valid copyright removals in 12 months end the account and pause the store (content system 3.11, 512(i)). They count as strikes with reason `copyright` in R5. A reversed counter notice removes the strike.
+
+**Records.** Notices, counter notices and decisions are kept 3 years (content system 3.12). The sender's postal address and phone are erased 1 year after close.
+
 ## 8. The Safety admin
 
 A new rail group "Safety" in `apps/admin` with one destination, Review (`/safety`, shortcut Cmd or Ctrl plus Alt plus R, in the mobile dock). Tabs: Queue, Requests, Creators, Appeals, Log, Settings.
@@ -238,6 +261,7 @@ One list of open cases, sorted by due time. Each row: type, severity, item thumb
 | 18+ review | Creator submits an 18+ item or new version | 1 business day |
 | Classifier hold | Unlabeled item held by the classifier | 1 business day |
 | Store policy | Report on a store policy (store policy spec 3.1) | 3 business days |
+| Copyright | Complete copyright notice (7.5), or a counter notice on one | 1 business day; counter notice: restore window day 10 to 14 |
 | Report | Any other report reason | 3 business days |
 | Appeal | Creator appeals a decision | 5 business days |
 | 18+ setup check | First 18+ submission by a creator (one per creator) | 1 business day |
@@ -254,9 +278,13 @@ Left: the media viewer. Right: facts and the decision panel.
 - **People in this item.** Each listed person with check status, release date, countersign date, the recording dates for this item, and the face and tag options shown as checks ("Face may be shown", "No tag"). A missing release, countersignature or recording date blocks Clear. The AI label shows beside 18+ (QA AD-Q38).
 - **Checklist.** The five checks in 6.3.
 - **Decision.** Clear; Label 18+ and clear (only when the creator has 18+ on; drawn on ad2, QA AD-Q37); Ask for a change (reason required, sent to the creator); Remove (reason code required; optional strike); Escalate to child safety. Every decision needs a note of at least 10 characters for the log. Keyboard: C clear, L label, A ask, R remove, E escalate, J and K next and previous case.
+- **Block this file.** Remove shows "Block this file everywhere" (adds the item's sha256 and perceptual hash to `BlockedContentHash`, so the same file can not be uploaded again by anyone). On by default for reasons `copyright`, `malware`, `non_consent` and every child safety removal; off by default for other policy reasons. Same file copies under other creators are listed with the decision (7.3).
+- **Delivery line.** Under the viewer: the item's edge state from `edgeStatus` (C7a 4.6): "Delivery stopped 14:02" or "Stopping delivery, 2 retries" with Retry now for a safety lead (board tk2).
 - **Store policy cases.** Show the published version and the reported text. Decision: Keep, or Remove custom policy (the store falls back to the standard policy with the creator's last settings, store policy spec 3.1).
 
-### 8.3 Requests (board ad3)
+### 8.3 Requests (boards ad3 and ad3b)
+
+Two kinds share the tab, with a filter: Take It Down (7.2) and Copyright (7.5). Copyright requests (board ad3b) show the claimed work, the located items, the sender (name and email; address and phone masked until Show, logged), the 1 business day clock, and actions Disable, Not valid (reason), Ask the sender. After a counter notice they show the counter notice text, the restore window ("Restore between 17 Nov and 21 Nov"), Claimant filed suit (court and case number, keeps the item hidden and closes the case), and Restore. A copyright request cannot close while an item it disabled is hidden without a decision.
 
 The Take It Down desk. Each request shows the clock, the requester's statement, contact (masked until Show, which is logged), the located items and identical copies with their state, and actions: Remove all, Not valid (reason), Ask the requester (email from a template), Share hash with StopNCII. A request cannot close while any located item is visible.
 
@@ -274,6 +302,10 @@ The profile also shows the custodian of records (named or not, never the address
 
 Escalate (or a CSAM match, or a child report) does the following at once: hides the item, freezes the creator's uploads and store, closes the viewer for everyone, and opens a Critical case for the safety lead. Nobody reveals the media again. The safety lead follows content system 3.11 (evidence bucket, NCMEC report). The Safety tool records that a report was made and its reference, never the file.
 
+Evidence path (R1 service, run by Escalate and by a CSAM match; from content PR 7): `preserveEvidence(caseId, publicId)` copies the original and the served renditions, server side, from the content bucket to the evidence bucket (`amped-evidence`, its own R2 token, bucket lock retention 1 year, REPORT Act 2024), with a JSON manifest (sha256, size, upload time, uploader user id, IPs held for that account, the report text). It writes `SafetyEvent` `evidence_preserved` with the object keys and `preservedUntil`, never a URL. No token for the evidence bucket ever leaves the server. Only after the copy succeeds does C7a delete the Stream video and the R2 objects; until then the item is hidden (`blocked:` with reason `child_safety`).
+
+Alerting (R1): a child safety case sends the safety lead an email and an SMS within 1 minute, and the on call list from Settings gets the same (Q6). SMS goes through Twilio (Q8, Rob 3 Nov) from a Messaging Service with a dedicated sender number; the server reads `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` and `TWILIO_MESSAGING_SERVICE_SID`. A failed SMS is retried twice and then logged as `[safety] ALERT sms failed`; the email still goes. The message carries the case number and a link, never the creator, the title or media. On call phone numbers are staff data, kept in Settings, visible to safety leads only; Twilio is added to the processor list in `docs/legal/privacy-parameters.md` for staff contact data.
+
 The child safety case view (board ad2, third frame; QA AD-Q39) shows no media and no thumbnail. It carries: the escalation note, what was done automatically (hidden, uploads and store frozen, account suspended pending approval), the evidence copy state (preserved until {date}, 1 year, REPORT Act), and a "CyberTipline report" panel: Report filed (required before close), CyberTipline report number, filed at, filed by. The case cannot close without a report number or a safety lead note that the matter is not reportable. These go in `SafetyEvent.detail` with action `ncmec_report` (number, filedAt, preservedUntil); no new table. Reviewers can also escalate trafficking or coercion signs (COUNSEL-ADULT 7.3): Escalate offers "Child safety" and "Trafficking or coercion"; the second opens a Critical case for the safety lead without the media lock.
 
 ### 8.6 Appeals and Log (board ad5)
@@ -283,7 +315,9 @@ The child safety case view (board ad2, third frame; QA AD-Q39) shows no media an
 
 ### 8.7 Settings (board ad6)
 
-Reason codes and their creator facing text, strike rules (decision D6), due times, the perceptual hash threshold, classifier thresholds, wellbeing limits, and who has which role. Changes to Settings need the safety lead role and are logged.
+Reason codes and their creator facing text, strike rules (decision D6), due times, the perceptual hash threshold, classifier thresholds, wellbeing limits, who has which role, and the on call list for child safety alerts. Changes to Settings need the safety lead role and are logged.
+
+**Blocked files** (board ad6b, from content PR 7). The hash blocklist: sha256 (first 12 characters), reason, case number, added by, added on, uploads refused since. Search by hash or case. Unblock (safety lead only, reason required, logged) for a reversed decision; child safety hashes can not be unblocked here. Upload checks already read this table (`apps/server/src/services/content/state.ts:248`); the list adds who and why.
 
 ### 8.8 Roles
 
@@ -455,6 +489,37 @@ model Strike {
 }
 ```
 
+Changes for content PR 7 (revision 6):
+
+```prisma
+enum SafetyCaseType { CHILD_SAFETY TAKE_IT_DOWN AGE_RESULT ADULT_REVIEW CLASSIFIER_HOLD STORE_POLICY REPORT APPEAL ADULT_SETUP COPYRIGHT }
+
+model TakedownRequest {
+  // ...fields above
+  kind          String    @default("ncii") @db.VarChar(12)    // ncii | copyright | counter
+  counterOfId   Bytes?    @map("counter_of_id") @db.Binary(16) // a counter notice points at its copyright notice
+  workDescription String? @map("work_description") @db.Text
+  postalAddress String?   @map("postal_address") @db.Text    // encrypted, copyright and counter only
+  jurisdictionConsent Boolean? @map("jurisdiction_consent")  // counter notice
+  restoreFrom   DateTime? @map("restore_from")               // counter notice: received + 10 business days
+  restoreBy     DateTime? @map("restore_by")                 // received + 14 business days
+  suitFiledAt   DateTime? @map("suit_filed_at")
+  suitReference String?   @map("suit_reference") @db.VarChar(120)
+}
+
+model BlockedContentHash {
+  // existing: id, sha256, reason (dmca | malware | policy), createdAt
+  // reason gains: copyright (replaces dmca for new rows), ncii, csam, non_consent
+  phash     String? @db.VarChar(64)
+  caseId    Bytes?  @map("case_id") @db.Binary(16)
+  addedById Int?    @map("added_by_id")
+  removedAt DateTime? @map("removed_at")              // Unblock keeps the row for the record
+  @@index([phash])
+}
+```
+
+`ContentItem.hiddenAt`, `hiddenReason` and the edge state columns come from C7a (`content-takedown.md` 4.3). Numbers for copyright notices use the `CN-` prefix in the same `number` column.
+
 Changes to existing tables: `ContentItem.explicitAt DateTime?`; `ContentItem.aiLabel Boolean?` (5.3); `ContentReport.reason` gains `ncii`, `withdraw` and `store_policy` ("This shows a child" keeps the existing `csam` value; QA AD-Q29); `ContentReport.caseId Bytes?`; `BlockedContentHash.reason` gains `ncii` and a `phash String?` column with an index.
 
 Constants in `packages/constants`: `ADULT_POLICY_VERSION = "1.1"`, `RELEASE_VERSION = "1"`.
@@ -513,6 +578,11 @@ New routers `safety` (admin roles) and additions to `content`, `identity`, `take
 | `content.appeal` | private, owner | 5.4 |
 | `content.report` (new reasons) | public, rate limited | 7.1 |
 | `takedown.submit`, `takedown.status` | public, rate limited, Turnstile | 7.2 |
+| `copyright.submit`, `copyright.status` | public, rate limited, Turnstile | 7.5 |
+| `copyright.counter` | private, the item's owner | 7.5 counter notice |
+| `safety.requests.copyright.decide`, `safety.requests.copyright.suitFiled`, `safety.requests.copyright.restore` | moderator (restore after counter: safety_lead) | 8.3 |
+| `safety.blocklist.list`, `safety.blocklist.unblock` | moderator list, safety_lead unblock | 8.7 |
+| `safety.case.retryDelivery` | safety_lead | C7a edge sync retry |
 | `safety.queue.list`, `safety.case.get`, `safety.case.claim`, `safety.case.release` | moderator | 8.1, 8.2 |
 | `safety.case.reveal` | moderator | logs and returns a 60 second gateway token for one asset |
 | `safety.case.decide` | moderator (strike: safety_lead) | 8.2 |
@@ -538,6 +608,11 @@ Reveal tokens: `safety.case.reveal` signs a gateway token with `aud: "safety"`, 
 | Clock over 36 hours | safety_lead | Email and the admin dashboard banner |
 | Child safety case | safety_lead | Email and SMS |
 | Suspend waiting for approval | safety_lead | Email |
+| Copyright notice received, decided | Sender | Email with the number |
+| Item disabled after a copyright notice | Creator | Inbox and email with the claimed work, the sender's name and email, and Counter notice |
+| Counter notice received | Sender | Email with a copy and the restore window |
+| Restored after a counter notice | Creator and sender | Inbox and email |
+| Delivery sync behind (C7a) | safety_lead | Admin dashboard tile and the log alert |
 
 ## 14a. Privacy
 
@@ -545,16 +620,17 @@ New personal data: the typed legal name, options and timestamps on a release (no
 
 ## 15. Analytics
 
-Counts only, no media and no requester data: `safety_case_opened` (type), `safety_case_decided` (type, outcome, minutes to decide), `takedown_received`, `takedown_closed` (hours), `adult_enabled`, `adult_person_ready`, `adult_consent_withdrawn`.
+Counts only, no media and no requester data: `safety_case_opened` (type), `safety_case_decided` (type, outcome, minutes to decide), `takedown_received`, `takedown_closed` (hours), `adult_enabled`, `adult_person_ready`, `adult_consent_withdrawn`. From content PR 7: `copyright_received`, `copyright_decided` (outcome, business hours to decide, for the 1 business day KPI in content system 3.13), `copyright_counter_received`, `copyright_restored`, `hash_blocked` (reason), `upload_refused_hash` (reason).
 
 ## 16. Build plan
 
 | PR | Branch | Scope | Depends | Size |
 | --- | --- | --- | --- | --- |
 | F1 | `fix/content-adult-unlabel` | Unlabel holds the item; `explicitAt`; test | #348 (merged) | 0.5 day |
-| R1 | `feat/safety-foundation` | Tables in section 10, roles and the admin app gate (8.8), SafetyEvent writer, KV hide and restore helpers, settings defaults, `ADULT_POLICY_VERSION` and `RELEASE_VERSION` | I1 (merged) | 2 days |
-| R2 | `feat/safety-queue` | Admin Safety rail group, Queue, Case view with blur and reveal, decisions, store policy cases, notices to creators, keyboard | R1 | 4 days |
-| R3 | `feat/takedown` | Public form and status page, Requests desk, identical copy search, the withdraw consent reason, `content.report` hides on `csam` with the abuse guard (7.1), `CONTENT_REPORT_LABELS` and reasons per 7.1, notices, footer links | R1 | 3 days |
+| C7a | `feat/content-takedown` | Edge state, outbox and loop, KV and Stream hide, cache purge, gateway `p` and `a` token checks, `hideItems` and `restoreItems` (`docs/features/content-takedown.md`) | #348, #442 | 3 days |
+| R1 | `feat/safety-foundation` | Tables in section 10, roles and the admin app gate (8.8), SafetyEvent writer, settings defaults, `ADULT_POLICY_VERSION` and `RELEASE_VERSION`. From content PR 7: the hash blocklist service (reasons, `phash`, `caseId`, Unblock), `preserveEvidence` and the evidence bucket, the child safety alert channel (email and Twilio SMS). Hide and restore come from C7a | I1 (merged), C7a | 3 days |
+| R2 | `feat/safety-queue` | Admin Safety rail group, Queue, Case view with blur and reveal, decisions, store policy cases, notices to creators, keyboard. From content PR 7: Block this file on Remove, the delivery line and Retry, Escalate runs `preserveEvidence` and the alert, the Blocked files list in Settings (ad6b), Safety reveal tokens with `a: "safety"` | R1 | 4.5 days |
+| R3 | `feat/takedown` | Public form and status page, Requests desk, identical copy search, the withdraw consent reason, `content.report` hides on `csam` with the abuse guard (7.1), `CONTENT_REPORT_LABELS` and reasons per 7.1, notices, footer links. From content PR 7: the copyright notice form and status page (ar8), counter notice (ar9), copyright requests in the desk (ad3b), repeat infringer counting, copyright analytics | R1 | 5 days |
 | R4 | `feat/adult-setup` | Creator 18+ setup with the custodian step, People and invites, release options, signature and countersignature, the surface rule behind `releaseAllowsSurface`, item editor section, submit for review, privacy notice entries | R1 | 4 days |
 | R5 | `feat/safety-creators-appeals` | Creator profile, strikes, suspend with approval, remove custom store policy, appeals, Log export, Settings | R2 | 3 days |
 | R6 | with A1 | 18+ shelf after a pass, Over 18 sheet states (identity checks A1) | F1, R2, R4, A1 | in A1 |
@@ -562,9 +638,24 @@ Counts only, no media and no requester data: `safety_case_opened` (type), `safet
 | C1 | with A1 (R6) | `packages/constants/src/compliance.ts`: `ALABAMA_HEALTH_WARNINGS` (readonly array of the three warnings) and `SAMHSA_HELPLINE_NOTICE` (readonly array of the two lines), verbatim from section 9, with a source comment (Alabama Act 2024 HB 164, Section 9, interim pending counsel). A shared `StatutoryNotice` component renders them at 16 px or larger with no collapse. A unit test compares both constants byte for byte with the block in section 9 of this spec. The copy linter (dash and banned word checks) skips `compliance.ts` only | none | 0.5 day |
 | L1 | `feat/legal-pages` | Public Adult Content Policy and 2257 statement pages, footer links (can fold into R3) | none | 1 day |
 
-About 19 engineer days plus A1. Order: F1 now; A1 must not merge before F1, because `content.update` still sets `adult` freely (`apps/server/src/trpc/content.ts:634`) and the only guard today is the blanket refusal in `publish` (`content.ts:683`) that A1 lifts (QA AD-Q18). R1 and R2 with content Phase 1 (they also answer F4). R3 and L1 before any public 18+ and before content general availability. R4, R5, R6 before 18+ opens.
+About 25 engineer days plus A1, C7a included (revision 6 moved content PR 7 here: 3 days for C7a, 1 more for R1, half for R2, 2 for R3). Order: C7a and F1 now; A1 must not merge before F1, because `content.update` still sets `adult` freely (`apps/server/src/trpc/content.ts:634`) and the only guard today is the blanket refusal in `publish` (`content.ts:683`) that A1 lifts (QA AD-Q18). R1 and R2 with content Phase 1 (they also answer F4). R3 and L1 before any public 18+ and before content general availability. R4, R5, R6 before 18+ opens.
 
-Launch gate for 18+: counsel approval (done, 3 Nov 2026); the operational items in COUNSEL-ADULT 10.3 (Authbase written terms against Q1 and Q2, NCMEC registration, Take It Down desk live, release and store policy in the app, 2257 statement published); R1 to R7 and L1 merged; PhotoDNA live (content system decision 11); staging walk of every acceptance test below.
+Launch gate for 18+: counsel approval (done, 3 Nov 2026); the operational items in COUNSEL-ADULT 10.3 (Authbase written terms against Q1 and Q2, NCMEC registration, Take It Down desk live, release and store policy in the app, 2257 statement published); C7a, R1 to R7 and L1 merged; the DMCA designated agent registered with the Copyright Office and named on the copyright policy page; the evidence bucket created with bucket lock; PhotoDNA live (content system decision 11); staging walk of every acceptance test below.
+
+## 16a. Content PR 7, split (revision 6)
+
+Content system 3.16 named one PR 7 for trust and safety. On 3 Nov Rob split it: C7a (`docs/features/content-takedown.md`) builds the delivery stop every Safety action needs, and the rest lands in R1 to R3.
+
+| Content PR 7 item | Now in | Section here |
+| --- | --- | --- |
+| Admin content queue and decisions | R2 | 8.1, 8.2 |
+| DMCA tools | R3 | 7.5, 8.3 |
+| Hash blocklist actions | R1 service, R2 Remove and Settings | 8.2, 8.7, 10 |
+| CSAM evidence path and alerting | R1 service, R2 Escalate | 8.5 |
+| KV takedown writes and cache purge | C7a | content-takedown.md |
+| 18+ refusals in public procedures | Done in C8 and G1 | 9 |
+| Analytics events | C7a, R2, R3 | 15 |
+| Copy scan over content components | Done in C8 | 17 item 19 |
 
 ## 17. Acceptance
 
@@ -595,6 +686,11 @@ Launch gate for 18+: counsel approval (done, 3 Nov 2026); the operational items 
 25. A `csam` report hides the item at once; every other reason hides nothing.
 26. The Over 18 sheet and the 18+ shelf landing show the three Alabama warnings, and every 18+ page shows the helpline notice, rendered from the constants, byte for byte, at 16 px or larger and never collapsed (AD-D1).
 27. A Take It Down appeal is decided only by a safety lead, the item stays hidden while it is open, and no restore runs before the requester notice is sent (AD-D2).
+28. A complete copyright notice opens a case due in 1 business day; Disable hides the item within 1 minute (C7a) and the creator's notice carries the sender's name and email and a Counter notice button.
+29. A counter notice cannot restore before 10 business days or after 14 without a recorded reason; Claimant filed suit keeps the item hidden.
+30. A third valid copyright removal in 12 months ends the account and pauses the store; a reversed one removes the strike.
+31. Block this file refuses the same sha256 on any later upload, by anyone; Unblock needs a safety lead and a reason and is logged; child safety hashes cannot be unblocked.
+32. Escalate to child safety copies the original and renditions to the evidence bucket before any delete, logs `evidence_preserved`, and alerts the safety lead within 1 minute without the creator, title or media in the message.
 
 ## 17a. For counsel
 
@@ -614,6 +710,8 @@ Drafted for counsel. Nothing here is on a board as final text.
 | Q5 | StopNCII partnership terms | Rob | D9 only |
 | Q6 | Who holds `safety_lead` at launch, and the child safety on call list | Rob, ops | R2 go live |
 | Q7 | Reviewer staffing: in house or a vendor for the 1 business day target | Rob | Scale, not pilot |
+| Q8 | SMS provider for child safety alerts | Rob | Answered 3 Nov 2026: Twilio |
+| Q9 | DMCA designated agent: who is named, and the postal address on the copyright policy page | Rob, counsel | R3 and L1 go live |
 
 ## 19. Sources
 
@@ -621,8 +719,14 @@ Drafted for counsel. Nothing here is on a board as final text.
 - AVPA, US state age verification laws for adult content (updated 13 Sep 2026): https://avpassociation.com/us-state-age-verification-laws-for-adult-content/
 - WilmerHale, The TAKE IT DOWN Act goes live (15 Jun 2026): https://wilmerhale.com/en/insights/client-alerts/20260615-the-take-it-down-act-goes-live
 - 28 CFR 75.1 definitions (Cornell LII): https://www.law.cornell.edu/cfr/text/28/75.1
+- 17 U.S.C. 512 (Cornell LII), notice (c)(3), counter notice (g)(2) and (g)(3), repeat infringers (i): https://www.law.cornell.edu/uscode/text/17/512
+- Cloudflare KV, Stream signed URLs and cache purge: sources in `docs/features/content-takedown.md`.
 
 ## Revision log
+
+- 2026-11-03: Q8 answered by Rob: Twilio sends child safety SMS alerts (8.5). Secrets and the privacy processor entry added.
+
+- 2026-11-03: Revision 6. Content PR 7 split (16a): C7a builds the delivery stop; R1 gains the hash blocklist service, the evidence path and the alert channel; R2 gains Block this file, the delivery line and the Blocked files list; R3 gains the copyright desk (7.5), counter notices and repeat infringers. Case type Copyright, `TakedownRequest.kind`, `BlockedContentHash` columns, API, notifications, analytics, acceptance 28 to 32, Q8 and Q9. Boards ad2b, ad3b, ad6b, ar8, ar9, tk1, tk2.
 
 - 2026-11-03: Revision 5. Rob's decisions AD-D1 (Alabama HB 164 Section 9 warnings and SAMHSA helpline, interim pending counsel, constants in C1) and AD-D2 (one Take It Down appeal by a safety lead, item hidden, requester told before restore). Acceptance 26 and 27.
 
