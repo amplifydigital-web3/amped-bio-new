@@ -19,6 +19,7 @@ import { NameText } from "./name-effect";
 import { ParticlesLayer } from "./particles-layer";
 import { gradientScene, textureStyle } from "./scene";
 import { containerSurfaceClass } from "./surface";
+import { ContainerFx, premiumSurfaceStyle } from "./surface-fx";
 
 /**
  * Theme Engine v2, phase 1b (docs/features/theme-engine-v2.md, 3.4): the one
@@ -215,8 +216,24 @@ export function CreatorPage({
           // Phase 2 Container row: shape and border over the surface
           containerSurfaceClass(look)
         )}
-        style={surface ? { backgroundColor: containerBackground(look) } : undefined}
+        style={
+          surface
+            ? {
+                backgroundColor: containerBackground(look),
+                ...premiumSurfaceStyle(look.container, look.v2.container.params),
+              }
+            : undefined
+        }
       >
+        {/* Phase 3d premium surfaces: the moving part, under the content */}
+        {surface && (
+          <ContainerFx
+            entry={look.container}
+            params={look.v2.container.params}
+            colors={look.colors}
+            paused={paused || weak}
+          />
+        )}
         <header className="flex flex-col items-center text-center">
           {/* 039 I08: one photo, compressed source first */}
           {profile.photo && (

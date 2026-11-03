@@ -7,6 +7,7 @@ import { safeRenderHref } from "@repo/constants";
 import { cn } from "../utils";
 import { effectClassName, hoverSpeedMs, lookFor } from "./look";
 import { buttonSurfaceClass } from "./surface";
+import { ButtonFx } from "./surface-fx";
 
 // Screen Review 040: shared pieces of the creator page block renderer. Blocks
 // wear only the creator's theme (section 17). Amped contributes rhythm, sizes
@@ -116,6 +117,8 @@ export function CreatorButton({
   };
   const content = (
     <>
+      {/* Phase 3d: Specular draws its rim light here, under the label */}
+      <ButtonFx entry={look.button} />
       <span aria-hidden className="flex h-[21px] w-[21px] shrink-0 items-center justify-center">
         {icon}
       </span>

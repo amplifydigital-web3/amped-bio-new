@@ -149,6 +149,14 @@ export {
 } from "./creator/name-effect";
 // Theme Engine v2 phase 1c: the one particle overlay (tsParticles v4 slim)
 export { ParticlesLayer, type ParticlesLayerProps } from "./creator/particles-layer";
+export {
+  ButtonFx,
+  ContainerFx,
+  PREMIUM_SURFACE_IDS,
+  cycleMs,
+  premiumSurfaceStyle,
+  type SurfaceFxProps,
+} from "./creator/surface-fx";
 export { particleLayerOptions } from "./creator/particles-options";
 // Theme Engine v2 phase 2: built gradients, drift and textures (Background row)
 export { gradientScene, textureStyle, type SceneLook } from "./creator/scene";

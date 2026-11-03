@@ -336,7 +336,12 @@ export function upgradeTheme(
     storedButton?.layer === "button"
       ? storedButton.id
       : legacyEffectId("buttonStyle", v1.buttonStyle);
-  const containerId = legacyEffectId("containerStyle", v1.containerStyle);
+  // A v2 surface the Container row stored by id wins over the v1 integer (phase 3d)
+  const storedContainer = v1.containerStyleId ? findEffect(v1.containerStyleId) : undefined;
+  const containerId =
+    storedContainer?.layer === "container" && !storedContainer.retired
+      ? storedContainer.id
+      : legacyEffectId("containerStyle", v1.containerStyle);
   const storedHover = v1.buttonEffectId ? findEffect(v1.buttonEffectId) : undefined;
   const storedPress = v1.buttonPressId ? findEffect(v1.buttonPressId) : undefined;
   const storedName = v1.heroEffectId ? findEffect(v1.heroEffectId) : undefined;
@@ -372,7 +377,7 @@ export function upgradeTheme(
     },
     container: {
       id: containerId,
-      params: {},
+      params: paramsFor(containerId, v1.containerParams),
       // The Container row stores shape and border on v1 configs (phase 2)
       shape: oneOf(
         CONTAINER_SHAPES,
