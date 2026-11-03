@@ -112,6 +112,12 @@ export type CheckoutMockOutcome = (typeof CHECKOUT_MOCK_OUTCOMES)[number];
 /** Mock price when no offer exists yet (offers arrive with store PR 9): 3 USDC. */
 export const CHECKOUT_MOCK_PRICE_UNITS = 3_000_000n;
 
+/**
+ * site_settings key that overrides the mock price on staging, in USDC units (6 decimals),
+ * for example "1500000" for 1.50 USDC. No row means CHECKOUT_MOCK_PRICE_UNITS.
+ */
+export const CHECKOUT_MOCK_PRICE_SETTING = "checkout_mock_price_units";
+
 const UNITS_PER_USDC = 1_000_000n;
 
 /**
