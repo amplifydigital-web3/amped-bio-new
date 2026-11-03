@@ -208,6 +208,14 @@ export const FEATURE_FLAGS = {
     default: false,
     env: { server: "ACCESS_GATING_ENABLED" },
   },
+  themeSharing: {
+    label: "Theme sharing",
+    description:
+      "Theme Engine v2 phase 4: saved looks with history, share links and the amped.bio/t page, and the rebuilt Themes tab. Off, the share link page returns 404.",
+    scope: "public",
+    default: false,
+    env: { client: "VITE_SHOW_THEME_SHARING", landing: "NEXT_PUBLIC_SHOW_THEME_SHARING" },
+  },
 } as const satisfies Record<string, FeatureFlagDefinition>;
 
 export type FeatureFlagKey = keyof typeof FEATURE_FLAGS;

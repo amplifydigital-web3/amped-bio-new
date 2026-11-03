@@ -38,7 +38,7 @@ export type CheckoutSheetExtra = {
   kind: string;
   creatorImage: string | null;
   creatorImageFileId: number | null;
-  creatorThemeId: string | null;
+  creatorThemeId: number | null;
 };
 
 /**

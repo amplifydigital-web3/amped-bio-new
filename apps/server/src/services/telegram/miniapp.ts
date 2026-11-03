@@ -82,7 +82,7 @@ async function creatorFromStartParam(startParam: string | null) {
   return { ...creator, handle: creator.handle };
 }
 
-async function publicTheme(themeId: string | null): Promise<ThemeConfig | null> {
+async function publicTheme(themeId: number | null): Promise<ThemeConfig | null> {
   const id = Number(themeId);
   if (!Number.isInteger(id) || id <= 0) return null;
   const theme = await prisma.theme.findUnique({ where: { id } });

@@ -28,7 +28,9 @@ model User {
   description        String? @map("littlelink_description") @db.LongText
   role               String  @default("user")
   block              String  @default("no")
-  theme              String?
+  // Theme Engine v2 TE-4a: the applied theme as an id (a look of the user's,
+  // or a marketplace row). Was a string holding the id; the migration casts it.
+  theme              Int?
   image_file_id      Int?
   reward_business_id String?
 
@@ -38,7 +40,8 @@ model User {
   show_follower_count       Boolean    @default(true)
   follow_disclosure_seen_at DateTime?
 
-  themes            Theme[]
+  themes            Theme[]            @relation("ThemeOwner")
+  appliedTheme      Theme?             @relation("AppliedTheme", fields: [theme], references: [id], onDelete: SetNull)
   blocks            Block[]
   confirmationCodes ConfirmationCode[]
   uploadedFiles     UploadedFile[]
@@ -67,7 +70,7 @@ model User {
   oauthAccessTokens  OauthAccessToken[]
   oauthConsents      OauthConsent[]
 
-  broadcastsSent          Broadcast[]               @relation("BroadcastCreator")
+  broadcastsSent          Broadcast[]              @relation("BroadcastCreator")
   broadcastDeliveries     BroadcastDelivery[]
   broadcastReports        BroadcastReport[]
   notificationPreferences NotificationPreference[]
@@ -75,20 +78,20 @@ model User {
   identityChecks          IdentityCheck[]
   identityReviewCases     IdentityReviewCase[]
   accessRules             AccessRule[]
-  checkoutIntents         CheckoutIntent[]          @relation("CheckoutIntentFan")
-  checkoutIntentsSold     CheckoutIntent[]          @relation("CheckoutIntentCreator")
+  checkoutIntents         CheckoutIntent[]         @relation("CheckoutIntentFan")
+  checkoutIntentsSold     CheckoutIntent[]         @relation("CheckoutIntentCreator")
   telegramAccount         TelegramAccount?
   telegramGroups          TelegramGroup[]
   telegramLinkEvents      TelegramLinkEvent[]
   messagingSettings       MessagingSettings?
   messagingSenderStatus   MessagingSenderStatus?
-  threadsAsCreator        MessageThread[]           @relation("ThreadCreator")
-  threadsAsFan            MessageThread[]           @relation("ThreadFan")
+  threadsAsCreator        MessageThread[]          @relation("ThreadCreator")
+  threadsAsFan            MessageThread[]          @relation("ThreadFan")
   messageReports          MessageReport[]
   // Amped Messages (Build Board #2, revision 4), spec docs/features/messaging.md section 6
   conversationMembers     ConversationMember[]
-  directMessagesSent      DirectMessage[]           @relation("DirectMessageSender")
-  notifications           Notification[]            @relation("NotificationRecipient")
+  directMessagesSent      DirectMessage[]          @relation("DirectMessageSender")
+  notifications           Notification[]           @relation("NotificationRecipient")
   pushSubscriptions       PushSubscription[]
 
   // USDC in the wallet (#29): first time the fan opened USDC on Base. The
@@ -190,12 +193,32 @@ model Theme {
   thumbnail_file_id Int?
   created_at        DateTime  @default(now())
   updated_at        DateTime? @updatedAt
+  // Theme Engine v2 TE-4a (spec 3.9): look (a creator's saved look, 10 per
+  // user) or marketplace (user_id null). config_version is 1 or 2, set on write.
+  kind              String    @default("look") @db.VarChar(16)
+  config_version    Int       @default(1)
 
-  user           User?          @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  user           User?          @relation("ThemeOwner", fields: [user_id], references: [id], onDelete: Cascade)
+  versions       ThemeVersion[]
+  appliedBy      User[]         @relation("AppliedTheme")
   category       ThemeCategory? @relation(fields: [category_id], references: [id], onDelete: SetNull)
   thumbnailImage UploadedFile?  @relation("ThemeThumbnailImage", fields: [thumbnail_file_id], references: [id], onDelete: SetNull)
 
   @@map("themes")
+}
+
+/// Theme Engine v2 TE-4a (spec 3.9): the last 20 saves of a look. A save within
+/// 10 minutes of the newest version replaces it, so one editing session is one
+/// version; restore always writes a new one.
+model ThemeVersion {
+  id        Int      @id @default(autoincrement())
+  themeId   Int      @map("theme_id")
+  config    Json
+  createdAt DateTime @default(now()) @map("created_at")
+  theme     Theme    @relation(fields: [themeId], references: [id], onDelete: Cascade)
+
+  @@index([themeId, createdAt])
+  @@map("theme_versions")
 }
 
 model Block {
@@ -1775,24 +1798,24 @@ enum MessageReportReason {
 }
 
 model MessageReport {
-  id             Bytes               @id @db.Binary(16)
+  id              Bytes               @id @db.Binary(16)
   // Null on reports filed against conversations (PR M2)
-  threadId       Bytes?              @db.Binary(16)
-  messageId      Bytes?              @db.Binary(16)
-  reporterUserId Int
-  reason         MessageReportReason
-  note           String?             @db.VarChar(500)
+  threadId        Bytes?              @db.Binary(16)
+  messageId       Bytes?              @db.Binary(16)
+  reporterUserId  Int
+  reason          MessageReportReason
+  note            String?             @db.VarChar(500)
   // Amped Messages (#2 r4). Set on reports filed against the new tables; threadId stays
   // for reports filed before the switch. bodySnapshotEnc keeps the reported text after unsend.
-  conversationId  Bytes?             @db.Binary(16)
-  directMessageId Bytes?             @db.Binary(16)
-  bodySnapshotEnc String?            @db.Text
+  conversationId  Bytes?              @db.Binary(16)
+  directMessageId Bytes?              @db.Binary(16)
+  bodySnapshotEnc String?             @db.Text
   // Set when an admin closes the report
-  resolvedAt     DateTime?
-  createdAt      DateTime            @default(now())
+  resolvedAt      DateTime?
+  createdAt       DateTime            @default(now())
 
   thread   MessageThread? @relation(fields: [threadId], references: [id], onDelete: Cascade)
-  reporter User          @relation(fields: [reporterUserId], references: [id], onDelete: Cascade)
+  reporter User           @relation(fields: [reporterUserId], references: [id], onDelete: Cascade)
 
   @@index([threadId])
   @@index([createdAt])
