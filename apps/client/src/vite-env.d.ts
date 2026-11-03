@@ -33,6 +33,7 @@ interface ImportMetaEnv {
   readonly VITE_SHOW_BROADCAST: string;
   /** Messaging on Telegram (Build Board #2): Account, Telegram link and the composer's Telegram channel */
   readonly VITE_SHOW_TELEGRAM?: string;
+  /** Fallback of the `messages` feature flag (Amped Messages); read through isFeatureOn("messages") */
   readonly VITE_MESSAGES?: string;
   readonly VITE_DEFAULT_NETWORK_ID_HEX: `0x${string}`;
   /** USDC in the wallet (Build Board #29, Screen Review 137). Base beside Libertas. */

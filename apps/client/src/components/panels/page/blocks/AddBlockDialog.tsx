@@ -36,6 +36,7 @@ import {
 import { getPlatformIcon } from "@/utils/platforms";
 import { FieldError, LinkFields } from "./LinkFields";
 import { emptyLink, linkConfig, type LinkValue } from "./linkValue";
+import { isFeatureOn } from "../../../../config/featureFlags";
 
 // Screen Review 034 and 035. One Add block dialog: the Link section first,
 // then MEDIA, UTILITY, PEOPLE and WEB3 tiles. Picking a tile closes the dialog
@@ -61,14 +62,14 @@ function isSingleton(type: string): type is SingletonType {
   return (SINGLETON_BLOCK_TYPES as readonly string[]).includes(type);
 }
 
-const fanGraphOn = import.meta.env.VITE_FAN_GRAPH === "true";
-const rnsOn = import.meta.env.VITE_SHOW_RNS === "true";
+const fanGraphOn = isFeatureOn("fanGraph");
+const rnsOn = isFeatureOn("rns");
 // Content system (Build Board #20, spec 3.7): items from the creator's library
-const contentOn = import.meta.env.VITE_CONTENT === "true";
+const contentOn = isFeatureOn("content");
 // Messaging on Telegram (Build Board #2, row 115): Message me on Telegram in Utility
 // Amped Messages (#2 r4, M6): Message me replaces Message me on Telegram in the picker
-const messagesOn = import.meta.env.VITE_MESSAGES === "true";
-const telegramOn = !messagesOn && import.meta.env.VITE_SHOW_TELEGRAM === "true";
+const messagesOn = isFeatureOn("messages");
+const telegramOn = !messagesOn && isFeatureOn("telegram");
 
 type Tile = {
   label: string;

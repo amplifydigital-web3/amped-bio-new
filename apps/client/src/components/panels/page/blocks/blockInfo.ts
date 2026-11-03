@@ -1,5 +1,6 @@
 import { MESSAGE_UI, TELEGRAM_APP_STRINGS, type BlockType } from "@repo/constants";
 import { getPlatformName, getPlatformUrl, platforms, type PlatformId } from "@/utils/platforms";
+import { isFeatureOn } from "../../../../config/featureFlags";
 
 // Titles, meta lines and validity for block rows (Screen Review 036 I05, I10)
 // and the preview (006 I08). One place so the list, the preview and the public
@@ -38,7 +39,7 @@ export function blockTitle(block: BlockType) {
     case "message":
       return MESSAGE_UI.blockFields.title;
     case "telegram_message":
-      return import.meta.env.VITE_MESSAGES === "true"
+      return isFeatureOn("messages")
         ? MESSAGE_UI.blockFields.title
         : TELEGRAM_APP_STRINGS.messageBlockTitle;
     case "telegram_group":

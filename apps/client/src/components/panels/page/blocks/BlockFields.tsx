@@ -11,9 +11,10 @@ import { RnsIdBlockFields } from "./RnsIdBlockFields";
 import { ContentBlockFields } from "./ContentBlockFields";
 import { TelegramBlockFields } from "./TelegramBlockFields";
 import { MessageBlockFields } from "./MessageBlockFields";
+import { isFeatureOn } from "../../../../config/featureFlags";
 
 // Amped Messages (M6): a telegram_message row not yet migrated edits as Message me
-const MESSAGES_ON = import.meta.env.VITE_MESSAGES === "true";
+const MESSAGES_ON = isFeatureOn("messages");
 
 // Screen Review 037. The fields an open block row needs, one column on the G2
 // slab. Every valid change goes to the editor state at once (the preview

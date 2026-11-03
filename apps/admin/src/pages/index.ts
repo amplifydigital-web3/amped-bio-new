@@ -10,6 +10,7 @@ export { AdminBroadcasts } from "./AdminBroadcasts";
 export { AdminTelegram } from "./AdminTelegram";
 export { AdminMessaging } from "./AdminMessaging";
 export { AdminMoney } from "./AdminMoney";
+export { AdminFeatureFlags } from "./AdminFeatureFlags";
 export { PaymentsOverview } from "./payments/PaymentsOverview";
 export { PaymentsSettings } from "./payments/PaymentsSettings";
 export { PaymentsLog } from "./payments/PaymentsLog";

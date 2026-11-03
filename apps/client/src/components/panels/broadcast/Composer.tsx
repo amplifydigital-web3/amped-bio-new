@@ -25,8 +25,9 @@ import {
 } from "@repo/ui";
 import { toast } from "@/components/ui/toast";
 import { BroadcastBody, BroadcastFooter, Avatar } from "./shared";
+import { isFeatureOn } from "../../../config/featureFlags";
 
-const TELEGRAM_ON = import.meta.env.VITE_SHOW_TELEGRAM === "true";
+const TELEGRAM_ON = isFeatureOn("telegram");
 
 interface ComposerProps {
   chainId: string;

@@ -12,7 +12,7 @@ import { refreshPushSubscription } from "./push";
  * The one realtime stream per tab (spec 7.3, 8.1). It feeds open screens through the
  * live bus, refreshes the Inbox list, the rail badge and the bell, shows the D21 toast
  * for a message that is not on screen, and prefixes the tab title with the unseen count.
- * Mounted once in Layout behind VITE_MESSAGES.
+ * Mounted once in Layout behind the messages feature flag.
  */
 export function MessagesRealtime() {
   const { authUser } = useAuth();
