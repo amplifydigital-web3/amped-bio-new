@@ -6,7 +6,8 @@ import { CreatorBackdrop } from "../kit/CreatorArt";
 import { ContrastNotice } from "../kit/Notices";
 import { cardFill, formatRatio, useDesign } from "../kit/useDesign";
 import { isFeatureOn } from "../../../../config/featureFlags";
-import { FontCatalogPicker, fontsValue } from "./fonts/FontCatalogPicker";
+import { FontCatalogPicker } from "./fonts/FontCatalogPicker";
+import { fontsValue } from "../kit/fontLook";
 
 // Screen Review 026. The Text row: Font, Text size, Text color.
 

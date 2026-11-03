@@ -36,6 +36,7 @@ import { OptionGrid, OptionTile } from "../../kit/OptionTile";
 import { CreatorBackdrop } from "../../kit/CreatorArt";
 import { RangeField } from "../../kit/RangeField";
 import { cardFill, useDesign } from "../../kit/useDesign";
+import { currentBodyFont, currentNameFont, fontPatch, type FontRole } from "../../kit/fontLook";
 import { ensureFontStylesheet, useFontCatalog, useNearViewport } from "./fontCatalog";
 
 // Theme Engine v2 fonts, phase 2b PR 1 (spec 3.8, boards 02 and 02m): the font
@@ -44,36 +45,11 @@ import { ensureFontStylesheet, useFontCatalog, useNearViewport } from "./fontCat
 // weight, italics, width and optical size for the picked face. Phones get the
 // face controls in a sheet behind Adjust, as the parameter strip does.
 
-type Role = "name" | "body";
 type Shelf = "popular" | "pairings" | FontCategory;
 
 const SHELF_TILES = 8;
 const PAGE_TILES = 48;
 const SAVE_DELAY_MS = 233;
-
-/** The name face as stored, or the v1 look: the body family at 700. */
-export function currentNameFont(config: ThemeConfig, fontFamily: string): FontPick {
-  return config.nameFont ?? { family: fontFamily, weight: 700 };
-}
-
-/** The body face: the theme's fontFamily with its stored weight, italic and axes. */
-export function currentBodyFont(config: ThemeConfig, fontFamily: string): FontPick {
-  return { family: fontFamily, weight: 400, ...config.bodyFontStyle };
-}
-
-/** The patch that writes a face for a role. The body keeps fontFamily for v1 renderers. */
-export function fontPatch(role: Role, pick: FontPick): Partial<ThemeConfig> {
-  if (role === "name") return { nameFont: pick };
-  const { family, ...style } = pick;
-  const plain = (style.weight ?? 400) === 400 && !style.italic && !style.axes;
-  return { fontFamily: family, bodyFontStyle: plain ? undefined : style };
-}
-
-/** The collapsed Text row value: Fraunces and Figtree. */
-export function fontsValue(config: ThemeConfig, fontFamily: string): string {
-  const name = currentNameFont(config, fontFamily).family;
-  return name === fontFamily ? fontFamily : `${name} and ${fontFamily}`;
-}
 
 function useDelayedWrite(write: (patch: Partial<ThemeConfig>) => void) {
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -152,7 +128,7 @@ function FontTiles({
   onPreviewEnd,
 }: {
   entries: FontCatalogEntry[];
-  role: Role;
+  role: FontRole;
   current: FontPick;
   name: string;
   look: ThemeConfig;
@@ -443,7 +419,7 @@ export function FontCatalogPicker() {
   const look = { ...config, ...values };
   const name = profile.name || "Your name";
   const state = useFontCatalog();
-  const [role, setRole] = useState<Role>("name");
+  const [role, setRole] = useState<FontRole>("name");
   const [shelf, setShelf] = useState<Shelf>("popular");
   const [query, setQuery] = useState("");
   const [limit, setLimit] = useState(SHELF_TILES);
@@ -550,7 +526,7 @@ export function FontCatalogPicker() {
 
   return (
     <Shell>
-      <Tabs value={role} onValueChange={value => setRole(value as Role)}>
+      <Tabs value={role} onValueChange={value => setRole(value as FontRole)}>
         <TabsList aria-label="Font role">
           <TabsTrigger value="name">Name font</TabsTrigger>
           <TabsTrigger value="body">Body font</TabsTrigger>

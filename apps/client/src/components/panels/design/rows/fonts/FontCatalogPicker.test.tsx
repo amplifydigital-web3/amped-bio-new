@@ -1,13 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { ThemeConfig } from "@repo/constants";
-import {
-  FontCatalogPicker,
-  currentBodyFont,
-  currentNameFont,
-  fontPatch,
-  fontsValue,
-} from "./FontCatalogPicker";
+import { FontCatalogPicker } from "./FontCatalogPicker";
+import { currentBodyFont, currentNameFont, fontPatch, fontsValue } from "../../kit/fontLook";
 
 // Theme Engine v2 phase 2b, fonts PR 1 (board 02, Screen Review row 140).
 
