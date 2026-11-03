@@ -76,7 +76,7 @@ Boards: Fan Library design page, version 2 (m1 to m12 phone, d1, d4, d10 desktop
 3. **Search** (m2, row 183). Scope chips: All creators, the current creator, On this device. Results grouped by creator. Recent searches. Searches titles, descriptions and chapter titles of items the fan can open.
 4. **Your creators** (m3, row 180; corrected by QA2 board fl-q2). One row per connected creator: avatar with the brand ring, how the fan is connected, a new count or one warning. Past due first, then recent activity. Replaces the Creators and Following tabs of version 1. `TESTNET_NOTICE` (`packages/constants/src/testnet.ts`) sits at the foot when a pool row is present.
 5. **Creator section** at `/library/@handle` (m4, d4, m5; rows 181, 182). In the creator's look. Header, one status line (plan and renewal, purchases, following) that opens the status sheet (membership with Manage and Receipts, purchases with receipts, follow settings, Unfollow), Continue for this creator, segments Yours and Shop. Yours is one list: courses and collections first, then newest. Shop lists items the fan cannot open, each with one action (Join or Rejoin, Buy for N USDC, Go to the pool). When the fan is not a member and the creator has a plan, a From {creator} row offers Join as an outline button.
-6. **Memberships** (row 125, board r1 on Memberships that renew, corrected by QA2 boards mb-q1 and mb-q1d; m9 is superseded). Reached from the Memberships row on Library and from each status sheet. Summary line with the 3 day reminder, one card per membership: Past due, day N of 7 with Add $N USDC; Not covered yet with Add $N USDC as an outline button; Covered through a date; Ends on a date with Rejoin. One filled button per screen: the most urgent card. Manage sheet: next charge, coverage, charges left on the approval, receipts, the store policy at join, Cancel membership with the end date.
+6. **Memberships** (row 125, board r1 on Memberships that renew, corrected by QA2 boards mb-q1 and mb-q1d; m9 is superseded). Reached from the Memberships row on Library and from each status sheet. Summary line with the 3 day reminder, one card per membership: Past due, day N of 7 with Add $N USDC; Not covered yet with Add $N USDC as an outline button; Covered through a date; Ends on a date with Rejoin. One filled button per screen: the most urgent card. Manage sheet: next charge, coverage, charges left on the approval, receipts, the store policy at join, Cancel membership with the end date. Renewal reminders (CK-D3, Rob 3 Nov): 3 days before a charge, when the wallet is short, the fan gets a bell notification, a push and an email. The bell row (kind `MEMBERSHIP_RENEWAL`, `groupKey` `renewal:{membershipId}`) opens Add $N USDC prefilled with the charge (board mb-q2-d2). No Telegram.
 7. **Player** (m6, m7, d10, row 128). Video and audio, full and mini layouts, in the item owner's look. Details in 3.5.
 8. **Viewers** (m8, row 184). PDF and photo sets in the owner's look.
 9. **Downloads and offline** (m10, row 129). Offline video, audio and files where the creator allows downloads. Details in 3.5.
@@ -89,12 +89,12 @@ Boards: Fan Library design page, version 2 (m1 to m12 phone, d1, d4, d10 desktop
 
 | # | Decision | Answer |
 | --- | --- | --- |
-| 1 | Where the Library lives | A destination in the Start group after Explore. Phone dock for fan accounts: Home, Explore, Library, Wallet, More; for creators: Home, Page, Library, Wallet, More. |
+| 1 | Where the Library lives | Rail Start: Home, Explore, Library, Inbox (CT-D1, Rob 3 Nov). Phone dock today, for every account: the shipped dock Home, Page, Inbox, Wallet, More, with Library under More (CK-D4). When the fan shell ships: fan dock Home, Library, Inbox, Wallet, More (Explore from Home and More); creator dock Home, Page, Inbox, Wallet, More (CT-D1). |
 | 2 | Do memberships leave Wallet | Yes. Library Memberships is the only management screen; mb9 becomes a Wallet Activity row with Manage. Wallet tabs: Tokens, Activity, Names. |
 | 3 | Where progress is stored | Server side per account and item, every 10 seconds of play and on pause (PR 6a). |
 | 4 | Downloads | Only where the creator allows downloads. Amended by decision C. |
 | 5 | Web app or native | Installable web app now; native evaluated after 90 days of Library data. |
-| 6 | New content notices | A bell alert (Amped Messages notification, kind `CONTENT`) for every account that qualifies at publish; email as a daily digest, one per creator at most, only to followers with `Follow.email_updates` on (Fan Graph, messaging decision bc-email). Amended 3 Nov (QA2). |
+| 6 | New content notices | Decided by Rob 3 Nov (CT-D2). A bell alert (Amped Messages notification, kind `CONTENT`, collapsed per creator, plus the Library new counts; no Inbox tab) for every account that qualifies at publish; email as a daily digest, one per creator at most, only to followers with `Follow.email_updates` on (Fan Graph, messaging decision bc-email). Amended 3 Nov (QA2). |
 | 7 | Creator feed page | amped.bio/handle/content, server rendered, public items indexable, locked items as cards with no media URL. |
 | 8 | Casting | AirPlay now; Chromecast in phase 2 through DASH. |
 | 9 | Relationship labels | Members (plan name), Purchased, Pool fans, Followers; one label per item (amended by R3). |
@@ -119,12 +119,12 @@ Native iOS and Android apps. Comments and likes. Playlists (content system phase
 | Row | Screen | Boards | Notes |
 | --- | --- | --- | --- |
 | 124 | Library, one page, filter sheet, states | m1, d1, m12, fl-q1, fl-q6 | Continue cards: 44 px play button, minutes left, 2 line title, creator with a 4 px brand mark. Desktop on the shipped rail. |
-| 180 | Your creators | m3, d1 side column | Avatar ring in the creator's accent; one warning (past due) or a new count. |
+| 180 | Your creators | m3, d1 side column, fl-q12-d2 (full page at 1440) | Avatar ring in the creator's accent; one warning (past due) or a new count. |
 | 181 | Creator section, member and buyer, status sheet | m4, d4, fl-q2, fl-q9 | Status line, Continue, Yours and Shop, ownership line. Following in the status sheet: Show me on the public list (`Follow.show_publicly`), Email me updates (`Follow.email_updates`), New content alerts, Unfollow (Fan Graph fg8). |
-| 182 | Creator section, buyer only, lapsed member with Shop, payment sheet | m5, fl-q4 | One filled button per screen. Shop rows with lock and outline Buy $N USDC. Seller line above Pay. |
+| 182 | Creator section, buyer only, lapsed member with Shop, payment sheet | m5, fl-q4-d2, fl-q13-d2 (sheet at 1440 as a centered dialog) | One filled button per screen. Shop rows with lock and outline Buy $N USDC. Seller line above Pay. |
 | 183 | Search | m2, fl-q7 | Scope chips, grouped results, recent searches, no results state. |
-| 125 | Memberships and Manage | r1, mb-q1, mb-q1d | One filled button per screen. m9 superseded. |
-| 128 | Player: video portrait, landscape, chapters and speed; audio, queue, mini player; desktop video | m6, m7, d10 | See 3.5. |
+| 125 | Memberships and Manage | r1, mb-q1-d2, mb-q1d, mb-q2-d2 | One filled button per screen. m9 superseded. |
+| 128 | Player: video portrait, landscape, chapters and speed; audio, queue, mini player; desktop video | m6, m7, d10, fl-q10-d2 (replaces d10), fl-q11-d2 (replaces m6 portrait and adds the More sheet with Report) | See 3.5. |
 | 184 | Document and photo viewers | m8, fl-q8 | Report in the viewer; downloads off line from `SITE_CONTENT_COPY.downloadsOff`. |
 | 129 | Downloads and the item menu | m10, cs7, fl-q6 | Content page Resume, Save and Download is board cs7 (content system). Downloads shows the device line and Clear all behind a confirm. |
 | 130 | New content alerts and settings in Amped Messages | fl-q5, fl-q5d | Toggles carry On and Off text. m11 superseded. |
@@ -203,6 +203,8 @@ model DownloadRecord {
 // enum NotificationKind gains CONTENT (schema.prisma, NotificationKind).
 // Notification row: kind CONTENT, actorId = creator user id, refId = ContentItem.id,
 // groupKey = "content:{creatorUserId}" so alerts collapse per creator until seen.
+// enum NotificationKind also gains MEMBERSHIP_RENEWAL (CK-D3): refId = Membership.id,
+// groupKey = "renewal:{membershipId}", written by the readiness job 3 days before a charge.
 ```
 
 `LibraryCreatorVisit` drives the new count on Your creators. `NotificationPreference` gains `newContentEnabled` (Boolean?, null means on) on the per creator and global rows (FL-6). There is no `digestEnabled`: the daily email reads `Follow.email_updates`, the one email consent per creator (Fan Graph 3.3, messaging decision bc-email). `ContentItem.publishedAt` and `chapters` already exist.
@@ -240,7 +242,7 @@ model DownloadRecord {
 
 **Theme scope (FL-4).** `CreatorThemeScope` in `@repo/ui` takes the theme summary from the API and sets `--c-bg`, `--c-bg2`, `--c-surface`, `--c-ink`, `--c-muted`, `--c-line`, `--c-btn`, `--c-btnink` and the two font families on a container. Used by the creator section, the players, the viewers, the mini player and the payment sheet. Fonts load only for creators on screen.
 
-**Destinations (FL-3).** `LibraryPage` at `/library`, `CreatorSection` at `/library/@handle`, `LibrarySearch` at `/library/search`, `DownloadsPage` at `/library/downloads`, `MembershipsPage` at `/library/memberships`. Rail Start group after Explore (`apps/client/src/components/shell/destinations.ts`, `DESTINATIONS`, a `library` entry with `group: "start"` and `flag: "fanLibrary"`); its place beside Inbox and the phone dock wait on Rob (QA2 decision CT-D1). Feature flag `fanLibrary` in `packages/constants/src/feature-flags.ts` (`scope: "public"`, `default: false`, `env: {}`), switched in admin, Feature flags. No `VITE_` variable.
+**Destinations (FL-3).** `LibraryPage` at `/library`, `CreatorSection` at `/library/@handle`, `LibrarySearch` at `/library/search`, `DownloadsPage` at `/library/downloads`, `MembershipsPage` at `/library/memberships`. Rail Start group after Explore (`apps/client/src/components/shell/destinations.ts`, `DESTINATIONS`, a `library` entry with `group: "start"` and `flag: "fanLibrary"`); Start order Home, Explore, Library, Inbox (CT-D1). Phone: Library is an entry in More (`dockComposition`) until the fan shell is specced (CK-D4); the fan dock then follows decision 1. Feature flag `fanLibrary` in `packages/constants/src/feature-flags.ts` (`scope: "public"`, `default: false`, `env: {}`), switched in admin, Feature flags. No `VITE_` variable.
 
 ### 3.6 tRPC procedures
 
@@ -274,7 +276,7 @@ No procedure returns another user's email or wallet.
 - No earn, yield, return, income, invest, APY or price words in the Library, the player or the viewers. The testnet line is the constant `TESTNET_NOTICE` from `packages/constants/src/testnet.ts`, imported, never typed. It appears on Your creators when a pool row is present, and on any Library surface that shows a Pool fans label with a pool (content gating 4.3 copy check).
 - Memberships, purchases and the creator payment sheet carry no staking, pool or tREVO words.
 - The access label names the plan or the rule, never an amount staked.
-- Payment flow rules apply in full: the fan pays the creator, in the creator's sheet, with "Includes the Amped.Bio fee of 5%" and the seller line of mobile checkout section 5 ("Sold by {seller} on Amped.bio. You buy from {seller}, not Amped." then the refund sentence, CK-2 then CK-5). Add USDC opens the Wallet sheet stacked over it (mobile checkout D1); the on-ramp itself stays in Wallet. Amounts read `$N USDC`.
+- Payment flow rules apply in full: the fan pays the creator, in the creator's sheet, with "Includes the Amped.Bio fee of 5%" and the counsel seller sentences with a Store policy link above Pay (CK-D1, Rob 3 Nov): "Sold by {seller} on Amped.bio. Your purchase is from {seller}, not from Amped." then Store policy, which opens the live `StorePolicyVersion` in a sheet. No discretion sentence and no "Payments are final". Add USDC opens the Wallet sheet stacked over it (mobile checkout D1); the on-ramp itself stays in Wallet. Amounts read `$N USDC`.
 - No copy implies the fan owns, resells or transfers content. The ownership line is "{Creator} owns this content."
 - Progress, saved, visit, download and inbox records are personal data, deleted with the account. Creators never see per fan progress, saves, visits or downloads.
 - Offline files are removed when access ends; the fan is told so on the Downloads screen.
@@ -361,3 +363,4 @@ Order: #346 and #348 merge; FL-0, FL-1 and FL-2 in parallel; FL-3 and FL-4 in pa
 - 2026-10-23 (R2, creator ownership): Rob's direction that a fan holds content from many creators. Ownership and access model, creator sections in the creator's look with a store, access precedence, owner shown everywhere, decisions 10 to 14, rows 180 to 182.
 - 2026-10-23 (R3, mobile first): After an expert UI evaluation (four reviewers) with phones as the main surface: one page Library with no tabs, Your creators replaces the Creators and Following tabs, creator sections with Yours and Shop and one status line, one access label per item, Filter sheet, search, phone video and audio players with gestures, queue, autoplay and sleep timer, viewers, offline video and audio where allowed, item menu, phone type and target rules. Boards m1 to m12, d1, d4, d10 replace fl1 to fl15. Decisions A to D. Rob answered decisions 10 to 14 and A to D with the recommendations and approved the screens except row 184. PR plan FL-0 to FL-7.
 - 2026-11-03 (QA2 Full QA, content group): 7 day grace and Add $N USDC per mobile checkout D1, D6, D7; Memberships board r1 replaces m9; `TESTNET_NOTICE` constant replaces the quoted line; new content alerts move to Amped Messages notifications (kind `CONTENT`), `InboxItem` and `digestEnabled` dropped, email reads `Follow.email_updates`; status sheet gains Show me on the public list; seller line on the payment sheet; feature flag `fanLibrary` replaces `VITE_FAN_LIBRARY`; mini player code delta named; QA2 boards fl-q1 to fl-q9, mb-q1, mb-q1d. Open: CT-D1 dock and rail, CT-D2 where content alerts list.
+- 2026-11-03 (QA2 d2, Rob's decisions): CT-D1 and CK-D4 applied (rail Start Home, Explore, Library, Inbox; shipped dock today, fan dock recorded for the fan shell); CT-D2 recorded as decided; CK-D3 renewal reminder in the bell (`MEMBERSHIP_RENEWAL`); CK-D1 seller sentences on the payment sheet. Boards fl-q10-d2 to fl-q13-d2, mb-q2-d2 and d2 redraws of fl-q1, fl-q2, fl-q4, fl-q5, fl-q6, mb-q1.

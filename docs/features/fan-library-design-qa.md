@@ -71,3 +71,13 @@ Full QA against development 98db33f, Amped Messages (#2 r4), mobile checkout (#4
 | mb-q1, mb-q1d | 125 | m9 superseded by r1; one filled button per screen; Memberships at 1440 |
 
 Open for Rob: CT-D1 (dock and rail with Inbox and Library), CT-D2 (where content alerts list).
+
+## 7. Rob's decisions applied, 3 Nov 2026 (d2)
+
+- CT-D1 and CK-D4: phone boards use the shipped dock (Home, Page, Inbox, Wallet, More) with Library under More. The fan dock Home, Library, Inbox, Wallet, More is recorded for the fan shell. Rail Start: Home, Explore, Library, Inbox.
+- CT-D2: new content alerts in the bell, kind CONTENT. No Inbox tab.
+- CK-D3: renewal reminder in the bell beside push and email (mb-q2-d2).
+- CK-D1: payment sheet carries the counsel seller sentences and Store policy, no discretion line (fl-q4-d2, fl-q13-d2).
+- New: fl-q10-d2 (d10 redrawn), fl-q11-d2 (m6 redrawn with the More sheet and Report), fl-q12-d2 (row 180 at 1440), fl-q13-d2 (row 182 sheet at 1440).
+- Gate: 11 d2 boards, 0 dashes, 0 banned words, 0 targets under 44, 0 contrast failures, no sideways scroll.
+
