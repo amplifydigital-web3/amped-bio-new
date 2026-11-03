@@ -80,3 +80,20 @@ describe("checkout funding helpers (mobile checkout 8)", () => {
     expect(checkoutIntentFromPath(null)).toBeNull();
   });
 });
+
+describe("coinbaseRedirectUrl (mobile checkout 9)", () => {
+  const APP = "https://app.staging.amped.bio";
+
+  it("from a checkout, Coinbase returns to the sessionless /r page", async () => {
+    const { coinbaseRedirectUrl } = await import("../services/onramp/redirect");
+    expect(coinbaseRedirectUrl(APP, "s1", `/pay/${ID}`)).toBe(`${APP}/r/${ID}`);
+  });
+
+  it("otherwise back to the Buy USDC panel on its session", async () => {
+    const { coinbaseRedirectUrl } = await import("../services/onramp/redirect");
+    expect(coinbaseRedirectUrl(APP, "s1", "/explore/@maya")).toBe(
+      `${APP}/wallet?fund=usdc&session=s1`
+    );
+    expect(coinbaseRedirectUrl(APP, "s1", null)).toBe(`${APP}/wallet?fund=usdc&session=s1`);
+  });
+});
