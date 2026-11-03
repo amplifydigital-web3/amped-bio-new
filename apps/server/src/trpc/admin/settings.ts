@@ -104,12 +104,26 @@ export const settingsRouter = router({
       where: { setting_key: SITE_SETTINGS.ACCESS_STAKE_KINDS_ALLOWLIST },
     });
     const list = await stakeKindsAllowlist();
+    const userIds = list
+      .split(",")
+      .map(value => value.trim())
+      .filter(value => /^\d+$/.test(value))
+      .map(Number);
+    // Handles so the admin sees who is on the list; an id with no user shows as unknown
+    const users = userIds.length
+      ? await prisma.user.findMany({
+          where: { id: { in: userIds } },
+          select: { id: true, handle: true },
+        })
+      : [];
+    const handles = new Map(users.map(user => [user.id, user.handle]));
     return {
-      userIds: list
-        .split(",")
-        .map(value => value.trim())
-        .filter(value => /^\d+$/.test(value))
-        .map(Number),
+      userIds,
+      creators: userIds.map(id => ({
+        id,
+        handle: handles.get(id) ?? null,
+        found: handles.has(id),
+      })),
       source: row ? ("setting" as const) : ("environment" as const),
       environmentValue: env.ACCESS_STAKE_KINDS_ALLOWLIST,
     };
