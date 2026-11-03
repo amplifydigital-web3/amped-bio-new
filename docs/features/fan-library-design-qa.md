@@ -53,3 +53,21 @@ Approved by Rob on the Screen Review, 23 Oct: rows 124, 125, 128, 129, 130, 180,
 ## 5. Build checks
 
 Each Fan Library PR runs the same gate on the built screens against these boards at 390 and 1440, in Graphite and one light creator theme, and moves its rows to In PR.
+
+## 6. Full QA, 3 Nov 2026
+
+Full QA against development 98db33f, Amped Messages (#2 r4), mobile checkout (#412) and Fan Graph. Findings in the QA2 content group report. Fixes in `docs/features/fan-library.md` (revision log 3 Nov).
+
+| Board | Row | Replaces or corrects |
+| --- | --- | --- |
+| fl-q1 | 124, 180 | d1: shipped rail, `TESTNET_NOTICE`, 7 day grace |
+| fl-q2 | 180, 181 | m3 testnet line; m4 status sheet gains Show me on the public list |
+| fl-q4 | 182 | m5: `$N USDC`, seller line above Pay |
+| fl-q5, fl-q5d | 130 | m11 superseded: new content alerts on the bell, Inbox tabs Primary, Requests, Broadcast, Email updates is `Follow.email_updates` |
+| fl-q6 | 129, 124 | m10 Clear all and the device line; m12 access ended with 7 day grace |
+| fl-q7 | 183 | Search at 1440 and the no results state |
+| fl-q8 | 184 | Viewer at 1440 with Report |
+| fl-q9 | 181 | d4 shipped rail and status panel |
+| mb-q1, mb-q1d | 125 | m9 superseded by r1; one filled button per screen; Memberships at 1440 |
+
+Open for Rob: CT-D1 (dock and rail with Inbox and Library), CT-D2 (where content alerts list).
