@@ -432,15 +432,15 @@ with our no ID retention design. Decide before go live, not after.
 > keeps the records required by 18 U.S.C. 2257 for every person who
 > appears in it. Each creator has designated a custodian of records.
 > Inquiries about records for a specific depiction should be sent to
-> compliance@amped.bio, and Amped will direct them to the creator's
+> compliance@amplifydigital.ai, and Amped will direct them to the creator's
 > custodian.
 >
 > Under 18 U.S.C. 2257(h)(2)(B)(v) and 47 U.S.C. 230(c), Amped may
 > remove any content that it considers to violate its Terms or its Adult
 > Content Policy.
 
-Counsel approved the text and placement. The contact address is to be
-confirmed before publication.
+Counsel approved the text and placement. Rob confirmed the contact
+address compliance@amplifydigital.ai on 3 November 2026.
 
 # 7. Other platform duties
 
