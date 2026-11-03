@@ -101,6 +101,9 @@ describe("RegisterForm", () => {
     mocks.referrerId = null;
     mocks.executeCaptcha.mockResolvedValue("token");
     mocks.signUpEmail.mockResolvedValue({ data: {} });
+    // clearAllMocks keeps implementations, so reset the recovery sign in to a
+    // failure here; a test that needs it to succeed says so itself
+    mocks.signInEmail.mockResolvedValue({ error: { message: "Invalid email or password" } });
     mocks.getPostAuthDestination.mockReturnValue("/");
   });
 
@@ -261,8 +264,29 @@ describe("RegisterForm", () => {
     fillPassword("S3cure-pass!");
     submit();
 
-    await waitFor(() => expect(mocks.goTo).toHaveBeenCalled());
+    await waitFor(() => expect(mocks.goTo).toHaveBeenCalledWith("/"));
+    expect(mocks.signInEmail).toHaveBeenCalledTimes(1);
     expect(screen.queryByText(SIGN_UP_UNCONFIRMED_TITLE)).toBeNull();
+  });
+
+  it("signs in on Retry when the lost attempt had created the account", async () => {
+    mocks.signUpEmail.mockRejectedValueOnce(new TypeError("fetch failed")).mockResolvedValueOnce({
+      error: { status: 422, code: "USER_ALREADY_EXISTS", message: "already exists" },
+    });
+    renderForm();
+    fillHandle("ada");
+    fillEmail("ada@example.com");
+    fillPassword("S3cure-pass!");
+    submit();
+
+    await waitFor(() => expect(screen.getByText(SIGN_UP_UNCONFIRMED_TITLE)).toBeInTheDocument());
+    mocks.signInEmail.mockResolvedValue({ data: { user: { id: "1" } } });
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+
+    await waitFor(() => expect(mocks.goTo).toHaveBeenCalledWith("/"));
+    expect(mocks.signUpEmail).toHaveBeenCalledTimes(2);
+    expect(mocks.signInEmail).toHaveBeenCalledTimes(2);
+    expect(screen.queryByText(EMAIL_TAKEN)).toBeNull();
   });
 
   it("starts Google sign in and shares the confirmed handle", async () => {
