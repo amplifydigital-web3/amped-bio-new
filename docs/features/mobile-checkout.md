@@ -1,6 +1,6 @@
 # Mobile checkout
 
-Status: revision 1, 2 Nov 2026. Build ready for CK-2 to CK-5. This is CK-0: it records the 23 Oct mobile first review as amended by the 29 Oct Full QA and Rob's answers, and it carries the spec edits the PR plan lists for the content, USDC and memberships specs (section 16).
+Status: revision 2, 3 Nov 2026. Build ready for CK-2 to CK-5. This is CK-0: it records the 23 Oct mobile first review as amended by the 29 Oct Full QA and Rob's answers, and it carries the spec edits the PR plan lists for the content, USDC and memberships specs (section 16).
 Owner: Rob Frasca. Drafted by Claude.
 Build Board: #49 Mobile checkout. Related cards: #18 Paid content, #25 Memberships, #50 AmpedPay, #28 Adult content, #5 On-ramp.
 Baseline: `development` at 0500800 (2 Nov 2026), which contains CK-1 (#399, merged 2 Nov).
@@ -72,7 +72,7 @@ Every later step carries `ci={intent}`: sign up, sign in, the handoff, Wallet Bu
 
 Route `app.amped.bio/pay/{intent}` in `apps/client`. A full screen sheet on phones with the creator page dimmed behind it. A side sheet over a still of the page on desktop (desktop boards are a C9 gate).
 
-**One screen for a fixed amount.** Top to bottom: creator avatar and "Paying @handle", cover and title, the access line, the amount, the fee row, the balance after, "Payments are final. Refunds are at the creator's discretion.", then the button "Pay $12 USDC" pinned above the safe area. No Amount step and no Review step. No checkbox (D5). Tips keep two steps because the amount varies.
+**One screen for a fixed amount.** Top to bottom: creator avatar and "Paying @handle", cover and title, the access line, the amount, the fee row, the balance after, the seller line (below), then the button "Pay $12 USDC" pinned above the safe area. No Amount step and no Review step. No checkbox (D5). Tips keep two steps because the amount varies.
 
 **The fee row comes from the quote.** The quote returns the fee and its effective date. The row never hard codes "5%" (AmpedPay decision 4: the fee can change with notice).
 
@@ -85,6 +85,8 @@ Route `app.amped.bio/pay/{intent}` in `apps/client`. A full screen sheet on phon
 **Step up.** The commit button is the confirmation for the embedded wallet. A passkey or Face ID step up is required above 100 USDC and on the first purchase from a new device.
 
 **Header wording.** "Paying @handle" on every money sheet (Full QA P2 14).
+
+**Seller line (COUNSEL-ADULT v1.1, store policy spec 3.4, board sp6).** The creator is the seller of record. CK-2 shows: "Sold by {seller} on Amped.bio. You buy from {seller}, not Amped. Refunds are at {seller}'s discretion." `{seller}` is the creator's display name until C9. CK-5 swaps the last sentence for "Refunds follow the store policy." with a Store policy link that opens the live `StorePolicyVersion` in a sheet and returns to Pay, and uses the seller name from the store policy. The line replaces the earlier "Payments are final. Refunds are at the creator's discretion."
 
 **Verified chip.** The chip beside the creator name means the identity checks seller rule (an active RNS name bound to the wallet, identity checks 5.1). It is the same component as the page header (Full QA P2 18).
 
@@ -148,6 +150,7 @@ One pattern for every error: what happened, whether anything left the wallet whe
 | State | Trigger | Copy | Next step |
 | --- | --- | --- | --- |
 | Price changed | Fresh quote differs in amount or fee | "The price changed. Was $12 USDC. Now $14 USDC." | Pay $14 USDC, or Not now |
+| Store policy changed (CK-5) | The live store policy version differs from the one on the intent | "{seller} updated their store policy." with the policy sheet | Pay $12 USDC, or Not now |
 | Payments paused | `payments_paused` on the server, or the on chain pause | "Payments are paused for a moment. Nothing was taken from your wallet." | Try again later; the intent stays open |
 | Daily limit | Over `purchases_per_day_per_account` (20) or `purchase_usdc_per_day_per_account` (2,000 USDC) | "You reached today's limit for purchases. Try again tomorrow." | Close |
 | Seller cannot take payments | Creator fails the seller rule, or the store is paused | "@handle cannot take payments right now. Nothing was taken from your wallet." | Back to the page |
@@ -161,7 +164,8 @@ One pattern for every error: what happened, whether anything left the wallet whe
 
 Memberships ship after one time purchases (D8). The join sheet is drawn now so MB-1 and MB-2 build to it.
 
-- One screen: Monthly and Yearly chips, the amount, the consent sentence, the checkbox, then Join.
+- One screen: Monthly and Yearly chips, the amount, the consent sentence, the seller line (section 5), the checkbox, then Join.
+- The checkbox names the store policy from MB-2: "I agree to renewals every 30 days and to {seller}'s store policy."
 - The checkbox starts unticked. Join stays disabled until it is ticked (express consent for recurring charges).
 - "Every 30 days" everywhere. The contract counts 30 days, not a month. Every amount carries USDC.
 - Review copy: "$5 USDC today, then $5 USDC every 30 days from your wallet. Cancel any time." The allowance line moves to a Details row.
@@ -198,10 +202,10 @@ Every money flow passes on each row before the pilot opens. Runs after CK-5.
 | --- | --- | --- | --- | --- |
 | CK-0 | `docs/mobile-checkout` | This spec and the design QA record | none | 1 |
 | CK-1 | `feat/checkout-intent` | Merged 2 Nov (#399) | none | 2.5 |
-| CK-2 | `feat/pay-route` | `/pay/{intent}`, one screen sheet, fresh quote and Price changed, `CreatorThemeScope`, legibility guard, `$N USDC` formatter, the explainer line, the staging line, error states c7 and c8, Checking, the Over 18 redirect, a mock `PaymentProvider`. Buy on public pages calls `checkout.start` and navigates | CK-1 | 3 |
+| CK-2 | `feat/pay-route` | `/pay/{intent}`, one screen sheet, fresh quote and Price changed, `CreatorThemeScope`, legibility guard, `$N USDC` formatter, the explainer line, the staging line, error states c7 and c8, Checking, the Over 18 redirect, a mock `PaymentProvider`, the seller line without a policy link. Buy on public pages calls `checkout.start` and navigates | CK-1 | 3 |
 | CK-3 | `feat/checkout-wallet-handoff` | Add USDC in Wallet with the prefill and the Coinbase minimum line, `awaiting_funds`, Back to checkout, `/r/{intent}`, sandbox Arrived never enables Pay | CK-2 | 1.5 |
 | CK-4 | `feat/webview-handoff` | Webview detection, per app menu steps on iPhone, Open in Chrome on Android, Copy link with the intent only, `checkout.handoffToken`, Google and email sign in on landing | CK-1, security review | 3 |
-| CK-5 | `feat/checkout-live` | The sheet calls PAY-2 in place of the mock. Unlock on the first confirmation. Promoter line from the intent | CK-2, PAY-2, C9 | 2 |
+| CK-5 | `feat/checkout-live` | The sheet calls PAY-2 in place of the mock. Unlock on the first confirmation. Promoter line from the intent. Store policy link and sheet, `storePolicyVersionId` on the intent at quote, Store policy changed, version carried to the Purchase | CK-2, PAY-2, C9 | 2.5 |
 
 Rules: at most four open PRs; CK-2 stacks on CK-1 only (now merged); flags stay off in production; each PR moves its Screen Review rows to In PR and runs the Prism 2.2 gate against boards c1 to c8.
 
@@ -219,6 +223,7 @@ Rules: at most four open PRs; CK-2 stacks on CK-1 only (now merged); flags stay 
 10. The join sheet's checkbox starts unticked and Join is disabled until it is ticked. "Every 30 days" everywhere.
 11. No amount shows `$` without USDC. No banned word (`CONTENT_BANNED_TERMS`, plus stake, staking, pool and tREVO on store and checkout surfaces). No dashes.
 12. Every control is at least 44 by 44. Body text meets 4.5:1 and large text 3:1 against the creator theme after the legibility guard.
+13. Every pay and join sheet shows the seller line. From CK-5, every Purchase carries the store policy version shown on its intent.
 
 ## 16. Edits this spec makes to other specs
 
@@ -264,4 +269,5 @@ These sections are superseded here rather than edited in place, as `docs/feature
 
 ## Revision log
 
+- 2026-11-03: Revision 2. Seller line on the pay and join sheets (CK-2), store policy link, sheet, version and Store policy changed (CK-5), join checkbox names the store policy. Source: COUNSEL-ADULT v1.1 and docs/features/store-policy.md (#420).
 - 2026-11-02: Revision 1 (CK-0). First repo copy of the mobile checkout spec. Records D2 to D8 (24 Oct), the shortfall rule, QA1, QA2 and QA4 (29 Oct), the handoff token rule, the Full QA fixes and CK-1 as merged. Redrawn boards c1 to c8 (version 3, 29 Oct).
