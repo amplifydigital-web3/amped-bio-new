@@ -2,6 +2,7 @@ import { publicProcedure, router } from "./trpc";
 import { prisma } from "@repo/database";
 import { z } from "zod";
 import { BANNER_PANELS, SITE_SETTINGS } from "@repo/constants";
+import { publicFeatureFlagOverrides } from "../services/featureFlags";
 
 export const publicSettingsRouter = router({
   getBanner: publicProcedure
@@ -61,4 +62,11 @@ export const publicSettingsRouter = router({
     });
     return faucetStatus?.setting_value === "true";
   }),
+
+  /**
+   * Feature flag rows an admin set for public flags. A missing key means no
+   * row: each app falls back to its own environment variable. Read before the
+   * apps render, so it stays a small in-memory answer.
+   */
+  getFeatureFlags: publicProcedure.query(() => publicFeatureFlagOverrides()),
 });

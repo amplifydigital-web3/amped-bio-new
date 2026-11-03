@@ -21,6 +21,7 @@ import { recordUsdcTransfers, transfersFromLogs } from "./events";
 import { COUNTED_SEND_STATUSES, startOfUtcDay, withinDailyLimits } from "./limits";
 import { RelayerError, getRelayer, isRelayerConfigured } from "./relayer";
 import { ScreeningUnavailableError, screenAddress, type ScreeningResult } from "./screen";
+import { isFeatureOn } from "../featureFlags";
 
 /**
  * Gasless USDC send (spec 3.4 and 3.5, acceptance 3, 5, 6 and 14).
@@ -62,7 +63,7 @@ export class SendInputError extends Error {
 }
 
 async function sendsPaused(): Promise<boolean> {
-  if (!env.USDC_ENABLED || !isRelayerConfigured()) return true;
+  if (!isFeatureOn("usdc") || !isRelayerConfigured()) return true;
   const setting = await prisma.siteSettings.findUnique({
     where: { setting_key: SITE_SETTINGS.USDC_SENDS_PAUSED },
   });

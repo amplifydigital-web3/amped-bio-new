@@ -259,7 +259,7 @@ export async function purgeEndedIntents(now: Date = new Date()): Promise<number>
 }
 
 let purger: NodeJS.Timeout | null = null;
-/** Every 6 hours. Runs whether or not CHECKOUT_ENABLED is on, so no row outlives the notice. */
+/** Every 6 hours. Runs whether or not the checkout flag is on, so no row outlives the notice. */
 export function startCheckoutIntentPurge() {
   if (purger || process.env.NODE_ENV === "test") return;
   const run = () =>
