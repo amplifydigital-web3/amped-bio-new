@@ -40,6 +40,12 @@ export interface ShaderOptions {
   onSlow: () => void;
   /** The first frame drew; the caller can fade the canvas in. */
   onFirstFrame?: () => void;
+  /**
+   * The browser took the context away (GPU reset, too many contexts on a
+   * phone). The loop stops; the caller keeps its still version. Defaults to
+   * onSlow.
+   */
+  onLost?: () => void;
 }
 
 export interface ShaderHandle {
@@ -100,7 +106,11 @@ export function startShader(options: ShaderOptions): ShaderHandle | null {
   });
   if (!gl) return null;
   const program = createProgram(gl, fragment);
-  if (!program) return null;
+  if (!program) {
+    // Free the context at once rather than waiting for garbage collection
+    gl.getExtension("WEBGL_lose_context")?.loseContext();
+    return null;
+  }
   gl.useProgram(program);
 
   const buffer = gl.createBuffer();
@@ -153,6 +163,13 @@ export function startShader(options: ShaderOptions): ShaderHandle | null {
     onTarget = 0;
   };
 
+  // The browser can drop the context at any time; stop drawing on a dead one
+  const lost = () => {
+    if (stopped) return;
+    stop();
+    (options.onLost ?? onSlow)();
+  };
+
   const watchdog = createFrameWatchdog({
     onSlow: () => {
       stop();
@@ -202,6 +219,7 @@ export function startShader(options: ShaderOptions): ShaderHandle | null {
           kick();
         });
   observer?.observe(host);
+  canvas.addEventListener("webglcontextlost", lost);
   pointerArea?.addEventListener("pointermove", move);
   pointerArea?.addEventListener("pointerleave", leave);
   document.addEventListener("visibilitychange", kick);
@@ -213,6 +231,7 @@ export function startShader(options: ShaderOptions): ShaderHandle | null {
     stopped = true;
     cancelAnimationFrame(raf);
     observer?.disconnect();
+    canvas.removeEventListener("webglcontextlost", lost);
     pointerArea?.removeEventListener("pointermove", move);
     pointerArea?.removeEventListener("pointerleave", leave);
     document.removeEventListener("visibilitychange", kick);

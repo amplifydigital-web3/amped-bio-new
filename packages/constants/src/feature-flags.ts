@@ -110,7 +110,7 @@ export const FEATURE_FLAGS = {
       "Theme Engine v2 phase 3: WebGL scenes and the other showcase engines run on creator pages and in the editor. Off, a WebGL scene shows its still poster.",
     scope: "public",
     default: false,
-    env: { client: "VITE_SHOW_THEME_SHOWCASE", landing: "NEXT_PUBLIC_SHOW_THEME_SHOWCASE" },
+    env: {},
   },
   motion: {
     label: "Landing motion",
