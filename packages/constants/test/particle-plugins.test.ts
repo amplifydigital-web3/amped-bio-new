@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   COMET_TRAILS_EFFECT,
+  EMITTER_PARTICLE_LIMIT,
   EMITTER_SCENES,
   EMITTER_SCENE_EFFECTS,
   PARTICLE_PLUGINS,
@@ -34,6 +35,16 @@ describe("emitter scenes", () => {
       expect(entry).toMatchObject({ tier: "plus", cost: "light", engine: "particles", addedIn: 2 });
       expect(entry.legacyId).toBeUndefined();
       expect(findEffect(entry.id)).toBe(entry);
+    }
+  });
+
+  it("caps the live particle count at every density and speed", () => {
+    for (const scene of Object.values(EMITTER_SCENES)) {
+      for (const params of [{}, { density: 100, speed: 10 }]) {
+        const out = emitterSceneOptions(scene, params, colors) as Loose;
+        expect(out["particles"].number.limit).toEqual({ mode: "wait", value: EMITTER_PARTICLE_LIMIT });
+        expect(out[STILL_COUNT_KEY]).toBeLessThanOrEqual(EMITTER_PARTICLE_LIMIT);
+      }
     }
   });
 

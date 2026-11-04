@@ -17,6 +17,7 @@ export { HOVER_SPEED_MS, HOVER_SPEED_PARAM } from "./buttonHovers";
 export { PAGE_BUDGET, pageCost, type CostPart, type PageCost } from "./cost";
 export {
   COMET_PARAMS,
+  EMITTER_PARTICLE_LIMIT,
   EMITTER_SCENES,
   PARTICLE_PLUGINS,
   PARTICLE_TEXT_PARAMS,

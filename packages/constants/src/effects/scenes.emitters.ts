@@ -44,6 +44,14 @@ export interface EmitterScene {
 
 const PIVOT = 40;
 
+/**
+ * The most particles an emitter scene keeps alive at once. Emitters spawn
+ * until particles leave the frame, so slow speeds and high density on a tall
+ * phone could otherwise pile up thousands; past the cap new spawns wait.
+ */
+export const EMITTER_PARTICLE_LIMIT = 300;
+const EMITTER_LIMIT = { mode: "wait", value: EMITTER_PARTICLE_LIMIT } as const;
+
 export const EMITTER_SCENES: Readonly<Record<string, EmitterScene>> = {
   fountain: {
     label: "Fountain",
@@ -53,7 +61,7 @@ export const EMITTER_SCENES: Readonly<Record<string, EmitterScene>> = {
     still: 60,
     preset: {
       particles: {
-        number: { value: 0 },
+        number: { value: 0, limit: EMITTER_LIMIT },
         paint: { color: { value: ["#5bc0eb", "#9bc53d", "#fde74c", "#ffffff"] } },
         shape: { type: "circle" },
         opacity: { value: 0.8 },
@@ -84,7 +92,7 @@ export const EMITTER_SCENES: Readonly<Record<string, EmitterScene>> = {
     still: 80,
     preset: {
       particles: {
-        number: { value: 0 },
+        number: { value: 0, limit: EMITTER_LIMIT },
         paint: { color: { value: ["#ff595e", "#ffca3a", "#8ac926", "#1982c4", "#6a4c93"] } },
         shape: { type: "circle" },
         opacity: { value: 1 },
@@ -148,7 +156,7 @@ export const EMITTER_SCENES: Readonly<Record<string, EmitterScene>> = {
     still: 90,
     preset: {
       particles: {
-        number: { value: 0 },
+        number: { value: 0, limit: EMITTER_LIMIT },
         paint: { color: { value: "#ffffff" } },
         shape: { type: "circle" },
         opacity: {
@@ -184,7 +192,7 @@ export const EMITTER_SCENES: Readonly<Record<string, EmitterScene>> = {
     still: 70,
     preset: {
       particles: {
-        number: { value: 0 },
+        number: { value: 0, limit: EMITTER_LIMIT },
         paint: { color: { value: ["#ff6f91", "#ffc75f", "#f9f871", "#c34a36"] } },
         shape: { type: "circle" },
         opacity: {
@@ -221,7 +229,7 @@ export const EMITTER_SCENES: Readonly<Record<string, EmitterScene>> = {
     still: 30,
     preset: {
       particles: {
-        number: { value: 0 },
+        number: { value: 0, limit: EMITTER_LIMIT },
         paint: {
           color: { value: "#ffffff" },
           fill: { enable: false },
