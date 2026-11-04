@@ -13,9 +13,29 @@ import { randomBytes } from "crypto";
  * Time-ordering keeps B-tree indexes compact — unlike UUID v4, new inserts
  * are appended near the end of the index rather than scattered randomly.
  */
+// Monotonic within this process (RFC 9562 section 6.2, method 1): ids made in the same
+// millisecond count up in the 12 bit rand_a field, so their order matches creation order.
+// Amped Messages replay (PR M5) relies on this to resume after a message id.
+let lastTime = 0;
+let lastSeq = 0;
+
 export function uuidv7(): Buffer {
-  const time = Date.now();
+  let time = Date.now();
   const buf = randomBytes(16);
+  let seq: number;
+  if (time <= lastTime) {
+    time = lastTime;
+    seq = lastSeq + 1;
+    if (seq > 0xfff) {
+      time += 1;
+      seq = buf[7]! & 0x7f;
+    }
+  } else {
+    // Start low in the field so many ids fit in one millisecond
+    seq = ((buf[6]! & 0x07) << 8) | buf[7]!;
+  }
+  lastTime = time;
+  lastSeq = seq;
 
   // Split the 48-bit Unix timestamp into:
   //   hi = upper 32 bits (time / 65536)
@@ -32,8 +52,9 @@ export function uuidv7(): Buffer {
   buf[4] = (lo >>> 8) & 0xff;
   buf[5] = lo & 0xff;
 
-  // Version 7 (0b0111) occupying the high 4 bits of byte 6
-  buf[6] = (buf[6] & 0x0f) | 0x70;
+  // Version 7 (0b0111) in the high 4 bits of byte 6, then the 12 bit sequence
+  buf[6] = 0x70 | ((seq >>> 8) & 0x0f);
+  buf[7] = seq & 0xff;
   // Variant RFC 9562 / RFC 4122 (0b10xx) occupying the high 2 bits of byte 8
   buf[8] = (buf[8] & 0x3f) | 0x80;
 
