@@ -156,9 +156,9 @@ export function BackgroundRow() {
       <div className="space-y-[21px]">
         {shaderScene && (
           <p className="text-prism-meta text-prism-ink-2" role="note">
-            {shaderScene.label} plays over this background. Change it in Motion, Scene. This
-            background shows when motion is paused, with reduced motion, and on phones that cannot
-            run the scene.
+            {shaderScene.label} plays over this background. Change it in Motion, Scene. Pause
+            motion, reduced motion and phones that cannot run it see a still version of the scene
+            instead of this background.
           </p>
         )}
         {/* I03: the current background */}

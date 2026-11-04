@@ -71,6 +71,8 @@ export interface NameTextProps {
   colors: ThemeColors;
   paused?: boolean;
   entranceKey?: string;
+  /** The creator's font family (phase 3c: Fuzzy text rasterizes it on a canvas). */
+  fontFamily?: string;
 }
 
 /** The name's text, with the entry's entrance when it has one. */
@@ -81,6 +83,7 @@ export function NameText({
   paused = false,
   entranceKey,
   params,
+  fontFamily,
 }: NameTextProps) {
   const ref = useRef<HTMLSpanElement>(null);
   const render = entry.render;
@@ -126,7 +129,7 @@ export function NameText({
 
   // Phase 3c: canvas name effects
   if (render.kind === "canvas" && render.module === "fuzzy") {
-    return <FuzzyName entry={entry} text={text} params={params} />;
+    return <FuzzyName entry={entry} text={text} params={params} fontFamily={fontFamily} />;
   }
   if (!mode) return <>{text}</>;
 
