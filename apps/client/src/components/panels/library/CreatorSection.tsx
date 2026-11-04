@@ -60,9 +60,11 @@ export function CreatorSection({ handle }: { handle: string }) {
     }
   }, [data, colors.fallbacks]);
 
-  // No connection: the public page is where this creator lives for this fan
+  // No connection: the public page is where this creator lives for this fan.
+  // Replace, not assign: a hand written link would otherwise leave the Library
+  // in history and redirect again on Back
   useEffect(() => {
-    if (data && !data.connected) window.location.assign(publicPageUrl(handle));
+    if (data && !data.connected) window.location.replace(publicPageUrl(handle));
   }, [data, handle]);
 
   const setSeg = (next: Segment) => {
