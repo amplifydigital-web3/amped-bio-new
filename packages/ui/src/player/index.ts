@@ -19,4 +19,4 @@ export * from "./queue";
 export { PLAYER_COPY } from "./copy";
 export * from "./format";
 export * from "./types";
-export { playbackToSource, requirePlayerSource } from "./content";
+export { AccessEndedError, isAccessEnded, playbackToSource, requirePlayerSource } from "./content";

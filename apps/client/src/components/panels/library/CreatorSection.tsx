@@ -3,14 +3,22 @@
  * boards m4, d4, fl-q2, fl-q9). In the creator's look inside the Prism frame:
  * header, one status line that opens the status sheet, Continue for this
  * creator, Yours and Shop, and the ownership line. A fan with no connection
- * goes to the creator's public page (spec 3.2). Shop fills in FL-6, the
- * membership and purchase parts of the status sheet in FL-7.
+ * goes to the creator's public page (spec 3.2). Shop lists locked items with
+ * their next step (FL-6); the membership and purchase parts of the status
+ * sheet come in FL-7.
  */
 import { useEffect, useMemo, useState } from "react";
 import { useInfiniteQuery, useMutation, useQuery } from "@tanstack/react-query";
 import { useNavigate, useSearchParams } from "react-router";
-import { ChevronRight, ExternalLink, FileX, Search } from "lucide-react";
-import type { LibraryCreatorHeader, LibraryItem, LibraryShopItem } from "@repo/constants";
+import { ChevronRight, ExternalLink, FileX, Lock, Search } from "lucide-react";
+import {
+  ACCESS_STAKE_DISCLOSURE,
+  TESTNET_NOTICE,
+  contentCardMeta,
+  type LibraryCreatorHeader,
+  type LibraryItem,
+  type LibraryShopItem,
+} from "@repo/constants";
 import {
   BottomSheet,
   BottomSheetContent,
@@ -32,7 +40,7 @@ import { LIBRARY_COPY } from "./copy";
 import { LIBRARY_PATHS } from "./paths";
 import { ItemMenu, refreshLibrary } from "./ItemMenu";
 import { ContinueCard } from "./LibraryHome";
-import { CreatorAvatar, ItemListSkeleton, ItemRow, ownerName } from "./parts";
+import { CreatorAvatar, ItemCover, ItemListSkeleton, ItemRow, ownerName } from "./parts";
 import { connectionLine } from "./YourCreators";
 
 const C = LIBRARY_COPY;
@@ -141,7 +149,11 @@ export function CreatorSection({ handle }: { handle: string }) {
               id={`library-seg-panel-${seg}`}
               aria-labelledby={`library-seg-${seg}`}
             >
-              {seg === "yours" ? <YoursList handle={handle} name={name} /> : <ShopList />}
+              {seg === "yours" ? (
+                <YoursList handle={handle} name={name} />
+              ) : (
+                <ShopList handle={handle} />
+              )}
             </div>
           </section>
           <p
@@ -310,9 +322,174 @@ function YoursList({ handle, name }: { handle: string; name: string }) {
   );
 }
 
-/** Shop lists what the fan can join or buy for. The API fills it in FL-6. */
-function ShopList() {
-  return <SectionEmpty title={SECTION.shopEmptyTitle} description={SECTION.shopEmpty} />;
+function poolPageUrl(address: string) {
+  return `${import.meta.env.VITE_LANDINGPAGE_URL}/i/pools/${address}`;
+}
+
+/**
+ * Shop (FL-6, board m5): items the fan can not open yet, as locked cards with
+ * the blur cover, the rule summary and one next step. Never media or an amount.
+ * A stake rule shows TESTNET_NOTICE and ACCESS_STAKE_DISCLOSURE under the card
+ * before any step (content gating 4.3, GQ2-2). Join and Buy wait on FL-7.
+ */
+function ShopList({ handle }: { handle: string }) {
+  const list = useInfiniteQuery(
+    trpc.library.creatorItems.infiniteQueryOptions(
+      { handle, seg: "shop" },
+      { getNextPageParam: last => last.nextCursor ?? undefined }
+    )
+  );
+  const items = useMemo(
+    () =>
+      (list.data?.pages.flatMap(p => p.items as Array<LibraryItem | LibraryShopItem>) ?? []).filter(
+        (item): item is LibraryShopItem => "unlockHint" in item
+      ),
+    [list.data]
+  );
+  const skeleton = useDelayed(list.isLoading, 400);
+
+  if (list.isLoading) return skeleton ? <ItemListSkeleton label={SECTION.shop} /> : null;
+  if (list.isError) {
+    return (
+      <ErrorCard title={C.error.title} cause={C.error.cause} onRetry={() => void list.refetch()} />
+    );
+  }
+  if (!items.length) {
+    return <SectionEmpty title={SECTION.shopEmptyTitle} description={SECTION.shopEmpty} />;
+  }
+  return (
+    <>
+      <ul className="space-y-2">
+        {items.map(item => (
+          <li key={item.publicId}>
+            <ShopRow item={item} handle={handle} />
+          </li>
+        ))}
+      </ul>
+      {list.hasNextPage && (
+        <div className="flex justify-center pt-[13px]">
+          <button
+            type="button"
+            onClick={() => void list.fetchNextPage()}
+            disabled={list.isFetchingNextPage}
+            className="prism-focus inline-flex h-touch items-center rounded-prism-13 border px-5 text-[15px] font-semibold disabled:opacity-60"
+            style={{ borderColor: "var(--c-btn)", color: "var(--c-ink)" }}
+          >
+            {list.isFetchingNextPage ? C.loadingMore : C.showMore}
+          </button>
+        </div>
+      )}
+    </>
+  );
+}
+
+const actionClass =
+  "prism-focus inline-flex h-touch shrink-0 items-center gap-2 rounded-prism-13 px-4 text-[15px] font-semibold";
+
+function ShopAction({ item, handle }: { item: LibraryShopItem; handle: string }) {
+  const hint = item.unlockHint;
+  if (hint.kind === "pool") {
+    const address = item.gate?.poolAddress;
+    if (!address) return null;
+    return (
+      <a
+        href={poolPageUrl(address)}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={actionClass}
+        style={{ background: "var(--c-btn)", color: "var(--c-btnink)" }}
+      >
+        {SECTION.shopPool}
+        <ExternalLink aria-hidden className="h-4 w-4" />
+      </a>
+    );
+  }
+  if (hint.kind === "follow") {
+    // The follow happens on the creator's page, where the first follow sheet lives
+    return (
+      <a
+        href={publicPageUrl(handle)}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={actionClass}
+        style={{ background: "var(--c-btn)", color: "var(--c-btnink)" }}
+      >
+        {SECTION.shopFollow}
+        <ExternalLink aria-hidden className="h-4 w-4" />
+      </a>
+    );
+  }
+  if (hint.kind === "confirm_email") return null;
+  return (
+    <button
+      type="button"
+      disabled
+      aria-describedby={`shop-later-${item.publicId}`}
+      className={cn(actionClass, "border opacity-60")}
+      style={{ borderColor: "var(--c-btn)", color: "var(--c-ink)" }}
+    >
+      {hint.kind === "buy" ? SECTION.shopBuy : SECTION.shopJoin}
+      <span className="sr-only">, {SECTION.shopLater}</span>
+    </button>
+  );
+}
+
+function ShopRow({ item, handle }: { item: LibraryShopItem; handle: string }) {
+  const stake = !!item.gate?.stake;
+  const hint = item.unlockHint;
+  const later = hint.kind === "join" || hint.kind === "rejoin" || hint.kind === "buy";
+  return (
+    <article
+      aria-label={SECTION.shopLocked(item.title)}
+      className="rounded-prism-13 p-2"
+      style={{ background: "var(--c-surface)", color: "var(--c-surface-ink)" }}
+    >
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="relative shrink-0">
+          <ItemCover
+            item={item}
+            sizes="128px"
+            className="aspect-video w-[112px] rounded-prism-13"
+          />
+          <span className="absolute inset-0 flex items-center justify-center">
+            <Lock aria-hidden className="h-6 w-6 text-white drop-shadow" />
+          </span>
+        </span>
+        <span className="flex min-w-0 flex-1 flex-col gap-1">
+          <span className="line-clamp-2 text-[16px] font-semibold leading-snug">{item.title}</span>
+          <span className="text-[13px]" style={{ color: "var(--c-surface-muted)" }}>
+            {[contentCardMeta(item), item.gate ? SECTION.shopFor(item.gate.summary) : null]
+              .filter(Boolean)
+              .join(" · ")}
+          </span>
+        </span>
+        <ShopAction item={item} handle={handle} />
+      </div>
+      {hint.kind === "confirm_email" && (
+        <p className="px-1 pt-2 text-[14px]" style={{ color: "var(--c-surface-muted)" }}>
+          {SECTION.shopConfirmEmail}
+        </p>
+      )}
+      {later && (
+        <p
+          id={`shop-later-${item.publicId}`}
+          className="px-1 pt-2 text-[14px]"
+          style={{ color: "var(--c-surface-muted)" }}
+        >
+          {SECTION.shopLaterHelp}
+        </p>
+      )}
+      {stake && (
+        <div
+          className="space-y-1 px-1 pt-2 text-[13px]"
+          style={{ color: "var(--c-surface-muted)" }}
+        >
+          <p>{TESTNET_NOTICE}</p>
+          <p>{ACCESS_STAKE_DISCLOSURE}</p>
+        </div>
+      )}
+    </article>
+  );
 }
 
 function SectionEmpty({ title, description }: { title: string; description: string }) {
@@ -332,8 +509,8 @@ function SectionEmpty({ title, description }: { title: string; description: stri
 /**
  * The status sheet (fl-q2): Prism, not themed. Opens with "{Creator} and you"
  * and the ownership line. Following: show me publicly, email updates (the one
- * email consent per creator), Unfollow with Undo. New content alerts join in
- * FL-6, Membership and Purchases with receipts in FL-7.
+ * email consent per creator), alerts for new items (FL-6), Unfollow with Undo.
+ * Membership and Purchases with receipts come in FL-7.
  */
 function StatusSheet({
   header,
@@ -350,6 +527,21 @@ function StatusSheet({
   const handle = header.owner.handle;
   const follow = header.status.follow;
   const update = useMutation(trpc.follow.update.mutationOptions());
+  const alertsKey = trpc.notifications.newContent.queryKey({ handle });
+  const alerts = useQuery({
+    ...trpc.notifications.newContent.queryOptions({ handle }),
+    enabled: open,
+  });
+  const setAlerts = useMutation(trpc.notifications.setNewContent.mutationOptions());
+  const onAlerts = async (enabled: boolean) => {
+    queryClient.setQueryData(alertsKey, { enabled });
+    try {
+      await setAlerts.mutateAsync({ handle, enabled });
+    } catch {
+      queryClient.setQueryData(alertsKey, { enabled: !enabled });
+      toast.add({ type: "error", title: C.toasts.failed });
+    }
+  };
   const unfollow = useMutation(trpc.follow.unfollow.mutationOptions());
   const undoUnfollow = useMutation(trpc.follow.undoUnfollow.mutationOptions());
   const headerKey = trpc.library.creator.queryKey({ handle });
@@ -434,6 +626,15 @@ function StatusSheet({
                 checked={follow.emailUpdates}
                 onChange={checked => void setFollow({ emailUpdates: checked })}
               />
+              {alerts.data && (
+                <ToggleRow
+                  id="status-new-content"
+                  label={S.newContent}
+                  help={S.newContentHelp}
+                  checked={alerts.data.enabled}
+                  onChange={checked => void onAlerts(checked)}
+                />
+              )}
               <div className="pt-2">
                 <Button
                   variant="secondary"

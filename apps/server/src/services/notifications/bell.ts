@@ -13,7 +13,7 @@ import { personOut, type Person } from "../messaging/direct";
 
 export type BellItem = {
   id: string;
-  kind: "MESSAGE" | "REQUEST" | "BROADCAST";
+  kind: "MESSAGE" | "REQUEST" | "BROADCAST" | "MEMBERSHIP_RENEWAL" | "CONTENT";
   count: number;
   seen: boolean;
   /** conversation id (hex) for MESSAGE and REQUEST */
@@ -21,6 +21,11 @@ export type BellItem = {
   /** broadcast id for BROADCAST */
   broadcastId: number | null;
   actor: Person | null;
+  /**
+   * CONTENT (Fan Library, FL-6): the newest item's title, or null when it is no
+   * longer listed. Never an 18+ title.
+   */
+  content: { publicId: string; title: string | null } | null;
   at: Date;
 };
 
@@ -43,6 +48,23 @@ export async function listBell(
   const byId = new Map(
     (await Promise.all(actors.map(a => personOut(a)))).map(person => [person.id, person])
   );
+  const contentIds = rows
+    .filter(row => row.kind === "CONTENT" && row.refId)
+    .map(row => Buffer.from(row.refId!));
+  const items = contentIds.length
+    ? await prisma.contentItem.findMany({
+        where: { id: { in: contentIds } },
+        select: {
+          id: true,
+          publicId: true,
+          title: true,
+          adult: true,
+          deletedAt: true,
+          publishState: true,
+        },
+      })
+    : [];
+  const contentOut = contentOutFor(new Map(items.map(item => [idToHex(item.id), item])));
   return rows.map(row => {
     const broadcast = row.groupKey.startsWith("broadcast:")
       ? Number(row.groupKey.slice("broadcast:".length))
@@ -52,12 +74,35 @@ export async function listBell(
       kind: row.kind,
       count: row.count,
       seen: !!row.seenAt,
-      conversationId: row.kind !== "BROADCAST" && row.refId ? idToHex(row.refId) : null,
+      conversationId:
+        (row.kind === "MESSAGE" || row.kind === "REQUEST") && row.refId ? idToHex(row.refId) : null,
       broadcastId: Number.isInteger(broadcast) ? broadcast : null,
       actor: row.actorId !== null ? (byId.get(row.actorId) ?? null) : null,
+      content: row.kind === "CONTENT" ? contentOut(row.refId) : null,
       at: row.updatedAt,
     };
   });
+}
+
+/** The newest item of a CONTENT row: a title only while it is listed and not 18+. */
+function contentOutFor(
+  itemById: Map<
+    string,
+    {
+      publicId: string;
+      title: string;
+      adult: boolean;
+      deletedAt: Date | null;
+      publishState: string;
+    }
+  >
+) {
+  return (refId: Uint8Array | null) => {
+    const item = refId ? itemById.get(idToHex(refId)) : undefined;
+    if (!item) return null;
+    const listed = !item.adult && item.deletedAt === null && item.publishState === "PUBLISHED";
+    return { publicId: item.publicId, title: listed ? item.title : null };
+  };
 }
 
 export async function unseenCount(userId: number): Promise<number> {

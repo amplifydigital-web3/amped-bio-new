@@ -14,6 +14,7 @@ import {
 import {
   Skeleton,
   cn,
+  AccessEndedError,
   requirePlayerSource,
   trpcClient,
   type PlayerItem,
@@ -42,10 +43,15 @@ export function isPlayable(item: Pick<ContentCard, "kind">) {
   return item.kind === "video" || item.kind === "audio";
 }
 
-/** Fresh signed URLs for an item, every time the player asks. */
+/**
+ * Fresh signed URLs for an item, every time the player asks. A refusal from the
+ * gating engine (the fan lost access since the list loaded) stops the player
+ * with Access ended (FL-6, spec 3.4).
+ */
 export function resolverFor(publicId: string): SourceResolver {
   return async () => {
     const result = await trpcClient.content.getReadUrl.query({ publicId });
+    if (result.decision && !result.decision.allowed) throw new AccessEndedError();
     return requirePlayerSource(result.playback);
   };
 }

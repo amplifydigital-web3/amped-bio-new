@@ -189,6 +189,9 @@ const envSchema = z.object({
   // Identity checks (Build Board #47): where an under 18 review case alert goes
   // until the Safety queue ships (identity checks spec 4.5). Empty logs a warning.
   SAFETY_ALERT_EMAIL: z.string().default(""),
+  // The company postal address for commercial email footers (CAN-SPAM; bulk email AC-Q11).
+  // The Fan Library daily email (FL-6) sends nothing while it is empty.
+  BULK_FOOTER_ADDRESS: z.string().default(""),
   // Mobile checkout (Build Board #49, CK-1): the checkout router answers only when true
   CHECKOUT_ENABLED: boolSchema(false),
 

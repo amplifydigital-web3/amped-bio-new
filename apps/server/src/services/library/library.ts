@@ -2,10 +2,12 @@
  * Fan Library reads and writes (Build Board #26, FL-2, spec 3.6). The router is
  * thin; the work is here so it can be tested without tRPC.
  *
- * Connected creators are the ones the fan follows (published, not suspended).
- * Memberships, purchases and pool stakes join them in FL-6 and FL-7. Every
- * list pages over items the fan can open (access.ts) and builds cards through
- * the public card builder, so covers are the only URLs a list returns.
+ * Connected creators are the ones the fan follows or whose pool the fan stakes
+ * in (published, not suspended); memberships and purchases join them in FL-7.
+ * Every list pages over items the fan can open (access.ts, which asks the
+ * gating engine for gated items since FL-6) and builds cards through the
+ * public card builder, so covers are the only URLs a list returns. The Shop
+ * lists locked cards: the blur cover and the rule summary, never media.
  */
 import { prisma, type ContentItem, type Prisma } from "@repo/database";
 import {
@@ -25,10 +27,17 @@ import {
 } from "@repo/constants";
 import { getFileUrl } from "../../utils/fileUrlResolver";
 import { uuidv7 } from "../../utils/uuid-v7";
-import { cardsForItems } from "../content/publicView";
+import { cardsForItems, lockedCardsForItems } from "../content/publicView";
 import { toDbKind } from "../content/ids";
 import { batchPoolFanCreatorIds } from "../follow/poolFans";
-import { LIBRARY_CREATOR_WHERE, LIBRARY_ITEM_WHERE, libraryAccess } from "./access";
+import {
+  LIBRARY_CREATOR_WHERE,
+  libraryDecisions,
+  libraryGating,
+  libraryItemWhere,
+  libraryOpenAccess,
+  type LibraryViewer,
+} from "./access";
 
 type ItemWithCreator = ContentItem & { user: { page_status: string; block: string } };
 
@@ -120,6 +129,33 @@ export async function followedCreatorIds(viewerId: number): Promise<number[]> {
   return rows.map(row => row.creator_id);
 }
 
+/**
+ * Creators whose pool the fan stakes in (FL-6), public pages only. Read from
+ * the stake mirror, as the engine does for a render; the fan's own pool is
+ * left out.
+ */
+export async function poolCreatorIds(viewerId: number): Promise<number[]> {
+  const rows = await prisma.stakedPool.findMany({
+    where: {
+      userWallet: { userId: viewerId },
+      NOT: { stakeAmount: "0" },
+      pool: { wallet: { user: LIBRARY_CREATOR_WHERE } },
+    },
+    take: LIBRARY_LIMITS.creatorsMax,
+    select: { pool: { select: { wallet: { select: { userId: true } } } } },
+  });
+  return [...new Set(rows.map(row => row.pool.wallet.userId))].filter(id => id !== viewerId);
+}
+
+/** Followed creators, then pool creators the fan does not follow. */
+export async function connectedCreatorIds(viewerId: number): Promise<number[]> {
+  const [followed, pools] = await Promise.all([
+    followedCreatorIds(viewerId),
+    libraryGating() ? poolCreatorIds(viewerId) : Promise.resolve([]),
+  ]);
+  return [...new Set([...followed, ...pools])].slice(0, LIBRARY_LIMITS.creatorsMax);
+}
+
 /** A public creator by handle, with what the section header needs. */
 async function creatorByHandle(handle: string): Promise<OwnerRow | null> {
   const user = await prisma.user.findFirst({
@@ -166,23 +202,26 @@ async function extrasFor(viewerId: number, items: ContentItem[]): Promise<Requir
  * not list, and rows whose assets have not passed the scan, are dropped.
  */
 async function toLibraryItems(
-  viewerId: number,
+  viewer: LibraryViewer,
   rows: ItemWithCreator[],
   extras?: ItemExtras,
   now: Date = new Date()
 ): Promise<LibraryItem[]> {
-  const allowed = rows
-    .map(row => ({ row, access: libraryAccess(row, row.user, viewerId) }))
-    .filter(
-      (entry): entry is { row: ItemWithCreator; access: NonNullable<typeof entry.access> } =>
-        entry.access !== null
-    );
+  const decisions = await libraryDecisions(viewer, rows);
+  const allowed: Array<{
+    row: ItemWithCreator;
+    access: { source: LibraryItem["accessSource"]; planName: string | null };
+  }> = [];
+  for (const row of rows) {
+    const decision = decisions.get(row.publicId);
+    if (decision && "open" in decision) allowed.push({ row, access: decision.open });
+  }
   if (!allowed.length) return [];
   const items = allowed.map(entry => entry.row);
   const [cards, owners, loaded] = await Promise.all([
     cardsForItems(items, now),
     ownersFor(items.map(item => item.userId)),
-    extras ? Promise.resolve(extras) : extrasFor(viewerId, items),
+    extras ? Promise.resolve(extras) : extrasFor(viewer.userId, items),
   ]);
   const out: LibraryItem[] = [];
   for (const { row, access } of allowed) {
@@ -202,13 +241,12 @@ async function toLibraryItems(
   return out;
 }
 
-/** Newest first over openable items, paged by the last item's publicId. */
-async function pageItems(
-  viewerId: number,
+/** Newest first over listable items, paged by the last item's publicId. */
+async function pageRows(
   where: Prisma.ContentItemWhereInput,
   cursor: string | undefined,
   limit: number = LIBRARY_LIMITS.page
-): Promise<LibraryPage<LibraryItem>> {
+): Promise<{ rows: ItemWithCreator[]; nextCursor: string | null }> {
   let cursorOk = false;
   if (cursor) {
     const at = await prisma.contentItem.findFirst({
@@ -218,28 +256,77 @@ async function pageItems(
     cursorOk = !!at;
   }
   const rows = await prisma.contentItem.findMany({
-    where: { ...LIBRARY_ITEM_WHERE, ...where, user: LIBRARY_CREATOR_WHERE },
+    where: { ...libraryItemWhere(), ...where, user: LIBRARY_CREATOR_WHERE },
     include: { user: { select: ITEM_CREATOR_SELECT } },
     orderBy: [{ publishedAt: "desc" }, { id: "desc" }],
     ...(cursorOk ? { cursor: { publicId: cursor! }, skip: 1 } : {}),
     take: limit + 1,
   });
   const page = rows.slice(0, limit);
+  return { rows: page, nextCursor: rows.length > limit ? page[page.length - 1]!.publicId : null };
+}
+
+/**
+ * A page of items the fan can open. Rows the engine refuses drop out, so a
+ * page can come back shorter than the limit; the cursor still moves on.
+ */
+async function pageItems(
+  viewer: LibraryViewer,
+  where: Prisma.ContentItemWhereInput,
+  cursor: string | undefined,
+  source?: LibraryItem["accessSource"]
+): Promise<LibraryPage<LibraryItem>> {
+  const page = await pageRows(where, cursor);
+  const items = await toLibraryItems(viewer, page.rows);
   return {
-    items: await toLibraryItems(viewerId, page),
-    nextCursor: rows.length > limit ? page[page.length - 1]!.publicId : null,
+    items: source ? items.filter(item => item.accessSource === source) : items,
+    nextCursor: page.nextCursor,
   };
+}
+
+/** The Shop: listable items the fan can not open yet, each with its next step. */
+async function pageShop(
+  viewer: LibraryViewer,
+  creatorId: number,
+  cursor: string | undefined,
+  now: Date = new Date()
+): Promise<LibraryPage<LibraryShopItem>> {
+  if (!libraryGating()) return { items: [], nextCursor: null };
+  const page = await pageRows({ userId: creatorId, accessRuleId: { not: null } }, cursor);
+  const decisions = await libraryDecisions(viewer, page.rows);
+  const locked = page.rows.flatMap(row => {
+    const decision = decisions.get(row.publicId);
+    return decision && "locked" in decision ? [{ row, hint: decision.locked }] : [];
+  });
+  if (!locked.length) return { items: [], nextCursor: page.nextCursor };
+  const [cards, owners] = await Promise.all([
+    lockedCardsForItems(
+      locked.map(entry => entry.row),
+      now
+    ),
+    ownersFor([creatorId]),
+  ]);
+  const owner = owners.get(creatorId)?.owner;
+  const items: LibraryShopItem[] = [];
+  for (const { row, hint } of locked) {
+    const card = cards.get(row.publicId);
+    if (card && owner?.handle) items.push({ ...card, owner, unlockHint: hint });
+  }
+  return { items, nextCursor: page.nextCursor };
 }
 
 // ---------------------------------------------------------------- procedures
 
 /** Continue: up to 12 unfinished items, last played first, access rechecked. */
-export async function libraryContinue(viewerId: number, handle?: string): Promise<LibraryItem[]> {
+export async function libraryContinue(
+  viewer: LibraryViewer,
+  handle?: string
+): Promise<LibraryItem[]> {
   const creator = handle ? await creatorByHandle(handle) : null;
   if (handle && !creator) return [];
   const rows = await prisma.viewerProgress.findMany({
     where: {
-      userId: viewerId,
+      userId: viewer.userId,
       completed: false,
       ...(creator ? { contentItem: { userId: creator.id } } : {}),
     },
@@ -255,36 +342,47 @@ export async function libraryContinue(viewerId: number, handle?: string): Promis
       ) !== null
   );
   const items = await toLibraryItems(
-    viewerId,
+    viewer,
     unfinished.map(row => row.contentItem)
   );
   return items.slice(0, LIBRARY_LIMITS.continueMax);
 }
 
-/** Newest from the creators the fan follows. */
+/** Newest from the creators the fan is connected to. */
 export async function libraryNewest(
-  viewerId: number,
+  viewer: LibraryViewer,
   input: {
     cursor?: string;
     type?: Parameters<typeof toDbKind>[0];
-    source?: string;
+    source?: LibraryItem["accessSource"];
     where?: "everywhere" | "device";
     deviceIds?: string[];
   } = {}
 ): Promise<LibraryPage<LibraryItem>> {
-  // Before gating every listed item is public: any other source is an empty list
-  if (input.source && input.source !== "public") return { items: [], nextCursor: null };
-  const creatorIds = await followedCreatorIds(viewerId);
+  // Sources that need gating are empty while it is off, and purchases and
+  // memberships stay empty until FL-7: no query for an answer known now
+  if (input.source && input.source !== "public" && !libraryGating()) {
+    return { items: [], nextCursor: null };
+  }
+  if (input.source === "purchased" || input.source === "member") {
+    return { items: [], nextCursor: null };
+  }
+  const creatorIds = await connectedCreatorIds(viewer.userId);
   if (!creatorIds.length) return { items: [], nextCursor: null };
   if (input.where === "device" && !input.deviceIds?.length) return { items: [], nextCursor: null };
   return pageItems(
-    viewerId,
+    viewer,
     {
       userId: { in: creatorIds },
       ...(input.type ? { kind: toDbKind(input.type) } : {}),
       ...(input.where === "device" ? { publicId: { in: input.deviceIds } } : {}),
+      ...(input.source === "public" ? { accessRuleId: null } : {}),
+      ...(input.source === "pool" || input.source === "follower"
+        ? { accessRuleId: { not: null } }
+        : {}),
     },
-    input.cursor
+    input.cursor,
+    input.source
   );
 }
 
@@ -301,11 +399,12 @@ async function newCounts(
     where: { userId: viewerId, creatorId: { in: follows.map(follow => follow.creatorId) } },
   });
   const visitedAt = new Map(visits.map(visit => [visit.creatorId, visit.lastVisitedAt]));
+  const where = libraryItemWhere();
   const counts = await Promise.all(
     follows.map(async follow => {
       const since = visitedAt.get(follow.creatorId) ?? follow.followedAt;
       const count = await prisma.contentItem.count({
-        where: { userId: follow.creatorId, ...LIBRARY_ITEM_WHERE, publishedAt: { gt: since } },
+        where: { userId: follow.creatorId, ...where, publishedAt: { gt: since } },
       });
       return [follow.creatorId, count] as const;
     })
@@ -315,9 +414,10 @@ async function newCounts(
 
 /** Your creators: one row per followed creator, newest follow first. */
 export async function libraryCreators(
-  viewerId: number,
+  viewer: LibraryViewer,
   input: { cursor?: string; q?: string } = {}
 ): Promise<LibraryPage<LibraryCreatorRow>> {
+  const viewerId = viewer.userId;
   const q = input.q?.trim();
   const cursorId = input.cursor && /^\d+$/.test(input.cursor) ? Number(input.cursor) : null;
   const rows = await prisma.follow.findMany({
@@ -368,28 +468,69 @@ export async function libraryCreators(
 }
 
 /**
+ * Yours and Shop counts for a section. With gating on, the newest listable
+ * items (up to sectionCountScan) are decided in one batch; without it, Yours
+ * is a count of public items and Shop is empty.
+ */
+async function sectionCounts(
+  viewer: LibraryViewer,
+  creatorId: number
+): Promise<{ yours: number; shop: number }> {
+  if (!libraryGating()) {
+    const yours = await prisma.contentItem.count({
+      where: { userId: creatorId, ...libraryItemWhere() },
+    });
+    return { yours, shop: 0 };
+  }
+  const rows = await prisma.contentItem.findMany({
+    where: { userId: creatorId, ...libraryItemWhere(), user: LIBRARY_CREATOR_WHERE },
+    include: { user: { select: ITEM_CREATOR_SELECT } },
+    orderBy: [{ publishedAt: "desc" }, { id: "desc" }],
+    take: LIBRARY_LIMITS.sectionCountScan,
+  });
+  const decisions = await libraryDecisions(viewer, rows);
+  let yours = 0;
+  let shop = 0;
+  for (const decision of decisions.values()) {
+    if (decision && "open" in decision) yours += 1;
+    else if (decision && "locked" in decision) shop += 1;
+  }
+  return { yours, shop };
+}
+
+/** The fan's follow of this creator, and whether they stake in the creator's pool. */
+async function connectionTo(viewerId: number, creatorId: number) {
+  const [follow, poolFans] = await Promise.all([
+    prisma.follow.findUnique({
+      where: { follower_id_creator_id: { follower_id: viewerId, creator_id: creatorId } },
+      select: { show_publicly: true, email_updates: true },
+    }),
+    batchPoolFanCreatorIds([creatorId], viewerId),
+  ]);
+  const poolFan = poolFans.has(creatorId);
+  // A pool stake connects the fan only where gating can open pool items
+  const connected = creatorId !== viewerId && (!!follow || (poolFan && libraryGating()));
+  return { follow, poolFan, connected };
+}
+
+/**
  * The creator section header (board m4). Opening it records the visit, which
  * resets the new count. Null when the creator's page is not public.
  */
 export async function libraryCreator(
-  viewerId: number,
+  viewer: LibraryViewer,
   handle: string,
   now: Date = new Date()
 ): Promise<LibraryCreatorHeader | null> {
   const creator = await creatorByHandle(handle);
   if (!creator) return null;
-  const [info, follow, poolFans, yours] = await Promise.all([
+  const viewerId = viewer.userId;
+  const [info, link] = await Promise.all([
     ownerInfo([creator]),
-    prisma.follow.findUnique({
-      where: { follower_id_creator_id: { follower_id: viewerId, creator_id: creator.id } },
-      select: { show_publicly: true, email_updates: true },
-    }),
-    batchPoolFanCreatorIds([creator.id], viewerId),
-    prisma.contentItem.count({ where: { userId: creator.id, ...LIBRARY_ITEM_WHERE } }),
+    connectionTo(viewerId, creator.id),
   ]);
-  const own = creator.id === viewerId;
-  const connected = !!follow && !own;
-  if (connected) {
+  const counts = link.connected ? await sectionCounts(viewer, creator.id) : { yours: 0, shop: 0 };
+  if (link.connected) {
     await prisma.libraryCreatorVisit.upsert({
       where: { userId_creatorId: { userId: viewerId, creatorId: creator.id } },
       create: { id: uuidv7(), userId: viewerId, creatorId: creator.id, lastVisitedAt: now },
@@ -398,42 +539,38 @@ export async function libraryCreator(
   }
   const owner = info.get(creator.id)!;
   return {
-    connected,
+    connected: link.connected,
     owner: owner.owner,
     theme: owner.theme,
-    connection: connectionFor(!!follow, poolFans.has(creator.id)),
+    connection: connectionFor(!!link.follow, link.poolFan),
     status: {
       membership: null,
       purchases: { count: 0 },
-      follow: follow
-        ? { showPublicly: follow.show_publicly, emailUpdates: follow.email_updates }
+      follow: link.follow
+        ? { showPublicly: link.follow.show_publicly, emailUpdates: link.follow.email_updates }
         : null,
     },
-    counts: { yours: connected ? yours : 0, shop: 0 },
+    counts,
   };
 }
 
-/** Yours (newest; collections group it once bundles ship) or Shop (FL-6). */
+/** Yours (newest; collections group it once bundles ship) or Shop (locked items, FL-6). */
 export async function libraryCreatorItems(
-  viewerId: number,
+  viewer: LibraryViewer,
   input: { handle: string; seg: "yours" | "shop"; cursor?: string }
 ): Promise<LibraryPage<LibraryItem> | LibraryPage<LibraryShopItem>> {
   const empty = { items: [], nextCursor: null };
   const creator = await creatorByHandle(input.handle);
-  if (!creator || creator.id === viewerId) return empty;
-  const follow = await prisma.follow.findUnique({
-    where: { follower_id_creator_id: { follower_id: viewerId, creator_id: creator.id } },
-    select: { id: true },
-  });
-  if (!follow) return empty;
-  // Shop lists items the fan can not open yet; nothing is gated before FL-6
-  if (input.seg === "shop") return empty as LibraryPage<LibraryShopItem>;
-  return pageItems(viewerId, { userId: creator.id }, input.cursor);
+  if (!creator || creator.id === viewer.userId) return empty;
+  const link = await connectionTo(viewer.userId, creator.id);
+  if (!link.connected) return empty;
+  if (input.seg === "shop") return pageShop(viewer, creator.id, input.cursor);
+  return pageItems(viewer, { userId: creator.id }, input.cursor);
 }
 
 /** Search titles and descriptions of items the fan can open, grouped by creator. */
 export async function librarySearch(
-  viewerId: number,
+  viewer: LibraryViewer,
   input: {
     q: string;
     scope: "all" | "creator" | "device";
@@ -443,7 +580,7 @@ export async function librarySearch(
   }
 ): Promise<{ groups: LibrarySearchGroup[]; nextCursor: string | null }> {
   const empty = { groups: [], nextCursor: null };
-  let creatorIds = await followedCreatorIds(viewerId);
+  let creatorIds = await connectedCreatorIds(viewer.userId);
   if (input.scope === "creator") {
     const creator = input.handle ? await creatorByHandle(input.handle) : null;
     if (!creator || !creatorIds.includes(creator.id)) return empty;
@@ -453,7 +590,7 @@ export async function librarySearch(
   if (input.scope === "device" && !input.deviceIds?.length) return empty;
   const q = input.q.trim();
   const page = await pageItems(
-    viewerId,
+    viewer,
     {
       userId: { in: creatorIds },
       OR: [{ title: { contains: q } }, { description: { contains: q } }],
@@ -479,9 +616,10 @@ export function groupByOwner(items: LibraryItem[]): LibrarySearchGroup[] {
 
 /** Saved, newest save first. An item the fan can no longer open is hidden, not removed. */
 export async function librarySaved(
-  viewerId: number,
+  viewer: LibraryViewer,
   cursor?: string
 ): Promise<LibraryPage<LibraryItem>> {
+  const viewerId = viewer.userId;
   const cursorId = cursor && /^[0-9a-f]{32}$/.test(cursor) ? Buffer.from(cursor, "hex") : null;
   let cursorOk = false;
   if (cursorId) {
@@ -500,7 +638,7 @@ export async function librarySaved(
   });
   const page = rows.slice(0, LIBRARY_LIMITS.page);
   const items = await toLibraryItems(
-    viewerId,
+    viewer,
     page.map(row => row.contentItem)
   );
   return {
@@ -512,15 +650,18 @@ export async function librarySaved(
 export class LibraryNotFound extends Error {}
 
 /** Saves an item the fan can open. Saving twice keeps the first save. */
-export async function librarySave(viewerId: number, publicId: string): Promise<{ saved: true }> {
+export async function librarySave(
+  viewer: LibraryViewer,
+  publicId: string
+): Promise<{ saved: true }> {
   const item = await prisma.contentItem.findUnique({
     where: { publicId },
     include: { user: { select: ITEM_CREATOR_SELECT } },
   });
-  if (!item || !libraryAccess(item, item.user, viewerId)) throw new LibraryNotFound();
+  if (!item || !(await libraryOpenAccess(viewer, item))) throw new LibraryNotFound();
   await prisma.savedItem.upsert({
-    where: { userId_contentItemId: { userId: viewerId, contentItemId: item.id } },
-    create: { id: uuidv7(), userId: viewerId, contentItemId: item.id },
+    where: { userId_contentItemId: { userId: viewer.userId, contentItemId: item.id } },
+    create: { id: uuidv7(), userId: viewer.userId, contentItemId: item.id },
     update: {},
   });
   return { saved: true };
@@ -541,15 +682,16 @@ export async function libraryUnsave(viewerId: number, publicId: string): Promise
  * open; unknown items are not found.
  */
 export async function libraryMarkWatched(
-  viewerId: number,
+  viewer: LibraryViewer,
   publicId: string,
   now: Date = new Date()
 ): Promise<{ ok: true }> {
+  const viewerId = viewer.userId;
   const item = await prisma.contentItem.findUnique({
     where: { publicId },
     include: { user: { select: ITEM_CREATOR_SELECT } },
   });
-  if (!item || !libraryAccess(item, item.user, viewerId)) throw new LibraryNotFound();
+  if (!item || !(await libraryOpenAccess(viewer, item))) throw new LibraryNotFound();
   const durationMs = item.durationMs ?? null;
   await prisma.viewerProgress.upsert({
     where: { userId_contentItemId: { userId: viewerId, contentItemId: item.id } },

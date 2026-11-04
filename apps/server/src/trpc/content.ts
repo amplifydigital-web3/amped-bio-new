@@ -100,6 +100,7 @@ import {
   viewerFrom,
 } from "../services/access";
 import { isFeatureOn } from "../services/featureFlags";
+import { onContentPublished } from "../services/library/newContent";
 import { releaseAllowsSurface } from "../services/content/release";
 import {
   VIEWER_MESSAGES,
@@ -764,6 +765,9 @@ export const contentRouter = router({
       where: { id: item.id },
       data: { publishState: "PUBLISHED", publishedAt: item.publishedAt ?? new Date() },
     });
+    // First publish only (FL-6): new content alerts for a gated item, and the daily
+    // email to followers who chose updates. In the background; never fails the publish.
+    if (!item.publishedAt) void onContentPublished(updated);
     return ownerView(updated);
   }),
 
@@ -1170,8 +1174,7 @@ export const contentRouter = router({
     // Belt and braces: a refusal that is not about availability (kind_unavailable
     // after an engine error, for one) must not preview an item nobody may see
     const visible =
-      item &&
-      (decision.reason === "owner" ? ownerCanOpen(item) : isListedItem(item, item.user));
+      item && (decision.reason === "owner" ? ownerCanOpen(item) : isListedItem(item, item.user));
     if (!item || !visible) {
       throw new TRPCError({ code: "NOT_FOUND", message: VIEWER_MESSAGES.notFound });
     }

@@ -523,18 +523,24 @@ function VideoPlayer(props: MediaPlayerProps) {
             className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/80 p-[21px] text-center"
             role="alert"
           >
-            <p className="text-[17px] font-semibold">{copy.errorTitle}</p>
-            <p className="text-[14px] text-white/80">{copy.errorBody}</p>
-            <button
-              type="button"
-              onClick={event => {
-                event.stopPropagation();
-                player.retry();
-              }}
-              className="min-h-[44px] rounded-full bg-white px-[21px] font-semibold text-[#16152B] outline-none focus-visible:ring-2 focus-visible:ring-white"
-            >
-              {copy.retry}
-            </button>
+            <p className="text-[17px] font-semibold">
+              {state.error === "ended" ? copy.endedTitle : copy.errorTitle}
+            </p>
+            <p className="text-[14px] text-white/80">
+              {state.error === "ended" ? copy.endedBody : copy.errorBody}
+            </p>
+            {state.error !== "ended" && (
+              <button
+                type="button"
+                onClick={event => {
+                  event.stopPropagation();
+                  player.retry();
+                }}
+                className="min-h-[44px] rounded-full bg-white px-[21px] font-semibold text-[#16152B] outline-none focus-visible:ring-2 focus-visible:ring-white"
+              >
+                {copy.retry}
+              </button>
+            )}
           </div>
         )}
 
@@ -951,14 +957,18 @@ function AudioPlayer(props: MediaPlayerProps) {
             className="mt-[13px] flex items-center justify-between gap-3 rounded-[13px] bg-black/40 p-[13px]"
             role="alert"
           >
-            <span className="text-[14px]">{copy.errorTitle}</span>
-            <button
-              type="button"
-              onClick={player.retry}
-              className="min-h-[44px] rounded-full bg-white px-[21px] font-semibold text-[#16152B]"
-            >
-              {copy.retry}
-            </button>
+            <span className="text-[14px]">
+              {state.error === "ended" ? copy.endedTitle : copy.errorTitle}
+            </span>
+            {state.error !== "ended" && (
+              <button
+                type="button"
+                onClick={player.retry}
+                className="min-h-[44px] rounded-full bg-white px-[21px] font-semibold text-[#16152B]"
+              >
+                {copy.retry}
+              </button>
+            )}
           </div>
         )}
       </div>

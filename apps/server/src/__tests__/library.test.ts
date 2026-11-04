@@ -2,7 +2,7 @@
  * Fan Library API (Build Board #26, FL-2, spec 3.4 and 3.6). The rules that
  * matter: the Library lists only what the fan can open now, and says how;
  * a fan can not save what they can not open; the section records a visit only
- * for a connected fan; Shop is empty until gating; everything waits on the
+ * for a connected fan; Shop is empty while gating is off; everything waits on the
  * fanLibrary flag. The database is mocked.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -240,7 +240,7 @@ describe("creator section", () => {
     await expect(fan.creator({ handle: "maya" })).rejects.toMatchObject({ code: "NOT_FOUND" });
   });
 
-  it("returns an empty Shop until gating ships, and no media", async () => {
+  it("returns an empty Shop while accessGating is off, and no media", async () => {
     db.follow.findUnique.mockResolvedValue({ id: 1 });
     await expect(fan.creatorItems({ handle: "maya", seg: "shop" })).resolves.toEqual({
       items: [],

@@ -21,6 +21,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { PHONE_QUERY, useMediaQuery } from "@/hooks/useMediaQuery";
 import { useEditor } from "@/contexts/EditorContext";
 import { PersonAvatar } from "./parts";
+import { LIBRARY_PATHS } from "../library/paths";
 import { rowTime } from "./util";
 
 type Item = RouterOutputs["notifications"]["list"][number];
@@ -147,20 +148,31 @@ function BellList({ open, onNavigate }: { open: boolean; onNavigate: () => void 
   if (items.length === 0) {
     return <EmptyState icon={Bell} title={B.empty} description={B.emptyBody} className="py-5" />;
   }
-  const target = (item: Item) =>
-    item.kind === "BROADCAST"
+  const target = (item: Item) => {
+    if (item.kind === "CONTENT") {
+      // One new item opens it; several open the creator's Library section (FL-6)
+      const handle = item.actor?.handle;
+      if (!handle) return LIBRARY_PATHS.home;
+      return item.count === 1 && item.content?.title
+        ? LIBRARY_PATHS.item(handle, item.content.publicId)
+        : LIBRARY_PATHS.creator(handle);
+    }
+    return item.kind === "BROADCAST"
       ? `/inbox?tab=broadcast${item.broadcastId ? `&b=${item.broadcastId}` : ""}`
       : `/inbox?tab=${item.kind === "REQUEST" ? "requests" : "primary"}&c=${item.conversationId}`;
+  };
   return (
     <ul className="max-h-[420px] overflow-y-auto py-1">
       {items.map(item => {
         const handle = item.actor?.handle ?? B.someone;
         const text =
-          item.kind === "BROADCAST"
-            ? B.broadcast(handle)
-            : item.kind === "REQUEST"
-              ? B.request(handle)
-              : B.message(handle, item.count);
+          item.kind === "CONTENT"
+            ? B.content(handle, item.count, item.content?.title ?? null)
+            : item.kind === "BROADCAST"
+              ? B.broadcast(handle)
+              : item.kind === "REQUEST"
+                ? B.request(handle)
+                : B.message(handle, item.count);
         return (
           <li key={item.id}>
             <button

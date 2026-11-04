@@ -25,6 +25,7 @@ import {
   contentPlayCompleted,
 } from "@repo/constants";
 import { attachSource, type Attachment } from "./attach";
+import { isAccessEnded } from "./content";
 import {
   PREVIOUS_RESTART_MS,
   appendToQueue,
@@ -475,8 +476,14 @@ export function PlayerProvider({
           currentRef.current = { ...now, source: next };
           setCurrent(currentRef.current);
           scheduleRefresh(next.expiresAt, token);
-        } catch {
-          // Access may have ended (a fan who lost access finishes this play only)
+        } catch (error) {
+          if (isAccessEnded(error)) {
+            // A refused refresh stops playback (Fan Library FL-6, spec 3.4)
+            (now.item.kind === "video" ? videoRef.current : audioRef.current)?.pause();
+            setState({ error: "ended", playing: false });
+            return;
+          }
+          // Another failure: the current signed URL plays until it lapses
           setState({ error: "expired" });
         }
       }, refreshDelayMs(expiresAt));
@@ -551,8 +558,10 @@ export function PlayerProvider({
       let source: PlayerSource;
       try {
         source = await resolve();
-      } catch {
-        if (loadToken.current === token) setState({ error: "load", loading: false });
+      } catch (error) {
+        if (loadToken.current === token) {
+          setState({ error: isAccessEnded(error) ? "ended" : "load", loading: false });
+        }
         return;
       }
       if (loadToken.current !== token) return;
