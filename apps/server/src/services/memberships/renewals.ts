@@ -34,6 +34,7 @@ import MembershipRenewalTemplate from "../../utils/email/MembershipRenewalTempla
 import { paymentClient, usdcAddress } from "../usdc/chain";
 import { RelayerError, getRelayer } from "../usdc/relayer";
 import { checkIdentity } from "../identity/checks";
+import { isFeatureOn } from "../featureFlags";
 import { sendPush } from "../notifications/push";
 import { ampedMembershipsAddress } from "../payments/onchain";
 import { paymentsReady } from "../payments/ready";
@@ -316,7 +317,16 @@ export async function chargeOnce(contract: Address, now = new Date()): Promise<n
       charged += 1;
       continue;
     }
-    if (!chain.active) continue;
+    if (!chain.active) {
+      // Ended on chain outside this server (the member called cancel from their wallet, or
+      // another instance's relayer ended it). Charges are already stopped: record it so
+      // closeCanceledOnce ends the row at the period end instead of it reading active forever.
+      await prisma.membership.updateMany({
+        where: { id: Buffer.from(row.id), status: { in: ["active", "past_due"] } },
+        data: { status: "canceled", canceledAt: now },
+      });
+      continue;
+    }
     let txHash: Hex | null = null;
     let reverted = false;
     try {
@@ -354,11 +364,22 @@ export async function chargeOnce(contract: Address, now = new Date()): Promise<n
         continue; // no receipt yet: the chain read settles it next hour
       }
     }
-    if (reverted && row.status === "active") {
-      await prisma.membership.updateMany({
-        where: { id: Buffer.from(row.id), status: "active" },
-        data: { status: "past_due", pastDueSince: row.currentPeriodEnd ?? now },
-      });
+    if (reverted) {
+      // Every instance in the hour sends the same idempotency key, and a renewal that lands
+      // between our read and our call makes the contract refuse this period as not due. Read
+      // once more before calling it a failure: a member who paid is never marked past due.
+      const after = await readSubscription(contract, row.id);
+      if (after && after.charges > row.chargeCount) {
+        await applyCharge(row.id, { charge: after.charges, nextDue: after.nextDue, txHash }, now);
+        charged += 1;
+        continue;
+      }
+      if (row.status === "active") {
+        await prisma.membership.updateMany({
+          where: { id: Buffer.from(row.id), status: "active" },
+          data: { status: "past_due", pastDueSince: row.currentPeriodEnd ?? now },
+        });
+      }
     }
   }
   return charged;
@@ -406,10 +427,12 @@ export async function closeCanceledOnce(now = new Date()): Promise<number> {
   return moved.count;
 }
 
-/** One pass of every step. */
+/** One pass of every step. The checkout flag is read on every pass, so turning it off stops
+ * charges and reminders without a restart. */
 export async function runRenewalsOnce(now = new Date()) {
-  const contract = ampedMembershipsAddress();
   const out = { ready: 0, seller: 0, charged: 0, grace: 0, closed: 0 };
+  if (!isFeatureOn("checkout")) return out;
+  const contract = ampedMembershipsAddress();
   out.closed = await closeCanceledOnce(now);
   if (!contract || !paymentsReady()) return out;
   out.seller = await sellerPassOnce(now);

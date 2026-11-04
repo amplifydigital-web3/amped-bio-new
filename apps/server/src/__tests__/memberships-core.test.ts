@@ -6,7 +6,7 @@
  * keep access 7 days with reminders on day 1, 3 and 6, then end; a lapsed seller pauses
  * renewals; nothing is charged twice. The database and the chain are faked.
  */
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { privateKeyToAccount } from "viem/accounts";
 import { decodeFunctionData, getAddress, type Address } from "viem";
 import {
@@ -47,6 +47,8 @@ const chain = vi.hoisted(() => ({
     charges: number;
     active: boolean;
   },
+  /** getSubscription answers queued ahead of `sub`, for a read that changes mid pass */
+  subReads: [] as { nextDue: bigint; charges: number; active: boolean }[],
   relayer: vi.fn(),
   receipt: null as unknown,
   seller: true,
@@ -71,7 +73,8 @@ vi.mock("../services/usdc/chain", () => ({
       if (functionName === "nonces") return chain.nonce;
       if (functionName === "allowance") return chain.allowance;
       if (functionName === "balanceOf") return chain.balance;
-      if (functionName === "getSubscription") return chain.sub;
+      if (functionName === "getSubscription")
+        return chain.subReads.length ? chain.subReads.shift() : chain.sub;
       throw new Error(functionName);
     }),
     waitForTransactionReceipt: vi.fn(async () => chain.receipt),
@@ -143,6 +146,7 @@ import {
   submitJoin,
   prepareCancel,
   submitCancel,
+  settlePendingJoinsOnce,
   allowanceFor,
   joinRecipients,
   periodFee,
@@ -159,9 +163,11 @@ import {
   closeCanceledOnce,
   graceOnce,
   readinessOnce,
+  runRenewalsOnce,
   sellerPassOnce,
   addUsdcPath,
 } from "../services/memberships/renewals";
+import { __setFeatureFlagOverridesForTests } from "../services/featureFlags";
 import { sendPush } from "../services/notifications/push";
 import { deliverEmail } from "../utils/email/transport";
 
@@ -203,6 +209,7 @@ beforeEach(() => {
     paused: false,
     seller: true,
     sub: { nextDue: 0n, charges: 1, active: true },
+    subReads: [],
     receipt: null,
   });
   chain.relayer.mockResolvedValue("0xfeed");
@@ -402,6 +409,10 @@ describe("join", () => {
     expect(await allowanceFor(FAN, { price: 5_000_000n, interval: "every_30_days" })).toBe(
       80_000_000n
     );
+    // A join that is already sent will charge, so its periods count too
+    expect(db.membership.findMany.mock.calls[0][0].where.status).toEqual({
+      in: ["active", "past_due", "joining"],
+    });
   });
 
   it("refuses the creator's own plan, a current member, a lapsed seller and a short wallet", async () => {
@@ -413,6 +424,11 @@ describe("join", () => {
     expect(await prepareJoin(FAN, { handle: "maya", interval: "every_30_days" }, NOW)).toEqual({
       refused: true,
       reason: "already_member",
+    });
+    // A join already on its way to the chain is a membership too: a second one would be a
+    // second subscription and a second charge for the same plan
+    expect(db.membership.findFirst.mock.calls[0][0].where.OR[0]).toEqual({
+      status: { in: ["joining", "active", "past_due"] },
     });
     chain.seller = false;
     expect(await prepareJoin(FAN, { handle: "maya", interval: "every_30_days" }, NOW)).toEqual({
@@ -448,6 +464,50 @@ describe("join", () => {
     const signed = await signJoin(prepared, otherKey);
     expect(await submitJoin(FAN, signed, NOW, 0)).toEqual({ refused: true, reason: "signature" });
     expect(chain.relayer).not.toHaveBeenCalled();
+  });
+
+  it("marks a join the relayer definitely refused as failed", async () => {
+    const prepared = await prepareJoin(FAN, { handle: "maya", interval: "every_30_days" }, NOW);
+    const signed = await signJoin(prepared);
+    const { RelayerError } = await import("../services/usdc/relayer");
+    chain.relayer.mockRejectedValueOnce(
+      new (RelayerError as unknown as new (c: string) => Error)("reverted")
+    );
+    expect(await submitJoin(FAN, signed, NOW, 0)).toEqual({ refused: true, reason: "relayer" });
+    expect(db.membership.updateMany.mock.calls.at(-1)![0]).toMatchObject({
+      where: { id: (created as { id: Uint8Array }).id, status: "joining" },
+      data: { status: "failed", failureCode: "reverted" },
+    });
+  });
+
+  it("settles a join whose relayer response was lost from the chain", async () => {
+    const prepared = await prepareJoin(FAN, { handle: "maya", interval: "every_30_days" }, NOW);
+    const signed = await signJoin(prepared);
+    const { RelayerError } = await import("../services/usdc/relayer");
+    // CDP accepted the transaction; only the response was lost, so there is no hash to read
+    chain.relayer.mockRejectedValueOnce(
+      new (RelayerError as unknown as new (c: string) => Error)("unavailable")
+    );
+    expect(await submitJoin(FAN, signed, NOW, 0)).toMatchObject({
+      refused: false,
+      status: "joining",
+      txHash: null,
+    });
+    expect(db.membership.updateMany.mock.calls.at(-1)![0].data).toEqual({
+      failureCode: "unconfirmed",
+    });
+
+    // The worker finds the subscription under the membership ref and activates the row
+    created = { ...(created as Record<string, unknown>), status: "joining" };
+    db.membership.findMany.mockResolvedValueOnce([
+      { id: (created as { id: Uint8Array }).id, updatedAt: NOW },
+    ]);
+    chain.sub = { nextDue: 1_796_000_000n, charges: 1, active: true };
+    expect(await settlePendingJoinsOnce(NOW)).toBe(1);
+    const applied = db.membership.updateMany.mock.calls.find(
+      call => call[0].data?.chargeCount !== undefined
+    );
+    expect(applied![0].data).toMatchObject({ status: "active", chargeCount: 1 });
   });
 
   it("splits like the contract", () => {
@@ -548,6 +608,29 @@ describe("access", () => {
     });
     expect(await isMember(FAN, MAYA, NOW)).toBe(false);
   });
+
+  it("stops an active membership one keeper tick after its period end", async () => {
+    db.membership.findFirst.mockResolvedValueOnce({
+      status: "active",
+      currentPeriodEnd: new Date(NOW.getTime() + DAY),
+      pastDueSince: null,
+    });
+    expect(await isMember(FAN, MAYA, NOW)).toBe(true);
+    // The job runs hourly: the gap between the period end and past due keeps access
+    db.membership.findFirst.mockResolvedValueOnce({
+      status: "active",
+      currentPeriodEnd: new Date(NOW.getTime() - 30 * 60_000),
+      pastDueSince: null,
+    });
+    expect(await isMember(FAN, MAYA, NOW)).toBe(true);
+    // A row still reading active long after its period was never charged again
+    db.membership.findFirst.mockResolvedValueOnce({
+      status: "active",
+      currentPeriodEnd: new Date(NOW.getTime() - 2 * 60 * 60_000),
+      pastDueSince: null,
+    });
+    expect(await isMember(FAN, MAYA, NOW)).toBe(false);
+  });
 });
 
 function renewalRow(over: Record<string, unknown> = {}) {
@@ -640,6 +723,36 @@ describe("renewals", () => {
     });
   });
 
+  it("applies a renewal that landed before the revert instead of going past due", async () => {
+    // Another instance charged between this pass's read and its renew call
+    db.membership.findMany.mockResolvedValueOnce([renewalRow()]);
+    chain.subReads.push(
+      { nextDue: 0n, charges: 1, active: true },
+      { nextDue: 1_796_000_000n, charges: 2, active: true }
+    );
+    const { RelayerError } = await import("../services/usdc/relayer");
+    chain.relayer.mockRejectedValueOnce(
+      new (RelayerError as unknown as new (c: string) => Error)("reverted")
+    );
+    expect(await chargeOnce(CONTRACT, NOW)).toBe(1);
+    expect(db.membership.updateMany.mock.calls[0][0].data).toMatchObject({
+      status: "active",
+      chargeCount: 2,
+      pastDueSince: null,
+    });
+  });
+
+  it("records a subscription ended on chain outside the server as canceled", async () => {
+    db.membership.findMany.mockResolvedValueOnce([renewalRow()]);
+    chain.sub = { nextDue: 0n, charges: 1, active: false };
+    expect(await chargeOnce(CONTRACT, NOW)).toBe(0);
+    expect(chain.relayer).not.toHaveBeenCalled();
+    expect(db.membership.updateMany.mock.calls[0][0]).toMatchObject({
+      where: { status: { in: ["active", "past_due"] } },
+      data: { status: "canceled", canceledAt: NOW },
+    });
+  });
+
   it("reminds on day 1, 3 and 6 of the grace, once each", async () => {
     db.membership.findMany.mockResolvedValueOnce([
       renewalRow({
@@ -708,5 +821,26 @@ describe("renewals", () => {
       where: { status: "canceled" },
       data: { status: "ended", endReason: "member_canceled" },
     });
+  });
+});
+
+describe("renewal job", () => {
+  afterEach(() => __setFeatureFlagOverridesForTests({}));
+
+  it("charges and reminds only while the checkout flag is on", async () => {
+    __setFeatureFlagOverridesForTests({ checkout: false });
+    expect(await runRenewalsOnce(NOW)).toEqual({
+      ready: 0,
+      seller: 0,
+      charged: 0,
+      grace: 0,
+      closed: 0,
+    });
+    expect(db.membership.findMany).not.toHaveBeenCalled();
+    expect(db.membership.updateMany).not.toHaveBeenCalled();
+
+    __setFeatureFlagOverridesForTests({ checkout: true });
+    db.membership.updateMany.mockResolvedValueOnce({ count: 1 });
+    expect(await runRenewalsOnce(NOW)).toMatchObject({ closed: 1 });
   });
 });

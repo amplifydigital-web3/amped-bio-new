@@ -135,18 +135,21 @@ export function JoinPage() {
         return;
       }
       // Still landing: poll a few times
+      let last: string = sent.status;
       for (let i = 0; i < 10; i++) {
         await new Promise(resolve => setTimeout(resolve, 3000));
         const status = await trpcClient.memberships.join.status.query({
           membershipId: result.membershipId,
         });
+        last = status.status;
         if (status.status === "active") {
           setPhase("done");
           return;
         }
         if (status.status === "failed") break;
       }
-      setError(MEMBERSHIP_COPY.refusals.relayer);
+      // A join still in flight may land: never tell the fan nothing was taken
+      setError(last === "joining" ? J.pending : MEMBERSHIP_COPY.refusals.relayer);
       setPhase("idle");
     } catch (failure) {
       setError(
