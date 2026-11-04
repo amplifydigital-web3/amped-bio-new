@@ -123,20 +123,23 @@ vi.mock("@repo/database", () => ({
 
 import { ACCESS_RULE_PARAMS, accessRuleInputSchema, type AccessDecision } from "@repo/constants";
 import {
-  __resetStakeKindsAllowlistCacheForTests,
-  STAKE_KINDS_ALLOWLIST_CACHE_MS,
   ageDecision,
   check,
+  clearEventDedupe,
   clearResolvers,
   eligibleUserIds,
   open,
-  parseStakeKindsAllowlist,
-  readStakeKindsAllowlist,
   registerResolver,
-  setStakeKindsAllowlist,
-  stakeKindsAllowed,
   viewerKey,
 } from "../services/access/engine";
+import {
+  __resetStakeKindsAllowlistCacheForTests,
+  STAKE_KINDS_ALLOWLIST_CACHE_MS,
+  parseStakeKindsAllowlist,
+  readStakeKindsAllowlist,
+  setStakeKindsAllowlist,
+  stakeKindsAllowed,
+} from "../services/access/allowlist";
 import { parseRuleRow } from "../services/access/rules";
 
 const fan = { userId: FAN, wallet: "0xfan" };
@@ -182,6 +185,7 @@ beforeEach(() => {
   state.allowlistError = false;
   __resetStakeKindsAllowlistCacheForTests();
   state.events = [];
+  clearEventDedupe();
 });
 
 describe("preconditions", () => {
@@ -462,6 +466,50 @@ describe("open (acceptance 12)", () => {
     const passed = await open(fan, resource, reveal);
     expect(passed.value).toBe("secret");
     expect(reveal).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("access events (content gating 3.6)", () => {
+  const flush = () => new Promise(resolve => setTimeout(resolve, 0));
+
+  it("records a locked render once per viewer key and resource in 10 minutes", async () => {
+    gateWith(addRule("follower", {}));
+    for (let i = 0; i < 5; i += 1) await check(fan, resource);
+    await check(anon, resource);
+    await check(fan, { type: "block", id: "2" });
+    await flush();
+    const types = (
+      state.events as Array<{ type: string; viewerKey: string; resource: string }>
+    ).map(event => `${event.type}:${event.viewerKey.slice(0, 2)}:${event.resource}`);
+    expect(types).toEqual([
+      "locked_view:u::block:1",
+      "locked_view:v::block:1",
+      "locked_view:u::block:2",
+    ]);
+  });
+
+  it("records no event for a passing render", async () => {
+    gateWith(addRule("follower", {}));
+    state.follow = "active";
+    await check(fan, resource);
+    await flush();
+    expect(state.events).toHaveLength(0);
+  });
+
+  it("records denied and revealed on open every time", async () => {
+    gateWith(addRule("follower", {}));
+    await open(fan, resource, async () => "x");
+    await open(fan, resource, async () => "x");
+    state.follow = "active";
+    await open(fan, resource, async () => "x");
+    await open(fan, resource, async () => "x");
+    await flush();
+    expect((state.events as Array<{ type: string }>).map(event => event.type)).toEqual([
+      "denied",
+      "denied",
+      "revealed",
+      "revealed",
+    ]);
   });
 });
 

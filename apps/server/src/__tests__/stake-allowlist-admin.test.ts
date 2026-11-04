@@ -17,7 +17,7 @@ const store = vi.hoisted(() => ({
 
 vi.mock("@repo/database", () => ({ prisma: db, Prisma: {} }));
 vi.mock("../utils/auth", () => ({ auth: { api: {} } }));
-vi.mock("../services/access/engine", () => ({
+vi.mock("../services/access/allowlist", () => ({
   readStakeKindsAllowlist: store.readStakeKindsAllowlist,
   setStakeKindsAllowlist: store.setStakeKindsAllowlist,
   parseStakeKindsAllowlist: (list: string) =>

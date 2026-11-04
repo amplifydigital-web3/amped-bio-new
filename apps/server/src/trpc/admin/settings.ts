@@ -7,7 +7,7 @@ import {
   parseStakeKindsAllowlist,
   readStakeKindsAllowlist,
   setStakeKindsAllowlist,
-} from "../../services/access/engine";
+} from "../../services/access/allowlist";
 import { env } from "../../env";
 
 /** users.id is a signed INT: anything above it can never match a creator */
