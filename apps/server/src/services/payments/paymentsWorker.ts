@@ -119,12 +119,20 @@ export async function indexPaymentLogsOnce(now = new Date()): Promise<number> {
       continue;
     }
     const id = hexToPurchaseId(idHex);
+    // A ref minted by another database on the same contract (local and staging share Base
+    // Sepolia): skip it, or settlePurchase throws and the cursor never moves again
+    const known = await prisma.purchase.findUnique({ where: { id }, select: { id: true } });
+    if (!known) {
+      console.warn("[payments] AmpedPay log for a purchase this database does not hold", idHex);
+      continue;
+    }
     if (event.kind === "purchase_paid") {
       // The submit response was lost, or the worker marked it failed too early: the log decides
       const txHash = event.log.transactionHash;
       if (txHash) {
         await prisma.purchase.updateMany({
-          where: { id, status: { in: ["submitting", "submitted", "failed"] } },
+          // expired too: a Paid log is final, whatever the row said
+          where: { id, status: { in: ["submitting", "submitted", "failed", "expired"] } },
           data: { txHash, status: "submitted" },
         });
       }
