@@ -102,6 +102,16 @@ describe("Specular buttons", () => {
     expect(
       renderToStaticMarkup(<CreatorButton theme={{ buttonStyle: 3 }} label="Shop" href="/shop" />)
     ).not.toContain("data-fx");
+    // #445: pool, stake and wallet buttons pass effects={false}; the rim light drops too
+    const off = renderToStaticMarkup(
+      <CreatorButton
+        theme={{ buttonStyleId: "button.specular" }}
+        label="Shop"
+        href="/shop"
+        effects={false}
+      />
+    );
+    expect(off).not.toContain('data-fx="specular"');
     expect(renderToStaticMarkup(<ButtonFx entry={getEffect("button", "button.soft")} />)).toBe("");
   });
 });

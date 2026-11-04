@@ -135,8 +135,8 @@ export function CreatorButton({
   };
   const content = (
     <>
-      {/* Phase 3d: Specular draws its rim light here, under the label */}
-      <ButtonFx entry={look.button} />
+      {/* Phase 3d: Specular draws its rim light here, under the label (dropped with effects off) */}
+      {effects && <ButtonFx entry={look.button} />}
       <span aria-hidden className="flex h-[21px] w-[21px] shrink-0 items-center justify-center">
         {icon}
       </span>
