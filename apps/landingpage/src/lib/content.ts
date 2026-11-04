@@ -1,5 +1,10 @@
 import type { ContentCard, ContentPlayback } from "@repo/constants";
-import { requirePlayerSource, type PlayerItem, type SourceResolver } from "@repo/ui";
+import {
+  requirePlayerSource,
+  type PlayerItem,
+  type QueueEntry,
+  type SourceResolver,
+} from "@repo/ui";
 import { trpcClient } from "./trpc";
 
 /**
@@ -45,7 +50,27 @@ export function playerItemFromCard(
     durationMs: card.durationMs,
     chapters: chapters ?? null,
     href: contentItemPath(creator.handle, card.publicId),
+    ownerId: creator.handle,
   };
+}
+
+/**
+ * Up next for an item page (Fan Library FL-1): the creator's newest video and
+ * audio from their public feed. The feed lists only items every visitor can
+ * open, so each entry is openable; the player still checks canOpen.
+ */
+export async function fetchUpNext(
+  creator: { handle: string; name: string | null },
+  currentId: string
+): Promise<QueueEntry[]> {
+  const page = await trpcClient.content.feed.query({ handle: creator.handle, limit: 24 });
+  return page.items
+    .filter(card => (card.kind === "video" || card.kind === "audio") && card.publicId !== currentId)
+    .map(card => ({
+      item: playerItemFromCard(card, creator),
+      resolve: resolverFor(card.publicId),
+      canOpen: true,
+    }));
 }
 
 /** "Today", "Yesterday", "3 days ago", then "Oct 6" (this year) or "Oct 6, 2025". */

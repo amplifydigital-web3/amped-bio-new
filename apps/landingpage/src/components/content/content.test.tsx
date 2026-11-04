@@ -14,6 +14,13 @@ import {
 const mocks = vi.hoisted(() => ({
   report: vi.fn(),
   readUrl: vi.fn(),
+  feed: vi.fn(),
+  push: vi.fn(),
+  back: vi.fn(),
+}));
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: mocks.push, back: mocks.back }),
 }));
 
 vi.mock("next/link", () => ({
@@ -40,6 +47,7 @@ vi.mock("@/lib/trpc", () => ({
     content: {
       report: { mutate: mocks.report },
       getReadUrl: { query: mocks.readUrl },
+      feed: { query: mocks.feed },
     },
   },
 }));
@@ -47,6 +55,9 @@ vi.mock("./PdfViewer", () => ({ PdfViewer: () => <div data-testid="pdf" /> }));
 
 import { ContentBlock } from "./ContentBlock";
 import { ItemPageView } from "./ItemPageView";
+import { matchingPages } from "@/lib/pdfSearch";
+import { FeatureFlagsProvider } from "@/components/providers/FeatureFlagsProvider";
+import { PLAYER_COPY, PlayerProvider } from "@repo/ui";
 import { SITE_CONTENT_COPY } from "./copy";
 import { isoDuration, publishedLabel } from "@/lib/content";
 import { buildContentFeedJsonLd, buildContentItemJsonLd } from "@/lib/contentSeo";
@@ -242,5 +253,61 @@ describe("ItemPageView", () => {
   it("says when a file has no download", () => {
     render(<ItemPageView item={item({ kind: "file" })} />);
     expect(screen.getByText(SITE_CONTENT_COPY.downloadsOff)).toBeInTheDocument();
+  });
+
+  it("keeps the PR 6 page when the Fan Library flag is off", () => {
+    render(
+      <PlayerProvider>
+        <ItemPageView item={item({ kind: "audio" })} />
+      </PlayerProvider>
+    );
+    expect(mocks.feed).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: PLAYER_COPY.moreFor("Item a") })).toBeNull();
+  });
+
+  it("adds More, Report, the queue and up next from the creator with the flag on (FL-1)", async () => {
+    mocks.feed.mockResolvedValue({
+      creator: { handle: "maya", name: "Maya Lin", image: null },
+      items: [card("a"), card("b", { title: "Harbor at 5 a.m." }), card("c", { kind: "image" })],
+      nextCursor: null,
+    });
+    render(
+      <FeatureFlagsProvider overrides={{ fanLibrary: true }}>
+        <PlayerProvider>
+          <ItemPageView item={item({ kind: "video" })} />
+        </PlayerProvider>
+      </FeatureFlagsProvider>
+    );
+    expect(mocks.feed).toHaveBeenCalledWith({ handle: "maya", limit: 24 });
+    // Up next lists the creator's other video and audio, never the item itself or images
+    expect(
+      await screen.findByRole("button", { name: PLAYER_COPY.playItem("Harbor at 5 a.m.") })
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: PLAYER_COPY.playItem("Item c") })).toBeNull();
+    expect(screen.getByRole("button", { name: PLAYER_COPY.moreFor("Item a") })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: PLAYER_COPY.keyboardShortcuts })).toBeInTheDocument();
+    // The phone Report sits in More; the page row has the desktop one first
+    const [report] = screen.getAllByRole("button", { name: PLAYER_COPY.report });
+    fireEvent.click(report!);
+    expect(await screen.findByText(SITE_CONTENT_COPY.reportIntro)).toBeInTheDocument();
+  });
+
+  it("shows an image in the photo viewer with zoom", () => {
+    render(
+      <ItemPageView
+        item={item({ kind: "image", cover: { src: "https://m/i.webp", srcSet: "" } as never })}
+      />
+    );
+    expect(screen.getByRole("img", { name: "Item a" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: PLAYER_COPY.zoomIn })).toBeInTheDocument();
+  });
+});
+
+describe("document search", () => {
+  it("finds the pages that hold every word, in page order", () => {
+    const texts = ["Setting up mics", "Recording rain on tin", "rain gauge", "Tin roof and RAIN"];
+    expect(matchingPages(texts, "rain tin")).toEqual([2, 4]);
+    expect(matchingPages(texts, "  ")).toEqual([]);
+    expect(matchingPages(texts, "snow")).toEqual([]);
   });
 });
