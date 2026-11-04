@@ -1,15 +1,21 @@
+import { messageDoor } from "../services/messaging/messageDoor";
 import { publicProcedure, privateProcedure, router } from "./trpc";
 import { TRPCError } from "@trpc/server";
 import { getFileUrl } from "../utils/fileUrlResolver";
 import { ThemeConfig } from "@repo/constants";
 import { prisma } from "@repo/database";
 import { z } from "zod";
-import { HANDLE_MIN_LENGTH, HANDLE_REGEX, sanitizeRichText } from "@repo/constants";
+import {
+  HANDLE_MIN_LENGTH,
+  HANDLE_REGEX,
+  publicReservedReason,
+  sanitizeRichText,
+} from "@repo/constants";
 import { sanitizeBlockConfig } from "../utils/sanitizeBlockConfig";
 import { logger } from "better-auth";
 import { getPublicTrackingPixels } from "./trackingPixels";
 import { showsTelegramMark } from "../services/telegram/accounts";
-import { telegramDoor } from "../services/messaging/door";
+import { telegramDoor, telegramGroupDoor } from "../services/messaging/door";
 import { indexableUserWhere, isUserIndexable } from "../utils/indexable";
 import {
   computeRnsIdentity,
@@ -17,7 +23,13 @@ import {
   rnsIdBlockOptions,
   type PublicRnsIdentity,
 } from "../services/rnsIdentity";
-import { assertHandleAvailable, newHandleSchema } from "../services/pageHandle";
+import { changeHandle, newHandleSchema } from "../services/pageHandle";
+import { matchReserved } from "../services/reservedHandles";
+import { enforceRateLimits } from "../utils/rateLimit";
+import { getVisitorIp } from "../services/analytics/visitorIp";
+import { publicCardsFor } from "../services/content/publicView";
+import { publicBlocksFor } from "../services/access/blocks";
+import type { ContentBlockConfig, ContentCard } from "@repo/constants";
 
 export const SITEMAP_MAX_PAGE_SIZE = 10000;
 
@@ -70,26 +82,44 @@ function settledOrFallback<T>(result: PromiseSettledResult<T>, fallback: T, labe
 }
 
 const appRouter = router({
-  // Check if a handle is available for use
-  checkAvailability: publicProcedure.input(handleParamSchema).query(async ({ input }) => {
+  // Check if a handle is available for use. Reserved handles (Build Board D2,
+  // spec 4.3): a reserved word answers reason "reserved", or "taken" for
+  // partner and hold words (A5). The account lookup always runs, so reserved
+  // and free words take the same time. Limited per IP.
+  checkAvailability: publicProcedure.input(handleParamSchema).query(async ({ ctx, input }) => {
     const { handle } = input;
 
+    const ip = getVisitorIp(ctx.req).ip || "unknown";
+    await enforceRateLimits(
+      [{ key: `handle-check:${ip}`, limit: 60, windowSeconds: 60 }],
+      "Too many checks. Try again in a minute."
+    );
+
     try {
-      const count = await prisma.user.count({
-        where: {
-          OR: [
-            { handle: handle },
-            { handle: handle.toLowerCase() },
-            { handle: handle.toUpperCase() },
-          ],
-        },
-      });
+      const [count, match] = await Promise.all([
+        prisma.user.count({
+          where: {
+            OR: [
+              { handle: handle },
+              { handle: handle.toLowerCase() },
+              { handle: handle.toUpperCase() },
+            ],
+          },
+        }),
+        matchReserved(handle),
+      ]);
+
+      const reservedReason = publicReservedReason(match);
+      if (reservedReason) {
+        return { available: false, handle, reason: reservedReason };
+      }
 
       const available = count === 0;
 
       return {
         available,
         handle,
+        reason: available ? null : ("taken" as const),
       };
     } catch (error) {
       throw new TRPCError({
@@ -107,16 +137,7 @@ const appRouter = router({
       const userId = ctx.user!.sub;
 
       try {
-        await assertHandleAvailable(prisma, newHandle);
-
-        await prisma.user.update({
-          where: {
-            id: userId,
-          },
-          data: {
-            handle: newHandle,
-          },
-        });
+        await changeHandle(prisma, userId, newHandle);
 
         return {
           success: true,
@@ -165,7 +186,7 @@ const appRouter = router({
             where: {
               walletId: user.wallet.id,
               poolAddress: { not: null },
-              OR: [{ hidden: false }, { hidden: null }],
+              hidden: false,
             },
             orderBy: { id: "desc" },
             select: { poolAddress: true },
@@ -196,6 +217,17 @@ const appRouter = router({
 
       const blockOptions = rnsIdBlockOptions(blockRows);
       const hasTelegramMessageBlock = blockRows.some(block => block.type === "telegram_message");
+      const hasTelegramGroupBlock = blockRows.some(block => block.type === "telegram_group");
+      // Amped Messages (M6): the Message me block's door, read only when the page carries it
+      // (a telegram_message row not yet migrated by 20261103020000 counts too)
+      const hasMessageBlock = blockRows.some(
+        block => block.type === "message" || block.type === "telegram_message"
+      );
+      // Content blocks (#20, spec 3.7): cards for the ids they hold, read once per page
+      const contentIds = blockRows
+        .filter(block => block.type === "content")
+        .flatMap(block => (block.config as Partial<ContentBlockConfig> | null)?.publicIds ?? [])
+        .filter((id): id is string => typeof id === "string");
       const [
         themeResult,
         imageResult,
@@ -203,6 +235,9 @@ const appRouter = router({
         trackingPixelsResult,
         telegramResult,
         doorResult,
+        groupDoorResult,
+        contentResult,
+        messageDoorResult,
       ] = await Promise.allSettled([
         getPublicTheme(Number(theme_id)),
         getFileUrl({
@@ -222,21 +257,34 @@ const appRouter = router({
         showsTelegramMark(user_id),
         // Row 115: the Message me block's door, read only when the page carries the block
         hasTelegramMessageBlock ? telegramDoor(user_id) : Promise.resolve(null),
+        // Board tg13: the Join group block's door, read only when the page carries the block
+        hasTelegramGroupBlock ? telegramGroupDoor(user_id) : Promise.resolve(null),
+        // Public items only; drafts, 18+ and deleted ids are left out, and a
+        // suspended page shows none, as getReadUrl would refuse them. Fails closed.
+        contentIds.length && user.page_status === "PUBLISHED" && user.block === "no"
+          ? publicCardsFor(user_id, contentIds)
+          : Promise.resolve({} as Record<string, ContentCard>),
+        hasMessageBlock ? messageDoor(user_id) : Promise.resolve(null),
       ]);
 
       // The theme is the profile itself, so its failure is fatal
       if (themeResult.status === "rejected") throw themeResult.reason;
 
-      const publicBlocks = blockRows.map(block => ({
-        id: block.id,
-        user_id: block.user_id,
-        type: block.type,
-        order: block.order,
-        clicks: block.clicks,
-        config: sanitizeBlockConfig(block.type, block.config),
-        created_at: block.created_at,
-        updated_at: block.updated_at,
-      }));
+      // G3: gated link, media and text blocks leave as the locked DTO (or not at all
+      // while the accessGating flag is off). Never the URL, body or embed.
+      const publicBlocks = await publicBlocksFor(
+        blockRows.map(block => ({
+          id: block.id,
+          user_id: block.user_id,
+          type: block.type,
+          order: block.order,
+          clicks: block.clicks,
+          config: sanitizeBlockConfig(block.type, block.config),
+          created_at: block.created_at,
+          updated_at: block.updated_at,
+        })),
+        blockRows
+      );
 
       // Any failure shows no chip (fails closed)
       const identity: PublicRnsIdentity =
@@ -264,12 +312,21 @@ const appRouter = router({
           telegramMark: telegramResult.status === "fulfilled" && telegramResult.value,
           // Row 115: open, the rule kind and the bot. Null without the block. Fails closed.
           telegramDoor: doorResult.status === "fulfilled" ? doorResult.value : null,
+          // Board tg13: open, the rule kind and the bot. Null without the block. Fails closed.
+          telegramGroupDoor: groupDoorResult.status === "fulfilled" ? groupDoorResult.value : null,
+          // Amped Messages (M6): open and the rule kind, never an amount. Null without the block.
+          messageDoor: messageDoorResult.status === "fulfilled" ? messageDoorResult.value : null,
         },
         theme: themeResult.value,
         blocks: publicBlocks,
         hasCreatorPool,
         creatorPoolAddress,
         trackingPixels: settledOrFallback(trackingPixelsResult, null, "tracking pixels"),
+        contentCards: settledOrFallback(
+          contentResult,
+          {} as Record<string, ContentCard>,
+          "content cards"
+        ),
         indexable: isUserIndexable(user, publicBlocks.length),
       };
 

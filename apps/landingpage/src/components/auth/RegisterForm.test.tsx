@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { GOOGLE_FAILED_BODY, GOOGLE_FAILED_TITLE, startGoogleSignIn } from "@/test/mocks/ui";
 import { RegisterForm } from "./RegisterForm";
 import { EMAIL_FIX } from "./SignInForm";
+import { SIGN_UP_UNCONFIRMED_BODY, SIGN_UP_UNCONFIRMED_TITLE } from "@/lib/signUpRecovery";
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 
@@ -18,6 +19,7 @@ function renderForm() {
 const mocks = vi.hoisted(() => ({
   params: new URLSearchParams(),
   signUpEmail: vi.fn(),
+  signInEmail: vi.fn(),
   executeCaptcha: vi.fn(() => Promise.resolve<string | null>("token")),
   isCaptchaEnabled: false,
   referrerId: null,
@@ -28,6 +30,7 @@ const mocks = vi.hoisted(() => ({
     | "Checking"
     | "Available"
     | "Unavailable"
+    | "Reserved"
     | "Error",
   goTo: vi.fn(),
   getPostAuthDestination: vi.fn(() => "/"),
@@ -35,7 +38,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/auth-client", () => ({
-  authClient: { signUp: { email: mocks.signUpEmail } },
+  authClient: { signUp: { email: mocks.signUpEmail }, signIn: { email: mocks.signInEmail } },
 }));
 vi.mock("next/navigation", () => ({ useSearchParams: () => mocks.params }));
 vi.mock("next/link", () => ({
@@ -66,6 +69,8 @@ vi.mock("@/lib/trpc", () => ({
   trpc: { referral: { getReferrerInfo: { queryOptions: mocks.getReferrerInfoOptions } } },
 }));
 vi.mock("@/lib/panel", () => ({
+  authSwitchHref: (path: string, _params: URLSearchParams, email?: string) =>
+    email ? `${path}?email=${encodeURIComponent(email)}` : path,
   getPostAuthDestination: mocks.getPostAuthDestination,
   goTo: mocks.goTo,
   toAbsoluteUrl: (url: string) => url,
@@ -96,6 +101,9 @@ describe("RegisterForm", () => {
     mocks.referrerId = null;
     mocks.executeCaptcha.mockResolvedValue("token");
     mocks.signUpEmail.mockResolvedValue({ data: {} });
+    // clearAllMocks keeps implementations, so reset the recovery sign in to a
+    // failure here; a test that needs it to succeed says so itself
+    mocks.signInEmail.mockResolvedValue({ error: { message: "Invalid email or password" } });
     mocks.getPostAuthDestination.mockReturnValue("/");
   });
 
@@ -185,6 +193,32 @@ describe("RegisterForm", () => {
     );
   });
 
+  it("names a reserved handle the server refuses at sign up (Build Board D2)", async () => {
+    mocks.signUpEmail.mockResolvedValue({
+      error: { status: 400, code: "INVALID_HANDLE", message: "This handle is reserved" },
+    });
+    renderForm();
+    fillHandle("northlight");
+    fillEmail("ada@example.com");
+    fillPassword("S3cure-pass!");
+    submit();
+
+    await waitFor(() =>
+      expect(
+        screen.getByText("amped.bio/northlight is reserved. Pick another.")
+      ).toBeInTheDocument()
+    );
+  });
+
+  it("shows the reserved line while the handle is reserved (Build Board D2)", () => {
+    mocks.urlStatus = "Reserved";
+    renderForm();
+    fillHandle("pools");
+
+    expect(screen.getByText("amped.bio/pools is reserved. Pick another.")).toBeInTheDocument();
+    mocks.urlStatus = "Available";
+  });
+
   it("shows the captcha error when the browser check did not finish", async () => {
     mocks.isCaptchaEnabled = true;
     mocks.executeCaptcha.mockResolvedValue(null);
@@ -203,17 +237,56 @@ describe("RegisterForm", () => {
   });
 
   it("shows the network error notice when sign up throws", async () => {
+    // The account may exist when sign up does not answer (lib/signUpRecovery),
+    // so the notice says it could not be confirmed and Retry signs in
     mocks.signUpEmail.mockRejectedValue(new TypeError("fetch failed"));
+    mocks.signInEmail.mockResolvedValue({ error: { message: "Invalid email or password" } });
     renderForm();
     fillHandle("ada");
     fillEmail("ada@example.com");
     fillPassword("S3cure-pass!");
     submit();
 
-    await waitFor(() =>
-      expect(screen.getByText("Your account was not created")).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByText(SIGN_UP_UNCONFIRMED_TITLE)).toBeInTheDocument());
+    expect(screen.getByText(SIGN_UP_UNCONFIRMED_BODY)).toBeInTheDocument();
+    expect(mocks.signInEmail).toHaveBeenCalledWith(
+      expect.objectContaining({ email: "ada@example.com", password: "S3cure-pass!" })
     );
-    expect(screen.getByText("Check your connection and try again.")).toBeInTheDocument();
+    expect(mocks.goTo).not.toHaveBeenCalled();
+  });
+
+  it("signs in and continues when sign up was lost but the account exists", async () => {
+    mocks.signUpEmail.mockRejectedValue(new TypeError("fetch failed"));
+    mocks.signInEmail.mockResolvedValue({ data: { user: { id: "1" } } });
+    renderForm();
+    fillHandle("ada");
+    fillEmail("ada@example.com");
+    fillPassword("S3cure-pass!");
+    submit();
+
+    await waitFor(() => expect(mocks.goTo).toHaveBeenCalledWith("/"));
+    expect(mocks.signInEmail).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText(SIGN_UP_UNCONFIRMED_TITLE)).toBeNull();
+  });
+
+  it("signs in on Retry when the lost attempt had created the account", async () => {
+    mocks.signUpEmail.mockRejectedValueOnce(new TypeError("fetch failed")).mockResolvedValueOnce({
+      error: { status: 422, code: "USER_ALREADY_EXISTS", message: "already exists" },
+    });
+    renderForm();
+    fillHandle("ada");
+    fillEmail("ada@example.com");
+    fillPassword("S3cure-pass!");
+    submit();
+
+    await waitFor(() => expect(screen.getByText(SIGN_UP_UNCONFIRMED_TITLE)).toBeInTheDocument());
+    mocks.signInEmail.mockResolvedValue({ data: { user: { id: "1" } } });
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+
+    await waitFor(() => expect(mocks.goTo).toHaveBeenCalledWith("/"));
+    expect(mocks.signUpEmail).toHaveBeenCalledTimes(2);
+    expect(mocks.signInEmail).toHaveBeenCalledTimes(2);
+    expect(screen.queryByText(EMAIL_TAKEN)).toBeNull();
   });
 
   it("starts Google sign in and shares the confirmed handle", async () => {

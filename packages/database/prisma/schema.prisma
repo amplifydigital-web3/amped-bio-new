@@ -44,40 +44,52 @@ model User {
   uploadedFiles     UploadedFile[]
   profileImage      UploadedFile?      @relation("UserProfileImage", fields: [image_file_id], references: [id], onDelete: SetNull)
 
-  wallet            UserWallet?
-  referralsMade     Referral[]  @relation("ReferrerReferrals")
-  featureInterests  FeatureInterest[]
-  referralsReceived Referral[]  @relation("ReferredReferrals")
-  twoFactorEnabled  Boolean     @default(false) @map("two_factor_enabled")
-  twoFactor         TwoFactor?
+  wallet             UserWallet?
+  referralsMade      Referral[]          @relation("ReferrerReferrals")
+  featureInterests   FeatureInterest[]
+  referralsReceived  Referral[]          @relation("ReferredReferrals")
+  twoFactorEnabled   Boolean             @default(false) @map("two_factor_enabled")
+  twoFactor          TwoFactor?
   analyticsEvents    AnalyticsEvent[]
   trackingPixels     TrackingPixels?
   analyticsCampaigns AnalyticsCampaign[]
   analyticsConsents  AnalyticsConsent[]
   onboarding         UserOnboarding?
 
-  followsMade          Follow[]      @relation("FollowsMade")
-  followsReceived      Follow[]      @relation("FollowsReceived")
-  followBlocksMade     FollowBlock[] @relation("FollowBlocksMade")
-  followBlocksReceived FollowBlock[] @relation("FollowBlocksReceived")
+  followsMade          Follow[]        @relation("FollowsMade")
+  followsReceived      Follow[]        @relation("FollowsReceived")
+  followBlocksMade     FollowBlock[]   @relation("FollowBlocksMade")
+  followBlocksReceived FollowBlock[]   @relation("FollowBlocksReceived")
   followRemovals       FollowRemoval[]
 
-  oauthClients      OauthClient[]
+  oauthClients       OauthClient[]
   oauthRefreshTokens OauthRefreshToken[]
-  oauthAccessTokens OauthAccessToken[]
-  oauthConsents     OauthConsent[]
+  oauthAccessTokens  OauthAccessToken[]
+  oauthConsents      OauthConsent[]
 
-  broadcastsSent          Broadcast[]              @relation("BroadcastCreator")
+  broadcastsSent          Broadcast[]               @relation("BroadcastCreator")
   broadcastDeliveries     BroadcastDelivery[]
   broadcastReports        BroadcastReport[]
   notificationPreferences NotificationPreference[]
+  rnsExpiryNotices        RnsExpiryNotice[]
+  identityChecks          IdentityCheck[]
+  identityReviewCases     IdentityReviewCase[]
+  accessRules             AccessRule[]
+  checkoutIntents         CheckoutIntent[]          @relation("CheckoutIntentFan")
+  checkoutIntentsSold     CheckoutIntent[]          @relation("CheckoutIntentCreator")
   telegramAccount         TelegramAccount?
+  telegramGroups          TelegramGroup[]
   telegramLinkEvents      TelegramLinkEvent[]
-  messagingSettings       CreatorMessagingSettings?
+  messagingSettings       MessagingSettings?
   messagingSenderStatus   MessagingSenderStatus?
-  threadsAsCreator        MessageThread[]          @relation("ThreadCreator")
-  threadsAsFan            MessageThread[]          @relation("ThreadFan")
+  threadsAsCreator        MessageThread[]           @relation("ThreadCreator")
+  threadsAsFan            MessageThread[]           @relation("ThreadFan")
   messageReports          MessageReport[]
+  // Amped Messages (Build Board #2, revision 4), spec docs/features/messaging.md section 6
+  conversationMembers     ConversationMember[]
+  directMessagesSent      DirectMessage[]           @relation("DirectMessageSender")
+  notifications           Notification[]            @relation("NotificationRecipient")
+  pushSubscriptions       PushSubscription[]
 
   // USDC in the wallet (#29): first time the fan opened USDC on Base. The
   // indexer watches this address from then on, and its first screening runs.
@@ -90,8 +102,9 @@ model User {
   onrampAuth          OnrampUserAuth?
 
   // Content system (Build Board #20), PR 2
-  contentItems ContentItem[]
-  storageQuota UserStorageQuota?
+  contentItems   ContentItem[]
+  storageQuota   UserStorageQuota?
+  viewerProgress ViewerProgress[]
 
   @@unique([email])
   @@map("users")
@@ -112,8 +125,8 @@ model Session {
   oauthAccessTokens  OauthAccessToken[]
 
   @@unique([token])
-  @@map("session")
   @@index([userId])
+  @@map("session")
 }
 
 model Account {
@@ -132,8 +145,8 @@ model Account {
   createdAt             DateTime
   updatedAt             DateTime
 
-  @@map("account")
   @@index([userId])
+  @@map("account")
 }
 
 model Verification {
@@ -144,8 +157,8 @@ model Verification {
   createdAt  DateTime?
   updatedAt  DateTime?
 
-  @@map("verification")
   @@index([identifier(length: 191)])
+  @@map("verification")
 }
 
 model ThemeCategory {
@@ -186,18 +199,23 @@ model Theme {
 }
 
 model Block {
-  id         Int       @id @default(autoincrement())
-  user_id    Int
-  type       String    @db.VarChar(255)
-  order      Int       @default(0)
-  clicks     Int       @default(0)
-  config     Json?
-  created_at DateTime  @default(now())
-  updated_at DateTime? @updatedAt
+  id           Int       @id @default(autoincrement())
+  user_id      Int
+  type         String    @db.VarChar(255)
+  order        Int       @default(0)
+  clicks       Int       @default(0)
+  config       Json?
+  created_at   DateTime  @default(now())
+  updated_at   DateTime? @updatedAt
+  // Gating engine (#21, G1): the rule that locks this block; null = public.
+  // Restrict: a rule in use cannot be deleted, so a gated block never turns public.
+  accessRuleId Bytes?    @map("access_rule_id") @db.Binary(16)
 
   user            User             @relation(fields: [user_id], references: [id], onDelete: Cascade)
   analyticsEvents AnalyticsEvent[]
+  accessRule      AccessRule?      @relation(fields: [accessRuleId], references: [id], onDelete: Restrict)
 
+  @@index([accessRuleId])
   @@map("blocks")
 }
 
@@ -275,25 +293,39 @@ model CreatorPool {
   walletId Int
   chainId  String
 
-  name          String?       @db.VarChar(255)
-  image_file_id Int?
-  description   String?       @db.LongText
-  fans          Int           @default(0)
-  revoStaked    String        @db.Text
-  poolAddress   String?       @unique
-  creationTxid  String?       @db.VarChar(66)
+  name                String?       @db.VarChar(255)
+  image_file_id       Int?
+  description         String?       @db.LongText
+  fans                Int           @default(0)
+  revoStaked          String        @db.Text
+  poolAddress         String?       @unique
+  creationTxid        String?       @db.VarChar(66)
   // Sum of RewardReceived amounts (wei) indexed from the pool contract (row 067)
-  rewardsReceived     String  @default("0") @map("rewards_received") @db.VarChar(78)
+  rewardsReceived     String        @default("0") @map("rewards_received") @db.VarChar(78)
   // Last block scanned for RewardReceived and RewardClaimed (rows 067 to 069)
-  rewardsIndexedBlock String? @map("rewards_indexed_block") @db.VarChar(30)
-  wallet        UserWallet    @relation(fields: [walletId], references: [id], onDelete: Cascade)
-  poolImage     UploadedFile? @relation("CreatorPoolImage", fields: [image_file_id], references: [id], onDelete: SetNull)
-  stakedPools   StakedPool[]
-  stakeEvents   StakeEvent[]
-  hidden        Boolean?      @default(false)
-  broadcasts    Broadcast[]
+  rewardsIndexedBlock String?       @map("rewards_indexed_block") @db.VarChar(30)
+  wallet              UserWallet    @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  poolImage           UploadedFile? @relation("CreatorPoolImage", fields: [image_file_id], references: [id], onDelete: SetNull)
+  stakedPools         StakedPool[]
+  stakeEvents         StakeEvent[]
+  hidden              Boolean       @default(false)
+  broadcasts          Broadcast[]
+
+  // Pool list paging (Build Board D7, docs/features/pools-list-paging.md), PL1.
+  // Written only by services/poolStats.ts recomputePoolStats.
+  creatorStakeWei Decimal   @default(0) @map("creator_stake_wei") @db.Decimal(65, 0)
+  fanStakeWei     Decimal   @default(0) @map("fan_stake_wei") @db.Decimal(65, 0)
+  totalStakeWei   Decimal   @default(0) @map("total_stake_wei") @db.Decimal(65, 0)
+  // Wallets with a stake above zero, excluding the creator's wallet (decision P4)
+  activeFans      Int       @default(0) @map("active_fans")
+  statsUpdatedAt  DateTime? @map("stats_updated_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
 
   @@unique([walletId, chainId])
+  @@index([chainId, hidden, totalStakeWei])
+  @@index([chainId, hidden, activeFans])
+  @@index([chainId, hidden, name])
+  @@fulltext([description])
   @@map("creator_pools")
 }
 
@@ -365,7 +397,7 @@ model Referral {
 // Screen Review 105 I04, 106 I08: Notify me for features that open later.
 // One row per user and feature; notified_at is set when the launch email goes.
 model FeatureInterest {
-id          Bytes     @id @db.Binary(16)
+  id          Bytes     @id @db.Binary(16)
   user_id     Int
   // rns_identity_next: RNS attributes and facets
   feature     String    @db.VarChar(32)
@@ -419,19 +451,19 @@ model NdauConversion {
 }
 
 model TwoFactor {
-  id                     String  @id @default(cuid())
-  userId                 Int     @map("user_id")
-  secret                 String  @db.Text
-  backupCodes            String  @map("backup_codes") @db.Text
-  verified               Boolean @default(false)
-  failedVerificationCount Int?   @default(0) @map("failed_verification_count")
-  lockedUntil            DateTime? @map("locked_until")
+  id                      String    @id @default(cuid())
+  userId                  Int       @map("user_id")
+  secret                  String    @db.Text
+  backupCodes             String    @map("backup_codes") @db.Text
+  verified                Boolean   @default(false)
+  failedVerificationCount Int?      @default(0) @map("failed_verification_count")
+  lockedUntil             DateTime? @map("locked_until")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId])
-  @@map("two_factor")
   @@index([secret(length: 191)])
+  @@map("two_factor")
 }
 
 enum AnalyticsEventType {
@@ -458,18 +490,18 @@ model AnalyticsEvent {
   session_id         String?            @db.VarChar(36)
   // Signed-in Amped account of the visitor, only with consent, verified server side
   visitor_user_id    Int?
-  duration_ms  Int?
-  source       String             @db.VarChar(32)
-  referrer     String?            @db.VarChar(255)
-  utm_source   String?            @db.VarChar(100)
-  utm_medium   String?            @db.VarChar(100)
-  utm_campaign String?            @db.VarChar(100)
-  country      String?            @db.VarChar(2)
-  city         String?            @db.VarChar(100)
-  device       String             @db.VarChar(16)
-  os           String?            @db.VarChar(32)
-  browser      String?            @db.VarChar(32)
-  created_at   DateTime           @default(now())
+  duration_ms        Int?
+  source             String             @db.VarChar(32)
+  referrer           String?            @db.VarChar(255)
+  utm_source         String?            @db.VarChar(100)
+  utm_medium         String?            @db.VarChar(100)
+  utm_campaign       String?            @db.VarChar(100)
+  country            String?            @db.VarChar(2)
+  city               String?            @db.VarChar(100)
+  device             String             @db.VarChar(16)
+  os                 String?            @db.VarChar(32)
+  browser            String?            @db.VarChar(32)
+  created_at         DateTime           @default(now())
 
   user     User               @relation(fields: [user_id], references: [id], onDelete: Cascade)
   block    Block?             @relation(fields: [block_id], references: [id], onDelete: SetNull)
@@ -618,21 +650,21 @@ model OauthClient {
 }
 
 model OauthResource {
-  id                          Bytes     @id @db.Binary(16)
-  identifier                  String    @unique @db.VarChar(255)
-  name                        String
-  accessTokenTtl              Int?      @map("access_token_ttl")
-  refreshTokenTtl             Int?      @map("refresh_token_ttl")
-  signingAlgorithm            String?   @map("signing_algorithm")
-  signingKeyId                String?   @map("signing_key_id")
-  allowedScopes               String?   @map("allowed_scopes") @db.Text
-  customClaims                Json?     @map("custom_claims")
-  dpopBoundAccessTokensRequired Boolean? @default(false) @map("dpop_bound_access_tokens_required")
-  disabled                    Boolean?  @default(false)
-  createdAt                   DateTime? @map("created_at")
-  updatedAt                   DateTime? @map("updated_at")
-  policyVersion               Int?      @default(1) @map("policy_version")
-  metadata                    Json?
+  id                            Bytes     @id @db.Binary(16)
+  identifier                    String    @unique @db.VarChar(255)
+  name                          String
+  accessTokenTtl                Int?      @map("access_token_ttl")
+  refreshTokenTtl               Int?      @map("refresh_token_ttl")
+  signingAlgorithm              String?   @map("signing_algorithm")
+  signingKeyId                  String?   @map("signing_key_id")
+  allowedScopes                 String?   @map("allowed_scopes") @db.Text
+  customClaims                  Json?     @map("custom_claims")
+  dpopBoundAccessTokensRequired Boolean?  @default(false) @map("dpop_bound_access_tokens_required")
+  disabled                      Boolean?  @default(false)
+  createdAt                     DateTime? @map("created_at")
+  updatedAt                     DateTime? @map("updated_at")
+  policyVersion                 Int?      @default(1) @map("policy_version")
+  metadata                      Json?
 
   clientResources OauthClientResource[]
 
@@ -656,28 +688,28 @@ model OauthClientResource {
 }
 
 model OauthRefreshToken {
-  id                     Bytes     @id @db.Binary(16)
-  token                  String    @unique @db.VarChar(255)
-  clientId               String    @map("client_id") @db.VarChar(255)
-  sessionId              Int?      @map("session_id")
-  userId                 Int       @map("user_id")
-  referenceId            String?   @map("reference_id")
-  authorizationCodeId    String?   @map("authorization_code_id") @db.VarChar(255)
-  resources              String?   @db.Text
-  requestedUserInfoClaims String?  @map("requested_user_info_claims") @db.Text
-  scopes                 String    @db.Text
-  expiresAt              DateTime  @map("expires_at")
-  createdAt              DateTime  @map("created_at")
-  revoked                DateTime?
-  rotatedAt              DateTime? @map("rotated_at")
-  rotationReplayResponse String?   @map("rotation_replay_response") @db.Text
+  id                      Bytes     @id @db.Binary(16)
+  token                   String    @unique @db.VarChar(255)
+  clientId                String    @map("client_id") @db.VarChar(255)
+  sessionId               Int?      @map("session_id")
+  userId                  Int       @map("user_id")
+  referenceId             String?   @map("reference_id")
+  authorizationCodeId     String?   @map("authorization_code_id") @db.VarChar(255)
+  resources               String?   @db.Text
+  requestedUserInfoClaims String?   @map("requested_user_info_claims") @db.Text
+  scopes                  String    @db.Text
+  expiresAt               DateTime  @map("expires_at")
+  createdAt               DateTime  @map("created_at")
+  revoked                 DateTime?
+  rotatedAt               DateTime? @map("rotated_at")
+  rotationReplayResponse  String?   @map("rotation_replay_response") @db.Text
   rotationReplayExpiresAt DateTime? @map("rotation_replay_expires_at")
-  authTime               DateTime? @map("auth_time")
-  confirmation           Json?
+  authTime                DateTime? @map("auth_time")
+  confirmation            Json?
 
-  client      OauthClient       @relation(fields: [clientId], references: [clientId])
-  session     Session?          @relation(fields: [sessionId], references: [id], onDelete: SetNull)
-  user        User              @relation(fields: [userId], references: [id])
+  client       OauthClient        @relation(fields: [clientId], references: [clientId])
+  session      Session?           @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  user         User               @relation(fields: [userId], references: [id])
   accessTokens OauthAccessToken[]
 
   @@index([clientId])
@@ -688,26 +720,26 @@ model OauthRefreshToken {
 }
 
 model OauthAccessToken {
-  id                     Bytes     @id @db.Binary(16)
-  token                  String    @unique @db.VarChar(255)
-  clientId               String    @map("client_id") @db.VarChar(255)
-  sessionId              Int?      @map("session_id")
-  userId                 Int?      @map("user_id")
-  referenceId            String?   @map("reference_id")
-  authorizationCodeId    String?   @map("authorization_code_id") @db.VarChar(255)
-  resources              String?   @db.Text
-  requestedUserInfoClaims String?  @map("requested_user_info_claims") @db.Text
-  refreshId              Bytes?    @map("refresh_id")
-  scopes                 String    @db.Text
-  expiresAt              DateTime  @map("expires_at")
-  createdAt              DateTime  @map("created_at")
-  revoked                DateTime?
-  confirmation           Json?
+  id                      Bytes     @id @db.Binary(16)
+  token                   String    @unique @db.VarChar(255)
+  clientId                String    @map("client_id") @db.VarChar(255)
+  sessionId               Int?      @map("session_id")
+  userId                  Int?      @map("user_id")
+  referenceId             String?   @map("reference_id")
+  authorizationCodeId     String?   @map("authorization_code_id") @db.VarChar(255)
+  resources               String?   @db.Text
+  requestedUserInfoClaims String?   @map("requested_user_info_claims") @db.Text
+  refreshId               Bytes?    @map("refresh_id")
+  scopes                  String    @db.Text
+  expiresAt               DateTime  @map("expires_at")
+  createdAt               DateTime  @map("created_at")
+  revoked                 DateTime?
+  confirmation            Json?
 
-  client   OauthClient        @relation(fields: [clientId], references: [clientId])
-  session  Session?           @relation(fields: [sessionId], references: [id], onDelete: SetNull)
-  user     User?              @relation(fields: [userId], references: [id])
-  refresh  OauthRefreshToken? @relation(fields: [refreshId], references: [id])
+  client  OauthClient        @relation(fields: [clientId], references: [clientId])
+  session Session?           @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  user    User?              @relation(fields: [userId], references: [id])
+  refresh OauthRefreshToken? @relation(fields: [refreshId], references: [id])
 
   @@index([clientId])
   @@index([sessionId])
@@ -718,15 +750,15 @@ model OauthAccessToken {
 }
 
 model OauthConsent {
-  id                     Bytes     @id @db.Binary(16)
-  clientId               String    @map("client_id") @db.VarChar(255)
-  userId                 Int?      @map("user_id")
-  referenceId            String?   @map("reference_id")
-  resources              String?   @db.Text
+  id                      Bytes    @id @db.Binary(16)
+  clientId                String   @map("client_id") @db.VarChar(255)
+  userId                  Int?     @map("user_id")
+  referenceId             String?  @map("reference_id")
+  resources               String?  @db.Text
   requestedUserInfoClaims String?  @map("requested_user_info_claims") @db.Text
-  scopes                 String    @db.Text
-  createdAt              DateTime  @map("created_at")
-  updatedAt              DateTime  @map("updated_at")
+  scopes                  String   @db.Text
+  createdAt               DateTime @map("created_at")
+  updatedAt               DateTime @map("updated_at")
 
   client OauthClient @relation(fields: [clientId], references: [clientId])
   user   User?       @relation(fields: [userId], references: [id])
@@ -744,18 +776,18 @@ model OauthClientAssertion {
 }
 
 model DeviceCode {
-  id               Bytes     @id @db.Binary(16)
-  deviceCode       String    @unique @map("device_code") @db.VarChar(255)
-  userCode         String    @map("user_code") @db.VarChar(255)
-  userId           String?   @map("user_id") @db.VarChar(255)
-  expiresAt        DateTime  @map("expires_at")
-  status           String
-  lastPolledAt     DateTime? @map("last_polled_at")
-  pollingInterval  Int?      @map("polling_interval")
-  clientId         String?   @map("client_id") @db.VarChar(255)
-  scope            String?   @db.Text
-  resources        String?   @db.Text
-  oauthClientId    String?   @map("oauth_client_id") @db.VarChar(255)
+  id              Bytes     @id @db.Binary(16)
+  deviceCode      String    @unique @map("device_code") @db.VarChar(255)
+  userCode        String    @map("user_code") @db.VarChar(255)
+  userId          String?   @map("user_id") @db.VarChar(255)
+  expiresAt       DateTime  @map("expires_at")
+  status          String
+  lastPolledAt    DateTime? @map("last_polled_at")
+  pollingInterval Int?      @map("polling_interval")
+  clientId        String?   @map("client_id") @db.VarChar(255)
+  scope           String?   @db.Text
+  resources       String?   @db.Text
+  oauthClientId   String?   @map("oauth_client_id") @db.VarChar(255)
 
   @@index([clientId])
   @@map("device_code")
@@ -901,20 +933,20 @@ model Broadcast {
 }
 
 model BroadcastDelivery {
-  id                Int                  @id @default(autoincrement())
+  id                Int                     @id @default(autoincrement())
   broadcastId       Int
   userId            Int
-  emailStatus       BroadcastEmailStatus @default(NOT_ELIGIBLE)
-  emailSkipReason   String?              @db.VarChar(32)
-  emailAttempts     Int                  @default(0)
-  providerMessageId String?              @db.VarChar(255)
+  emailStatus       BroadcastEmailStatus    @default(NOT_ELIGIBLE)
+  emailSkipReason   String?                 @db.VarChar(32)
+  emailAttempts     Int                     @default(0)
+  providerMessageId String?                 @db.VarChar(255)
   emailSentAt       DateTime?
   // Messaging on Telegram (Build Board #2), spec 3.3
   telegramStatus    BroadcastTelegramStatus @default(NOT_ELIGIBLE)
   tgMessageId       BigInt?
   readAt            DateTime?
   archivedAt        DateTime?
-  createdAt         DateTime             @default(now())
+  createdAt         DateTime                @default(now())
 
   broadcast Broadcast @relation(fields: [broadcastId], references: [id], onDelete: Cascade)
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -954,15 +986,23 @@ model BroadcastSenderStatus {
 
 // creatorUserId 0 is the global row. MySQL unique keys ignore NULLs.
 model NotificationPreference {
-  id            Int       @id @default(autoincrement())
-  userId        Int
-  creatorUserId Int       @default(0)
-  emailEnabled  Boolean   @default(false)
+  id                  Int       @id @default(autoincrement())
+  userId              Int
+  creatorUserId       Int       @default(0)
+  emailEnabled        Boolean   @default(false)
   // Messaging on Telegram (Build Board #2). Global row (creatorUserId 0): the user's opt in,
   // null means off. Creator row: null follows the global row, false turns this creator off.
-  telegramEnabled Boolean?
-  mutedUntil    DateTime?
-  updatedAt     DateTime  @updatedAt
+  telegramEnabled     Boolean?
+  // RNS name expiry emails (global row only). null means on: they are account
+  // notices, not marketing. false turns them off.
+  rnsRemindersEnabled Boolean?
+  // Amped Messages (#2 r4), global row only. Web Push on this account's devices; on by default
+  // once the person turns it on per device (the subscription is the device level consent).
+  pushEnabled         Boolean   @default(true)
+  // Email reminder for a message unread after 30 minutes. On by default, one tap off.
+  messageEmailEnabled Boolean   @default(true)
+  mutedUntil          DateTime?
+  updatedAt           DateTime  @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -1007,6 +1047,61 @@ model TelegramAccount {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("telegram_accounts")
+}
+
+// A creator's Telegram supergroup gated by the bot (Build Board #2, phase 2, spec r3
+// 3.2 to 3.6). A row is created pending (connectedAt null) when the bot is added to a
+// group by a linked user; the creator confirms it on the card. Up to 3 per creator.
+model TelegramGroup {
+  id                    Bytes      @id @db.Binary(16)
+  creatorUserId         Int
+  tgChatId              BigInt     @unique
+  title                 String     @db.VarChar(128)
+  ruleKind              DmRuleKind @default(POOL_MEMBER)
+  // STAKE_MIN only: whole tREVO as a decimal string, like CreatorMessagingSettings
+  stakeMin              String?    @db.VarChar(80)
+  // Approval only invite link (creates_join_request)
+  inviteLink            String?    @db.VarChar(255)
+  botIsAdmin            Boolean    @default(false)
+  // Remove members the bot has seen without a linked account (off by default)
+  removeUnverified      Boolean    @default(false)
+  memberCount           Int        @default(0)
+  addedByTelegramUserId BigInt
+  connectedAt           DateTime?
+  lastCheckedAt         DateTime?
+  disconnectedAt        DateTime?
+  createdAt             DateTime   @default(now())
+  updatedAt             DateTime   @updatedAt
+
+  creator User                  @relation(fields: [creatorUserId], references: [id], onDelete: Cascade)
+  members TelegramGroupMember[]
+
+  @@index([creatorUserId])
+  @@map("telegram_groups")
+}
+
+// Members the bot knows about: approved join requests and chat_member updates. The Bot
+// API cannot list a group, so members who joined before the bot are unknown until
+// Telegram reports them.
+model TelegramGroupMember {
+  id             Bytes     @id @db.Binary(16)
+  groupId        Bytes     @db.Binary(16)
+  // null for a member the bot saw without a linked Amped account
+  userId         Int?
+  telegramUserId BigInt
+  approvedAt     DateTime?
+  declinedAt     DateTime?
+  removedAt      DateTime?
+  // rule_failed | unlinked | unverified | left
+  removedReason  String?   @db.VarChar(32)
+  lastVerifiedAt DateTime?
+  createdAt      DateTime  @default(now())
+
+  group TelegramGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, telegramUserId])
+  @@index([groupId, removedAt])
+  @@map("telegram_group_members")
 }
 
 // Link history and the consent record for Telegram delivery (updates_on, updates_off)
@@ -1098,28 +1193,28 @@ model TelegramOutbox {
 // confirmed | failed | refused | expired. A refused row is the audit record of
 // a screening or limit refusal; nothing was submitted for it.
 model UsdcSend {
-  id          Bytes     @id @db.Binary(16)
+  id          Bytes    @id @db.Binary(16)
   userId      Int
   chainId     Int
-  fromAddress String    @db.VarChar(42)
-  toAddress   String    @db.VarChar(42)
+  fromAddress String   @db.VarChar(42)
+  toAddress   String   @db.VarChar(42)
   toUserId    Int?
   amount      BigInt
   // EIP-3009 nonce, 32 random bytes as 0x hex
-  nonce       String    @db.VarChar(66)
+  nonce       String   @db.VarChar(66)
   validBefore DateTime
-  status      String    @db.VarChar(16)
+  status      String   @db.VarChar(16)
   // { reason, vendor, reference } for refusals; vendor results for screened sends
   screening   Json?
-  txHash      String?   @db.VarChar(66)
-  failureCode String?   @db.VarChar(64)
+  txHash      String?  @db.VarChar(66)
+  failureCode String?  @db.VarChar(64)
   // Relayer gas for this send, from the receipt (Admin, Money gas ledger). A
   // reverted send still costs gas, so both confirmed and failed rows carry it.
   gasUsed     BigInt?
   gasCostWei  BigInt?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([chainId, nonce])
   @@index([userId, createdAt])
@@ -1198,6 +1293,41 @@ model RelayerFundingEvent {
   @@unique([chainId, txHash])
   @@index([chainId, createdAt])
   @@map("relayer_funding_events")
+}
+
+// One admin change to a money setting (Build Board #50, spec docs/features/ampedpay.md
+// 3.5 to 3.7). A payments_admin drafts it with a reason; a different payments_admin
+// approves it with two factor; only then does it apply (server) or go to the Safe
+// (contract, PAY-A2). Rows are the change log: never deleted, never edited after
+// applied. The settings write and the status update run in one transaction.
+model AdminChange {
+  id           Bytes     @id @db.Binary(16) // UUIDv7
+  area         String    @db.VarChar(24) // payments
+  target       String    @db.VarChar(16) // server | contract
+  key          String    @db.VarChar(64) // catalog item id: platform_fee_bps, feeFloorBps ...
+  oldValue     String    @map("old_value") @db.VarChar(1024)
+  newValue     String    @map("new_value") @db.VarChar(1024)
+  effectiveAt  DateTime? @map("effective_at")
+  reason       String    @db.VarChar(500)
+  // draft | approved | proposed | applied | rejected | expired | superseded
+  status       String    @db.VarChar(16)
+  draftedById  Int       @map("drafted_by_id")
+  approvedById Int?      @map("approved_by_id")
+  // Who rejected the draft or cancelled the scheduled change (never stored as the approver)
+  rejectedById Int?      @map("rejected_by_id")
+  // Why the second admin rejected it, or why a pause needed no approval
+  decisionNote String?   @map("decision_note") @db.VarChar(500)
+  safeTxHash   String?   @map("safe_tx_hash") @db.VarChar(66)
+  txHash       String?   @map("tx_hash") @db.VarChar(66)
+  chainId      Int?      @map("chain_id")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  decidedAt    DateTime? @map("decided_at")
+  appliedAt    DateTime? @map("applied_at")
+
+  @@index([area, createdAt])
+  @@index([status])
+  @@index([area, key, status])
+  @@map("admin_changes")
 }
 
 // One Buy USDC attempt through Coinbase (Build Board #5, spec 3.2 and 3.5).
@@ -1383,9 +1513,13 @@ model ContentItem {
   createdAt        DateTime            @default(now()) @map("created_at")
   updatedAt        DateTime            @updatedAt @map("updated_at")
 
-  user    User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  assets  ContentAsset[]
-  reports ContentReport[]
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assets         ContentAsset[]
+  reports        ContentReport[]
+  // Gating engine (#21, G1): Restrict, so a rule in use cannot be deleted and a
+  // gated item never turns public. Never SetNull.
+  accessRule     AccessRule?      @relation(fields: [accessRuleId], references: [id], onDelete: Restrict)
+  viewerProgress ViewerProgress[]
 
   @@index([userId, status])
   @@index([userId, publishState, publishedAt])
@@ -1484,6 +1618,28 @@ model BlockedContentHash {
   @@map("blocked_content_hashes")
 }
 
+// Fan Library (#26) phase A: playback position per account and item, so a fan
+// resumes on any device. Written by progress.set every 10 seconds of play and on
+// pause. Personal data: deleted with the account or the item.
+model ViewerProgress {
+  id            Bytes    @id @db.Binary(16)
+  userId        Int      @map("user_id")
+  contentItemId Bytes    @map("content_item_id") @db.Binary(16)
+  positionMs    Int      @default(0) @map("position_ms")
+  durationMs    Int?     @map("duration_ms")
+  completed     Boolean  @default(false)
+  lastPlayedAt  DateTime @map("last_played_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contentItem ContentItem @relation(fields: [contentItemId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, contentItemId])
+  @@index([userId, lastPlayedAt])
+  @@index([contentItemId])
+  @@map("viewer_progress")
+}
+
 // ===== Messaging on Telegram, phase 1: fan to creator messages (PR 3) =====
 // Spec: docs/features/telegram-messaging.md, sections 3.3, 3.5 and 3.9. Amped is the
 // system of record: every message is stored here; Telegram is a transport.
@@ -1495,26 +1651,30 @@ enum DmRuleKind {
   PAID_MEMBER // Memberships (#25); no one qualifies until it ships
   POOL_MEMBER // "Pool fans only"
   STAKE_MIN // "Fans with a minimum stake"
+  NOBODY // Amped Messages (#2 r4): only existing conversations. Messaging only, never a group rule.
 }
 
-model CreatorMessagingSettings {
+// Amped Messages (#2 r4, PR M2): every account has one, creator or fan. Renamed from
+// creator_messaging_settings; invitedAt dropped with the invite pilot and enabled replaced by
+// ruleKind NOBODY (accounts that had messages off migrate to NOBODY).
+model MessagingSettings {
   userId            Int        @id
-  enabled           Boolean    @default(false)
+  // No row means the defaults: Followers and members. NOBODY replaces the old enabled flag.
   ruleKind          DmRuleKind @default(FOLLOWER)
   // STAKE_MIN only: whole tREVO as a decimal string, compared like StakedPool.stakeAmount
   stakeMin          String?    @db.VarChar(80)
   dailyNewThreadCap Int        @default(50)
   replyFromTelegram Boolean    @default(true)
-  // MESSAGING_INVITE_ONLY pilot: set by an admin invite
-  invitedAt         DateTime?
   // Set by an admin or by the report threshold (spec 3.9); Fan messages stay off while set
   pausedAt          DateTime?
   pausedReason      String?    @db.VarChar(255)
+  // Amped Messages (#2 r4): off hides when this person has read, and when others have
+  readReceipts      Boolean    @default(true)
   updatedAt         DateTime   @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@map("creator_messaging_settings")
+  @@map("messaging_settings")
 }
 
 // A fan's ability to send. pausedUntil null with pausedAt set means paused until an admin resumes.
@@ -1616,19 +1776,351 @@ enum MessageReportReason {
 
 model MessageReport {
   id             Bytes               @id @db.Binary(16)
-  threadId       Bytes               @db.Binary(16)
+  // Null on reports filed against conversations (PR M2)
+  threadId       Bytes?              @db.Binary(16)
   messageId      Bytes?              @db.Binary(16)
   reporterUserId Int
   reason         MessageReportReason
   note           String?             @db.VarChar(500)
+  // Amped Messages (#2 r4). Set on reports filed against the new tables; threadId stays
+  // for reports filed before the switch. bodySnapshotEnc keeps the reported text after unsend.
+  conversationId  Bytes?             @db.Binary(16)
+  directMessageId Bytes?             @db.Binary(16)
+  bodySnapshotEnc String?            @db.Text
   // Set when an admin closes the report
   resolvedAt     DateTime?
   createdAt      DateTime            @default(now())
 
-  thread   MessageThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  thread   MessageThread? @relation(fields: [threadId], references: [id], onDelete: Cascade)
   reporter User          @relation(fields: [reporterUserId], references: [id], onDelete: Cascade)
 
   @@index([threadId])
   @@index([createdAt])
+  @@index([conversationId])
   @@map("message_reports")
+}
+
+// ===== Amped Messages (Build Board #2, revision 4), PR M1 =====
+// Spec: docs/features/messaging.md section 6. Native direct messages between any two
+// accounts. Amped is the system of record and the transport. UUID v7 Binary(16) ids;
+// DirectMessage ids are time ordered, so they double as the page cursor and the
+// realtime event id. One to one in v1; members per conversation leave room for groups.
+
+enum ConversationKind {
+  DIRECT
+}
+
+enum MemberFolder {
+  PRIMARY
+  REQUESTS
+}
+
+enum MemberState {
+  ACTIVE
+  BLOCKED
+  LEFT
+}
+
+model Conversation {
+  id            Bytes            @id @db.Binary(16)
+  kind          ConversationKind @default(DIRECT)
+  // DIRECT: "{lowUserId}:{highUserId}" (conversationPairKey), one conversation per pair
+  pairKey       String?          @unique @db.VarChar(32)
+  createdById   Int
+  lastMessageId Bytes?           @db.Binary(16)
+  lastMessageAt DateTime?
+  createdAt     DateTime         @default(now())
+
+  members  ConversationMember[]
+  messages DirectMessage[]
+
+  @@index([lastMessageAt])
+  @@map("conversations")
+}
+
+model ConversationMember {
+  conversationId  Bytes        @db.Binary(16)
+  userId          Int
+  folder          MemberFolder @default(PRIMARY)
+  state           MemberState  @default(ACTIVE)
+  // Null while the conversation sits in REQUESTS for this member; set on Accept or reply
+  acceptedAt      DateTime?
+  lastReadId      Bytes?       @db.Binary(16)
+  lastReadAt      DateTime?
+  // Messages from the other side since this member last read (inbox badge)
+  unread          Int          @default(0)
+  mutedUntil      DateTime?
+  archivedAt      DateTime?
+  // Delete for me: messages up to and including this id are hidden for this member
+  clearedBeforeId Bytes?       @db.Binary(16)
+  joinedAt        DateTime     @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  // Restrict: an account deletion anonymizes its messaging rows first (msg-account-deletion)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@id([conversationId, userId])
+  @@index([userId, folder, archivedAt])
+  @@map("conversation_members")
+}
+
+model DirectMessage {
+  id             Bytes     @id @db.Binary(16)
+  conversationId Bytes     @db.Binary(16)
+  // Null only after the sender's account was deleted (anonymizeMessagingForUser clears
+  // the body and detaches the sender first; Restrict makes a skipped step fail loudly)
+  senderId       Int?
+  // AES-256-GCM envelope (services/crypto/secretBox.ts, the Telegram field scheme)
+  bodyEnc        String    @db.Text
+  bodyLength     Int
+  // A repeat of a send with the same key returns the first message
+  idempotencyKey String?   @db.VarChar(64)
+  // Financial promise terms the content check matched. Warn only, stored for admins.
+  flaggedTerms   Json?
+  // Unsend for everyone (15 minute window). The body is cleared; reports keep their snapshot.
+  unsentAt       DateTime?
+  createdAt      DateTime  @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User?        @relation("DirectMessageSender", fields: [senderId], references: [id], onDelete: Restrict)
+
+  @@unique([conversationId, idempotencyKey])
+  @@index([conversationId, id])
+  @@index([senderId, createdAt])
+  @@map("direct_messages")
+}
+
+enum NotificationKind {
+  MESSAGE
+  REQUEST
+  BROADCAST
+}
+
+// One bell row per thing to see. Repeats collapse into the unseen row for the same
+// groupKey (conv:{id} or broadcast:{id}) by bumping count; the collapse is done in code.
+model Notification {
+  id        Bytes            @id @db.Binary(16)
+  userId    Int
+  kind      NotificationKind
+  actorId   Int?
+  refId     Bytes?           @db.Binary(16)
+  groupKey  String           @db.VarChar(64)
+  count     Int              @default(1)
+  seenAt    DateTime?
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  user User @relation("NotificationRecipient", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, groupKey, seenAt])
+  @@index([userId, createdAt])
+  @@map("notifications")
+}
+
+// A Web Push subscription for one device. A 404 or 410 from the push service deletes it.
+model PushSubscription {
+  id        Bytes     @id @db.Binary(16)
+  userId    Int
+  endpoint  String    @unique @db.VarChar(512)
+  p256dh    String    @db.VarChar(128)
+  auth      String    @db.VarChar(64)
+  userAgent String?   @db.VarChar(255)
+  failedAt  DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("push_subscriptions")
+}
+
+enum NotificationJobStatus {
+  PENDING
+  CLAIMED
+  DONE
+  FAILED
+}
+
+// Push and email reminder jobs, claimed by the notification loop (Redis lock, one instance).
+model NotificationJob {
+  id        Bytes                 @id @db.Binary(16)
+  // push | email
+  channel   String                @db.VarChar(8)
+  userId    Int
+  payload   Json
+  status    NotificationJobStatus @default(PENDING)
+  attempts  Int                   @default(0)
+  runAfter  DateTime              @default(now())
+  claimedAt DateTime?
+  doneAt    DateTime?
+  error     String?               @db.VarChar(255)
+  // email:{userId}:{conversationId} while an email check is PENDING, cleared on claim.
+  // The unique index keeps one pending check per conversation without a race.
+  dedupeKey String?               @unique @db.VarChar(64)
+  createdAt DateTime              @default(now())
+
+  @@index([status, runAfter])
+  @@index([userId, createdAt])
+  @@map("notification_jobs")
+}
+
+// RNS name expiry emails. One row per user, name, registration expiry and
+// stage, so each reminder goes once. Extending a name changes the expiry, so
+// the schedule starts again for the new date.
+model RnsExpiryNotice {
+  id       Bytes     @id @db.Binary(16)
+  userId   Int
+  // The RNS label without the suffix
+  label    String    @db.VarChar(64)
+  // Registration expiry (not the grace end), unix seconds
+  expiry   Int
+  // d30 | d7 | d1 | grace
+  stage    String    @db.VarChar(8)
+  sentAt   DateTime  @default(now())
+  // Send attempts made for this notice. A notice is abandoned after 3 failed
+  // sends.
+  attempts Int       @default(0)
+  // When the last attempt failed, for the retry backoff
+  failedAt DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, label, expiry, stage])
+  @@index([sentAt])
+  @@map("rns_expiry_notices")
+}
+
+// ===== Identity checks (Build Board #47, docs/features/identity-checks.md) =====
+
+// The latest Authbase check per account and kind (age_over_18 | seller). Holds
+// the outcome, reason and dates only: never a name, birth date, document or
+// attribute value. Overwritten on each check; an "unavailable" result is never
+// written. A row for a different wallet than the account's is ignored.
+model IdentityCheck {
+  id            Bytes     @id @db.Binary(16)
+  userId        Int       @map("user_id")
+  kind          String    @db.VarChar(16)
+  walletAddress String    @map("wallet_address") @db.VarChar(42)
+  pass          Boolean
+  reason        String?   @db.VarChar(16)
+  tier          String?   @db.VarChar(16)
+  validUntil    DateTime? @map("valid_until")
+  checkedAt     DateTime  @default(now()) @map("checked_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, kind])
+  @@map("identity_checks")
+}
+
+// One open case per account when an Over 18 check returns under 18 (spec 4.5,
+// decision IQ1). A person reviews it: a safety lead closes the account or clears
+// a wrong read. Kept 5 years (counsel confirms the period), so the case outlives
+// a closed (deleted) account: user_id is set to null instead of cascading.
+model IdentityReviewCase {
+  id           Bytes     @id @db.Binary(16)
+  userId       Int?      @map("user_id")
+  // open | cleared | closed
+  status       String    @default("open") @db.VarChar(16)
+  // under_18 (the only kind today)
+  kind         String    @default("under_18") @db.VarChar(16)
+  openedAt     DateTime  @default(now()) @map("opened_at")
+  lastResultAt DateTime  @default(now()) @map("last_result_at")
+  // Results seen while the case was open, including the first
+  results      Int       @default(1)
+  // When support was alerted by email (null until sent)
+  alertedAt    DateTime? @map("alerted_at")
+  decidedAt    DateTime? @map("decided_at")
+  decidedBy    Int?      @map("decided_by")
+  note         String?   @db.VarChar(500)
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId, status])
+  @@index([status, openedAt])
+  @@map("identity_review_cases")
+}
+
+// ===== Access gating engine (Build Board #21, docs/features/access-gating-engine.md) =====
+
+// One rule a creator attaches to blocks and content items. kind is immutable;
+// params are checked against the kind's zod schema on every write and read.
+// owner uses NoAction, not Cascade (GQ2): the account deletion job removes the
+// user's items and blocks, then their rules, then the user.
+model AccessRule {
+  id           Bytes     @id @db.Binary(16)
+  ownerUserId  Int       @map("owner_user_id")
+  // null for rules made inline in the picker
+  name         String?   @db.VarChar(80)
+  kind         String    @db.VarChar(24)
+  params       Json
+  opensToAllAt DateTime? @map("opens_to_all_at")
+  // bumps on any edit; voids cached decisions
+  version      Int       @default(1)
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  owner        User          @relation(fields: [ownerUserId], references: [id], onDelete: NoAction)
+  blocks       Block[]
+  contentItems ContentItem[]
+
+  @@index([ownerUserId])
+  @@map("access_rules")
+}
+
+// Locked views, checks, refusals and reveals, for the creator's rules and stats
+// page (G6). viewerKey is u:{id}, or for a signed out viewer the daily salted
+// visitor hash (never the IP, never linkable across days or creators). Kept 25 months.
+model AccessEvent {
+  id          Bytes    @id @db.Binary(16)
+  ruleId      Bytes?   @map("rule_id") @db.Binary(16)
+  ownerUserId Int      @map("owner_user_id")
+  // "block:123", "content:abc123"
+  resource    String   @db.VarChar(80)
+  viewerKey   String   @map("viewer_key") @db.VarChar(24)
+  // locked_view | check | denied | unlocked | revealed
+  type        String   @db.VarChar(24)
+  reason      String?  @db.VarChar(32)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([ownerUserId, createdAt])
+  @@index([ruleId, createdAt])
+  @@map("access_events")
+}
+
+// ===== Mobile checkout (Build Board #49, PR CK-1; mobile first review R1) =====
+
+// One server side intent per Buy, Join, Renew or Tip. It carries the purchase
+// across sign up, the Wallet Buy USDC handoff, a browser switch and an app
+// reload; every later step carries ?ci={id}. Lives 24 hours. userId is null
+// until a signed in fan first reads it (claim); after that only that fan can.
+model CheckoutIntent {
+  id            Bytes     @id @db.Binary(16)
+  // purchase | membership | tip | ticket
+  kind          String    @db.VarChar(16)
+  // content (offers and plans replace it with store PR 9)
+  targetType    String    @map("target_type") @db.VarChar(16)
+  targetId      String    @map("target_id") @db.VarChar(64)
+  creatorUserId Int       @map("creator_user_id")
+  userId        Int?      @map("user_id")
+  // open | awaiting_funds | signing | submitted | paid | expired
+  status        String    @default("open") @db.VarChar(16)
+  // Memberships only: month | year
+  interval      String?   @db.VarChar(8)
+  // Promoter code from ?via= (the cookie is the fallback)
+  via           String?   @db.VarChar(32)
+  // Where the fan tapped Buy, for the phone funnel
+  source        String    @db.VarChar(16)
+  expiresAt     DateTime  @map("expires_at")
+  claimedAt     DateTime? @map("claimed_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  creator User  @relation("CheckoutIntentCreator", fields: [creatorUserId], references: [id], onDelete: Cascade)
+  user    User? @relation("CheckoutIntentFan", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status, expiresAt])
+  @@index([creatorUserId, createdAt])
+  @@index([expiresAt])
+  @@map("checkout_intents")
 }

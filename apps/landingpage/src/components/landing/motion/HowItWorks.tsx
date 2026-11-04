@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Blend, Check, LockOpen, UserCheck, UserPlus, Wallet } from "lucide-react";
-import { cn } from "@repo/ui";
+import { TESTNET_NOTICE, cn } from "@repo/ui";
 import { useMotionOff } from "./motionState";
 
 // How it works (Build Board #26, section 3.3). Four steps. On a wide screen
@@ -13,7 +13,7 @@ import { useMotionOff } from "./motionState";
 //
 // No library: sticky positioning, IntersectionObserver and Prism CSS. The pool
 // step shows mechanics only (no amounts, rates or outcomes). Counsel reviews
-// it before NEXT_PUBLIC_SHOW_MOTION turns on in production.
+// it before the motion feature flag turns on in production.
 
 const STEPS = [
   { title: "Claim your page", body: "Pick a URL. Amped.Bio checks it as you type." },
@@ -191,9 +191,7 @@ function ScenePool() {
         </FlowNode>
         <span aria-hidden className="motion-token" />
       </div>
-      <span className="text-prism-meta text-prism-ink-2">
-        Revolution Network testnet. tREVO has no cash value.
-      </span>
+      <span className="text-prism-meta text-prism-ink-2">{TESTNET_NOTICE}</span>
     </Frame>
   );
 }

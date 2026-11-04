@@ -5,6 +5,9 @@ import { useEditor } from "../contexts/EditorContext";
 import { MyPoolDestination } from "./panels/broadcast/MyPoolDestination";
 import { InboxPanel } from "./panels/broadcast/InboxPanel";
 import { INBOX_ON } from "./panels/broadcast/utils";
+import { MessagesInbox } from "./panels/inbox/MessagesInbox";
+import { MessagesRealtime } from "./panels/inbox/realtime";
+import { MESSAGES_V2 } from "./panels/inbox/flags";
 import { TelegramWizard } from "./panels/messages/TelegramWizard";
 import { MESSAGES_ON } from "./panels/messages/shared";
 import { RNSPanel } from "./panels/rns/RNSPanel";
@@ -21,12 +24,15 @@ import { DesignPanel } from "./panels/design/DesignPanel";
 import { AccountPanel } from "./panels/account/AccountPanel";
 import { Rail } from "./shell/Rail";
 import { MobileDock } from "./shell/MobileDock";
+import { EditorMiniPlayer } from "./player/EditorPlayer";
 import { MobileTopBar, TopBar } from "./shell/TopBar";
+import { CheckoutResumeBar } from "./shell/CheckoutResumeBar";
 import { ShellNavigationProvider } from "./shell/ShellNavigation";
 import { useSupportWidget } from "./shell/useSupportWidget";
 import { useLayoutEffect } from "react";
 import { cn, markTransitionCommitted } from "@repo/ui";
 import type { EditorPanelType } from "@/types/editor.ts";
+import { isFeatureOn } from "../config/featureFlags";
 
 interface LayoutProps {
   bannerData?: {
@@ -60,7 +66,7 @@ function ActivePanel({ panel }: { panel: EditorPanelType }) {
     case "analytics":
       return <AnalyticsPanel />;
     case "people":
-      return import.meta.env.VITE_FAN_GRAPH === "true" ? <PeoplePanel /> : null;
+      return isFeatureOn("fanGraph") ? <PeoplePanel /> : null;
     case "content":
       return CONTENT_FLAGS.library ? <ContentPanel /> : null;
     case "explore":
@@ -77,13 +83,15 @@ function ActivePanel({ panel }: { panel: EditorPanelType }) {
     case "my-pool":
       return <MyPoolDestination />;
     case "inbox":
+      // Amped Messages (#2 r4, M5) replaces the Telegram era inbox behind the messages feature flag
+      if (MESSAGES_V2) return <MessagesInbox />;
       return INBOX_ON ? <InboxPanel /> : null;
     case "account":
       return <AccountPanel />;
     case "rns":
       // 077 I03: no RNS header in the top bar. The legacy rns panel only
       // redirects old /rns?t= links to the Wallet RNS tab.
-      return import.meta.env.VITE_SHOW_RNS === "true" ? <RNSPanel /> : null;
+      return isFeatureOn("rns") ? <RNSPanel /> : null;
     default:
       return null;
   }
@@ -130,11 +138,14 @@ export function Layout({ bannerData, bannerLoading }: LayoutProps) {
       <div className="prism-room prism-font min-h-dvh text-prism-ink">
         <Rail />
         <MobileTopBar />
+        {MESSAGES_V2 && <MessagesRealtime />}
 
         <div className="flex gap-[21px] px-[13px] pb-[calc(114px+env(safe-area-inset-bottom,0px))] pt-[13px] md:pb-[21px] md:pl-[131px] md:pr-[21px] md:pt-[21px]">
           {/* Context field */}
           <div className="flex min-w-0 flex-1 flex-col gap-[13px] md:gap-[13px]">
             <TopBar />
+            {/* Mobile checkout (#49, CK-1): Finish buying, when an intent is open */}
+            <CheckoutResumeBar />
             {!bannerLoading && bannerData && (
               <Banner
                 message={bannerData.message || "Notice"}
@@ -159,6 +170,8 @@ export function Layout({ bannerData, bannerLoading }: LayoutProps) {
             >
               <ActivePanel panel={activePanel} />
             </main>
+            {/* Fan Library #26 phase A: the item playing while you move around */}
+            <EditorMiniPlayer />
           </div>
 
           {/* Commitment field frame: live preview on Page and Design (D08, D10) */}

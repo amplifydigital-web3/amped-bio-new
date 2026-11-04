@@ -38,4 +38,8 @@ Date: 2026-10-10. Method: the Screen Review element-eval gate (tokens, glass, ri
 
 ## Not drawn yet
 
-Loading and skeleton states, the Confirm in wallet state of Send (the shipped stake panel covers the pattern), the Admin Money tab, the Google Pay variant of o3, the Telegram Mini App variant of o2 (Apple Pay option not rendered), the limits upgrade step inside Coinbase's frame (Coinbase renders it), and the email receipt (Coinbase sends its own). These go to build QA.
+Loading and skeleton states, the Confirm in wallet state of Send (the shipped stake panel covers the pattern), the Admin Money tab, the Google Pay variant of o3, the limits upgrade step inside Coinbase's frame (Coinbase renders it), and the email receipt (Coinbase sends its own). These go to build QA.
+
+## Full QA 2 (3 Nov 2026)
+
+Boards w1 to w7 and o1 to o7 checked against `development` 98db33f (USDC-1 to USDC-6 merged). The tREVO line on the boards was not `TESTNET_NOTICE` (S1, CK-Q50, CK-Q60). The rail and dock did not match the shell. Tabs at 43 and a 24 checkbox broke the 44 rule. Most states had no 390 frame. Both pages are redrawn as Prism 2.2 HTML at 1440 and 390 with `TESTNET_NOTICE` verbatim. No Telegram Mini App surface.

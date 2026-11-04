@@ -1,0 +1,7 @@
+# Local only (wrangler dev). Copy to .dev.vars. Never commit real secrets.
+# The account webhook secret Stream returns when the webhook URL is set.
+STREAM_WEBHOOK_SECRET=REPLACE_WITH_THE_ACCOUNT_WEBHOOK_SECRET
+# Each equals CF_STREAM_WEBHOOK_SECRET on that environment's API.
+# Generate: openssl rand -hex 32
+PRODUCTION_FORWARD_SECRET=REPLACE_WITH_A_RANDOM_SECRET
+STAGING_FORWARD_SECRET=REPLACE_WITH_A_DIFFERENT_RANDOM_SECRET

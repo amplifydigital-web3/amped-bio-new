@@ -18,7 +18,7 @@ export function mediaName(platform: string) {
   return MEDIA_NAMES[platform] ?? platform;
 }
 
-export type BlockNeed = "link" | "pool" | "text" | null;
+export type BlockNeed = "link" | "pool" | "text" | "content" | null;
 
 /** Hidden blocks render in neither the preview nor the public page (036 I09). */
 export function isHidden(block: BlockType) {
@@ -96,6 +96,8 @@ export function stripTags(html: string) {
 
 /** What a block still needs before it can show on the page (presence, not format). */
 export function blockNeed(block: BlockType): BlockNeed {
+  // A locked block (G3) carries no URL or body; the server checked it before locking
+  if (block.gated) return null;
   switch (block.type) {
     case "link":
       return block.config.url ? null : "link";
@@ -110,6 +112,8 @@ export function blockNeed(block: BlockType): BlockNeed {
       return /^0x[a-fA-F0-9]+$/.test(block.config.address ?? "") ? null : "pool";
     case "text":
       return stripTags(block.config.content ?? "") ? null : "text";
+    case "content":
+      return block.config.publicIds?.length ? null : "content";
     default:
       return null;
   }

@@ -34,6 +34,7 @@ import { BROADCAST_ON, longTime, shortTime } from "./utils";
 import { MESSAGES_ON } from "../messages/shared";
 import { MessagesTab } from "../messages/MessagesTab";
 import { FanMessagesSettings } from "../messages/FanMessagesSettings";
+import { InboxTelegramGroups } from "../messages/InboxTelegramGroups";
 
 function invalidateInbox(queryClient: ReturnType<typeof useQueryClient>) {
   void queryClient.invalidateQueries({ queryKey: trpc.broadcast.inbox.pathKey() });
@@ -239,9 +240,10 @@ function MessageView({ broadcastId, onBack }: { broadcastId: number; onBack: () 
 
 /**
  * Inbox, Updates (boards br3 and br4). Every member gets each broadcast here.
- * Phase 1 has no email. Deep link: /inbox?b={broadcastId}.
+ * Phase 1 has no email. Deep link: /inbox?b={broadcastId}. With Amped Messages (M5) it is
+ * the Broadcast tab of the new Inbox; M9 rebuilds it.
  */
-function UpdatesTab() {
+export function UpdatesTab() {
   const { setActivePanelAndNavigate } = useEditor();
   const [params, setParams] = useSearchParams();
   const openId = Number(params.get("b")) || null;
@@ -476,8 +478,9 @@ export function InboxPanel() {
       <TabsContent value="messages">
         <MessagesTab />
       </TabsContent>
-      <TabsContent value="settings" className="max-w-[720px]">
+      <TabsContent value="settings" className="max-w-[720px] space-y-[21px]">
         <FanMessagesSettings />
+        <InboxTelegramGroups />
       </TabsContent>
     </Tabs>
   );

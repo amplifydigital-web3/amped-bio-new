@@ -29,9 +29,5 @@
     // Build
     "skipLibCheck": true
   },
-  "include": ["scripts/**/*"],
-  "ts-node": {
-    "transpileOnly": true,
-    "files": true
-  }
+  "include": ["scripts/**/*"]
 }

@@ -17,10 +17,10 @@
  *
  * Usage:
  * - Run in simulation mode (no database changes):
- *   npx ts-node server/scripts/fix-recursive-block-configs.ts
+ *   npx tsx apps/server/scripts/fix-recursive-block-configs.ts
  *
  * - Run in update mode (fixes database records):
- *   npx ts-node server/scripts/fix-recursive-block-configs.ts update
+ *   npx tsx apps/server/scripts/fix-recursive-block-configs.ts update
  *
  * Output:
  * The script provides detailed logs showing each affected block's ID, type,

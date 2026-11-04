@@ -31,7 +31,7 @@ import { cleanHandleInput } from "@/lib/handle";
 import { useCaptcha } from "@/hooks/useCaptcha";
 import { useReferralHandler } from "@/hooks/useReferralHandler";
 import { useHandleAvailability } from "@/hooks/useHandleAvailability";
-import { getPostAuthDestination, goTo, toAbsoluteUrl } from "@/lib/panel";
+import { authSwitchHref, getPostAuthDestination, goTo, toAbsoluteUrl } from "@/lib/panel";
 import {
   SIGN_UP_UNCONFIRMED_BODY,
   SIGN_UP_UNCONFIRMED_TITLE,
@@ -101,6 +101,7 @@ export function RegisterForm() {
   const handleProblem = (): string | undefined => {
     if (!handle) return "Choose your page URL.";
     if (urlStatus === "Unavailable") return `amped.bio/${handle} is taken. Pick another.`;
+    if (urlStatus === "Reserved") return `amped.bio/${handle} is reserved. Pick another.`;
     if (urlStatus === "TooShort") return `Use at least ${HANDLE_MIN_LENGTH} characters`;
     if (urlStatus === "Invalid") return "Use lowercase letters, numbers, hyphens or underscores";
     return undefined;
@@ -165,7 +166,11 @@ export function RegisterForm() {
       if (response?.error) {
         const kind = classifyAuthError(response.error);
         const text = `${response.error.code ?? ""} ${response.error.message ?? ""}`;
-        if (/handle/i.test(text)) {
+        if (/reserved/i.test(text)) {
+          // Reserved handles (Build Board D2): the server's list is the full one
+          setHandleError(`amped.bio/${handle} is reserved. Pick another.`);
+          handleRef.current?.focus();
+        } else if (/handle/i.test(text)) {
           setHandleError(`amped.bio/${handle} is taken. Pick another.`);
           handleRef.current?.focus();
         } else if (kind === "emailTaken") {
@@ -257,9 +262,7 @@ export function RegisterForm() {
             text="Already have an account?"
             action={
               <Button variant="ghost" asChild data-testid="switch-to-login">
-                <Link href={`/login${email ? `?email=${encodeURIComponent(email)}` : ""}`}>
-                  Sign in
-                </Link>
+                <Link href={authSwitchHref("/login", params, email)}>Sign in</Link>
               </Button>
             }
           />

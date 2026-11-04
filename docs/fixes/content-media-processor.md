@@ -12,22 +12,22 @@ Branch `feat/media-processor`. PR 4 of the content system plan (`docs/features/c
 
 PR 2 accepts uploads and leaves them in `incoming/` in PROCESSING. Nothing turns them into something a fan can see. PR 4 is that step. It is also where most of the compliance work of the content system happens:
 
-| Duty | Where in PR 4 |
-| --- | --- |
-| Location privacy | Every image is re-encoded with no EXIF, GPS, XMP or IPTC. Audio loses every tag. PDFs lose the info dictionary and XMP |
-| Malware (decision 12) | ClamAV on documents, zip files and anything fans can download. Zip bombs, encrypted archives and over limit files fail |
-| Repeat offenders | SHA-256 of every upload, checked against `BlockedContentHash`. Malware hashes join the list |
-| CSAM (decision 11) | The matcher step runs on what a viewer would see. Beta uses the no op adapter that logs. PhotoDNA is a GA gate |
-| Adult content (decision 13) | The classifier step holds explicit items not labeled 18+. Production holds every image and video until a vendor runs |
-| Least privilege | The container has no internet and no credentials. It reaches R2 only through the Worker, limited to its own item |
-| Spend and abuse | Reserved bytes are released on every failure. A 2 hour sweep fails stuck items. The dead letter queue fails the rest |
+| Duty                        | Where in PR 4                                                                                                          |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Location privacy            | Every image is re-encoded with no EXIF, GPS, XMP or IPTC. Audio loses every tag. PDFs lose the info dictionary and XMP |
+| Malware (decision 12)       | ClamAV on documents, zip files and anything fans can download. Zip bombs, encrypted archives and over limit files fail |
+| Repeat offenders            | SHA-256 of every upload, checked against `BlockedContentHash`. Malware hashes join the list                            |
+| CSAM (decision 11)          | The matcher step runs on what a viewer would see. Beta uses the no op adapter that logs. PhotoDNA is a GA gate         |
+| Adult content (decision 13) | The classifier step holds explicit items not labeled 18+. Production holds every image and video until a vendor runs   |
+| Least privilege             | The container has no internet and no credentials. It reaches R2 only through the Worker, limited to its own item       |
+| Spend and abuse             | Reserved bytes are released on every failure. A 2 hour sweep fails stuck items. The dead letter queue fails the rest   |
 
-| Later PR | Needs from PR 4 |
-| --- | --- |
-| 5 library UI | Items reach READY, FAILED or BLOCKED. The `failureReason` codes in section 7 become creator messages |
-| 6 public pages | Renditions, covers, page previews, audio and waveform under the prefixes the gateway serves |
-| 7 trust and safety | The CSAM evidence path takes over the `quarantine/` copy. Admin review clears HELD items |
-| 8 gating | The PREVIEW_CLIP asset (video) and the AUDIO_PREVIEW asset (audio) for locked viewers |
+| Later PR           | Needs from PR 4                                                                                      |
+| ------------------ | ---------------------------------------------------------------------------------------------------- |
+| 5 library UI       | Items reach READY, FAILED or BLOCKED. The `failureReason` codes in section 7 become creator messages |
+| 6 public pages     | Renditions, covers, page previews, audio and waveform under the prefixes the gateway serves          |
+| 7 trust and safety | The CSAM evidence path takes over the `quarantine/` copy. Admin review clears HELD items             |
+| 8 gating           | The PREVIEW_CLIP asset (video) and the AUDIO_PREVIEW asset (audio) for locked viewers                |
 
 ## 2. How an item is processed
 
@@ -54,25 +54,25 @@ completeUpload (R2)         Stream webhook ready (video)
 
 **The steps.** Each step reports to the API. The Worker only goes on while the API answers `applied`.
 
-| Step | Audio | Image | Document (PDF, EPUB) | File (zip) | Video |
-| --- | --- | --- | --- | --- | --- |
-| hash | yes | yes | yes | yes | no (Stream holds the bytes) |
-| malware | when downloads are on | when downloads are on | yes | yes | no (Stream re-encodes) |
-| normalize | m4a, preview, waveform | renditions | cleaned PDF, page previews, cover | none | poster from Stream as COVER |
-| csam | no | renditions | page previews or EPUB cover | no | keyframes, every 5 s, max 60 |
-| blur | no | yes | yes when a cover exists | no | yes |
-| classifier | no | yes | no | no | 5 keyframes |
-| done | ORIGINAL row moves | ORIGINAL row moves | ORIGINAL row moves | ORIGINAL row moves | Stream clip and downloads (API) |
+| Step       | Audio                  | Image                 | Document (PDF, EPUB)              | File (zip)         | Video                           |
+| ---------- | ---------------------- | --------------------- | --------------------------------- | ------------------ | ------------------------------- |
+| hash       | yes                    | yes                   | yes                               | yes                | no (Stream holds the bytes)     |
+| malware    | when downloads are on  | when downloads are on | yes                               | yes                | no (Stream re-encodes)          |
+| normalize  | m4a, preview, waveform | renditions            | cleaned PDF, page previews, cover | none               | poster from Stream as COVER     |
+| csam       | no                     | renditions            | page previews or EPUB cover       | no                 | keyframes, every 5 s, max 60    |
+| blur       | no                     | yes                   | yes when a cover exists           | no                 | yes                             |
+| classifier | no                     | yes                   | no                                | no                 | 5 keyframes                     |
+| done       | ORIGINAL row moves     | ORIGINAL row moves    | ORIGINAL row moves                | ORIGINAL row moves | Stream clip and downloads (API) |
 
 **The ORIGINAL row.** At upload the ORIGINAL asset points at `incoming/{id}/original.{ext}`. It moves only with the `done` report, so any retry before `done` still finds the upload. Where it points afterwards:
 
-| Kind | ORIGINAL after done |
-| --- | --- |
-| Image | `derived/{id}/rendition/full.jpg`. The upload is never kept (spec 3.5) |
-| Audio | `originals/{id}/original.{ext}` when downloads are on, else `audio/{id}/full.m4a` |
-| Document | `originals/{id}/original.pdf` (cleaned) or `original.epub` (as uploaded) |
-| File | `originals/{id}/original.zip` |
-| Video | No R2 original. The STREAM row stays |
+| Kind     | ORIGINAL after done                                                               |
+| -------- | --------------------------------------------------------------------------------- |
+| Image    | `derived/{id}/rendition/full.jpg`. The upload is never kept (spec 3.5)            |
+| Audio    | `originals/{id}/original.{ext}` when downloads are on, else `audio/{id}/full.m4a` |
+| Document | `originals/{id}/original.pdf` (cleaned) or `original.epub` (as uploaded)          |
+| File     | `originals/{id}/original.zip`                                                     |
+| Video    | No R2 original. The STREAM row stays                                              |
 
 After `done` the Worker deletes `incoming/{id}/`.
 
@@ -89,16 +89,16 @@ After `done` the Worker deletes `incoming/{id}/`.
 
 ### 3.1 Server (`apps/server`)
 
-| File | Change |
-| --- | --- |
-| `services/cloudflare/queue.ts` (new) | `publishContentJob(message)`: `POST /accounts/{account}/queues/{queue_id}/messages` with `{ "body": {...} }`. 3 attempts on a network error or a 5xx; a 4xx is a configuration fault and throws at once. `contentQueueConfigured()` |
-| `services/content/job.ts` (new) | `buildProcessorJob(publicId)`: the job JSON. For a video in PROCESSING it signs a Stream token (2 hours) and builds the poster URL (at 5 s, 1280 px) and keyframe URLs (every 5 s, at most 60, 640 px). `streamCustomerHost(uid)` reads `CF_STREAM_CUSTOMER_CODE` or the video's own thumbnail host |
-| `services/content/state.ts` | `enqueueVideoProcessing` publishes (it only logged in PR 2) and throws on failure so Stream retries the webhook. The `hash` step checks `BlockedContentHash` and answers `blocked`. `finishVideo` at READY creates the PREVIEW_CLIP (Stream clip) and turns on MP4 downloads, best effort. `sweepStuckProcessing` (2 hours) |
-| `trpc/content.ts` | completeUpload publishes `{ type: "r2", publicId }` once the item moved to PROCESSING. A publish failure deletes the object, fails the item (`queue_unavailable`), releases the bytes and answers "Could not start processing this file. Upload it again." |
-| `routes/content.ts`, `services/API.ts` | `POST /internal/content/job`. Same signature as the callback. 404 until `CONTENT_PROCESSOR_SECRET` is set, 401 on a bad signature, 400 on a bad body, 404 `{ error: "not_found" }` for an unknown item |
-| `services/cloudflare/stream.ts` | `StreamVideo.thumbnail`. Comments on clip and downloads say they run at READY |
-| `services/cloudflare/config.ts` | Uploads need the two Queue variables |
-| `env.ts`, `.env.example` | `CF_QUEUES_API_TOKEN`, `CF_CONTENT_QUEUE_ID`, `CF_STREAM_CUSTOMER_CODE` (optional) |
+| File                                   | Change                                                                                                                                                                                                                                                                                                                      |
+| -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `services/cloudflare/queue.ts` (new)   | `publishContentJob(message)`: `POST /accounts/{account}/queues/{queue_id}/messages` with `{ "body": {...} }`. 3 attempts on a network error or a 5xx; a 4xx is a configuration fault and throws at once. `contentQueueConfigured()`                                                                                         |
+| `services/content/job.ts` (new)        | `buildProcessorJob(publicId)`: the job JSON. For a video in PROCESSING it signs a Stream token (2 hours) and builds the poster URL (at 5 s, 1280 px) and keyframe URLs (every 5 s, at most 60, 640 px). `streamCustomerHost(uid)` reads `CF_STREAM_CUSTOMER_CODE` or the video's own thumbnail host                         |
+| `services/content/state.ts`            | `enqueueVideoProcessing` publishes (it only logged in PR 2) and throws on failure so Stream retries the webhook. The `hash` step checks `BlockedContentHash` and answers `blocked`. `finishVideo` at READY creates the PREVIEW_CLIP (Stream clip) and turns on MP4 downloads, best effort. `sweepStuckProcessing` (2 hours) |
+| `trpc/content.ts`                      | completeUpload publishes `{ type: "r2", publicId }` once the item moved to PROCESSING. A publish failure deletes the object, fails the item (`queue_unavailable`), releases the bytes and answers "Could not start processing this file. Upload it again."                                                                  |
+| `routes/content.ts`, `services/API.ts` | `POST /internal/content/job`. Same signature as the callback. 404 until `CONTENT_PROCESSOR_SECRET` is set, 401 on a bad signature, 400 on a bad body, 404 `{ error: "not_found" }` for an unknown item                                                                                                                      |
+| `services/cloudflare/stream.ts`        | `StreamVideo.thumbnail`. Comments on clip and downloads say they run at READY                                                                                                                                                                                                                                               |
+| `services/cloudflare/config.ts`        | Uploads need the two Queue variables                                                                                                                                                                                                                                                                                        |
+| `env.ts`, `.env.example`               | `CF_QUEUES_API_TOKEN`, `CF_CONTENT_QUEUE_ID`, `CF_STREAM_CUSTOMER_CODE` (optional)                                                                                                                                                                                                                                          |
 
 ### 3.2 Shared constants (`packages/constants/src/contentJob.ts`, new)
 
@@ -106,46 +106,46 @@ After `done` the Worker deletes `incoming/{id}/`.
 
 ### 3.3 New app `apps/media-processor` (`@repo/media-processor`)
 
-| File | What it does |
-| --- | --- |
-| `src/index.ts` | Queue handler for `content-ingest` and its `-dlq`. Acknowledges, or retries with backoff. Exports the container class and `ContainerProxy` (required for outbound interception) |
-| `src/pipeline.ts` | The steps in section 2. `processMessage` and `failDeadLetter` |
-| `src/api.ts` | Signed calls to the API. A bare 404 (route closed) is retried, never treated as "item not found" |
-| `src/container.ts` | `ProcessorContainer` (port 8080, sleeps after 10 idle minutes, no internet, `database.clamav.net` allowed) and the `r2.internal` outbound handler |
-| `src/grant.ts` | Per job grants: `{publicId}.{exp}.{hmac}`, 1 hour. The container may GET `incoming/{id}/...` and PUT `originals/`, `audio/`, `derived/{id}/...`. Nothing else, no other item |
-| `src/toolbox.ts` | Calls the container. Items spread over `CONTAINER_POOL_SIZE` named instances |
-| `src/adapters.ts` | CSAM matcher (`none`) and classifier (`mock`, `none`). A vendor adapter is one more branch |
-| `src/storage.ts` | Streamed SHA-256, R2 copy, prefix delete (refuses any prefix that is not `{prefix}/{publicId}/`) |
-| `wrangler.jsonc` | Top level is local and has no container (tests fake it). `staging` and `production` declare the container, the queues with the dead letter queue, the R2 bucket and the vars |
+| File               | What it does                                                                                                                                                                    |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/index.ts`     | Queue handler for `content-ingest` and its `-dlq`. Acknowledges, or retries with backoff. Exports the container class and `ContainerProxy` (required for outbound interception) |
+| `src/pipeline.ts`  | The steps in section 2. `processMessage` and `failDeadLetter`                                                                                                                   |
+| `src/api.ts`       | Signed calls to the API. A bare 404 (route closed) is retried, never treated as "item not found"                                                                                |
+| `src/container.ts` | `ProcessorContainer` (port 8080, sleeps after 10 idle minutes, no internet, `database.clamav.net` allowed) and the `r2.internal` outbound handler                               |
+| `src/grant.ts`     | Per job grants: `{publicId}.{exp}.{hmac}`, 1 hour. The container may GET `incoming/{id}/...` and PUT `originals/`, `audio/`, `derived/{id}/...`. Nothing else, no other item    |
+| `src/toolbox.ts`   | Calls the container. Items spread over `CONTAINER_POOL_SIZE` named instances                                                                                                    |
+| `src/adapters.ts`  | CSAM matcher (`none`) and classifier (`mock`, `none`). A vendor adapter is one more branch                                                                                      |
+| `src/storage.ts`   | Streamed SHA-256, R2 copy, prefix delete (refuses any prefix that is not `{prefix}/{publicId}/`)                                                                                |
+| `wrangler.jsonc`   | Top level is local and has no container (tests fake it). `staging` and `production` declare the container, the queues with the dead letter queue, the R2 bucket and the vars    |
 
 ### 3.4 The toolbox container (`apps/media-processor/container`)
 
 A small Node service. Not a workspace package: wrangler builds it from the Dockerfile.
 
-| File | What it does |
-| --- | --- |
-| `Dockerfile` | `node:24-bookworm-slim` with ffmpeg, ClamAV (clamd, clamdscan, freshclam), poppler-utils, qpdf, libheif-examples, unzip, tini. Signatures are downloaded at build |
-| `entrypoint.sh` | Starts clamd, refreshes signatures in the background when they are over 20 hours old, runs the server as the `node` user |
-| `clamav/clamd.conf`, `freshclam.conf` | Scan limits (600 MB file, 2 GB scan, 16 levels, 20,000 files), alerts on limits and encryption. HTTPS only to the mirror, no DNS check |
-| `src/server.mjs` | `/scan`, `/image`, `/audio`, `/document`, `/health`. One job at a time per instance. A file problem answers 200 `{ ok: false, reason }`; anything else 500 |
-| `src/scan.mjs` | Archive limits from the zip central directory (10 times, 2 GB), then ClamAV |
-| `src/image.mjs` | sharp: orientation, 4096 cap, 320, 640, 1280 and full in WebP and JPEG, 32 px blur. HEIC through heif-convert. 100 megapixel limit |
-| `src/audio.mjs` | ffmpeg AAC 160 kbps m4a, no tags or chapters, preview cut by stream copy, 1000 peak waveform streamed from a 4 kHz mono decode |
-| `src/document.mjs` | qpdf removes `/Info` and the catalog `/Metadata` (qpdf 11 JSON update, since bookworm has no single flag), pdftoppm pages 1 to 3, EPUB cover from the package file |
-| `src/r2.mjs` | GET and PUT on `http://r2.internal/object/{key}` with the grant header |
+| File                                  | What it does                                                                                                                                                       |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `Dockerfile`                          | `node:24-bookworm-slim` with ffmpeg, ClamAV (clamd, clamdscan, freshclam), poppler-utils, qpdf, libheif-examples, unzip, tini. Signatures are downloaded at build  |
+| `entrypoint.sh`                       | Starts clamd, refreshes signatures in the background when they are over 20 hours old, runs the server as the `node` user                                           |
+| `clamav/clamd.conf`, `freshclam.conf` | Scan limits (600 MB file, 2 GB scan, 16 levels, 20,000 files), alerts on limits and encryption. HTTPS only to the mirror, no DNS check                             |
+| `src/server.mjs`                      | `/scan`, `/image`, `/audio`, `/document`, `/health`. One job at a time per instance. A file problem answers 200 `{ ok: false, reason }`; anything else 500         |
+| `src/scan.mjs`                        | Archive limits from the zip central directory (10 times, 2 GB), then ClamAV                                                                                        |
+| `src/image.mjs`                       | sharp: orientation, 4096 cap, 320, 640, 1280 and full in WebP and JPEG, 32 px blur. HEIC through heif-convert. 100 megapixel limit                                 |
+| `src/audio.mjs`                       | ffmpeg AAC 160 kbps m4a, no tags or chapters, preview cut by stream copy, 1000 peak waveform streamed from a 4 kHz mono decode                                     |
+| `src/document.mjs`                    | qpdf removes `/Info` and the catalog `/Metadata` (qpdf 11 JSON update, since bookworm has no single flag), pdftoppm pages 1 to 3, EPUB cover from the package file |
+| `src/r2.mjs`                          | GET and PUT on `http://r2.internal/object/{key}` with the grant header                                                                                             |
 
 ### 3.5 Tests
 
-| Suite | Count | What it covers |
-| --- | --- | --- |
-| `container/test/toolbox.test.mjs` (node:test) | 18 | Real tools. EICAR alone and inside a zip, zip bomb, encrypted zip, renamed EXE as zip, image, MP3 and PDF. GPS PNG: no EXIF, XMP or copyright text in any output, orientation applied. 30 s tagged MP3: AAC, no tags, 10 s preview, 1000 peaks. PDF: info and XMP gone, 4 pages, 3 previews. EPUB cover. A job cannot read another item |
-| `container/test/clamd.test.mjs` | 1 | The same EICAR check through clamd and `clamdscan --fdpass`, as in the image. Skipped unless `CLAMD_CONFIG` and `CLAMD_SOCKET` are set |
-| `test/pipeline.test.ts` (workerd) | 21 | Step order and payloads per kind, the ORIGINAL row per kind, quarantine on malware, cleanup on failure, nothing touched on `ignored`, blocklist stop, missing upload, skip after READY, video poster and frame counts, dead letter |
-| `test/grant.test.ts` | 7 | Grant expiry, tampering, other items, and the outbound handler's allow and refuse rules with the local R2 |
-| `test/api.test.ts` | 4 | The signature matches the API's HMAC (a vector computed with `node:crypto`), 404 handling, results |
-| `test/queue.test.ts` | 3 | Ack, retry with backoff, malformed messages, dead letter |
-| Server `content-queue`, `content-job` | 12 | Publish retries and 4xx, job JSON without user data, video URLs, customer host |
-| Server `content-state`, `-router`, `-routes` | +11 | Blocklist stop, clip and downloads at READY, a failing clip keeps READY, the queue down on the webhook, the 2 hour sweep, completeUpload publishes once, a publish failure, the job route (404, 401, 400, 404, 200) |
+| Suite                                         | Count | What it covers                                                                                                                                                                                                                                                                                                                          |
+| --------------------------------------------- | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `container/test/toolbox.test.mjs` (node:test) | 18    | Real tools. EICAR alone and inside a zip, zip bomb, encrypted zip, renamed EXE as zip, image, MP3 and PDF. GPS PNG: no EXIF, XMP or copyright text in any output, orientation applied. 30 s tagged MP3: AAC, no tags, 10 s preview, 1000 peaks. PDF: info and XMP gone, 4 pages, 3 previews. EPUB cover. A job cannot read another item |
+| `container/test/clamd.test.mjs`               | 1     | The same EICAR check through clamd and `clamdscan --fdpass`, as in the image. Skipped unless `CLAMD_CONFIG` and `CLAMD_SOCKET` are set                                                                                                                                                                                                  |
+| `test/pipeline.test.ts` (workerd)             | 21    | Step order and payloads per kind, the ORIGINAL row per kind, quarantine on malware, cleanup on failure, nothing touched on `ignored`, blocklist stop, missing upload, skip after READY, video poster and frame counts, dead letter                                                                                                      |
+| `test/grant.test.ts`                          | 7     | Grant expiry, tampering, other items, and the outbound handler's allow and refuse rules with the local R2                                                                                                                                                                                                                               |
+| `test/api.test.ts`                            | 4     | The signature matches the API's HMAC (a vector computed with `node:crypto`), 404 handling, results                                                                                                                                                                                                                                      |
+| `test/queue.test.ts`                          | 3     | Ack, retry with backoff, malformed messages, dead letter                                                                                                                                                                                                                                                                                |
+| Server `content-queue`, `content-job`         | 12    | Publish retries and 4xx, job JSON without user data, video URLs, customer host                                                                                                                                                                                                                                                          |
+| Server `content-state`, `-router`, `-routes`  | +11   | Blocklist stop, clip and downloads at READY, a failing clip keeps READY, the queue down on the webhook, the 2 hour sweep, completeUpload publishes once, a publish failure, the job route (404, 401, 400, 404, 200)                                                                                                                     |
 
 Fixtures are generated by the tests. The repository holds no binary fixture and no malware sample. EICAR is the industry's harmless test string, assembled from two halves so the test file itself is not flagged by scanners on laptops or CI.
 
@@ -222,7 +222,7 @@ Fixtures are generated by the tests. The repository holds no binary fixture and 
 
 ## 5. Cloudflare setup and deploy (Gustavo)
 
-Per account (staging first). Wrangler needs `CLOUDFLARE_ACCOUNT_ID` set to the account you are working on.
+Staging first. Staging and production share one Cloudflare account, so `CLOUDFLARE_ACCOUNT_ID` is the same for both and the `--env` flag separates them. The Workers deploy as `amped-media-processor-staging` and `amped-media-processor-production`.
 
 ### 5.1 Containers
 
@@ -241,12 +241,12 @@ Production: `content-ingest` and `content-ingest-dlq`. Do not add an R2 event no
 
 ### 5.3 API token for publishing
 
-Dashboard, My Profile or Account API Tokens, Create Token, Custom: permission **Account, Queues, Edit**, this account only. Then on the API host:
+Dashboard, My Profile or Account API Tokens, Create Token, Custom: permission **Account, Queues, Edit**, this account only. Create one token per environment; Cloudflare cannot scope it to one queue, so each API keeps its own token and only its own queue id. Then on the API host:
 
-| Variable | Value |
-| --- | --- |
-| `CF_QUEUES_API_TOKEN` | the token |
-| `CF_CONTENT_QUEUE_ID` | the id from `queues info` |
+| Variable                  | Value                                                                                                                        |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `CF_QUEUES_API_TOKEN`     | the token                                                                                                                    |
+| `CF_CONTENT_QUEUE_ID`     | the id from `queues info`                                                                                                    |
 | `CF_STREAM_CUSTOMER_CODE` | optional. The `xxxx` in `customer-xxxx.cloudflarestream.com` (Stream, any video, Embed). Saves one Stream API call per video |
 
 `CF_ACCOUNT_ID` and `CONTENT_PROCESSOR_SECRET` already exist from PR 2.
@@ -273,19 +273,19 @@ The image carries signatures from build time. The entrypoint refreshes them from
 
 Turn on `CONTENT_UPLOADS_ENABLED` on staging. Upload through the API (the library UI is PR 5; use the tRPC calls from the PR 2 handoff, section 6). Watch `npx wrangler tail --env staging` and the `ContentItem` and `ContentAsset` rows.
 
-| Upload | Expect |
-| --- | --- |
-| A phone photo (JPEG or HEIC) with location on | READY. 8 renditions and a blur in `derived/`. Download `full.jpg` through the gateway and check `exiftool` shows no GPS |
-| A 30 s MP3 with tags, preview 10 s | READY. `audio/{id}/full.m4a` with no tags, `preview.m4a` of 10 s, `waveform/peaks.json`. ORIGINAL points at the m4a |
-| The same MP3 with downloads on | Also a `malware` step, and `originals/{id}/original.mp3` |
-| A PDF with author metadata | READY. `pageCount` set, 3 page previews, `pdfinfo` on the original shows no Author or Producer |
-| An EPUB with a cover | READY with a COVER and a blur |
-| A zip holding the EICAR test file (https://www.eicar.org) | BLOCKED, `moderationReason` the signature, a row in `BlockedContentHash`, the file in `quarantine/` |
-| The same zip again | BLOCKED at the hash step (`blocklist:malware`) before any scan |
-| A zip of 50 MB of zeros | FAILED `archive_ratio` |
-| An image titled `qa-explicit test` | READY with `moderationState` HELD (mock classifier) |
-| A 1 minute video with a 15 s preview and downloads on | After Stream is ready: COVER renditions, a PREVIEW_CLIP asset, downloads enabled on the Stream video |
-| Stop the API for 10 minutes during an upload | Retries in the tail; the item finishes when the API is back, or fails with `processing_error` after the third retry |
+| Upload                                                    | Expect                                                                                                                  |
+| --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| A phone photo (JPEG or HEIC) with location on             | READY. 8 renditions and a blur in `derived/`. Download `full.jpg` through the gateway and check `exiftool` shows no GPS |
+| A 30 s MP3 with tags, preview 10 s                        | READY. `audio/{id}/full.m4a` with no tags, `preview.m4a` of 10 s, `waveform/peaks.json`. ORIGINAL points at the m4a     |
+| The same MP3 with downloads on                            | Also a `malware` step, and `originals/{id}/original.mp3`                                                                |
+| A PDF with author metadata                                | READY. `pageCount` set, 3 page previews, `pdfinfo` on the original shows no Author or Producer                          |
+| An EPUB with a cover                                      | READY with a COVER and a blur                                                                                           |
+| A zip holding the EICAR test file (https://www.eicar.org) | BLOCKED, `moderationReason` the signature, a row in `BlockedContentHash`, the file in `quarantine/`                     |
+| The same zip again                                        | BLOCKED at the hash step (`blocklist:malware`) before any scan                                                          |
+| A zip of 50 MB of zeros                                   | FAILED `archive_ratio`                                                                                                  |
+| An image titled `qa-explicit test`                        | READY with `moderationState` HELD (mock classifier)                                                                     |
+| A 1 minute video with a 15 s preview and downloads on     | After Stream is ready: COVER renditions, a PREVIEW_CLIP asset, downloads enabled on the Stream video                    |
+| Stop the API for 10 minutes during an upload              | Retries in the tail; the item finishes when the API is back, or fails with `processing_error` after the third retry     |
 
 ## 7. Decisions made in this PR
 

@@ -2,7 +2,7 @@ import { TRPCError } from "@trpc/server";
 import { Prisma, prisma } from "@repo/database";
 import { uuidv7 } from "../utils/uuid-v7";
 import { enforceRateLimits } from "../utils/rateLimit";
-import { assertHandleAvailable, HANDLE_TAKEN_MESSAGE } from "./pageHandle";
+import { changeHandle, HANDLE_TAKEN_MESSAGE } from "./pageHandle";
 
 /**
  * QA-008: an account made from Follow starts with an unpublished page. Its
@@ -58,16 +58,18 @@ export async function publishPage(userId: number, handle?: string): Promise<Page
       }
 
       const handleChanges = next !== current;
-      if (handleChanges) await assertHandleAvailable(tx, next, userId);
 
       if (user.page_status === "PUBLISHED" && !handleChanges) {
         return { handle: next, pageStatus: "PUBLISHED", changed: false };
       }
 
-      await tx.user.update({
-        where: { id: userId },
-        data: { page_status: "PUBLISHED", ...(handleChanges ? { handle: next } : {}) },
-      });
+      // Reserved handles (Build Board D2): a new handle goes through the one
+      // handle write, which checks reserved and taken words
+      if (handleChanges) {
+        await changeHandle(tx, userId, next, { page_status: "PUBLISHED" });
+      } else {
+        await tx.user.update({ where: { id: userId }, data: { page_status: "PUBLISHED" } });
+      }
 
       const record = await tx.userOnboarding.findUnique({
         where: { user_id: userId },

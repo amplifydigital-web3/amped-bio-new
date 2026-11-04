@@ -23,9 +23,17 @@ import { broadcastRouter } from "./broadcast";
 import { onboardingRouter } from "./onboarding";
 import { telegramRouter } from "./telegram";
 import { messagingRouter } from "./messaging";
+import { messagesRouter } from "./messages";
+import { realtimeRouter } from "./realtime";
+import { pushRouter } from "./push";
 import { usdcRouter } from "./usdc";
 import { onrampRouter } from "./onramp";
 import { contentRouter } from "./content";
+import { notificationsRouter } from "./notifications";
+import { progressRouter } from "./progress";
+import { checkoutRouter } from "./checkout";
+import { identityRouter } from "./identity";
+import { accessRouter } from "./access";
 import { inferRouterOutputs } from "@trpc/server";
 
 // Merge all routers
@@ -55,11 +63,24 @@ const mergedRouter = router({
   onboarding: onboardingRouter,
   telegram: telegramRouter,
   messaging: messagingRouter,
+  messages: messagesRouter,
+  realtime: realtimeRouter,
+  push: pushRouter,
   // USDC in the wallet (Build Board #29): gasless send and USDC activity
   usdc: usdcRouter,
   // Buy USDC through Coinbase (Build Board #5)
   onramp: onrampRouter,
   content: contentRouter,
+  // Account notification settings (RNS name reminders)
+  notifications: notificationsRouter,
+  // Fan Library (#26) phase A: playback position per account
+  progress: progressRouter,
+  // Mobile checkout intents (Build Board #49), behind the checkout feature flag
+  checkout: checkoutRouter,
+  // Identity checks through Authbase: Over 18 and verified seller (Build Board #47)
+  identity: identityRouter,
+  // Access gating engine core (Build Board #21), behind the accessGating feature flag
+  access: accessRouter,
 });
 
 export type AppRouter = typeof mergedRouter;

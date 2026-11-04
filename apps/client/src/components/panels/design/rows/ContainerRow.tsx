@@ -7,6 +7,9 @@ import { ColorControl } from "../kit/ColorControl";
 import { CardMiniature, CreatorBackdrop } from "../kit/CreatorArt";
 import { ContrastNotice } from "../kit/Notices";
 import { formatRatio, useDesign } from "../kit/useDesign";
+import { containerRowValue, currentShape } from "../kit/surfaceLook";
+import { SurfaceControls } from "./SurfaceControls";
+import { isFeatureOn } from "../../../../config/featureFlags";
 
 // Screen Review 024. The Container row: style tiles, Container color, Opacity.
 
@@ -20,6 +23,9 @@ const CONTAINER_STYLES = [
   { id: 7, name: "Minimal glass" },
   { id: 9, name: "Modern card" },
 ];
+
+// Theme Engine v2 (#28, phase 2): Shape and Border under the surfaces (board 03)
+const themeV2On = isFeatureOn("themeV2");
 
 const OPACITY_PRESETS = ["100", "75", "50", "25", "0"] as const;
 
@@ -67,12 +73,15 @@ export function ContainerRow() {
   };
 
   const styleName = CONTAINER_STYLES.find(s => s.id === values.containerStyle)?.name ?? "None";
+  const hasSurface = values.containerStyle !== 0;
+  const shape = currentShape(values.containerStyle, config.containerShape);
+  const border = config.containerBorder ?? "none";
 
   return (
     <DisclosureRow
       id="container"
       label="Container"
-      value={styleName}
+      value={themeV2On ? containerRowValue(styleName, shape, border, hasSurface) : styleName}
       swatch={<ValueSwatch style={{ backgroundColor: values.containerColor }} />}
       warning={cardContrast ? !cardContrast.passes : false}
     >
@@ -96,6 +105,16 @@ export function ContainerRow() {
             />
           ))}
         </OptionGrid>
+
+        {themeV2On && (
+          <SurfaceControls
+            shape={shape}
+            border={border}
+            disabled={locked}
+            noSurface={!hasSurface}
+            onChange={update}
+          />
+        )}
 
         <ColorControl
           label="Container color"

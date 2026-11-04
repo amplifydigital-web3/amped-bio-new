@@ -11,23 +11,23 @@ Boards: Fan Library design page, version 2 (m1 to m12 phone, d1, d4, d10 desktop
 
 ### 1.1 What the current specs give a fan
 
-| Need | Where it is today | Gap |
-| --- | --- | --- |
-| See my memberships | Wallet, Memberships tab (mb9): creator, plan, interval, renewal, allowance, Cancel, Renew | Billing only. No content, no benefits list, sits beside token balances. |
-| Open members only content | The creator page content block and the item page amped.bio/handle/c/{publicId} | Per creator. No cross creator view. No newest first. No continue watching. |
-| See everything one creator gave me, and why | Nothing. The creator page shows what anyone sees, with locks. | No view of my access with one creator: plan, purchases, follow, in one place. |
-| Know something new was published | Nothing. Broadcast is a manual message. | A creator must write a broadcast for every drop or fans never hear about it. |
-| Resume a video | PR 6a (#346) stores progress per account. | No list of what I was watching across creators. |
-| Listen on a phone with the screen off | PR 6a: Media Session and one audio element. | Needs the phone player, queue and sleep timer. |
-| Download a file | Content system: single use signed URL when downloads are allowed | Works per item. No list of what I downloaded, no offline video or audio. |
-| Following | Fan Graph: the Following menu on the creator page and People for creators | No fan side list of who I follow with their content. |
-| Live | Out of scope in the content system | #27. |
+| Need                                        | Where it is today                                                                         | Gap                                                                           |
+| ------------------------------------------- | ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| See my memberships                          | Wallet, Memberships tab (mb9): creator, plan, interval, renewal, allowance, Cancel, Renew | Billing only. No content, no benefits list, sits beside token balances.       |
+| Open members only content                   | The creator page content block and the item page amped.bio/handle/c/{publicId}            | Per creator. No cross creator view. No newest first. No continue watching.    |
+| See everything one creator gave me, and why | Nothing. The creator page shows what anyone sees, with locks.                             | No view of my access with one creator: plan, purchases, follow, in one place. |
+| Know something new was published            | Nothing. Broadcast is a manual message.                                                   | A creator must write a broadcast for every drop or fans never hear about it.  |
+| Resume a video                              | PR 6a (#346) stores progress per account.                                                 | No list of what I was watching across creators.                               |
+| Listen on a phone with the screen off       | PR 6a: Media Session and one audio element.                                               | Needs the phone player, queue and sleep timer.                                |
+| Download a file                             | Content system: single use signed URL when downloads are allowed                          | Works per item. No list of what I downloaded, no offline video or audio.      |
+| Following                                   | Fan Graph: the Following menu on the creator page and People for creators                 | No fan side list of who I follow with their content.                          |
+| Live                                        | Out of scope in the content system                                                        | #27.                                                                          |
 
 ### 1.2 What is on development (23 Oct 2026)
 
 - **Destinations.** Seven rail items (app structure D01). Fan accounts (page UNPUBLISHED) see the creator shell with a Home card Make your own page. There is no fan first destination.
 - **Inbox.** A top bar bell opens the broadcast inbox. The list is a feed of items with a `kind`; v1 has `broadcast`. Unread polling every 60 seconds.
-- **Content.** Content system PRs 1 to 5 are merged: `ContentItem` and `ContentAsset` with `publishedAt` and `chapters` (`[{ startMs, title }]`), uploads to R2 and Cloudflare Stream, the processor Worker and the media gateway Worker. Video plays from Stream with signed RS256 tokens; audio, images, documents and files are R2 objects served through the media gateway (`media.ampedusercontent.com`) with HMAC tokens (content system 3.6). In review: PR 6a #346 (signed delivery, the shared player, `ViewerProgress`, captions) and PR 6 #348 (publish, public item and feed pages, the content block).
+- **Content.** Content system PRs 1 to 5 are merged: `ContentItem` and `ContentAsset` with `publishedAt` and `chapters` (`[{ startMs, title }]`), uploads to R2 and Cloudflare Stream, the processor Worker and the media gateway Worker. Video plays from Stream with signed RS256 tokens; audio, images, documents and files are R2 objects served through the media gateway (`usercontent.amped.bio`) with HMAC tokens (content system 3.6). In review: PR 6a #346 (signed delivery, the shared player, `ViewerProgress`, captions) and PR 6 #348 (publish, public item and feed pages, the content block).
 - **Fan Graph.** `Follow` with ACTIVE computed at read. `follow.listFollowing` does not exist; People lists followers for creators only.
 - **Theme.** `ThemeConfigV2` per creator through `upgradeTheme`: scene base, colors, fonts, container and button style, with the contrast guard (4.5:1 cards and buttons, 3:1 name).
 - **Memberships and purchases.** Specified (#25, content system 3.9), not built.
@@ -36,16 +36,16 @@ Boards: Fan Library design page, version 2 (m1 to m12 phone, d1, d4, d10 desktop
 
 ### 1.3 Patterns in the market
 
-| Product | What it does | Take | Avoid |
-| --- | --- | --- | --- |
-| Patreon app (member) | Home and Memberships feeds; Library with recently played, saved and downloads; a page per creator inside the app. | A per creator view. Library with continue, saved, downloads. | Mixing discovery into the paid feed. Burying membership management three taps deep. |
-| Gumroad library | Every purchase in one list, grouped by creator, with the file and a Receipt link. | Group by creator. Purchased is a lasting relationship with a receipt. | Handing out raw file URLs. |
-| Shopify Shop app | Each merchant shows as its own branded store page inside one app, with the shopper's orders from that merchant. | One app frame, each seller's brand inside it. | Letting the seller's brand replace the app navigation. |
-| Kindle, Apple Books | Library by author or collection; the reader opens in the publisher's typography; app chrome stays. | Content in the owner's look; navigation stays ours. | Hiding where an item came from. |
-| Spotify, YouTube | Position sync per account. Mini player that persists. Queue, autoplay, swipe gestures, offline downloads. | Server side position, mini player, queue, autoplay within a source, swipe to dismiss, downloads. | Autoplay into content the fan cannot open. |
-| Netflix | Continue row first. Remove from row, Mark as watched. Offline downloads per item. | Continue first, item menu, downloads. | DRM licensing beyond what the creator allows. |
-| Apple Podcasts | Library search separated from catalog search. | Scoped search. | Two search boxes. |
-| Media Session, Picture in Picture, Web App Manifest | Lock screen controls, PiP, home screen install. | All three in the player and the client shell. | A native app before the web app has proven the flows. |
+| Product                                             | What it does                                                                                                      | Take                                                                                             | Avoid                                                                               |
+| --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------- |
+| Patreon app (member)                                | Home and Memberships feeds; Library with recently played, saved and downloads; a page per creator inside the app. | A per creator view. Library with continue, saved, downloads.                                     | Mixing discovery into the paid feed. Burying membership management three taps deep. |
+| Gumroad library                                     | Every purchase in one list, grouped by creator, with the file and a Receipt link.                                 | Group by creator. Purchased is a lasting relationship with a receipt.                            | Handing out raw file URLs.                                                          |
+| Shopify Shop app                                    | Each merchant shows as its own branded store page inside one app, with the shopper's orders from that merchant.   | One app frame, each seller's brand inside it.                                                    | Letting the seller's brand replace the app navigation.                              |
+| Kindle, Apple Books                                 | Library by author or collection; the reader opens in the publisher's typography; app chrome stays.                | Content in the owner's look; navigation stays ours.                                              | Hiding where an item came from.                                                     |
+| Spotify, YouTube                                    | Position sync per account. Mini player that persists. Queue, autoplay, swipe gestures, offline downloads.         | Server side position, mini player, queue, autoplay within a source, swipe to dismiss, downloads. | Autoplay into content the fan cannot open.                                          |
+| Netflix                                             | Continue row first. Remove from row, Mark as watched. Offline downloads per item.                                 | Continue first, item menu, downloads.                                                            | DRM licensing beyond what the creator allows.                                       |
+| Apple Podcasts                                      | Library search separated from catalog search.                                                                     | Scoped search.                                                                                   | Two search boxes.                                                                   |
+| Media Session, Picture in Picture, Web App Manifest | Lock screen controls, PiP, home screen install.                                                                   | All three in the player and the client shell.                                                    | A native app before the web app has proven the flows.                               |
 
 ### 1.4 Patterns we adopt
 
@@ -66,7 +66,7 @@ Boards: Fan Library design page, version 2 (m1 to m12 phone, d1, d4, d10 desktop
 - **The fan holds access, not ownership.** Sources: a membership with that creator, a purchase from that creator (item or bundle), a pool stake, a follow, or a public post.
 - **Precedence.** Purchased, then Members, then Pool fans, then Followers, then Public. The server computes `accessSource` for every item; the client never infers it.
 - **One label.** Membership items show the plan name with the crown icon. Purchases show Purchased. Pool items show Pool fans. Followers and Public items show no label. A purchased course or collection is labeled once at its group heading.
-- **Ending access.** A past due membership keeps members items open for the 3 day grace period, with a notice and Renew. After it ends, members items leave every Library list and Continue; an item opened from a link shows Access ended with Rejoin. A purchase stays open for its term (forever unless the product says until a date), including after a membership ends.
+- **Ending access.** A past due membership keeps members items open for the 7 day grace period (mobile checkout D7), with a notice and Add $N USDC, which opens the Wallet Buy USDC panel prefilled with the shortfall (`/wallet?fund=usdc&need={units}&returnTo=/library/memberships`, Rob 29 Oct shortfall rule; the stacked sheet of D1 is superseded). After it ends, members items leave every Library list and Continue; an item opened from a link shows Access ended with Rejoin. A purchase stays open for its term (forever unless the product says until a date), including after a membership ends.
 - **Ownership line.** Every creator section's status sheet opens with "{Creator} owns this content." The section footer carries the same line.
 
 ### 2.2 What ships
@@ -74,13 +74,13 @@ Boards: Fan Library design page, version 2 (m1 to m12 phone, d1, d4, d10 desktop
 1. **Library, one page, no tabs** (phone m1, desktop d1). Order: Continue, Saved and Downloads, Your creators, Memberships row, Newest. Header: title, Search, Filter, Inbox. Desktop puts Your creators, Memberships, Saved and Downloads in a side column.
 2. **Filter sheet** (m1). Type (Video, Audio, Documents, Photos, Files), How you have it (Membership, Purchased, Pool fans, Free), Where (Everywhere, On this device). The active filter shows as one removable chip.
 3. **Search** (m2, row 183). Scope chips: All creators, the current creator, On this device. Results grouped by creator. Recent searches. Searches titles, descriptions and chapter titles of items the fan can open.
-4. **Your creators** (m3, row 180). One row per connected creator: avatar with the brand ring, how the fan is connected, a new count or one warning. Past due first, then recent activity. Replaces the Creators and Following tabs of version 1. The testnet line sits at the foot when a pool row is present.
+4. **Your creators** (m3, row 180; corrected by QA2 board fl-q2). One row per connected creator: avatar with the brand ring, how the fan is connected, a new count or one warning. Past due first, then recent activity. Replaces the Creators and Following tabs of version 1. `TESTNET_NOTICE` (`packages/constants/src/testnet.ts`) sits at the foot when a pool row is present.
 5. **Creator section** at `/library/@handle` (m4, d4, m5; rows 181, 182). In the creator's look. Header, one status line (plan and renewal, purchases, following) that opens the status sheet (membership with Manage and Receipts, purchases with receipts, follow settings, Unfollow), Continue for this creator, segments Yours and Shop. Yours is one list: courses and collections first, then newest. Shop lists items the fan cannot open, each with one action (Join or Rejoin, Buy for N USDC, Go to the pool). When the fan is not a member and the creator has a plan, a From {creator} row offers Join as an outline button.
-6. **Memberships** (m9, row 125). Reached from the Memberships row on Library and from each status sheet. Summary line, one card per membership with one primary action: Renew when past due, Manage when active, Rejoin when canceled. Manage sheet: next renewal, switch billing interval, charges left on the approval, receipts, Cancel membership with the end date.
+6. **Memberships** (row 125, board r1 on Memberships that renew, corrected by QA2 boards mb-q1 and mb-q1d; m9 is superseded). Reached from the Memberships row on Library and from each status sheet. Summary line with the 3 day reminder, one card per membership: Past due, day N of 7 with Add $N USDC; Not covered yet with Add $N USDC as an outline button; Covered through a date; Ends on a date with Rejoin. One filled button per screen: the most urgent card. Manage sheet: next charge, coverage, charges left on the approval, receipts, the store policy at join, Cancel membership with the end date. Renewal reminders (CK-D3, Rob 3 Nov): 3 days before a charge, when the wallet is short, the fan gets a bell notification, a push and an email. The bell row (kind `MEMBERSHIP_RENEWAL`, `groupKey` `renewal:{membershipId}`) opens the Wallet Buy USDC panel prefilled with the charge (board mb-q2-d2, and r2 on Memberships that renew). No Telegram.
 7. **Player** (m6, m7, d10, row 128). Video and audio, full and mini layouts, in the item owner's look. Details in 3.5.
 8. **Viewers** (m8, row 184). PDF and photo sets in the owner's look.
 9. **Downloads and offline** (m10, row 129). Offline video, audio and files where the creator allows downloads. Details in 3.5.
-10. **Inbox content items** (m11, row 130). Kind `content` when a creator publishes an item the fan can open but the public cannot. Notification settings per creator.
+10. **New content alerts in Amped Messages** (row 130, QA2 boards fl-q5 and fl-q5d replace m11). A bell alert of kind `CONTENT` when a creator publishes an item the fan can open but the public cannot. The Inbox keeps Primary, Requests and Broadcast (`docs/features/messaging.md` 8.2); there is no Content tab. Per creator settings in Inbox settings: New content alerts, and Email updates, which is `Follow.email_updates`.
 11. **States** (m12). Empty, loading, offline, access ended during playback.
 12. **Creator feed page** at amped.bio/handle/content (cs6, row 127; content system PR 6).
 13. **Installable web app.**
@@ -89,19 +89,19 @@ Boards: Fan Library design page, version 2 (m1 to m12 phone, d1, d4, d10 desktop
 
 | # | Decision | Answer |
 | --- | --- | --- |
-| 1 | Where the Library lives | A destination in the Start group after Explore. Phone dock for fan accounts: Home, Explore, Library, Wallet, More; for creators: Home, Page, Library, Wallet, More. |
+| 1 | Where the Library lives | Rail Start: Home, Explore, Library, Inbox (CT-D1, Rob 3 Nov). Phone dock today, for every account: the shipped dock Home, Page, Inbox, Wallet, More, with Library under More (CK-D4). When the fan shell ships: fan dock Home, Library, Inbox, Wallet, More (Explore from Home and More); creator dock Home, Page, Inbox, Wallet, More (CT-D1). |
 | 2 | Do memberships leave Wallet | Yes. Library Memberships is the only management screen; mb9 becomes a Wallet Activity row with Manage. Wallet tabs: Tokens, Activity, Names. |
 | 3 | Where progress is stored | Server side per account and item, every 10 seconds of play and on pause (PR 6a). |
 | 4 | Downloads | Only where the creator allows downloads. Amended by decision C. |
 | 5 | Web app or native | Installable web app now; native evaluated after 90 days of Library data. |
-| 6 | New content notices | An inbox item for every account that qualifies at publish, with the per creator email consent; email as a daily digest, one per creator at most. |
+| 6 | New content notices | Decided by Rob 3 Nov (CT-D2). A bell alert (Amped Messages notification, kind `CONTENT`, collapsed per creator, plus the Library new counts; no Inbox tab) for every account that qualifies at publish; email as a daily digest, one per creator at most, only to followers with `Follow.email_updates` on (Fan Graph, messaging decision bc-email). Amended 3 Nov (QA2). |
 | 7 | Creator feed page | amped.bio/handle/content, server rendered, public items indexable, locked items as cards with no media URL. |
 | 8 | Casting | AirPlay now; Chromecast in phase 2 through DASH. |
 | 9 | Relationship labels | Members (plan name), Purchased, Pool fans, Followers; one label per item (amended by R3). |
 | 10 | Whose look the creator section uses | The creator's theme inside the Prism frame. Rail, top bar, dock and system notices stay Prism. Scenes still, name and cursor effects off. |
 | 11 | Locked items in the Library | Only in the creator section's Shop. Continue, Newest and search never show locked items. |
 | 12 | Access precedence | Purchased, Members, Pool fans, Followers, Public. |
-| 13 | Paying from the Library | Join, Rejoin, Renew and Buy open the creator's payment sheet, unchanged from the memberships spec. No on-ramp in the Library. |
+| 13 | Paying from the Library | Join, Rejoin and Buy open the creator's payment sheet. Add $N USDC opens the Wallet Buy USDC panel prefilled with the shortfall (`/wallet?fund=usdc&need={units}&returnTo=/library/memberships`, Rob 29 Oct shortfall rule; the stacked sheet of D1 is superseded). Amounts read `$N USDC` (D6). The sheet carries the seller line from mobile checkout section 5. Amended 3 Nov (QA2). |
 | 14 | Creator section address | `/library/@handle`, signed in only, never indexed. |
 | A | Library on the phone | One page, no tabs. |
 | B | Creator section segments | Yours and Shop. |
@@ -118,16 +118,16 @@ Native iOS and Android apps. Comments and likes. Playlists (content system phase
 
 | Row | Screen | Boards | Notes |
 | --- | --- | --- | --- |
-| 124 | Library, one page, filter sheet, states | m1, d1, m12 | Continue cards: 44 px play button, minutes left, 2 line title, creator with a 4 px brand mark. |
-| 180 | Your creators | m3, d1 side column | Avatar ring in the creator's accent; one warning (past due) or a new count. |
-| 181 | Creator section, member and buyer, status sheet | m4, d4 | Status line, Continue, Yours and Shop, ownership line. |
-| 182 | Creator section, buyer only, lapsed member with Shop, payment sheet | m5 | One filled button per screen. Shop rows with lock and outline Buy. |
-| 183 | Search | m2 | Scope chips, grouped results, recent searches. |
-| 125 | Memberships and Manage | m9 | One primary action per card. |
-| 128 | Player: video portrait, landscape, chapters and speed; audio, queue, mini player; desktop video | m6, m7, d10 | See 3.5. |
-| 184 | Document and photo viewers | m8 | In Design review. |
-| 129 | Downloads and the item menu | m10, cs7 | Content page Resume, Save and Download is board cs7 (content system). |
-| 130 | Inbox content items and notification settings | m11 | Toggles carry On and Off text. |
+| 124 | Library, one page, filter sheet, states | m1, d1, m12, fl-q1, fl-q6 | Continue cards: 44 px play button, minutes left, 2 line title, creator with a 4 px brand mark. Desktop on the shipped rail. |
+| 180 | Your creators | m3, d1 side column, fl-q12-d2 (full page at 1440) | Avatar ring in the creator's accent; one warning (past due) or a new count. |
+| 181 | Creator section, member and buyer, status sheet | m4, d4, fl-q2, fl-q9 | Status line, Continue, Yours and Shop, ownership line. Following in the status sheet: Show me on the public list (`Follow.show_publicly`), Email me updates (`Follow.email_updates`), New content alerts, Unfollow (Fan Graph fg8). |
+| 182 | Creator section, buyer only, lapsed member with Shop, payment sheet | m5, fl-q4-d2, fl-q13-d2 (sheet at 1440 as a centered dialog) | One filled button per screen. Shop rows with lock and outline Buy $N USDC. Seller line above Pay. |
+| 183 | Search | m2, fl-q7 | Scope chips, grouped results, recent searches, no results state. |
+| 125 | Memberships and Manage | r1, mb-q1-d2, mb-q1d, mb-q2-d2 | One filled button per screen. m9 superseded. |
+| 128 | Player: video portrait, landscape, chapters and speed; audio, queue, mini player; desktop video | m6, m7, d10, fl-q10-d2 (replaces d10), fl-q11-d2 (replaces m6 portrait and adds the More sheet with Report) | See 3.5. |
+| 184 | Document and photo viewers | m8, fl-q8 | Report in the viewer; downloads off line from `SITE_CONTENT_COPY.downloadsOff`. |
+| 129 | Downloads and the item menu | m10, cs7, fl-q6 | Content page Resume, Save and Download is board cs7 (content system). Downloads shows the device line and Clear all behind a confirm. |
+| 130 | New content alerts and settings in Amped Messages | fl-q5, fl-q5d | Toggles carry On and Off text. m11 superseded. |
 | 127 | Creator feed page | cs6 | Content system PR 6. |
 
 **Phone rules on every screen.** Page title 32, section 20, item title 16 on up to 2 lines, body and meta 14 to 15, labels 13. 44 px minimum targets, 55 for the primary. One filled button per screen. Every gesture has a visible button too. Off toggles carry a 3:1 border.
@@ -199,23 +199,15 @@ model DownloadRecord {
   @@map("download_records")
 }
 
-// FL-6: inbox content items
-model InboxItem {
-  id            Bytes     @id @db.Binary(16)
-  userId        Int       @map("user_id")
-  kind          String    @db.VarChar(16)          // content | live
-  bioId         Int       @map("bio_id")
-  refType       String    @map("ref_type") @db.VarChar(16)
-  refId         Bytes     @map("ref_id") @db.Binary(16)
-  readAt        DateTime? @map("read_at")
-  createdAt     DateTime  @default(now()) @map("created_at")
-  @@unique([userId, refType, refId])
-  @@index([userId, createdAt])
-  @@map("inbox_items")
-}
+// FL-6: new content alerts use Amped Messages notifications. No new table.
+// enum NotificationKind gains CONTENT (schema.prisma, NotificationKind).
+// Notification row: kind CONTENT, actorId = creator user id, refId = ContentItem.id,
+// groupKey = "content:{creatorUserId}" so alerts collapse per creator until seen.
+// enum NotificationKind also gains MEMBERSHIP_RENEWAL (CK-D3): refId = Membership.id,
+// groupKey = "renewal:{membershipId}", written by the readiness job 3 days before a charge.
 ```
 
-`LibraryCreatorVisit` drives the new count on Your creators. `NotificationPreference` gains `newContentEnabled` and `digestEnabled` on the per creator and global rows (FL-6). `ContentItem.publishedAt` and `chapters` already exist.
+`LibraryCreatorVisit` drives the new count on Your creators. `NotificationPreference` gains `newContentEnabled` (Boolean?, null means on) on the per creator and global rows (FL-6). There is no `digestEnabled`: the daily email reads `Follow.email_updates`, the one email consent per creator (Fan Graph 3.3, messaging decision bc-email). `ContentItem.publishedAt` and `chapters` already exist.
 
 ### 3.4 Access and listing
 
@@ -223,18 +215,19 @@ model InboxItem {
 - **Before the gating engine ships** (FL-2 to FL-5), the server answers with the rules that exist: an item is listed when it is public, or when it is visible to followers and the viewer follows the creator. `accessSource` is `follower` or `public`. The response shape is final, so FL-6 changes the resolver, not the clients.
 - The Shop segment is the one Library list that returns items the fan cannot open, with `unlockHint` (join, rejoin, buy with price, pool) and no media URL, matching content system criterion 9.
 - Grants are issued only when the fan opens an item, through `content.getReadUrl` (and `access.issueGrant` once gating ships). A refused refresh stops playback and shows Access ended.
-- New content fan out (FL-6): on the first PUBLISHED transition of an item that is not public, `listEligibleUserIds(ruleId)` writes one `InboxItem` per account in chunks of 1,000. Public items create no inbox item.
+- New content fan out (FL-6): on the first PUBLISHED transition of an item that is not public, the engine's `eligibleUserIds(ruleId)` (`services/access/engine.ts`) lists the accounts, drops those with `newContentEnabled` false for the creator or globally and those who blocked the creator in Messages, and writes one `Notification` of kind `CONTENT` per account in chunks of 1,000 (collapsing into an unseen row with the same `groupKey`). Public items create no alert. The daily digest job (`NotificationJob`, channel email) sends at most one email per creator per day to accounts whose `Follow.email_updates` is true.
 
 ### 3.5 Player, downloads and client structure
 
 **Player** (`packages/ui/src/player/`, PR 6a; phone v2 in FL-1).
+
 - `PlayerProvider` owns one `<video>` and one `<audio>` per page and never unmounts them; the full player borrows the video element; the mini player shows when no full player for the item is on screen. Mounted once in the editor and in the public site's handle layout (PR 6) and in the Library.
 - Video: Stream HLS with the signed token, native HLS on Safari and iOS, hls.js 1.6.15 from npm imported on demand. Audio: a native `<audio>` element from the media gateway (`audio/{publicId}/full.m4a`), waveform peaks from `derived/{publicId}/waveform/peaks.json`. URLs refresh a minute before `expiresAt`.
 - Progress every 10 seconds of play, on pause, seek, hide and `pagehide`. Resume at mm:ss and Start over between 30 seconds and 95 percent.
 - Captions: WebVTT, up to 5 languages, 512 KB each; Stream tracks for video, R2 objects for audio. Speeds 0.75 to 2. Media Session, PiP when supported, AirPlay.
-- **Phone video (FL-1, m6).** Portrait: 16:9 on top, controls on tap for 3 seconds, skip 10 s either side of play, captions, AirPlay, speed and quality, full screen, minimize. Landscape full screen when the phone rotates or on Full screen; double tap left or right skips 10 s with a ring; swipe down minimizes. Chapters and speed open in a sheet. Below the video: title, creator, label, Save, Chapters, more, Up next from the creator with Autoplay.
+- **Phone video (FL-1, m6).** Portrait: 16:9 on top, controls on tap for 3 seconds, skip 10 s either side of play, captions, AirPlay, speed and quality, full screen, minimize. Landscape full screen when the phone rotates or on Full screen; double tap left or right skips 10 s with a ring; swipe down minimizes. Chapters and speed open in a sheet. Below the video: title, creator, label, Save, Chapters, more (with Report, as on desktop d10), Up next from the creator with Autoplay.
 - **Phone audio (FL-1, m7).** Full player in the owner's look: cover, title, creator, label, Save, a scrub handle with a 44 px hit area, 15 s skips with numerals, speed, sleep timer (end of item, 15, 30, 60 minutes), Up next peeking as a sheet.
-- **Mini player (FL-1).** 64 high, in the owner's colors, above the dock on phones. No close button: tap or swipe up opens the full player; swipe down stops and dismisses; swipe left or right plays next or previous. Pause is the one 52 px target.
+- **Mini player (FL-1).** 64 high, in the owner's colors, above the dock on phones. Today `packages/ui/src/player/MiniPlayer.tsx` is 55 high (line 47) and has a close button (line 85, `player.close`); FL-1 changes both. No close button: tap or swipe up opens the full player; swipe down stops and dismisses; swipe left or right plays next or previous. Pause is the one 52 px target.
 - **Queue and autoplay (FL-1).** Queue sheet with drag handles. Autoplay on by default, continues with the same creator's items the viewer can open, newest first after the current group, never plays a locked item. Play next and Add to queue in every item menu.
 - **Desktop (d10).** Keyboard shortcuts behind a Keyboard shortcuts button. Queue button.
 
@@ -243,6 +236,7 @@ model InboxItem {
 **Item menu (FL-3, m10).** Long press or the more button: Play next, Add to queue, Download (when allowed), Save, Mark as watched, Go to the creator's section, Remove from Continue.
 
 **Offline (FL-5, decision C).**
+
 - Allowed only where the creator allows downloads. Video uses Stream's MP4 rendition (PR 6a already signs it); audio and files use the gateway's single use download URL. Files go into Cache Storage under `downloads/{publicId}`, opened through the service worker.
 - Download all for a course or collection. Download on Wi-Fi only, on by default. Storage meter from the Storage API estimate. Swipe left to remove; Clear all behind a confirm.
 - On every sync (app open, every 6 hours while open), the client asks `library.downloads.check` which records the viewer may still open; files for items the viewer lost access to, or that were unpublished or taken down, are deleted from the cache. Offline opens are allowed for 30 days since the last successful check.
@@ -250,7 +244,7 @@ model InboxItem {
 
 **Theme scope (FL-4).** `CreatorThemeScope` in `@repo/ui` takes the theme summary from the API and sets `--c-bg`, `--c-bg2`, `--c-surface`, `--c-ink`, `--c-muted`, `--c-line`, `--c-btn`, `--c-btnink` and the two font families on a container. Used by the creator section, the players, the viewers, the mini player and the payment sheet. Fonts load only for creators on screen.
 
-**Destinations (FL-3).** `LibraryPage` at `/library`, `CreatorSection` at `/library/@handle`, `LibrarySearch` at `/library/search`, `DownloadsPage` at `/library/downloads`, `MembershipsPage` at `/library/memberships`. Rail Start group after Explore; dock per decision 1. Flag `VITE_FAN_LIBRARY`.
+**Destinations (FL-3).** `LibraryPage` at `/library`, `CreatorSection` at `/library/@handle`, `LibrarySearch` at `/library/search`, `DownloadsPage` at `/library/downloads`, `MembershipsPage` at `/library/memberships`. Rail Start group after Explore (`apps/client/src/components/shell/destinations.ts`, `DESTINATIONS`, a `library` entry with `group: "start"` and `flag: "fanLibrary"`); Start order Home, Explore, Library, Inbox (CT-D1). Phone: Library is an entry in More (`dockComposition`) until the fan shell is specced (CK-D4); the fan dock then follows decision 1. Feature flag `fanLibrary` in `packages/constants/src/feature-flags.ts` (`scope: "public"`, `default: false`, `env: {}`), switched in admin, Feature flags. No `VITE_` variable.
 
 ### 3.6 tRPC procedures
 
@@ -270,8 +264,8 @@ model InboxItem {
 | `follow.listFollowing` | FL-2 | `{ cursor? }` | ACTIVE follows of the viewer |
 | `library.downloads`, `recordDownload`, `removeDownload`, `downloads.check` | FL-5 | as named | download records; check returns ids still allowed |
 | `library.memberships` | FL-7 | none | memberships joined to plan, status, renewal, newest members items, accent |
-| `inbox.list` (amended), `inbox.unreadCount` (amended) | FL-6 | `filter` gains `content` | rows with owner and `accessSource` |
-| `notifications.setNewContent` | FL-6 | `{ bioId?, inbox?, digest? }` | ok |
+| `notifications.list` (amended) | FL-6 | as shipped in Amped Messages | `CONTENT` rows carry owner, title and `accessSource`; titles of 18+ items are never in the alert |
+| `notifications.setNewContent` | FL-6 | `{ creatorUserId?, enabled }` | ok. Email updates stay on `follow.update({ emailUpdates })` |
 
 No procedure returns another user's email or wallet.
 
@@ -281,10 +275,10 @@ No procedure returns another user's email or wallet.
 
 ### 3.8 Copy, compliance and privacy
 
-- No earn, yield, return, income, invest, APY or price words in the Library, the player or the viewers. The verbatim testnet line ("Testnet only. tREVO has no cash value. Pool rewards come from the network, vary, and are not guaranteed.") appears only on Your creators when a pool row is present.
+- No earn, yield, return, income, invest, APY or price words in the Library, the player or the viewers. The testnet line is the constant `TESTNET_NOTICE` from `packages/constants/src/testnet.ts`, imported, never typed. It appears on Your creators when a pool row is present, and on any Library surface that shows a Pool fans label with a pool (content gating 4.3 copy check).
 - Memberships, purchases and the creator payment sheet carry no staking, pool or tREVO words.
 - The access label names the plan or the rule, never an amount staked.
-- Payment flow rules apply in full: the fan pays the creator, in the creator's sheet, with "Includes the Amped.Bio fee of 5%"; no on-ramp in the Library.
+- Payment flow rules apply in full: the fan pays the creator, in the creator's sheet, with "Includes the Amped.Bio fee of 5%" and the counsel seller sentences with a Store policy link above Pay (CK-D1, Rob 3 Nov): "Sold by {seller} on Amped.bio. Your purchase is from {seller}, not from Amped." then Store policy, which opens the live `StorePolicyVersion` in a sheet. No discretion sentence and no "Payments are final". Add USDC opens the Wallet Buy USDC panel, prefilled; the on-ramp stays in Wallet. Amounts read `$N USDC`. Plans read every 30 days, never a month (CK-Q80).
 - No copy implies the fan owns, resells or transfers content. The ownership line is "{Creator} owns this content."
 - Progress, saved, visit, download and inbox records are personal data, deleted with the account. Creators never see per fan progress, saves, visits or downloads.
 - Offline files are removed when access ends; the fan is told so on the Downloads screen.
@@ -299,7 +293,7 @@ KPIs 90 days after general availability (proposed): 60 percent of paying fans op
 
 ### 3.10 PR plan
 
-Every PR from a fresh `development`, into `development`, reviewer Gustavo, flag `VITE_FAN_LIBRARY` off in production, lockfile changes as a patch in `docs/fixes` when the connector cannot push the lockfile.
+Every PR from a fresh `development`, into `development`, reviewer Gustavo, feature flag `fanLibrary` off in production, lockfile changes as a patch in `docs/fixes` when the connector cannot push the lockfile.
 
 | PR | Branch | Ships | Rows | Needs first |
 | --- | --- | --- | --- | --- |
@@ -310,7 +304,7 @@ Every PR from a fresh `development`, into `development`, reviewer Gustavo, flag 
 | FL-3 | feat/library-page | Library destination, rail and dock, one page Library (m1, d1), Filter sheet, search (m2), Your creators (m3), states (m12), item menu | 124, 180, 183 | FL-2 |
 | FL-4 | feat/library-creator-section | `CreatorThemeScope`, creator section and status sheet (m4, d4), Yours segment | 181 | FL-2 |
 | FL-5 | feat/library-offline | Installable web app, Downloads (m10), offline video, audio and files, access sync | 129 | FL-3 |
-| FL-6 | feat/library-gated | Gated items through `checkAccessBatch`, plan labels, Shop with locked items (Join and Buy show Later until FL-7), Access ended, `InboxItem` fan out, digest, notification settings (m11) | 130, 182 | Gating engine (#21) and content PR 8 |
+| FL-6 | feat/library-gated | Gated items through `checkAccessBatch`, plan labels, Shop with locked items (Join and Buy show Later until FL-7), Access ended, `CONTENT` notification fan out, digest on `Follow.email_updates`, New content alerts in Inbox settings (fl-q5) | 130, 182 | Gating engine (#21), content PR 8, Amped Messages M4 (`feat/notifications`) and M5 |
 | FL-7 | feat/library-money | Memberships and Manage (m9), status sheet membership and purchases, Wallet change, Purchased labels, Join, Buy, Renew and Rejoin through the creator payment sheet (m5) | 125, 182 | Content PR 10 (checkout), PR 11 and AmpedMemberships (#25 phase C) |
 | later | with #27 | Live in the Library | 135 | Live streaming |
 
@@ -329,9 +323,9 @@ Order: #346 and #348 merge; FL-0, FL-1 and FL-2 in parallel; FL-3 and FL-4 in pa
 9. The mini player survives navigation and has no close button; swipe down stops it.
 10. Autoplay never starts an item the viewer cannot open and never leaves the creator.
 11. Downloads only for allowed items; files open offline for 30 days since the last check; losing access deletes the files at the next check.
-12. Publishing a members item creates one inbox item per eligible member within 60 seconds for 10,000 members, none for a public item.
-13. Memberships orders past due, active, canceled; Renew opens the creator's sheet and the card updates without a reload.
-14. The testnet line appears only on Your creators with a pool row. No banned words. No dashes.
+12. Publishing a members item creates one `CONTENT` bell alert per eligible member within 60 seconds for 10,000 members, none for a public item, none for a fan who turned New content alerts off. The daily email goes only to followers with `Follow.email_updates` on.
+13. Memberships orders past due, not covered, covered, ending; Add $N USDC opens the Wallet Buy USDC panel prefilled and the card updates on return without a reload. Members items stay open for 7 days past due.
+14. `TESTNET_NOTICE` appears wherever a Library surface shows a pool. No banned words. No dashes.
 15. Keyboard, reduced motion, 44 px targets and one filled button per screen hold on every Library screen.
 16. Typecheck and build pass for `server`, `client`, `landingpage`, `@repo/ui`, `@repo/constants`, `@repo/database`. Tests cover access source precedence, Shop denial, theme fallback, progress guard, autoplay filter, download check, fan out idempotency and the copy scan.
 
@@ -340,13 +334,13 @@ Order: #346 and #348 merge; FL-0, FL-1 and FL-2 in parallel; FL-3 and FL-4 in pa
 - **Memberships (#25).** Library Memberships replaces Wallet Memberships; mb9 becomes a Wallet Activity row. The creator payment sheet also opens from the creator section and the Memberships list.
 - **Content system (#20).** Player phone layouts, queue, autoplay and sleep timer; viewers in the owner's look; offline video through Stream MP4 where downloads are allowed (replaces "streams are never cached" for allowed items).
 - **Theme Engine v2 (D28).** New consumer: `CreatorThemeScope`; still scenes and no motion effects in the Library.
-- **Broadcast (#1).** Inbox kinds `content` and `live`; rows carry owner and access label.
+- **Amped Messages (#2 r4, replaces Broadcast inbox).** Notification kinds `CONTENT` (and `LIVE` with #27); bell rows carry owner and access label. No Inbox tab is added.
 - **Fan Graph (#22).** `follow.listFollowing`; Following is shown in Your creators and the creator status sheet.
 - **App structure v2.** D01 Library destination; D09 dock order; D19 Wallet tabs revert to three.
 
 ### 3.13 Counsel and engineering gates
 
-1. Counsel: daily digest as commercial email and the New content preference as consent (before FL-6); the ownership line (before FL-4); offline copies in the creator and fan terms (before FL-5).
+1. Counsel: daily digest as commercial email under the existing `Follow.email_updates` consent (before FL-6); the ownership line (before FL-4); offline copies in the creator and fan terms (before FL-5).
 2. Engineering: hls.js token refresh mid session and native HLS on iOS (verify PR 6a on staging).
 3. Engineering: iOS Safari Cache Storage limits and eviction for FL-5; Stream MP4 renditions turned on only for items with downloads allowed.
 4. Engineering: theme summary payload and font loading for up to 20 creators on one screen.
@@ -370,3 +364,5 @@ Order: #346 and #348 merge; FL-0, FL-1 and FL-2 in parallel; FL-3 and FL-4 in pa
 - 2026-10-23 (R1, PR 6a): Copied into the repo. Corrections: audio, captions and files are served from R2 through the media gateway, not CloudFront; new tables use UUID v7 `BINARY(16)` ids; positions are milliseconds; hls.js from npm; captions specified. Phase A scope set to PR 6a.
 - 2026-10-23 (R2, creator ownership): Rob's direction that a fan holds content from many creators. Ownership and access model, creator sections in the creator's look with a store, access precedence, owner shown everywhere, decisions 10 to 14, rows 180 to 182.
 - 2026-10-23 (R3, mobile first): After an expert UI evaluation (four reviewers) with phones as the main surface: one page Library with no tabs, Your creators replaces the Creators and Following tabs, creator sections with Yours and Shop and one status line, one access label per item, Filter sheet, search, phone video and audio players with gestures, queue, autoplay and sleep timer, viewers, offline video and audio where allowed, item menu, phone type and target rules. Boards m1 to m12, d1, d4, d10 replace fl1 to fl15. Decisions A to D. Rob answered decisions 10 to 14 and A to D with the recommendations and approved the screens except row 184. PR plan FL-0 to FL-7.
+- 2026-11-03 (QA2 Full QA, content group): 7 day grace and Add $N USDC per mobile checkout D1, D6, D7; Memberships board r1 replaces m9; `TESTNET_NOTICE` constant replaces the quoted line; new content alerts move to Amped Messages notifications (kind `CONTENT`), `InboxItem` and `digestEnabled` dropped, email reads `Follow.email_updates`; status sheet gains Show me on the public list; seller line on the payment sheet; feature flag `fanLibrary` replaces `VITE_FAN_LIBRARY`; mini player code delta named; QA2 boards fl-q1 to fl-q9, mb-q1, mb-q1d. Open: CT-D1 dock and rail, CT-D2 where content alerts list.
+- 2026-11-03 (QA2 d2, Rob's decisions): CT-D1 and CK-D4 applied (rail Start Home, Explore, Library, Inbox; shipped dock today, fan dock recorded for the fan shell); CT-D2 recorded as decided; CK-D3 renewal reminder in the bell (`MEMBERSHIP_RENEWAL`); CK-D1 seller sentences on the payment sheet. Boards fl-q10-d2 to fl-q13-d2, mb-q2-d2 and d2 redraws of fl-q1, fl-q2, fl-q4, fl-q5, fl-q6, mb-q1.

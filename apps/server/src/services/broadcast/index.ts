@@ -10,6 +10,7 @@
  * phase 2 with per-recipient email jobs, where rate limiting needs a queue.
  */
 import { Prisma, prisma } from "@repo/database";
+import { notifyBroadcastDelivered } from "../notifications/jobs";
 import { BROADCAST_LIMITS, BROADCAST_PAUSE_RULES } from "@repo/constants";
 import { enqueueTelegramBroadcast } from "../telegram/broadcast";
 
@@ -91,7 +92,8 @@ export async function getQuota(
     leftThisWeek: Math.max(0, BROADCAST_LIMITS.perWeek - week),
     paused: !!status?.pausedAt,
     nextSendReviewed: !status?.firstApprovedAt,
-    invited: !!status?.invitedAt,
+    // The invite pilot ended in PR M2 (msg-invite)
+    invited: true,
   };
 }
 
@@ -180,6 +182,8 @@ export async function processBroadcast(
       data: { status: "SENT", recipientCount, completedAt: new Date() },
     });
     console.log(`[broadcast] ${b.id} delivered to ${recipientCount} inboxes`);
+    // Amped Messages (#2 r4, M4): a bell row and an optional push per recipient
+    void notifyBroadcastDelivered(b.id);
     // Messaging on Telegram (#2): members who linked Telegram and turned updates on
     // get it there too, when the creator ticked Telegram. Never fails the broadcast.
     void enqueueTelegramBroadcast(b.id).catch(error =>

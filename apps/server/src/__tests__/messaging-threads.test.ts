@@ -63,7 +63,7 @@ beforeEach(() => {
   follow(fake.db, JORDAN, MAYA);
   linkTelegram(fake.db, MAYA, 9001);
   linkTelegram(fake.db, JORDAN, 9002);
-  Object.assign(env, { MESSAGING_INVITE_ONLY: true, APP_URL: "https://app.staging.amped.bio" });
+  Object.assign(env, { APP_URL: "https://app.staging.amped.bio" });
 });
 
 describe("a fan writes", () => {
@@ -109,10 +109,10 @@ describe("delivery to the creator's Telegram (acceptance 6)", () => {
   });
 
   it("stays in the Amped inbox when Reply from Telegram is off or the thread is muted", async () => {
-    fake.db.table("creatorMessagingSettings")[0].replyFromTelegram = false;
+    fake.db.table("messagingSettings")[0].replyFromTelegram = false;
     await fanSays("one");
     await deliverDmJob(job(outboxRows(fake.db, "dm")[0]));
-    fake.db.table("creatorMessagingSettings")[0].replyFromTelegram = true;
+    fake.db.table("messagingSettings")[0].replyFromTelegram = true;
     threads()[0].mutedUntil = new Date(Date.now() + 86_400_000);
     await fanSays("two");
     await deliverDmJob(job(outboxRows(fake.db, "dm")[1]));

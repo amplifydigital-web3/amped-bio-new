@@ -15,6 +15,7 @@ import crypto from "crypto";
 import { JWTPayload, SignJWT } from "jose";
 import type { EnrichedUser } from "../types/auth-helpers";
 import { uuidv7 } from "./uuid-v7";
+import { checkSignUpHandle, refuseHandleUpdate } from "./handleHooks";
 
 // === jwt private key generation  ===
 const pk = crypto.createPrivateKey({
@@ -187,7 +188,17 @@ export const auth = betterAuth({
         advertisedMetadata: {
           claims_supported: ["wallet"],
         },
-        customUserInfoClaims: async ({ user, scopes, requestedClaims, jwt }: { user: any; scopes: string[]; requestedClaims: string[]; jwt?: any }) => {
+        customUserInfoClaims: async ({
+          user,
+          scopes,
+          requestedClaims,
+          jwt,
+        }: {
+          user: any;
+          scopes: string[];
+          requestedClaims: string[];
+          jwt?: any;
+        }) => {
           const claims: Record<string, unknown> = {};
 
           if (requestedClaims.includes("wallet") || scopes.includes("profile")) {
@@ -258,8 +269,19 @@ export const auth = betterAuth({
   },
   databaseHooks: {
     user: {
+      // Reserved handles (Build Board D2, spec 4.8): /update-user never sets a handle
+      update: {
+        before: async (data: any) => {
+          refuseHandleUpdate(data);
+        },
+      },
       create: {
         before: async (user: any, context: any) => {
+          // Reserved handles (Build Board D2, spec 4.4): a handle the person
+          // sent passes the same format and reserved rules as Public URL
+          const supplied = await checkSignUpHandle(user.handle);
+          if (supplied) user.handle = supplied;
+
           if ((!user.handle || user.handle === "") && user.email) {
             user.handle = await processEmailToUniqueHandle(user.email);
           }

@@ -25,12 +25,16 @@ interface ImportMetaEnv {
   readonly VITE_FAN_GRAPH?: string;
   /** Content destination, Library tab (Build Board #20, content system PR 5) */
   readonly VITE_CONTENT?: string;
+  /** Mobile checkout (Build Board #49): the resume bar and, from CK-2, the pay page */
+  readonly VITE_CHECKOUT?: string;
   /** Explore NFTs tab (Screen Review 044, D07). Off until NFT data exists. */
   readonly VITE_SHOW_NFTS?: string;
   /** Creator Pool Broadcast (Build Board #1): My Pool Broadcasts tab and the Inbox */
   readonly VITE_SHOW_BROADCAST: string;
   /** Messaging on Telegram (Build Board #2): Account, Telegram link and the composer's Telegram channel */
   readonly VITE_SHOW_TELEGRAM?: string;
+  /** Fallback of the `messages` feature flag (Amped Messages); read through isFeatureOn("messages") */
+  readonly VITE_MESSAGES?: string;
   readonly VITE_DEFAULT_NETWORK_ID_HEX: `0x${string}`;
   /** USDC in the wallet (Build Board #29, Screen Review 137). Base beside Libertas. */
   readonly VITE_USDC_WALLET?: string;

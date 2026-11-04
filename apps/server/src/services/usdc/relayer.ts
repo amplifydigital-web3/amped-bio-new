@@ -8,6 +8,7 @@ import {
 } from "viem";
 import { USDC_EIP3009_ABI } from "@repo/web3";
 import { env } from "../../env";
+import { gasLines } from "../payments/settings";
 import { CdpClient, CdpError } from "./cdp";
 import { cdpNetwork, paymentClient, usdcAddress } from "./chain";
 import { splitAuthorizationSignature, type TransferAuthorization } from "./authorization";
@@ -60,12 +61,23 @@ export function encodeAuthorizationCall(auth: TransferAuthorization, signature: 
   });
 }
 
-export function gasState(wei: bigint) {
+/**
+ * Relayer gas against the alarm and stop lines. The lines are AmpedPay settings changed
+ * through the admin two person flow (spec docs/features/ampedpay.md 3.3); the env values
+ * are the fallback until a change is approved.
+ */
+export function gasState(
+  wei: bigint,
+  lines: { alarmEth: string; stopEth: string } = {
+    alarmEth: env.RELAYER_GAS_ALARM_ETH,
+    stopEth: env.RELAYER_GAS_STOP_ETH,
+  }
+) {
   return {
     wei,
     eth: formatEther(wei),
-    alarm: wei < parseEther(env.RELAYER_GAS_ALARM_ETH),
-    stopped: wei < parseEther(env.RELAYER_GAS_STOP_ETH),
+    alarm: wei < parseEther(lines.alarmEth),
+    stopped: wei < parseEther(lines.stopEth),
   };
 }
 
@@ -91,7 +103,7 @@ class CdpRelayer implements Relayer {
 
   async gas() {
     const wei = await paymentClient().getBalance({ address: await this.address() });
-    return gasState(wei);
+    return gasState(wei, await gasLines());
   }
 
   async submit(auth: TransferAuthorization, signature: Hex, idempotencyKey: string): Promise<Hex> {

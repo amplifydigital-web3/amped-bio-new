@@ -33,6 +33,8 @@ export {
   type PrismTransitionKind,
 } from "./prism/motion";
 export { SuccessMoment, DrawnCheck } from "./prism/moments/success-moment";
+// Prism 2.2 v1.1 additions for Amped Messages (2 Nov 2026)
+export { CountBadge, MessageBubble, TypingIndicator, DayLabel } from "./prism/messages";
 export {
   Menu,
   MenuTrigger,
@@ -128,6 +130,74 @@ export {
   formatSinceMonth,
   type RnsIdCardProps,
 } from "./creator/rns-id-card";
+// Theme Engine v2 phase 1b: the one creator page shell and its look (Build Board #28)
+export {
+  CreatorPage,
+  VIDEO_BACKDROP,
+  creatorTextStyle,
+  type CreatorPageMode,
+  type CreatorPageProps,
+  type CreatorPageSize,
+} from "./creator/creator-page";
+export {
+  CreatorButton,
+  CREATOR_FOCUS,
+  clampedFontSize,
+  playPress,
+  stillClasses,
+} from "./creator/creator-button";
+// Theme Engine v2 phase 2: the name entrances (Name row, board 08)
+export {
+  NameText,
+  entranceShouldPlay,
+  graphemes,
+  letterStagger,
+  scrambleFrame,
+  type NameTextProps,
+} from "./creator/name-effect";
+// Theme Engine v2 phase 1c: the one particle overlay (tsParticles v4 slim)
+export { ParticlesLayer, type ParticlesLayerProps } from "./creator/particles-layer";
+export { particleLayerOptions } from "./creator/particles-options";
+// Theme Engine v2 phase 2: built gradients, drift and textures (Background row)
+export { gradientScene, textureStyle, type SceneLook } from "./creator/scene";
+export {
+  BORDER_STYLE_CLASSES,
+  BUTTON_BORDER_CLASSES,
+  BUTTON_SHAPE_CLASSES,
+  CONTAINER_SHAPE_CLASSES,
+  buttonSurfaceClass,
+  containerShapeClass,
+  containerSurfaceClass,
+} from "./creator/surface";
+export {
+  containerBackground,
+  containerOn,
+  effectClassName,
+  hasLoopingMotion,
+  hoverSpeedMs,
+  lookCost,
+  lookCssVars,
+  lookFontColor,
+  lookFor,
+  nameLoopStyle,
+  nameLoops,
+  nameOnBio,
+  overlayParticlesId,
+  playingOverlay,
+  v1Values,
+  type CreatorLook,
+} from "./creator/look";
+// Mobile checkout CK-2: the money sheet look (shared with FL-4) and the $N USDC amount
+export { CreatorThemeScope, moneySheetColors, type MoneySheetColors } from "./creator/theme-scope";
+export { UsdcAmount } from "./creator/usdc-amount";
+// Motion shared by the landing page and the creator page (spec 3.7)
+export {
+  readMotionPaused,
+  setMotionPaused,
+  useMotionOff,
+  usePausedChoice,
+} from "./motion/motionState";
+export { createFrameWatchdog, lowPower, type FrameWatchdog } from "./motion/watchdog";
 export { ExternalRedirect } from "./external-redirect";
 export { NewVersionDialog } from "./new-version";
 
@@ -140,7 +210,7 @@ export type { AuthUser } from "./auth-types";
 export type { EnrichedSessionUser } from "./session-types";
 
 // TRPC client
-export { queryClient, trpcClient, trpc } from "./trpc";
+export { queryClient, trpcClient, trpc, sendTrpcBeacon } from "./trpc";
 export type { RouterOutputs } from "./trpc";
 export * from "./trpc-types";
 
@@ -191,3 +261,6 @@ export * from "./video-thumbnail";
 
 // Auth storage keys
 export * from "./auth-storage";
+
+// Shared media player (Fan Library #26 phase A)
+export * from "./player";
