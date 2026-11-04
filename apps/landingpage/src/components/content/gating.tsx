@@ -26,25 +26,48 @@ const PANEL_URL = process.env.NEXT_PUBLIC_PANEL_URL || "https://app.amped.bio";
  * hydration with access.checkPage. Server HTML never depends on the viewer.
  */
 export function useCardDecisions(handle: string, cards: ContentCard[]) {
+  return usePageDecisions(
+    handle,
+    cards.filter(card => card.gate).map(card => ({ type: "content" as const, id: card.publicId }))
+  );
+}
+
+/**
+ * Decisions for locked cards and blocks on a page (content gating 4.2, G3),
+ * asked after hydration with access.checkPage, up to 48 at a time. Server
+ * HTML never depends on the viewer. `refresh` asks again after a follow.
+ */
+export function usePageDecisions(
+  handle: string,
+  resources: Array<{ type: "content" | "block"; id: string }>
+) {
   const on = useFeatureFlag("accessGating");
   const [decisions, setDecisions] = useState<Record<string, AccessDecision>>({});
-  const ids = cards
-    .filter(card => card.gate)
-    .map(card => card.publicId)
-    .slice(0, 48);
-  const key = ids.join(",");
+  const [round, setRound] = useState(0);
+  const key = resources
+    .slice(0, 48)
+    .map(r => `${r.type}:${r.id}`)
+    .join(",");
   useEffect(() => {
     if (!on || !key) return;
     let live = true;
     trpcClient.access.checkPage
-      .query({ handle, resources: key.split(",").map(id => ({ type: "content", id })) })
+      .query({
+        handle,
+        resources: key.split(",").map(entry => {
+          const [type, id] = entry.split(":") as ["content" | "block", string];
+          return { type, id };
+        }),
+      })
       .then(result => live && setDecisions(result))
       .catch(() => undefined);
     return () => {
       live = false;
     };
-  }, [on, handle, key]);
-  return (publicId: string) => decisions[`content:${publicId}`] ?? null;
+  }, [on, handle, key, round]);
+  const lookup = (id: string, type: "content" | "block" = "content") =>
+    decisions[`${type}:${id}`] ?? null;
+  return Object.assign(lookup, { refresh: () => setRound(n => n + 1) });
 }
 
 /** The lock over a locked card's blur: Locked with the rule, or Open for you after checkPage. */

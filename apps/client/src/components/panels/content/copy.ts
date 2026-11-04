@@ -219,6 +219,9 @@ export const CONTENT_COPY = {
       anyPick: "Pick 2 or 3 rules",
       anyTooFew: "Pick at least 2 rules.",
       note: "Gated items show a blurred cover and a lock to fans who cannot open them yet.",
+      locked: "Locked",
+      blockNote:
+        "Locked blocks show their label and a lock. The link, text or video opens only for fans who meet the rule.",
       previewTitle: "What a locked fan sees",
       previewNone: "A blurred cover, the title and the lock.",
       saveFailed: "Could not change who can open this. Try again.",

@@ -4,6 +4,7 @@ import {
   Home,
   LayoutPanelTop,
   Library,
+  MessageCircle,
   Palette,
   Search,
   UsersRound,
@@ -18,6 +19,7 @@ import { isFeatureOn } from "../../config/featureFlags";
 export type DestinationId =
   | "home"
   | "explore"
+  | "inbox"
   | "page"
   | "content"
   | "design"
@@ -40,6 +42,8 @@ export interface Destination {
 export const DESTINATIONS: Destination[] = [
   { id: "home", label: "Home", icon: Home, group: "start" },
   { id: "explore", label: "Explore", icon: Search, group: "start" },
+  // Amped Messages (#2 r4, M5, spec 8.1): the Inbox with the unread conversations badge
+  { id: "inbox", label: "Inbox", icon: MessageCircle, group: "start", flag: "messages" },
   { id: "page", label: "Page", icon: LayoutPanelTop, group: "page" },
   // Content system (#20, decision 7): uploads, the library and later Store and Live
   { id: "content", label: "Content", icon: Library, group: "page", flag: "content" },
@@ -77,6 +81,9 @@ export function destinationForPanel(panel: EditorPanelType): DestinationId | nul
     case "pay":
     case "rns":
       return "wallet";
+    case "inbox":
+      // The Telegram era inbox has no rail item; only the native Inbox does
+      return isFlagOn("messages") ? "inbox" : null;
     case "home":
     case "explore":
     case "page":
@@ -123,7 +130,10 @@ export const WALLET_CHIP_PANELS: EditorPanelType[] = ["wallet", "my-pool", "expl
  */
 export function dockComposition(enabled: Destination[] = enabledDestinations()) {
   if (enabled.length <= 5) return { dock: enabled, more: [] as Destination[] };
-  const dockIds: DestinationId[] = ["home", "page", "design", "wallet"];
+  // Amped Messages (spec 8.1 item 2): Inbox takes Design's dock slot; Design moves to More
+  const dockIds: DestinationId[] = enabled.some(d => d.id === "inbox")
+    ? ["home", "page", "inbox", "wallet"]
+    : ["home", "page", "design", "wallet"];
   const dock = dockIds
     .map(id => enabled.find(d => d.id === id))
     .filter((d): d is Destination => Boolean(d));

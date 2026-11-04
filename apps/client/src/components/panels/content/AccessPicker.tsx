@@ -93,10 +93,17 @@ export function AccessPicker({
   publicId,
   access,
   gating,
+  onSave,
+  inline = false,
 }: {
-  publicId: string;
+  /** A content item: saves through content.update and shows the locked preview */
+  publicId?: string;
   access: EditorAccess | null | undefined;
   gating: EditorGating | null | undefined;
+  /** Another resource (a block, G3) saves through its own call */
+  onSave?: (next: ContentAccessInput | null) => Promise<void>;
+  /** Inside a block row's fields: no card of its own */
+  inline?: boolean;
 }) {
   const headingId = useId();
   const amountId = useId();
@@ -132,10 +139,13 @@ export function AccessPicker({
     setSaving(true);
     setError(null);
     try {
-      await trpcClient.content.update.mutate({ publicId, access: next });
-      await queryClient.invalidateQueries({
-        queryKey: trpc.content.get.queryKey({ publicId }),
-      });
+      if (onSave) await onSave(next);
+      else if (publicId) {
+        await trpcClient.content.update.mutate({ publicId, access: next });
+        await queryClient.invalidateQueries({
+          queryKey: trpc.content.get.queryKey({ publicId }),
+        });
+      }
     } catch (err) {
       setError(err instanceof Error && err.message ? err.message : g.saveFailed);
     } finally {
@@ -214,9 +224,11 @@ export function AccessPicker({
   return (
     <section
       aria-labelledby={headingId}
-      className="prism-glass-clear space-y-[13px] !rounded-prism-21 p-[21px]"
+      className={
+        inline ? "space-y-[13px]" : "prism-glass-clear space-y-[13px] !rounded-prism-21 p-[21px]"
+      }
     >
-      <p className={EYEBROW_NAV}>{e.accessEyebrow}</p>
+      {!inline && <p className={EYEBROW_NAV}>{e.accessEyebrow}</p>}
       <h2 id={headingId} className="flex items-center gap-2 text-prism-panel-title text-prism-ink">
         {e.accessTitle}
         {saving && (
@@ -333,8 +345,8 @@ export function AccessPicker({
         </p>
       )}
 
-      {choice !== "everyone" && <LockedPreview publicId={publicId} />}
-      <p className="text-prism-meta text-prism-ink-2">{g.note}</p>
+      {choice !== "everyone" && publicId && <LockedPreview publicId={publicId} />}
+      <p className="text-prism-meta text-prism-ink-2">{inline ? g.blockNote : g.note}</p>
     </section>
   );
 }

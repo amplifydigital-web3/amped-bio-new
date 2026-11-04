@@ -3,6 +3,7 @@
  * cache are mocked.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { __resetStakeKindsAllowlistCacheForTests } from "../services/access/allowlist";
 
 const state = vi.hoisted(() => ({
   poolOwner: 10 as number | null,
@@ -34,6 +35,7 @@ vi.mock("../utils/cache", () => ({
 }));
 vi.mock("@repo/database", () => ({
   prisma: {
+    siteSettings: { findUnique: vi.fn(async () => null) },
     creatorPool: {
       findUnique: vi.fn(async () =>
         state.poolOwner === null ? null : { wallet: { userId: state.poolOwner } }
@@ -65,6 +67,7 @@ vi.mock("@repo/database", () => ({
 import { cleanupInlineRule, createRule, deleteRule, updateRule } from "../services/access/rules";
 
 beforeEach(() => {
+  __resetStakeKindsAllowlistCacheForTests();
   state.poolOwner = 10;
   state.created = [];
   state.rule = { ownerUserId: 10, kind: "follower" };

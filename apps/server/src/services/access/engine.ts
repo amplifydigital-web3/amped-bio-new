@@ -21,7 +21,6 @@ import {
   type IdentityCheckResult,
   type UnlockHint,
 } from "@repo/constants";
-import { env } from "../../env";
 import { getRedisClient } from "../../utils/cache";
 import { uuidv7 } from "../../utils/uuid-v7";
 import { getVisitorHash } from "../analytics/requestContext";
@@ -149,7 +148,7 @@ async function evaluateLeaf(
   }
 
   // pool_member and stake_min
-  if (!stakeKindsAllowed(owner.id))
+  if (!(await stakeKindsAllowed(owner.id)))
     return refuse("kind_unavailable", { action: "unavailable" }, rule);
   const poolId = rule.params.poolId as number;
   const pool = await loadPool(poolId);
@@ -494,7 +493,7 @@ export async function eligibleUserIds(
     userIds = rows.map(row => row.follower_id);
   } else if ((STAKE_ACCESS_RULE_KINDS as readonly string[]).includes(rule.kind)) {
     // Same pilot allowlist as check(): a stake audience is empty outside it
-    if (!stakeKindsAllowed(ownerUserId)) return { userIds: [], nextCursor: null };
+    if (!(await stakeKindsAllowed(ownerUserId))) return { userIds: [], nextCursor: null };
     const poolId = rule.params.poolId as number;
     const pool = await loadPool(poolId);
     if (!pool || pool.ownerUserId !== ownerUserId) return { userIds: [], nextCursor: null };

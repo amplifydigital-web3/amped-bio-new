@@ -163,6 +163,11 @@ const motionBase = {
   "@keyframes prism-pulse": {
     "40%": { transform: "scale(1.8)", opacity: "0.5" },
   },
+  // v1.1 typing indicator (Amped Messages): dots fade 0.4 to 1 in sequence over 1.2 s
+  "@keyframes prism-typing": {
+    "0%, 80%, 100%": { opacity: "0.4" },
+    "40%": { opacity: "1" },
+  },
 
   // View Transitions (section 3.4). The shell stays put; only named parts move.
   // Names go on while a transition runs (motion.ts), so glass keeps its blur.

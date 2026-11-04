@@ -49,6 +49,9 @@ const state = vi.hoisted(() => ({
     tier: "STANDARD",
   } as unknown,
   allowlist: "10",
+  allowlistRow: null as string | null,
+  allowlistReads: 0,
+  allowlistError: false,
   events: [] as unknown[],
 }));
 
@@ -102,6 +105,19 @@ vi.mock("@repo/database", () => ({
         state.events.push(data);
       }),
     },
+    siteSettings: {
+      findUnique: vi.fn(async () => {
+        state.allowlistReads += 1;
+        if (state.allowlistError) throw new Error("database down");
+        return state.allowlistRow === null ? null : { setting_value: state.allowlistRow };
+      }),
+      upsert: vi.fn(async ({ update }: { update: { setting_value: string } }) => {
+        state.allowlistRow = update.setting_value;
+      }),
+      deleteMany: vi.fn(async () => {
+        state.allowlistRow = null;
+      }),
+    },
   },
 }));
 
@@ -114,9 +130,16 @@ import {
   eligibleUserIds,
   open,
   registerResolver,
-  stakeKindsAllowed,
   viewerKey,
 } from "../services/access/engine";
+import {
+  __resetStakeKindsAllowlistCacheForTests,
+  STAKE_KINDS_ALLOWLIST_CACHE_MS,
+  parseStakeKindsAllowlist,
+  readStakeKindsAllowlist,
+  setStakeKindsAllowlist,
+  stakeKindsAllowed,
+} from "../services/access/allowlist";
 import { parseRuleRow } from "../services/access/rules";
 
 const fan = { userId: FAN, wallet: "0xfan" };
@@ -157,6 +180,10 @@ beforeEach(() => {
   state.chain = 0n;
   state.identity = { pass: true, validUntil: new Date(Date.now() + 86_400_000), tier: "STANDARD" };
   state.allowlist = String(OWNER);
+  state.allowlistRow = null;
+  state.allowlistReads = 0;
+  state.allowlistError = false;
+  __resetStakeKindsAllowlistCacheForTests();
   state.events = [];
   clearEventDedupe();
 });
@@ -274,8 +301,73 @@ describe("stake kinds (acceptance 1, 2, 7, 8)", () => {
     gateWith(addRule("pool_member", { poolId: POOL }));
     state.mirror = 1n;
     expect((await check(fan, resource)).reason).toBe("kind_unavailable");
-    expect(stakeKindsAllowed(10, " 3, 10 ,11")).toBe(true);
-    expect(stakeKindsAllowed(10, "100")).toBe(false);
+    expect(await stakeKindsAllowed(10, " 3, 10 ,11")).toBe(true);
+    expect(await stakeKindsAllowed(10, "100")).toBe(false);
+  });
+
+  it("the access_stake_kinds_allowlist site setting wins over the environment", async () => {
+    state.allowlist = "";
+    state.allowlistRow = "3,10";
+    expect(await stakeKindsAllowed(10)).toBe(true);
+    __resetStakeKindsAllowlistCacheForTests();
+    state.allowlist = "10";
+    state.allowlistRow = "";
+    expect(await stakeKindsAllowed(10)).toBe(false);
+    __resetStakeKindsAllowlistCacheForTests();
+    state.allowlistRow = null;
+    expect(await stakeKindsAllowed(10)).toBe(true);
+  });
+
+  it("reads the row once per cache window, and a fresh read skips the cache", async () => {
+    vi.useFakeTimers();
+    try {
+      state.allowlistRow = "10";
+      await stakeKindsAllowed(10);
+      await stakeKindsAllowed(10);
+      expect(state.allowlistReads).toBe(1);
+      // Another instance changed the row: this one sees it after the window
+      state.allowlistRow = "";
+      expect(await stakeKindsAllowed(10)).toBe(true);
+      vi.advanceTimersByTime(STAKE_KINDS_ALLOWLIST_CACHE_MS);
+      expect(await stakeKindsAllowed(10)).toBe(false);
+      expect(state.allowlistReads).toBe(2);
+      expect(await readStakeKindsAllowlist({ fresh: true })).toEqual({
+        value: "",
+        source: "setting",
+      });
+      expect(state.allowlistReads).toBe(3);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("the saving instance applies a change at once, both ways", async () => {
+    state.allowlist = "";
+    expect(await stakeKindsAllowed(10)).toBe(false);
+    await setStakeKindsAllowlist([11, 10, 10], 1);
+    expect(state.allowlistRow).toBe("10,11");
+    expect(await stakeKindsAllowed(10)).toBe(true);
+    state.allowlist = "12";
+    await setStakeKindsAllowlist(null, 1);
+    expect(state.allowlistRow).toBeNull();
+    expect(await stakeKindsAllowed(10)).toBe(false);
+    expect(await stakeKindsAllowed(12)).toBe(true);
+    expect(state.allowlistReads).toBe(1);
+  });
+
+  it("a database error is not cached and refuses stake rules (default deny)", async () => {
+    state.allowlistError = true;
+    gateWith(addRule("pool_member", { poolId: POOL }));
+    state.mirror = 1n;
+    expect((await check(fan, resource)).reason).toBe("kind_unavailable");
+    await expect(stakeKindsAllowed(10)).rejects.toThrow("database down");
+    state.allowlistError = false;
+    expect(await stakeKindsAllowed(10)).toBe(true);
+  });
+
+  it("parseStakeKindsAllowlist keeps positive integer ids only", () => {
+    expect(parseStakeKindsAllowlist(" 3, 10 ,x,, -4, 0, 1.5,11")).toEqual([3, 10, 11]);
+    expect(parseStakeKindsAllowlist("")).toEqual([]);
   });
 
   it("eligibleUserIds returns no stake audience outside the pilot allowlist", async () => {
