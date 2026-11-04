@@ -9,7 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { QueryClient } from "@tanstack/react-query";
-import { TESTNET_NOTICE } from "@repo/constants";
+import { LIBRARY_LIMITS, TESTNET_NOTICE } from "@repo/constants";
 import { renderWithProviders } from "@/test/utils";
 import { setFeatureFlagOverridesForTests } from "../../../config/featureFlags";
 import {
@@ -27,6 +27,7 @@ const mocks = vi.hoisted(() => ({
   saved: vi.fn(),
   creators: vi.fn(),
   newest: vi.fn(),
+  search: vi.fn(),
   toast: vi.fn(),
 }));
 
@@ -68,6 +69,7 @@ vi.mock("@repo/ui", async () => {
           infiniteQueryOptions: infiniteOptions("library.creators.inf", mocks.creators),
         },
         newest: { infiniteQueryOptions: infiniteOptions("library.newest", mocks.newest) },
+        search: { infiniteQueryOptions: infiniteOptions("library.search.inf", mocks.search) },
         save: { mutationOptions: mutation },
         unsave: { mutationOptions: mutation },
         markWatched: { mutationOptions: mutation },
@@ -79,6 +81,7 @@ vi.mock("@repo/ui", async () => {
 vi.mock("@/components/ui/toast", () => ({ toast: { add: mocks.toast } }));
 
 import { LibraryHome } from "./LibraryHome";
+import { LibrarySearch } from "./LibrarySearch";
 import { YourCreatorsPage } from "./YourCreators";
 
 const maya = { handle: "maya", name: "Maya Lin", image: null, accent: "#e4572e" };
@@ -127,6 +130,7 @@ beforeEach(() => {
   mocks.saved.mockResolvedValue({ items: [], nextCursor: null });
   mocks.creators.mockResolvedValue({ items: [], nextCursor: null });
   mocks.newest.mockResolvedValue({ items: [], nextCursor: null });
+  mocks.search.mockResolvedValue({ groups: [], nextCursor: null });
 });
 
 describe("Library destination (spec 3.5, CT-D1, CK-D4)", () => {
@@ -179,6 +183,13 @@ describe("Library paths", () => {
     expect(isLibraryPath("/library/maya")).toBe(false);
     expect(isLibraryPath("/libraryx")).toBe(false);
     expect(isLibraryPath("/library/@bad handle")).toBe(false);
+  });
+
+  it("does not throw on a broken escape in a hand written link", () => {
+    // `/library/@%` decodes to a URIError, which would blank the whole panel
+    expect(() => parseLibraryPath("/library/@%")).not.toThrow();
+    expect(parseLibraryPath("/library/@%")).toBeNull();
+    expect(isLibraryPath("/library/@%E0%A4%A")).toBe(false);
   });
 });
 
@@ -297,6 +308,28 @@ describe("Your creators (row 180, board m3)", () => {
     renderAt(<YourCreatorsPage />, "/library/creators");
     expect(await screen.findByText("Following")).toBeTruthy();
     expect(screen.queryByText(TESTNET_NOTICE)).toBeNull();
+  });
+
+  it("keeps the creator search inside the length the server accepts", async () => {
+    renderAt(<YourCreatorsPage />, "/library/creators");
+    const input = screen.getByLabelText(LIBRARY_COPY.creatorsPage.searchLabel);
+    fireEvent.change(input, { target: { value: "m".repeat(120) } });
+    await waitFor(() =>
+      expect(mocks.creators).toHaveBeenCalledWith(
+        expect.objectContaining({ q: "m".repeat(LIBRARY_LIMITS.searchMaxLength) })
+      )
+    );
+  });
+});
+
+describe("Library search (row 183, boards m2, fl-q7)", () => {
+  it("trims a hand written search link to the length the server accepts", async () => {
+    renderAt(<LibrarySearch />, `/library/search?q=${"m".repeat(120)}`);
+    await waitFor(() =>
+      expect(mocks.search).toHaveBeenCalledWith(
+        expect.objectContaining({ q: "m".repeat(LIBRARY_LIMITS.searchMaxLength) })
+      )
+    );
   });
 });
 
