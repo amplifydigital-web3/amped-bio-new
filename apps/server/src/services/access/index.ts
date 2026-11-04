@@ -37,3 +37,4 @@ export {
 } from "./allowlist";
 export type { Gate, Resolver, Viewer } from "./types";
 export { viewerFrom } from "./viewer";
+export { ACCESS_WRITE_MESSAGES, ownerAccess, ownerPoolId, resolveAccessInput } from "./write";

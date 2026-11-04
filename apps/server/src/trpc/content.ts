@@ -39,10 +39,7 @@ import {
   contentReportSchema,
   contentRetrySchema,
   contentPreviewSchema,
-  LIVE_ACCESS_RULE_KINDS,
-  ACCESS_RULE_SUMMARIES,
   type AccessDecision,
-  type ContentAccessInput,
   type ContentPreview,
   type ContentUploadKind,
 } from "@repo/constants";
@@ -92,13 +89,13 @@ import {
   PREVIEW_ASSET_ROLES,
 } from "../services/content/delivery";
 import {
-  assertStakeKindsAllowed,
   check,
   cleanupInlineRule,
-  createRule,
   forgetRules,
-  loadRule,
   open,
+  ownerAccess,
+  ownerPoolId,
+  resolveAccessInput,
   stakeKindsAllowed,
   viewerFrom,
 } from "../services/access";
@@ -227,93 +224,6 @@ function ownerView(item: ContentItem) {
 // ----------------------------------------------------------------------------
 
 const ruleHex = (id: Uint8Array) => Buffer.from(id).toString("hex");
-
-/** The rule ids an item editor write resolves to, created inline where asked. */
-async function resolveAccessInput(
-  tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
-  ownerUserId: number,
-  access: ContentAccessInput
-): Promise<Buffer> {
-  if ("ruleId" in access) {
-    const rule = await loadRule(access.ruleId, { fresh: true });
-    if (!rule || rule === "invalid" || rule.ownerUserId !== ownerUserId) {
-      throw new TRPCError({ code: "NOT_FOUND", message: MESSAGES.ruleNotFound });
-    }
-    if (!(LIVE_ACCESS_RULE_KINDS as readonly string[]).includes(rule.kind)) {
-      throw new TRPCError({ code: "BAD_REQUEST", message: MESSAGES.ruleKind });
-    }
-    const kinds: string[] = [rule.kind];
-    if (rule.kind === "any" || rule.kind === "all") {
-      const leaves = await tx.accessRule.findMany({
-        where: { id: { in: (rule.params.ruleIds as string[]).map(id => Buffer.from(id, "hex")) } },
-        select: { kind: true },
-      });
-      kinds.push(...leaves.map(leaf => leaf.kind));
-    }
-    assertStakeKindsAllowed(ownerUserId, kinds);
-    return Buffer.from(access.ruleId, "hex");
-  }
-  if (access.kind === "any") {
-    assertStakeKindsAllowed(
-      ownerUserId,
-      access.leaves.map(leaf => leaf.kind)
-    );
-    const leafIds: string[] = [];
-    for (const leaf of access.leaves) {
-      leafIds.push(await createRule(ownerUserId, { ...leaf, name: null }, tx));
-    }
-    const id = await createRule(
-      ownerUserId,
-      { kind: "any", params: { ruleIds: leafIds }, name: null },
-      tx
-    );
-    return Buffer.from(id, "hex");
-  }
-  assertStakeKindsAllowed(ownerUserId, [access.kind]);
-  return Buffer.from(await createRule(ownerUserId, { ...access, name: null }, tx), "hex");
-}
-
-/** The item's rule as its owner sees it in the editor, with their own params. */
-async function ownerAccess(item: ContentItem) {
-  if (!item.accessRuleId) return null;
-  const rule = await loadRule(ruleHex(item.accessRuleId), { fresh: true });
-  if (!rule || rule === "invalid")
-    return { ruleId: ruleHex(item.accessRuleId), valid: false as const };
-  const row = await prisma.accessRule.findUnique({
-    where: { id: Buffer.from(item.accessRuleId) },
-    select: { name: true },
-  });
-  const leaves =
-    rule.kind === "any" || rule.kind === "all"
-      ? await Promise.all(
-          (rule.params.ruleIds as string[]).map(async id => {
-            const leaf = await loadRule(id, { fresh: true });
-            return leaf && leaf !== "invalid"
-              ? { ruleId: leaf.id, kind: leaf.kind, params: leaf.params }
-              : null;
-          })
-        )
-      : [];
-  return {
-    ruleId: rule.id,
-    valid: true as const,
-    kind: rule.kind,
-    summary: ACCESS_RULE_SUMMARIES[rule.kind],
-    name: row?.name ?? null,
-    params: rule.params,
-    leaves: leaves.filter((leaf): leaf is NonNullable<typeof leaf> => leaf !== null),
-  };
-}
-
-/** The creator's own pool, for Pool fans and Fans with a minimum stake. */
-async function ownerPoolId(userId: number): Promise<number | null> {
-  const pool = await prisma.creatorPool.findFirst({
-    where: { wallet: { userId }, poolAddress: { not: null } },
-    orderBy: { id: "desc" },
-    select: { id: true },
-  });
-  return pool?.id ?? null;
-}
 
 async function findOwnedItem(publicId: string, userId: number): Promise<ContentItem> {
   const item = await prisma.contentItem.findUnique({ where: { publicId } });
@@ -734,10 +644,10 @@ export const contentRouter = router({
     return {
       ...ownerView(item),
       // The item editor's "Who can open this" (content gating 4.1)
-      access: gating ? await ownerAccess(item) : null,
+      access: gating ? await ownerAccess(item.accessRuleId) : null,
       gating: gating
         ? {
-            stakeKindsAllowed: stakeKindsAllowed(ctx.user!.sub),
+            stakeKindsAllowed: await stakeKindsAllowed(ctx.user!.sub),
             poolId: await ownerPoolId(ctx.user!.sub),
           }
         : null,

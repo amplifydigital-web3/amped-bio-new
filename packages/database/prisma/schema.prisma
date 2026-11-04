@@ -2057,6 +2057,9 @@ model NotificationJob {
   claimedAt DateTime?
   doneAt    DateTime?
   error     String?               @db.VarChar(255)
+  // email:{userId}:{conversationId} while an email check is PENDING, cleared on claim.
+  // The unique index keeps one pending check per conversation without a race.
+  dedupeKey String?               @unique @db.VarChar(64)
   createdAt DateTime              @default(now())
 
   @@index([status, runAfter])

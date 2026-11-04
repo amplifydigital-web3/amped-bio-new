@@ -8,7 +8,7 @@ Branch `feat/media-gateway`. PR 3 of the content system plan (`docs/features/con
 
 ## 1. Why we are doing this
 
-Creator files live in a private R2 bucket. Viewers must never reach R2 directly: there is no public bucket, no `r2.dev` URL and no presigned GET (spec 1.3). The gateway is the only door. It runs on its own registrable domain (`ampedusercontent.com`), so a creator file can never run script on `amped.bio`.
+Creator files live in a private R2 bucket. Viewers must never reach R2 directly: there is no public bucket, no `r2.dev` URL and no presigned GET (spec 1.3). The gateway is the only door. It runs on its own host, `usercontent.amped.bio` (staging `usercontent.staging.amped.bio`), which serves no app pages. Every response carries a sandbox CSP and `nosniff`, so a creator file can never run script. (Updated 3 Nov 2026: Rob moved the host from a separate domain to amped.bio subdomains on one Cloudflare account. Spec 3.6 lists the tradeoffs.)
 
 | Later PR           | Needs from PR 3                                                                                                                |
 | ------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
@@ -20,7 +20,7 @@ Creator files live in a private R2 bucket. Viewers must never reach R2 directly:
 ## 2. How a request is answered
 
 ```
-viewer -- GET /{r2Key}?t={token} --> gateway (media.ampedusercontent.com)
+viewer -- GET /{r2Key}?t={token} --> gateway (usercontent.amped.bio)
    1. GET or HEAD only (OPTIONS answers CORS preflight for the app origins)
    2. path is a served key: originals/, audio/ or derived/, then a 16 character public id
    3. token: v1.{kid}.{payload}.{sig}
@@ -73,7 +73,7 @@ Why the split: the Worker imports `mediaToken.ts` and `contentKeys.ts` by path (
 | File                                | Change                                                                                                                                 |
 | ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
 | `services/cloudflare/mediaToken.ts` | `signMediaToken` takes an optional `now` and refuses an expiry past 25 hours, so the API cannot mint a token the gateway would refuse. |
-| `.env.example`                      | `MEDIA_GATEWAY_ORIGIN` for staging is now `https://media.ampedusercontent-staging.com` (decision 1).                                   |
+| `.env.example`                      | `MEDIA_GATEWAY_ORIGIN` for staging is now `https://usercontent.staging.amped.bio` (decision 1).                                        |
 | `__tests__/content-tokens.test.ts`  | Two tests: the lifetime refusal, and the shared vectors (3.4).                                                                         |
 
 ### 3.4 Tests
@@ -143,19 +143,22 @@ Why the split: the Worker imports `mediaToken.ts` and `contentKeys.ts` by path (
 
 ## 5. Cloudflare setup and deploy (Gustavo)
 
-Spec 3.17 steps 2, 6, 8 and 12 in executable form. Staging first. Run every Wrangler command with `CLOUDFLARE_ACCOUNT_ID` set to the account you mean, because staging and production are separate accounts.
+Spec 3.17 steps 2, 6, 8 and 12 in executable form. Staging first. Staging and production share one Cloudflare account, so `CLOUDFLARE_ACCOUNT_ID` is always the same. The `--env` flag is what separates them: always pass it.
 
-### 5.1 Domains
+### 5.1 Hosts
 
-1. Register `ampedusercontent-staging.com` and add it as a zone on the **staging** account. Register `ampedusercontent.com` and add it as a zone on the **production** account. (Decision 1 explains why staging needs its own domain.)
-2. On each zone: SSL/TLS Full (strict), Always Use HTTPS on, minimum TLS 1.2.
-3. Turn on the CSAM Scanning Tool for each zone (Caching, Configuration). It scans images that pass through the cache.
+1. The `amped.bio` zone must be on the Cloudflare account. If amped.bio DNS is elsewhere, move it first and recreate every existing record.
+2. Zone settings: SSL/TLS Full (strict), Always Use HTTPS on, minimum TLS 1.2.
+3. Rules, Transform Rules, Modify Request Header: when hostname is `usercontent.amped.bio` or `usercontent.staging.amped.bio`, remove the `Cookie` header. The session cookie is scoped to `.amped.bio`, so browsers send it to the media hosts. The gateway never needs it.
+4. Turn on the CSAM Scanning Tool for the zone (Caching, Configuration). It scans images that pass through the cache.
+
+The deploy in 5.2 attaches both media hosts as Worker custom domains. Nothing else is registered.
 
 ### 5.2 KV namespace and the Worker
 
 ```bash
 cd apps/media-gateway
-export CLOUDFLARE_ACCOUNT_ID=<staging account id>
+export CLOUDFLARE_ACCOUNT_ID=<Cloudflare account id>
 pnpm exec wrangler login
 pnpm exec wrangler kv namespace create takedown-staging --env staging
 ```
@@ -173,15 +176,15 @@ pnpm exec wrangler kv namespace create takedown-staging --env staging
    pnpm --filter @repo/media-gateway run deploy:staging
    ```
 
-   Wrangler creates the `DownloadClaims` Durable Object class (migration `v1`) and attaches the custom domain `media.ampedusercontent-staging.com`.
+   Wrangler creates the `DownloadClaims` Durable Object class (migration `v1`) and attaches the custom domain `usercontent.staging.amped.bio`.
 
-4. On the API (staging): `MEDIA_GATEWAY_ORIGIN=https://media.ampedusercontent-staging.com`.
+4. On the API (staging): `MEDIA_GATEWAY_ORIGIN=https://usercontent.staging.amped.bio`.
 
-Production later is the same with `takedown`, `--env production` and `media.ampedusercontent.com`.
+Production later is the same with `takedown`, `--env production` and `usercontent.amped.bio`.
 
 ### 5.3 Rate limit (WAF)
 
-Security, WAF, Rate limiting rules, on each media zone: requests per IP to the media host, 600 per minute, action Block for 1 minute. A player fetching audio in Range requests stays far below this. Raise it if real viewers hit it.
+Security, WAF, Rate limiting rules, on the amped.bio zone, scoped to the two media hosts: requests per IP to the media host, 600 per minute, action Block for 1 minute. A player fetching audio in Range requests stays far below this. Raise it if real viewers hit it.
 
 ### 5.4 Key rotation
 
@@ -194,7 +197,7 @@ From the repo root, with the staging key in your shell (never paste it into a ti
 ```bash
 pnpm run build:packages
 export MEDIA_TOKEN_KEYS='<staging value>'
-export CLOUDFLARE_ACCOUNT_ID=<staging account id>
+export CLOUDFLARE_ACCOUNT_ID=<Cloudflare account id>
 cd apps/media-gateway
 pnpm exec wrangler r2 object put "amped-content-staging/derived/qatestqatestqa00/cover.png" --file ./cover.png --content-type image/png --remote
 URL=$(node scripts/sign-url.mjs derived/qatestqatestqa00/cover.png)
@@ -210,12 +213,13 @@ URL=$(node scripts/sign-url.mjs derived/qatestqatestqa00/cover.png)
 6. **Takedown.** `pnpm exec wrangler kv key put --env staging --binding TAKEDOWN --remote "blocked:qatestqatestqa00" qa`, wait a minute, then step 1 returns 403. Remove it with `wrangler kv key delete` and it serves again within a minute.
 7. **Single use download.** `D=$(node scripts/sign-url.mjs derived/qatestqatestqa00/cover.png --download)`. `curl -s -o /dev/null -w '%{http_code}\n' "$D"` returns 200 and `curl -sD - -o /dev/null "$D"` shows `content-disposition: attachment`. A second GET returns 403. Only a GET consumes the token; HEAD does not.
 8. **CORS.** `curl -sI -H 'Origin: https://app.staging.amped.bio' "$URL"` shows `access-control-allow-origin: https://app.staging.amped.bio`. With `Origin: https://example.com` the header is absent.
-9. **No other door.** `https://amped-content-staging.<account>.r2.dev` does not resolve, and `amped-media-gateway.<subdomain>.workers.dev` does not answer.
-10. Clean up: `pnpm exec wrangler r2 object delete "amped-content-staging/derived/qatestqatestqa00/cover.png" --remote`.
+9. **No other door.** `https://amped-content-staging.<account>.r2.dev` does not resolve, and `amped-media-gateway-staging.<subdomain>.workers.dev` does not answer.
+10. **No cookie.** With `wrangler tail --env staging` open, load a gated image in the staging app while signed in. The request reaches the Worker with no `cookie` header.
+11. Clean up: `pnpm exec wrangler r2 object delete "amped-content-staging/derived/qatestqatestqa00/cover.png" --remote`.
 
 ## 7. Decisions made in this PR
 
-1. **Staging media host is `media.ampedusercontent-staging.com`, on its own domain.** A Worker custom domain needs a zone on the Worker's own account. The staging gateway must live on the staging account to bind the staging bucket, and a zone lives on one account, so `media-staging.ampedusercontent.com` cannot work. Cost: one more domain, about $10 a year. Spec 3.17 step 2, the server `.env.example` and the PR 2 handoff are updated.
+1. **Media hosts are `usercontent.amped.bio` and `usercontent.staging.amped.bio` on one Cloudflare account** (changed 3 Nov 2026 by Rob). This replaces the earlier separate domains (`ampedusercontent.com` and a staging domain on a second account). Both hosts are Worker custom domains on the `amped.bio` zone. Spec 3.6 and 3.17, the server `.env.example` and the PR 2 handoff are updated.
 2. **Viewer cache policy is the same for every response:** `private`, the lesser of 5 minutes and the token's remaining life. The token carries no gated flag, and a 5 minute browser cache on a public image is harmless because the edge copy answers revalidation. The edge copy is `public, max-age=86400` under the token free key.
 3. **Token lifetime cap of 25 hours on both sides** (`MEDIA_TOKEN_MAX_LIFETIME_SECONDS`). A signing bug cannot mint a lasting URL, and it fixes the key rotation wait.
 4. **A download token must carry a jti.** Spec 3.6 makes R2 downloads single use. Refusing `dl=1` without `j` means a mistake in PR 6 fails closed.
@@ -231,7 +235,7 @@ URL=$(node scripts/sign-url.mjs derived/qatestqatestqa00/cover.png)
 1. PR 6: `content.getReadUrl` signs with `signMediaToken` and the TTLs in spec 3.6, rounds public expiries up to the hour, and sets `j` with `newDownloadJti()` on every download.
 2. PR 7: block and delete write `blocked:{publicId}` to the `TAKEDOWN` namespace through the Cloudflare API (the API needs the namespace id and a KV Edit token), and purge `https://{media host}/{key}` from the cache for each key of the item. The token free URL is the cache key.
 3. PR 4: the processor must write `httpMetadata.contentType` from the list in `src/headers.ts` (for example `audio/mp4` for m4a renditions and `application/json` for waveforms), or the gateway serves `application/octet-stream`.
-4. Deploy automation: a GitHub Action with `wrangler deploy --env staging` on merge to `development`, once a scoped API token exists.
+4. Deploy automation: a GitHub Action with `wrangler deploy --env staging` on merge to `development` and `--env production` only on merge to the live branch, once a scoped API token exists. On one account this is the main guard against a wrong `--env` flag.
 5. Privacy notice: Cloudflare is already listed as a follow-up in PR 2 (delivery is part of it).
 
 ## 9. References

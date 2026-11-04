@@ -163,6 +163,11 @@ export async function isLive(userId: number): Promise<boolean> {
   return (localPresence.get(userId) ?? 0) > Date.now();
 }
 
+/** For tests: forget this instance's presence marks. */
+export function clearPresenceForTests() {
+  localPresence.clear();
+}
+
 /** Open streams on this instance, for the admin health strip (M7). */
 export function openStreamCount(): number {
   let total = 0;

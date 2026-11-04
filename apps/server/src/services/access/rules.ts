@@ -124,7 +124,7 @@ async function toStoredParams(
     case "pool_member":
     case "stake_min": {
       // Pilot allowlist (OB-Q65): same refusal as content.update
-      assertStakeKindsAllowed(ownerUserId, [input.kind]);
+      await assertStakeKindsAllowed(ownerUserId, [input.kind]);
       // v1 decision 3: only the owner's own pool
       if (!(await ownerPool(db, ownerUserId, input.params.poolId))) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Pick your own pool." });
@@ -152,7 +152,7 @@ async function toStoredParams(
           message: "Combine 2 to 4 of your own single rules.",
         });
       }
-      assertStakeKindsAllowed(
+      await assertStakeKindsAllowed(
         ownerUserId,
         leaves.map(leaf => leaf.kind)
       );

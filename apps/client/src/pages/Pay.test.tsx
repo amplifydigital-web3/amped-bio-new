@@ -46,6 +46,9 @@ vi.mock("@/components/checkout/provider", () => ({
 
 import { PayPage } from "./Pay";
 
+// Counsel text verbatim (docs/legal/creator-storefront-policy.md A.2)
+const SELLER_LINE = "Sold by Maya on Amped.bio. Your purchase is from Maya, not from Amped.";
+
 const quote = (overrides: object = {}) => ({
   id: ID,
   status: "open",
@@ -107,9 +110,8 @@ describe("PayPage", () => {
     expect(screen.getByText("Includes the Amped.Bio fee (5.00%)")).toBeInTheDocument();
     expect(screen.getByText("Balance after")).toBeInTheDocument();
     expect(screen.getByText(/USDC is a digital dollar/)).toBeInTheDocument();
-    expect(
-      screen.getByText(/^Sold by .+ on Amped\.bio\. You buy from .+, not Amped\./)
-    ).toBeInTheDocument();
+    expect(screen.getByText(SELLER_LINE)).toBeInTheDocument();
+    expect(screen.queryByText(/discretion|Payments are final/)).toBeNull();
     expect(screen.getByText("Test checkout. No USDC moves.")).toBeInTheDocument();
     expect(screen.queryByRole("checkbox")).toBeNull();
   });
@@ -125,6 +127,17 @@ describe("PayPage", () => {
     expect(screen.getByRole("link", { name: "Open" }).getAttribute("href")).toMatch(
       /\/maya\/c\/abc123$/
     );
+    expect(screen.getByText(SELLER_LINE)).toBeInTheDocument();
+  });
+
+  it("names the creator handle in the seller line when there is no display name", async () => {
+    mocks.quote.mockResolvedValue(quote({ creator: { ...quote().creator, name: "" } }));
+    renderPay();
+    expect(
+      await screen.findByText(
+        "Sold by @maya on Amped.bio. Your purchase is from @maya, not from Amped."
+      )
+    ).toBeInTheDocument();
   });
 
   it("a short balance names the gap and hands off to Wallet with the intent", async () => {
@@ -134,6 +147,7 @@ describe("PayPage", () => {
     expect(screen.getByRole("link", { name: "Add USDC in Wallet" }).getAttribute("href")).toBe(
       `/wallet?fund=usdc&ci=${ID}&need=2000000`
     );
+    expect(screen.getByText(SELLER_LINE)).toBeInTheDocument();
   });
 
   it("back from a sandbox purchase, the sheet reads the chain balance and stays short", async () => {
@@ -153,6 +167,7 @@ describe("PayPage", () => {
       await screen.findByText("The price changed. Was $2 USDC. Now $3 USDC.")
     ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Not now" })).toBeInTheDocument();
+    expect(screen.getByText(SELLER_LINE)).toBeInTheDocument();
   });
 
   it("a failed payment says nothing was taken and offers Try again", async () => {
@@ -160,6 +175,7 @@ describe("PayPage", () => {
     renderPay();
     fireEvent.click(await screen.findByRole("button", { name: "Pay $3 USDC" }));
     expect(await screen.findByText(/did not go through/)).toBeInTheDocument();
+    expect(screen.getByText(SELLER_LINE)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
     expect(await screen.findByRole("button", { name: "Pay $3 USDC" })).toBeInTheDocument();
   });
