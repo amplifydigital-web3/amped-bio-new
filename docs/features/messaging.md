@@ -302,6 +302,8 @@ Removed: Pilot (invites), Bot health, Groups.
 
 Roles: admin and moderator (both exist). safety_lead joins when Adult Content Review adds it. Route: admin `/messaging` replaces `/telegram` beside Broadcasts; it moves under Safety when that section ships.
 
+Built in M7: `admin.messaging.*` on `moderatorProcedure` (admin or moderator). The case view shows the latest 60 messages of the reported conversation with the reported one marked (and its snapshot when unsent), refused for a conversation nobody reported. Flagged terms list the sender, the matched words and a count, never the text: text opens only from a report. Every case opened, resolve, pause, resume, caps save and kill switch change goes to the admin log (SiteSettings `messaging.adminLog`, latest 200) and the server log. The kill switch writes SiteSettings `messaging.enabled` and, when off, `messaging.enabled.reason`; turning off needs a reason. Telegram era thread reports resolve through the ids the M1 copy reused. Live streams count this server only. A moderator sees only Messaging in the admin; other routes send them there. The recipient pause threshold (5 people or 1%) stays in code.
+
 ## 8. Client
 
 ### 8.1 Shell
