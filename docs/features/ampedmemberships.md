@@ -48,7 +48,7 @@ join(JoinTable t, bytes splitSig, bytes memberSig, uint256 permitValue, uint256 
 
 renew(bytes32 subscriptionRef)
   only relayer, not paused; active; nextDue <= now <= nextDue + renewGrace
-  nextDue = now <= nextDue + 1 day ? nextDue + period : now + period
+  nextDue = now < nextDue + 1 day ? nextDue + period : now + period
   pull one period to the stored recipients (platform share to the current treasury)
   emit Share per recipient, Charged(charge n)
   a short allowance or balance reverts: the server records past due
