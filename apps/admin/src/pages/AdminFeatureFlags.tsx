@@ -25,29 +25,48 @@ function choiceOf(flag: Flag): Choice {
   return flag.override ? "on" : "off";
 }
 
-const APP_LABEL: Record<Flag["env"][number]["app"], string> = {
+type EnvSource = Flag["env"][number];
+
+const APP_LABEL: Record<EnvSource["app"], string> = {
   server: "the API",
   client: "the editor",
   landing: "the landing page",
 };
 
+/**
+ * The API used to send the names as one object ({ server, client, landing }).
+ * Reading both shapes keeps this page working while the API and the admin are
+ * deployed at different times: an older API lists the names with no value.
+ */
+function envSources(flag: Flag): EnvSource[] {
+  const env = flag.env as unknown;
+  if (Array.isArray(env)) return env as EnvSource[];
+  const names = (env ?? {}) as Partial<Record<EnvSource["app"], string>>;
+  return (["server", "client", "landing"] as const)
+    .filter(app => Boolean(names[app]))
+    .map(app => ({ app, variable: names[app]!, value: null }));
+}
+
 // What the API can and cannot read. Its own variables are live; the VITE_* and
 // NEXT_PUBLIC_* ones are inlined into each app bundle at build time, so only the
 // deployed app knows those values.
 function EnvList({ flag }: { flag: Flag }) {
+  const sources = envSources(flag);
   return (
     <div className="space-y-1 text-prism-meta text-prism-ink-2">
-      {flag.env.length === 0 ? (
+      {sources.length === 0 ? (
         <p>No environment variable: without a row this flag uses the default.</p>
       ) : (
         <>
           <p>Environment fallback, used when the row is dropped:</p>
           <ul className="space-y-0.5">
-            {flag.env.map(source => (
+            {sources.map(source => (
               <li key={`${source.app}:${source.variable}`}>
                 <span className="font-prism-mono text-prism-code-sm">{source.variable}</span>
                 {source.value === null
-                  ? ` — read by ${APP_LABEL[source.app]} at build time, so the API cannot show its value.`
+                  ? source.app === "server"
+                    ? " — the API reads this variable live and reports its value once the API is on the same version."
+                    : ` — read by ${APP_LABEL[source.app]} at build time, so the API cannot show its value.`
                   : ` = ${source.value ? "true" : "false"} — the API reads this variable live.`}
               </li>
             ))}
