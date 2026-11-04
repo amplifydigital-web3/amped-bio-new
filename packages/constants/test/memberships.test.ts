@@ -37,3 +37,26 @@ describe("memberships helpers", () => {
     expect(all.filter(s => /monthly|a month|\bprice\b|[–—]/i.test(s))).toEqual([]);
   });
 });
+
+describe("store policy section 5 (MB-2, store policy 5.2)", () => {
+  it("renders Memberships only for a store with a plan, and changes nothing else", async () => {
+    const { renderStandardPolicy } = await import("../src/store");
+    const fields = {
+      sellerName: "Maya Lin",
+      storeName: "Maya's Shop",
+      handle: "maya",
+      refund: { option: "A" as const, days: 7 as const },
+      email: null,
+      effectiveDate: "4 November 2026",
+      adult: false,
+    };
+    const withPlan = renderStandardPolicy({ ...fields, memberships: true });
+    const without = renderStandardPolicy({ ...fields, memberships: false });
+    expect(withPlan).toContain("## 5. Memberships");
+    expect(without).not.toContain("## 5. Memberships");
+    expect(without).not.toContain("7 day grace");
+    expect(without).toContain("## 4. Prices and payment");
+    expect(without).toContain("## 6. Refunds");
+    expect(renderStandardPolicy(fields)).toBe(withPlan);
+  });
+});

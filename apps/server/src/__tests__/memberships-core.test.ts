@@ -114,6 +114,8 @@ vi.mock("../services/store/policy", () => ({
     settings: {},
   })),
   versionSummary: () => ({ sellerName: "Maya Lin", summary: "", version: 3 }),
+  versionCoversMemberships: (row: { settings: { memberships?: boolean } }) =>
+    row.settings.memberships === true,
 }));
 vi.mock("../services/notifications/push", () => ({ sendPush: vi.fn(async () => ({ sent: 1 })) }));
 vi.mock("../utils/email/transport", () => ({
@@ -137,7 +139,13 @@ import {
   joinRecipients,
   periodFee,
 } from "../services/memberships/core";
-import { upsertPlan, setPlanStatus, isMember, accessUntil } from "../services/memberships/plans";
+import {
+  upsertPlan,
+  setPlanStatus,
+  isMember,
+  accessUntil,
+  publicPlan,
+} from "../services/memberships/plans";
 import {
   chargeOnce,
   closeCanceledOnce,
@@ -263,13 +271,35 @@ describe("plans", () => {
     expect(db.membershipPlan.update.mock.calls[1][0].data.version).toEqual({ increment: 1 });
   });
 
-  it("activates only with a published policy and a passing seller", async () => {
+  it("activates only with a policy that covers memberships and a passing seller", async () => {
+    const { liveVersion } = await import("../services/store/policy");
     db.membershipPlan.findUnique.mockResolvedValue({ ...plan, status: "draft" });
-    db.storeSettings.findUnique.mockResolvedValue({ livePolicyVersionId: null });
+    vi.mocked(liveVersion).mockResolvedValueOnce(null);
     await expect(setPlanStatus(MAYA, "active")).rejects.toMatchObject({ code: "policy" });
-    db.storeSettings.findUnique.mockResolvedValue({ livePolicyVersionId: Buffer.alloc(16, 9) });
+    // A policy published before the plan has no section 5, Memberships: publish again
+    vi.mocked(liveVersion).mockResolvedValueOnce({ settings: { memberships: false } } as never);
+    await expect(setPlanStatus(MAYA, "active")).rejects.toMatchObject({ code: "policy" });
+    vi.mocked(liveVersion).mockResolvedValueOnce({ settings: { memberships: true } } as never);
     chain.seller = false;
     await expect(setPlanStatus(MAYA, "active")).rejects.toMatchObject({ code: "seller" });
+  });
+
+  it("names the policy's seller and version on the public plan, and hides a paused plan", async () => {
+    const shown = await publicPlan("@Maya", null, NOW);
+    expect(shown).toMatchObject({
+      handle: "maya",
+      sellerName: "Maya Lin",
+      policyVersion: 3,
+      amountEvery30Days: "5000000",
+      yearlySavingPercent: 20,
+      viewer: null,
+    });
+    db.user.findFirst.mockResolvedValueOnce({
+      id: MAYA,
+      handle: "maya",
+      membershipPlan: { ...plan, status: "paused" },
+    });
+    expect(await publicPlan("maya", null, NOW)).toBeNull();
   });
 });
 

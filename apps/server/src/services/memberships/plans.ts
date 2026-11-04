@@ -18,6 +18,7 @@ import {
 } from "@repo/constants";
 import { uuidv7 } from "../../utils/uuid-v7";
 import { checkIdentity } from "../identity/checks";
+import { liveVersion, versionCoversMemberships, versionSummary } from "../store/policy";
 
 export type PlanErrorCode =
   | "amount_every_30_days"
@@ -137,11 +138,9 @@ export async function setPlanStatus(
   const plan = await prisma.membershipPlan.findUnique({ where: { creatorUserId } });
   if (!plan) throw new PlanError("not_found");
   if (status === "active" && plan.status !== "active") {
-    const store = await prisma.storeSettings.findUnique({
-      where: { userId: creatorUserId },
-      select: { livePolicyVersionId: true },
-    });
-    if (!store?.livePolicyVersionId) throw new PlanError("policy");
+    // The live store policy must carry section 5, Memberships (MB-2, store policy 5.2)
+    const live = await liveVersion(creatorUserId);
+    if (!live || !versionCoversMemberships(live)) throw new PlanError("policy");
     const seller = await checkIdentity(creatorUserId, "seller", { fresh: true });
     if (!seller.pass) throw new PlanError("seller", { reason: seller.reason });
   }
@@ -206,15 +205,19 @@ export async function publicPlan(
 ): Promise<MembershipPlanPublic | null> {
   const creator = await prisma.user.findFirst({
     where: { handle: handle.replace(/^@/, "").toLowerCase() },
-    select: { id: true, handle: true, membershipPlan: true },
+    select: { id: true, handle: true, name: true, membershipPlan: true },
   });
   const plan = creator?.membershipPlan;
   if (!creator || !plan || plan.status !== "active") return null;
+  const live = await liveVersion(creator.id);
+  const summary = live ? versionSummary(live) : null;
   const count = await activeMemberCount(plan.id, now);
   const mine = viewerId ? await viewerMembership(viewerId, creator.id) : null;
   return {
     id: hex(plan.id),
     handle: creator.handle!,
+    sellerName: summary?.sellerName ?? creator.name ?? `@${creator.handle}`,
+    policyVersion: summary?.version ?? null,
     name: plan.name,
     description: plan.description,
     benefits: benefitsOf(plan.benefits),

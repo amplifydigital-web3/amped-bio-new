@@ -123,6 +123,9 @@ vi.mock("@repo/database", () => {
     contentItem: model("contentItem"),
     contentAsset: model("contentAsset"),
     checkoutIntent: model("checkoutIntent"),
+    // MB-2: plans for the checklist, the policy section and Also in membership
+    membershipPlan: model("membershipPlan"),
+    membership: model("membership"),
   };
   // Offers load with their items and each item's content row
   const plainFindMany = prisma.offer.findMany;
