@@ -31,8 +31,11 @@ import { FollowBlock } from "@/components/blocks/FollowBlock";
 import { FollowersBlock } from "@/components/blocks/FollowersBlock";
 import { RnsIdBlock } from "@/components/blocks/RnsIdBlock";
 import { TelegramMessageBlock } from "@/components/blocks/TelegramMessageBlock";
+import { MessageBlock } from "@/components/blocks/MessageBlock";
 import { TelegramGroupBlock } from "@/components/blocks/TelegramGroupBlock";
 import { ContentBlock } from "@/components/content/ContentBlock";
+import { GatedBlock } from "@/components/blocks/GatedBlock";
+import { usePageDecisions } from "@/components/content/gating";
 import { FollowContext } from "@/components/follow/FollowContext";
 import { useReferralHandler } from "@/hooks/useReferralHandler";
 import { useAuth } from "@/contexts/AuthContext";
@@ -217,6 +220,9 @@ export function ProfileView({
   const followState = useFollow(normalizedHandle, !!authUser, authPending || !followEnabled);
   const showRns = useFeatureFlag("rns");
   const telegramMarkOn = useFeatureFlag("telegram");
+  // Amped Messages (#2 r4, M6): the native Message me block; a telegram_message row not
+  // yet migrated renders as one too
+  const messagesOn = useFeatureFlag("messages");
   // Theme Engine v2 (#28): the shared CreatorPage shell, staging first
   const themeV2 = useFeatureFlag("themeV2");
   // Theme Engine v2 phase 3 (TE-3a): showcase engines, staging first
@@ -349,6 +355,19 @@ export function ProfileView({
     })();
   }, [normalizedHandle, initialData]);
 
+  // G3: decisions for gated blocks after hydration, and ?unlock=<blockId> from /go
+  const blockDecision = usePageDecisions(
+    normalizedHandle,
+    blocks
+      .filter(block => block.gated && isRenderable(block))
+      .map(block => ({ type: "block" as const, id: String(block.id) }))
+  );
+  const [unlockId, setUnlockId] = useState<number | null>(null);
+  useEffect(() => {
+    const raw = new URLSearchParams(window.location.search).get("unlock");
+    if (raw && /^\d{1,10}$/.test(raw)) setUnlockId(Number(raw));
+  }, []);
+
   if (loading) return <ProfileSkeleton />;
   if (!profile) return <ProfileSkeleton />;
 
@@ -422,7 +441,16 @@ export function ProfileView({
   ) : null;
   const blockList = renderable.map(block => (
     <ErrorBoundary key={block.id} fallback={null} context={{ blockId: block.id, type: block.type }}>
-      {block.type === "link" ? (
+      {block.gated ? (
+        <GatedBlock
+          block={block}
+          theme={themeConfig as any}
+          handle={normalizedHandle}
+          decision={blockDecision(String(block.id), "block")}
+          autoOpen={unlockId === block.id}
+          onChanged={blockDecision.refresh}
+        />
+      ) : block.type === "link" ? (
         <CreatorButton
           theme={themeConfig}
           icon={<LinkIcon platform={block.config.platform} url={block.config.url} />}
@@ -454,6 +482,20 @@ export function ProfileView({
             since={profile.since ?? null}
             sendHref={sendHref}
             rnsUrl={process.env.NEXT_PUBLIC_RNS_URL}
+          />
+        )
+      ) : block.type === "message" || (messagesOn && block.type === "telegram_message") ? (
+        messagesOn && (
+          <MessageBlock
+            block={block as { config: { label: string } }}
+            theme={themeConfig}
+            door={profile.messageDoor}
+            handle={normalizedHandle}
+            creatorName={profile.name}
+            creatorAvatar={photo || null}
+            signedIn={!!authUser}
+            authPending={authPending}
+            isOwner={isOwner}
           />
         )
       ) : block.type === "telegram_message" ? (

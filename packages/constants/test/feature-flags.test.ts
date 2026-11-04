@@ -37,12 +37,14 @@ describe("feature flag registry", () => {
     expect(isFeatureFlagKey("nope")).toBe(false);
   });
 
-  it("gives every migrated public flag an app fallback and every migrated server flag a server fallback", () => {
+  it("gives every migrated public flag an app or server fallback and every migrated server flag a server fallback", () => {
     for (const key of FEATURE_FLAG_KEYS) {
       const env = FEATURE_FLAGS[key].env as { server?: string; client?: string; landing?: string };
       // AGENTS.md: a brand new flag has env {} and no fallback variable
       if (Object.keys(env).length === 0) continue;
-      if (PUBLIC_FEATURE_FLAG_KEYS.includes(key)) expect(env.client || env.landing).toBeTruthy();
+      // A public flag with only a server variable (accessGating) reaches the apps through the API
+      if (PUBLIC_FEATURE_FLAG_KEYS.includes(key))
+        expect(env.client || env.landing || env.server).toBeTruthy();
       else expect(env.server).toBeTruthy();
     }
   });
