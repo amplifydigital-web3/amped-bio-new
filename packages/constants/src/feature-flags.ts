@@ -9,7 +9,7 @@
  * 3. `default`.
  *
  * `public` flags are sent to the client, admin and landing apps by
- * publicSettings.getFeatureFlags. Server flags never leave the API. Hiding UI is
+ * public.getFeatureFlags. Server flags never leave the API. Hiding UI is
  * not a guard: every public flag that gates an action is also checked on the
  * server.
  */
