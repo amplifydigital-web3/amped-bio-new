@@ -14,7 +14,8 @@ type BaseBlockType =
   | "rnsid"
   | "telegram_message"
   | "telegram_group"
-  | "content";
+  | "content"
+  | "message";
 
 export type BaseBlock<type extends BaseBlockType = any, T = any> = {
   id: number;
@@ -25,7 +26,28 @@ export type BaseBlock<type extends BaseBlockType = any, T = any> = {
   config: T & { hidden?: boolean };
   created_at?: string;
   updated_at?: string | null;
+  /**
+   * Gated block (access gating G3, spec 3.9). Public pages get the locked DTO:
+   * the label and platform only, never the URL, body or embed. The body comes
+   * from access.openBlock, links open through /go/:blockId.
+   */
+  gated?: true;
+  gate?: BlockGate;
 };
+
+/** The public face of a block's rule: kind and summary, never params or an amount. */
+export type BlockGate = {
+  kind: string;
+  summary: string;
+  /** The rule reads a stake: show TESTNET_NOTICE and ACCESS_STAKE_DISCLOSURE */
+  stake: boolean;
+  /** The creator's public pool page, for Go to the pool */
+  poolAddress?: string | null;
+};
+
+/** Block types a creator can gate in G3. telegram_group keeps its own door (G2). */
+export const LOCKABLE_BLOCK_TYPES = ["link", "media", "text"] as const;
+export type LockableBlockType = (typeof LOCKABLE_BLOCK_TYPES)[number];
 
 export type LinkBlock = BaseBlock<"link", { platform: PlatformId; url: string; label: string }>;
 
@@ -209,6 +231,18 @@ export const DEFAULT_TELEGRAM_GROUP_CONFIG: TelegramGroupBlockConfig = {
   label: DEFAULT_TELEGRAM_GROUP_LABEL,
 };
 
+// Amped Messages (Build Board #2 r4, PR M6, spec 8.4): the Message me block. It replaces
+// telegram_message; existing blocks move over in place with their label (migration
+// 20261103020000_message_block). The config holds the label only: whether the door is
+// open and its rule come from the server (getHandle messageDoor), never an amount.
+export type MessageBlockConfig = { label: string };
+export type MessageBlock = BaseBlock<"message", MessageBlockConfig>;
+export const MESSAGE_BLOCK_LABEL_MAX = 40;
+export const DEFAULT_MESSAGE_BLOCK_LABEL = "Message me";
+export const DEFAULT_MESSAGE_BLOCK_CONFIG: MessageBlockConfig = {
+  label: DEFAULT_MESSAGE_BLOCK_LABEL,
+};
+
 // Content block (Build Board #20, spec 3.7, board cs4): items from the
 // creator's library on the page. Featured plays the first item inline; grid and
 // list show cards that open the item page. The config holds ids only: titles,
@@ -257,7 +291,8 @@ export type BlockType =
   | RnsIdBlock
   | TelegramMessageBlock
   | TelegramGroupBlock
-  | ContentBlock;
+  | ContentBlock
+  | MessageBlock;
 
 /** Block types a page holds at most once. The Add block dialog opens the existing row. */
 export const SINGLETON_BLOCK_TYPES = [
@@ -267,6 +302,7 @@ export const SINGLETON_BLOCK_TYPES = [
   "rnsid",
   "telegram_message",
   "telegram_group",
+  "message",
 ] as const;
 
 /**
@@ -416,6 +452,16 @@ export const telegramGroupConfigSchema = z.object({
   hidden: z.boolean().optional(),
 });
 
+export const messageBlockConfigSchema = z.object({
+  label: z
+    .string()
+    .trim()
+    .min(1, "Label is required")
+    .max(MESSAGE_BLOCK_LABEL_MAX)
+    .default(DEFAULT_MESSAGE_BLOCK_LABEL),
+  hidden: z.boolean().optional(),
+});
+
 export const contentBlockConfigSchema = z.object({
   label: z.string().trim().max(CONTENT_BLOCK_LABEL_MAX).default("Latest"),
   layout: z.enum(["featured", "grid", "list"]).default("featured"),
@@ -441,6 +487,7 @@ const CONFIG_SCHEMAS: Record<string, z.ZodTypeAny> = {
   telegram_message: telegramMessageConfigSchema,
   telegram_group: telegramGroupConfigSchema,
   content: contentBlockConfigSchema,
+  message: messageBlockConfigSchema,
 };
 
 // The referral schema accepts any object, so it stays last in the fallback

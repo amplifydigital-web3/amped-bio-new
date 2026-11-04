@@ -152,3 +152,5 @@ export const createRoleProtectedProcedure = (roles: string[]) => t.procedure.use
 
 // Common role-protected procedures
 export const adminProcedure = createRoleProtectedProcedure(["admin"]);
+// Amped Messages (#2 r4, M7): Safety work admins share with moderators
+export const moderatorProcedure = createRoleProtectedProcedure(["admin", "moderator"]);
