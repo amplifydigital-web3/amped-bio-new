@@ -4,7 +4,7 @@ Branch `feat/library-gated` into `development`. Fan Library plan FL-6 (Build Boa
 
 **Merge order.** Stacked on FL-4 (`feat/library-creator-section`, #470), which is stacked on FL-3 (#469), FL-1 (#451) and FL-2 (#453). Merge those first. Merge MB-1 (#475) before this PR too: both migrations set the `notifications.kind` enum, and this one keeps MB-1's `MEMBERSHIP_RENEWAL`.
 
-**Migration** `20261104220000_library_new_content` (label `migration`): adds `CONTENT` to `notifications.kind` and the nullable `notification_preferences.newContentEnabled`. No backfill. Apply by hand after deploy, as usual.
+**Migration** `20261104230000_library_new_content` (label `migration`): adds `CONTENT` to `notifications.kind` and the nullable `notification_preferences.newContentEnabled`. No backfill. Apply by hand after deploy, as usual.
 
 **Flags.** Everything sits behind `fanLibrary`. Gated items need `accessGating` as well. The daily email has its own server flag, `libraryDigest` (default off), and also needs `BULK_FOOTER_ADDRESS`. No new env switch.
 
