@@ -163,10 +163,20 @@ Changed from the text above, for Rob:
 
 Not in C9, each with its owner:
 
-- The store block (st10) and `store.listForBio`: next store PR.
+- The store block (st10) and `store.listForBio`: built in C9b (`feat/store-block`), see section 9.
 - Writing the paid rule onto product items: G4 (the `paid` kind).
 - The seller check in the quote and `pay.prepare` (ST-Q50): #444 and PAY-2 (#449).
 - Report store, Membership tab content (MB-1), Sales and refunds (C10), the policy sheet on the pay sheet (CK-5), the agency draft notice (#38).
+
+## 9. As built in C9b (4 Nov)
+
+PR `feat/store-block`, stacked on C9 (#452). No migration.
+
+- Block type `store`, a singleton, config `{ label }` only (0 to 40 characters; empty shows the store name). Added from Add block, Content.
+- `storeForBio` in `services/store/public.ts`: public stores only (live, `storeSales` on, a published policy), featured products first, then the rest, up to 6, with the full count for the row label. 18+ products never appear (`publicOffers`). Null hides the block.
+- `getHandle` returns `storeBlock` when the page carries the block (published, not suspended); `store.listForBio({ handle })` is the same read for the editor preview.
+- Landing `StoreBlock`: a scrolling row of product links (each at least 44 high) with "$N USDC", the count ("8 products") and Visit store. The editor preview shows the same, faded with "Shows on your page once your store is live." until then.
+- Not yet: the membership card in the row (MB-1).
 
 ## For counsel
 
@@ -174,6 +184,8 @@ Not in C9, each with its owner:
 2. Access line wording: "In your Library" in place of "Yours to keep" (SP-Q45). The store policy grants a licence, not ownership.
 
 ## Revision log
+
+- 2026-11-04: Revision 5. Section 9, the store block as built in C9b.
 
 - 2026-11-03: Revision 4. Rob's decisions: ST-D1 Adult items placeholder decided, CK-D1 seller line without the refund sentence, AD-D1 interim Alabama warnings and SAMHSA helpline on the Over 18 sheet and 18+ product pages.
 
