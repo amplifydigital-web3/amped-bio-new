@@ -344,6 +344,8 @@ export const MEMBERSHIP_COPY = {
     member: "You are a member",
     signing: "Confirm in your wallet",
     sending: "Joining",
+    /** Still landing after the poll: never say nothing was taken, the join may be on chain */
+    pending: "Your join is still confirming. It will show in your Library in a moment.",
     done: "You are a member.",
     open: "Open in your Library",
     short: (shortBy: string) => `Your wallet needs ${shortBy} more.`,
