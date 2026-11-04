@@ -149,6 +149,8 @@ export function CreatorPoolBlock({ block, theme }: CreatorPoolBlockProps) {
         label="View pool"
         href={`/i/pools/${pool.address}`}
         newTab={false}
+        // Spec 3.4 and 3.11: no creator hover, press or ripple inside a pool block
+        effects={false}
       />
       <p className="text-[13px] leading-[16px]">{TESTNET_NOTICE}</p>
     </section>
