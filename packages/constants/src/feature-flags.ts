@@ -214,7 +214,8 @@ export const FEATURE_FLAGS = {
       "Theme Engine v2 phase 4: saved looks with history, share links and the amped.bio/t page, and the rebuilt Themes tab. Off, the share link page returns 404.",
     scope: "public",
     default: false,
-    env: { client: "VITE_SHOW_THEME_SHARING", landing: "NEXT_PUBLIC_SHOW_THEME_SHARING" },
+    // A new flag: no environment fallback (AGENTS.md, feature flags)
+    env: {},
   },
 } as const satisfies Record<string, FeatureFlagDefinition>;
 

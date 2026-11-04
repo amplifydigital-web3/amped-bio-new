@@ -35,9 +35,12 @@ import {
   currentLookId,
   ownLook,
   recordVersion,
+  versionIdFromHex,
+  versionIdSchema,
+  versionIdToHex,
 } from "../services/theme/looks";
 
-/** Looks and sharing ship behind SHOW_THEME_SHARING (spec 3.13). */
+/** Looks and sharing ship behind the themeSharing site setting flag (spec 3.13). */
 function requireSharing(): void {
   if (!isFeatureOn("themeSharing")) {
     throw new TRPCError({ code: "FORBIDDEN", message: "Looks are not available yet" });
@@ -518,7 +521,10 @@ export const themeRouter = router({
       take: VERSION_LIMIT,
       select: { id: true, config: true, createdAt: true },
     });
-    return { themeId: input.id, versions };
+    return {
+      themeId: input.id,
+      versions: versions.map(v => ({ ...v, id: versionIdToHex(v.id) })),
+    };
   }),
 
   /**
@@ -526,12 +532,14 @@ export const themeRouter = router({
    * (so the restore itself can be undone), and the look is applied.
    */
   restore: privateProcedure
-    .input(z.object({ id: z.number(), versionId: z.number() }))
+    .input(z.object({ id: z.number(), versionId: versionIdSchema }))
     .mutation(async ({ ctx, input }) => {
       requireSharing();
       const userId = ctx.user!.sub;
       await ownLook(userId, input.id);
-      const version = await prisma.themeVersion.findUnique({ where: { id: input.versionId } });
+      const version = await prisma.themeVersion.findUnique({
+        where: { id: versionIdFromHex(input.versionId) },
+      });
       if (!version || version.themeId !== input.id) {
         throw new TRPCError({ code: "NOT_FOUND", message: "Version not found" });
       }

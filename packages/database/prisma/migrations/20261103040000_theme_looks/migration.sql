@@ -11,7 +11,7 @@ UPDATE `themes` SET `kind` = 'marketplace' WHERE `user_id` IS NULL;
 
 -- theme_versions: the last 20 saves of a look
 CREATE TABLE `theme_versions` (
-    `id` INTEGER NOT NULL AUTO_INCREMENT,
+    `id` BINARY(16) NOT NULL,
     `theme_id` INTEGER NOT NULL,
     `config` JSON NOT NULL,
     `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
@@ -22,11 +22,21 @@ CREATE TABLE `theme_versions` (
 
 ALTER TABLE `theme_versions` ADD CONSTRAINT `theme_versions_theme_id_fkey` FOREIGN KEY (`theme_id`) REFERENCES `themes`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
 
--- Every look starts its history with the config it holds today
-INSERT INTO `theme_versions` (`theme_id`, `config`, `created_at`)
-    SELECT `id`, `config`, COALESCE(`updated_at`, `created_at`)
-    FROM `themes`
-    WHERE `user_id` IS NOT NULL AND `config` IS NOT NULL;
+-- Every look starts its history with the config it holds today. The id is a
+-- UUID v7 built from the save time (48 bit ms timestamp, version 7, variant
+-- 10, random bits), the same layout as apps/server/src/utils/uuid-v7.ts.
+INSERT INTO `theme_versions` (`id`, `theme_id`, `config`, `created_at`)
+    SELECT UNHEX(CONCAT(
+               LPAD(HEX(FLOOR(UNIX_TIMESTAMP(`saved_at`) * 1000)), 12, '0'),
+               '7', SUBSTRING(HEX(RANDOM_BYTES(2)), 2, 3),
+               HEX(0x80 | (ASCII(RANDOM_BYTES(1)) & 0x3F)),
+               SUBSTRING(HEX(RANDOM_BYTES(7)), 1, 14))),
+           `id`, `config`, `saved_at`
+    FROM (
+        SELECT `id`, `config`, COALESCE(`updated_at`, `created_at`) AS `saved_at`
+        FROM `themes`
+        WHERE `user_id` IS NOT NULL AND `config` IS NOT NULL
+    ) AS `looks`;
 
 -- users.theme to an integer id. Values that are not a number, or name a theme
 -- that no longer exists, become NULL first (the page then renders the default

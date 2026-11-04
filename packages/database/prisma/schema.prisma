@@ -211,7 +211,7 @@ model Theme {
 /// 10 minutes of the newest version replaces it, so one editing session is one
 /// version; restore always writes a new one.
 model ThemeVersion {
-  id        Int      @id @default(autoincrement())
+  id        Bytes    @id @db.Binary(16)
   themeId   Int      @map("theme_id")
   config    Json
   createdAt DateTime @default(now()) @map("created_at")

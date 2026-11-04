@@ -1,6 +1,8 @@
 import { TRPCError } from "@trpc/server";
+import { z } from "zod";
 import { prisma } from "@repo/database";
 import { isThemeConfigV2 } from "@repo/constants";
+import { uuidv7 } from "../../utils/uuid-v7";
 
 /**
  * Theme Engine v2 TE-4a (spec 3.9, decision 7): a creator's saved looks and
@@ -21,6 +23,17 @@ export const LOOK_NAME_MAX = 40;
 
 /** The error message a client reads to show "10 of 10 looks". */
 export const THEME_LIMIT = "THEME_LIMIT";
+
+/** A theme_versions id (UUID v7, BINARY(16)) as the 32 hex characters the API uses. */
+export const versionIdSchema = z.string().regex(/^[0-9a-fA-F]{32}$/, "Invalid version id");
+
+export function versionIdToHex(id: Uint8Array): string {
+  return Buffer.from(id).toString("hex");
+}
+
+export function versionIdFromHex(hex: string): Buffer {
+  return Buffer.from(hex, "hex");
+}
 
 export function configVersion(config: unknown): 1 | 2 {
   return isThemeConfigV2(config) ? 2 : 1;
@@ -89,7 +102,9 @@ export async function recordVersion(
       data: { config: data, createdAt: now },
     });
   } else {
-    await prisma.themeVersion.create({ data: { themeId, config: data, createdAt: now } });
+    await prisma.themeVersion.create({
+      data: { id: uuidv7(), themeId, config: data, createdAt: now },
+    });
   }
   const stale = await prisma.themeVersion.findMany({
     where: { themeId },
