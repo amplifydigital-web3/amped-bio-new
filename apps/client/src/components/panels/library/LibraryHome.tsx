@@ -265,7 +265,14 @@ export function ContinueCard({
     });
 
   return (
-    <div className="rounded-prism-13 bg-white/70 p-2 shadow-prism-e1">
+    <div
+      className={cn(
+        "rounded-prism-13 p-2",
+        inCreatorSection
+          ? "bg-[var(--c-surface)] text-[var(--c-surface-ink)]"
+          : "bg-white/70 shadow-prism-e1"
+      )}
+    >
       <div className="relative">
         <button
           type="button"
@@ -295,7 +302,11 @@ export function ContinueCard({
               })
             }
             className="prism-focus absolute bottom-3 left-2 flex h-touch w-touch items-center justify-center rounded-full text-white shadow-prism-e2"
-            style={{ background: accent }}
+            style={
+              inCreatorSection
+                ? { background: "var(--c-btn)", color: "var(--c-btnink)" }
+                : { background: accent }
+            }
           >
             <PlayGlyph />
           </button>
@@ -309,10 +320,20 @@ export function ContinueCard({
           tabIndex={-1}
           aria-hidden
         >
-          <span className="line-clamp-2 text-[16px] font-semibold leading-snug text-prism-ink">
+          <span
+            className={cn(
+              "line-clamp-2 text-[16px] font-semibold leading-snug",
+              inCreatorSection ? "text-[var(--c-surface-ink)]" : "text-prism-ink"
+            )}
+          >
             {item.title}
           </span>
-          <span className="mt-1 flex items-center gap-2 text-[13px] text-prism-ink-2">
+          <span
+            className={cn(
+              "mt-1 flex items-center gap-2 text-[13px]",
+              inCreatorSection ? "text-[var(--c-surface-muted)]" : "text-prism-ink-2"
+            )}
+          >
             {!inCreatorSection && <OwnerLine owner={item.owner} className="min-w-0" />}
             {left !== null && <span className="shrink-0 tabular-nums">{C.minutesLeft(left)}</span>}
           </span>

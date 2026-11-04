@@ -134,6 +134,41 @@ export const LIBRARY_COPY = {
     pages: (count: number) => (count === 1 ? "1 page" : `${count} pages`),
     loadingFile: "Loading",
   },
+
+  section: {
+    visitPage: "Visit page",
+    searchCreator: (name: string) => `Search ${name}`,
+    statusLabel: "Your status with this creator",
+    segments: "Sections",
+    yours: "Yours",
+    shop: "Shop",
+    continueTitle: "Continue",
+    ownership: (name: string) => `${name} owns this content.`,
+    yoursEmptyTitle: "Nothing here yet",
+    yoursEmpty: (name: string) =>
+      `When ${name} publishes something you can open, it shows up here.`,
+    shopEmptyTitle: "Nothing to unlock yet",
+    shopEmpty: "Items you can join or buy for show up here.",
+    notFoundTitle: "This page is not available",
+    notFound: "The creator may have unpublished their page.",
+  },
+
+  statusSheet: {
+    title: (name: string) => `${name} and you`,
+    following: "Following",
+    showPublicly: (name: string) => `Show me on ${name}'s public list`,
+    showPubliclyHelp: "Other visitors can see you follow.",
+    emailUpdates: (name: string) => `Email me ${name}'s updates`,
+    emailUpdatesHelp: "Sent from Amped.Bio. Unsubscribe from any email.",
+    on: "On",
+    off: "Off",
+    unfollow: "Unfollow",
+    unfollowed: (name: string) => `You unfollowed ${name}.`,
+    undo: "Undo",
+    undoGone: "Undo is no longer available.",
+    purchases: "Purchases",
+    close: "Done",
+  },
 } as const;
 
 export type LibraryCopy = typeof LIBRARY_COPY;

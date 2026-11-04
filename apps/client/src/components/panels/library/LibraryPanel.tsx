@@ -14,6 +14,7 @@ import { LibrarySearch } from "./LibrarySearch";
 import { YourCreatorsPage } from "./YourCreators";
 import { SavedPage } from "./SavedPage";
 import { ItemView } from "./ItemView";
+import { CreatorSection } from "./CreatorSection";
 
 export function LibraryPanel() {
   const { pathname } = useLocation();
@@ -30,7 +31,7 @@ export function LibraryPanel() {
       {route.view === "search" && <LibrarySearch />}
       {route.view === "creators" && <YourCreatorsPage />}
       {route.view === "saved" && <SavedPage />}
-      {route.view === "creator" && <CreatorPublicRedirect handle={route.handle} />}
+      {route.view === "creator" && <CreatorSection handle={route.handle} />}
       {route.view === "item" && <ItemView handle={route.handle} publicId={route.publicId} />}
     </div>
   );
@@ -44,15 +45,4 @@ function BackToLibrary() {
       {LIBRARY_COPY.back}
     </Button>
   );
-}
-
-/**
- * The creator section is FL-4. Until it ships, /library/@handle opens the
- * creator's public page, the same place spec 3.2 sends a fan with no connection.
- */
-function CreatorPublicRedirect({ handle }: { handle: string }) {
-  useEffect(() => {
-    window.location.assign(`${import.meta.env.VITE_LANDINGPAGE_URL}/@${handle}`);
-  }, [handle]);
-  return null;
 }
