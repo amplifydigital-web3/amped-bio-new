@@ -9,6 +9,7 @@
  */
 import { z } from "zod";
 import { CONTENT_PUBLIC_ID_REGEX, CONTENT_R2_PREFIXES } from "./contentKeys";
+import { ACCESS_RULE_PARAMS } from "./access";
 
 export * from "./contentKeys";
 
@@ -222,6 +223,35 @@ export const contentPreviewConfigSchema = z.union([
   z.object({ blur: z.literal(true) }),
 ]);
 
+/** A rule written inline from the item editor: one live leaf kind. */
+export const contentAccessLeafSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("follower"), params: ACCESS_RULE_PARAMS.follower }),
+  z.object({ kind: z.literal("pool_member"), params: ACCESS_RULE_PARAMS.pool_member }),
+  z.object({
+    kind: z.literal("stake_min"),
+    params: z
+      .object({
+        poolId: z.number().int().positive(),
+        minTrevo: z.string().regex(/^[1-9]\d{0,20}$/),
+      })
+      .strict(),
+  }),
+]);
+export type ContentAccessLeaf = z.infer<typeof contentAccessLeafSchema>;
+
+/**
+ * content.update access: a saved rule by id, one inline leaf, or Any of these
+ * over 2 to 4 inline leaves. Members and Paid join with PR 10 and PR 11.
+ */
+export const contentAccessInputSchema = z.union([
+  z.object({ ruleId: z.string().regex(/^[0-9a-f]{32}$/) }).strict(),
+  contentAccessLeafSchema,
+  z
+    .object({ kind: z.literal("any"), leaves: z.array(contentAccessLeafSchema).min(2).max(4) })
+    .strict(),
+]);
+export type ContentAccessInput = z.infer<typeof contentAccessInputSchema>;
+
 /** Fields PR 2 lets the owner edit. Cover, captions and the access rule come later. */
 export const contentUpdateSchema = z.object({
   publicId: contentPublicIdSchema,
@@ -231,6 +261,8 @@ export const contentUpdateSchema = z.object({
   adult: z.boolean().optional(),
   chapters: z.array(contentChapterSchema).max(CONTENT_CHAPTERS_MAX).nullable().optional(),
   previewConfig: contentPreviewConfigSchema.nullable().optional(),
+  /** Who can open this (content gating spec 3.5). null is Everyone. */
+  access: contentAccessInputSchema.nullable().optional(),
 });
 
 // ----------------------------------------------------------------------------

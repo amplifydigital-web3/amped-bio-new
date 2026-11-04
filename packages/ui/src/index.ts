@@ -33,6 +33,8 @@ export {
   type PrismTransitionKind,
 } from "./prism/motion";
 export { SuccessMoment, DrawnCheck } from "./prism/moments/success-moment";
+// Prism 2.2 v1.1 additions for Amped Messages (2 Nov 2026)
+export { CountBadge, MessageBubble, TypingIndicator, DayLabel } from "./prism/messages";
 export {
   Menu,
   MenuTrigger,
@@ -138,7 +140,13 @@ export {
   type CreatorPageSize,
 } from "./creator/creator-page";
 export { CreatorFontLinks, bodyFontPick, creatorFontHrefs } from "./creator/fonts";
-export { CreatorButton, CREATOR_FOCUS, clampedFontSize, playPress } from "./creator/creator-button";
+export {
+  CreatorButton,
+  CREATOR_FOCUS,
+  clampedFontSize,
+  playPress,
+  stillClasses,
+} from "./creator/creator-button";
 // Theme Engine v2 phase 2: the name entrances (Name row, board 08)
 export {
   NameText,

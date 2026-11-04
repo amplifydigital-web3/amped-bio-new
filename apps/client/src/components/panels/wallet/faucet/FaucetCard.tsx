@@ -9,7 +9,7 @@ import {
   Info,
   PlayCircle,
 } from "lucide-react";
-import { Button, ErrorCard, Notice, Skeleton, cn } from "@repo/ui";
+import { Button, ErrorCard, Notice, Skeleton, TESTNET_NOTICE, cn } from "@repo/ui";
 import { useEditor } from "@/contexts/EditorContext";
 import { useDelayed } from "@/hooks/useDelayed";
 import { toast } from "@/components/ui/toast";
@@ -19,8 +19,6 @@ import { useFaucet, type FaucetRequirements } from "./useFaucet";
 const WATCH_HOW: PlayerVideo = { id: "j_TED4IA4bc", title: "Get testnet tREVO from the faucet" };
 const MIN_BLOCKS = 5;
 const COOLDOWN_SECONDS = 24 * 60 * 60;
-// Short testnet line for the card. The full notice sits in the Home Testnet card.
-const TESTNET_LINE = "Testnet only. tREVO has no cash value.";
 
 type StepKey = keyof FaucetRequirements;
 
@@ -434,7 +432,8 @@ export default function FaucetCard() {
 
       <p className="flex items-start gap-2 text-prism-meta text-prism-ink-2">
         <Info className="h-4 w-4 shrink-0 text-prism-nav" aria-hidden />
-        <span>{TESTNET_LINE}</span>
+        {/* BRIEF rule 2: the testnet line is TESTNET_NOTICE, verbatim, wherever tREVO shows */}
+        <span>{TESTNET_NOTICE}</span>
       </p>
 
       <VideoPlayerDialog video={video} onClose={() => setVideo(null)} returnFocus={watchRef} />

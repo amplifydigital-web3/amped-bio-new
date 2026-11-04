@@ -16,6 +16,7 @@ import { FollowersBlock } from "./blocks/FollowersBlock";
 import { RnsIdBlock } from "./blocks/RnsIdBlock";
 import { ContentBlockPreview } from "./blocks/ContentBlockPreview";
 import { TelegramGroupPreview, TelegramMessagePreview } from "./blocks/TelegramMessageBlock";
+import { MessageBlockPreview } from "./blocks/MessageBlockPreview";
 import { isHTML } from "@/utils/htmlutils";
 import { type BlockType, DEFAULT_RNSID_CONFIG, safeHref, sanitizeRichHtml } from "@repo/constants";
 import { Theme, UserProfile } from "@/types/editor";
@@ -60,6 +61,7 @@ const VIDEO_BACKDROP = "#14141C";
 const fanGraphOn = isFeatureOn("fanGraph");
 const rnsOn = isFeatureOn("rns");
 const telegramOn = isFeatureOn("telegram");
+const messagesOn = isFeatureOn("messages");
 // Theme Engine v2 (#28): the preview mounts the shared CreatorPage shell, so it
 // draws what the public page draws (spec 3.4, closes D10)
 const themeV2On = isFeatureOn("themeV2");
@@ -281,6 +283,15 @@ export function Preview({
       return (
         <ErrorBoundary key={block.id} fallback={fallback}>
           <ContentBlockPreview block={block} theme={themeConfig} />
+        </ErrorBoundary>
+      );
+    }
+    // Amped Messages (#2 r4, M6): Message me, and a telegram_message row not yet migrated
+    if (block.type === "message" || (messagesOn && block.type === "telegram_message")) {
+      if (!messagesOn) return null;
+      return (
+        <ErrorBoundary key={block.id} fallback={fallback}>
+          <MessageBlockPreview label={block.config.label} theme={themeConfig} />
         </ErrorBoundary>
       );
     }
