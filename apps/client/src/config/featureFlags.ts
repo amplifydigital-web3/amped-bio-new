@@ -65,7 +65,7 @@ function writeCache(value: FeatureFlagOverrides) {
 }
 
 /**
- * Read the rows from publicSettings.getFeatureFlags. When the API is slow or
+ * Read the rows from public.getFeatureFlags. When the API is slow or
  * down, the last rows this browser saw are used, else the build's variables.
  */
 export async function loadFeatureFlags(): Promise<void> {
@@ -73,7 +73,7 @@ export async function loadFeatureFlags(): Promise<void> {
   const timeout = setTimeout(() => controller.abort(), LOAD_TIMEOUT_MS);
   try {
     const response = await fetch(
-      `${import.meta.env.VITE_API_URL}/trpc/publicSettings.getFeatureFlags`,
+      `${import.meta.env.VITE_API_URL}/trpc/public.getFeatureFlags`,
       { signal: controller.signal, credentials: "include" }
     );
     if (!response.ok) throw new Error(`HTTP ${response.status}`);

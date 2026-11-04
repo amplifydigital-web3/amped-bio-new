@@ -242,8 +242,10 @@ const envSchema = z.object({
   // Fallback of the `messages` feature flag (admin Feature flags) when it has no row.
   // Off makes every Inbox read only (spec 7.1).
   MESSAGING_ENABLED: boolSchema(true),
-  // Gated creator groups (phase 2)
+  // Fallback of the `telegramGroups` feature flag (admin Feature flags) when it has no row.
+  // Gated creator groups (phase 2).
   TELEGRAM_GROUPS: boolSchema(false),
+  // Fallback of the `telegramMiniApp` feature flag (admin Feature flags) when it has no row.
   // The Mini App page endpoint, follow and share (phase 3). Counsel confirms TON safe mode first.
   TELEGRAM_MINIAPP: boolSchema(false),
 

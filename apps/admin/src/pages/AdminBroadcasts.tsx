@@ -280,8 +280,9 @@ export function AdminBroadcasts() {
           <CardHeader>
             <CardTitle className="text-lg">Pilot senders</CardTitle>
             <p className="text-sm text-gray-600">
-              While BROADCAST_INVITE_ONLY is on, only invited pool owners can send. The invitation
-              must state the FTC disclosure rule for any post about early access.
+              Pilot senders are recorded here for the launch list; sending is open to every pool
+              owner. The invitation must state the FTC disclosure rule for any post about early
+              access.
             </p>
           </CardHeader>
           <CardContent className="space-y-4">
