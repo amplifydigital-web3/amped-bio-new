@@ -169,12 +169,25 @@ export async function viewerMembership(viewerId: number, creatorUserId: number) 
   });
 }
 
+/**
+ * The renewal job runs hourly, so an active membership whose charge is one tick late must not
+ * lose access in the gap between the period end and the job marking it past due. It never
+ * extends past this: a row that is still active days later (the chain subscription ended
+ * outside this server, or the keeper never ran) closes on its own.
+ */
+const ACTIVE_LAPSE_MS = 60 * 60 * 1000;
+
 /** Until when a membership opens members only items, or null when it does not. */
 export function accessUntil(
   row: { status: string; currentPeriodEnd: Date | null; pastDueSince: Date | null },
   now = new Date()
 ): Date | null {
-  if (row.status === "active") return row.currentPeriodEnd ?? null;
+  if (row.status === "active") {
+    if (!row.currentPeriodEnd) return null;
+    if (row.currentPeriodEnd > now) return row.currentPeriodEnd;
+    const late = new Date(row.currentPeriodEnd.getTime() + ACTIVE_LAPSE_MS);
+    return late > now ? late : null;
+  }
   if (row.status === "past_due" && row.pastDueSince) {
     const end = new Date(row.pastDueSince.getTime() + MEMBERSHIP_LIMITS.graceDays * 86_400_000);
     return end > now ? end : null;
@@ -187,13 +200,12 @@ export function accessUntil(
 
 /**
  * True while the viewer may open this creator's members only items (G5 reads this). Active
- * members pass even a little past the period end while the keeper runs; past due keeps access
- * through the 7 day grace; canceled keeps it to the period end.
+ * members pass their paid period (one keeper tick of slack); past due keeps access through the
+ * 7 day grace; canceled keeps it to the period end.
  */
 export async function isMember(viewerId: number, creatorUserId: number, now = new Date()) {
   const row = await viewerMembership(viewerId, creatorUserId);
   if (!row) return false;
-  if (row.status === "active") return true;
   return accessUntil(row, now) !== null;
 }
 
