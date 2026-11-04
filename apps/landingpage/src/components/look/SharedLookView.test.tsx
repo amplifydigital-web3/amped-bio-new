@@ -154,7 +154,12 @@ describe("SharedLookView", () => {
     expect(mocks.applyShared).toHaveBeenCalledWith({ slug: "abcdefgh", mode: "apply" });
     expect(screen.getByText("Open editor").getAttribute("href")).toBe("https://app.test/bob/edit");
     fireEvent.click(screen.getByText("Undo"));
-    await waitFor(() => expect(mocks.restore).toHaveBeenCalledWith({ id: 9, versionId: 77 }));
+    await waitFor(() =>
+      expect(mocks.restore).toHaveBeenCalledWith({
+        id: 9,
+        versionId: "00000000000000000000000000000077",
+      })
+    );
   });
 
   it("back from sign up with ?use=save, finishes the save once and clears the param", async () => {
