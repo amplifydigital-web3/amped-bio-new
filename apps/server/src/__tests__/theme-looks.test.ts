@@ -14,12 +14,21 @@ const db = vi.hoisted(() => {
     nextTheme: 1,
     nextVersion: 1,
   };
+  // theme_versions ids are BINARY(16) buffers: compare them by content
+  const same = (a: unknown, b: unknown): boolean =>
+    Buffer.isBuffer(a) && Buffer.isBuffer(b) ? a.equals(b) : a === b;
   const matches = (row: Row, where: Row = {}): boolean =>
     Object.entries(where).every(([key, value]) => {
-      if (value && typeof value === "object" && !(value instanceof Date) && "in" in value) {
-        return (value.in as unknown[]).includes(row[key]);
+      if (
+        value &&
+        typeof value === "object" &&
+        !(value instanceof Date) &&
+        !Buffer.isBuffer(value) &&
+        "in" in value
+      ) {
+        return (value.in as unknown[]).some(v => same(row[key], v));
       }
-      return row[key] === value;
+      return same(row[key], value);
     });
   const order = (rows: Row[], orderBy: Row | Row[] | undefined) => {
     const keys = (Array.isArray(orderBy) ? orderBy : orderBy ? [orderBy] : []).map(o => {
@@ -28,6 +37,11 @@ const db = vi.hoisted(() => {
     });
     return [...rows].sort((a, b) => {
       for (const { k, dir } of keys) {
+        if (Buffer.isBuffer(a[k]) && Buffer.isBuffer(b[k])) {
+          const cmp = Buffer.compare(a[k], b[k]);
+          if (cmp !== 0) return dir === "desc" ? -cmp : cmp;
+          continue;
+        }
         const av = a[k] instanceof Date ? a[k].getTime() : (a[k] ?? 0);
         const bv = b[k] instanceof Date ? b[k].getTime() : (b[k] ?? 0);
         if (av !== bv) return dir === "desc" ? (bv > av ? 1 : -1) : av > bv ? 1 : -1;
@@ -112,7 +126,7 @@ const db = vi.hoisted(() => {
         )[0] ?? null
     ),
     findUnique: vi.fn(
-      async ({ where }: Row) => state.versions.find(v => v.id === where.id) ?? null
+      async ({ where }: Row) => state.versions.find(v => same(v.id, where.id)) ?? null
     ),
     findMany: vi.fn(async ({ where, orderBy, skip = 0, take, select }: Row) => {
       const rows = order(
@@ -127,7 +141,7 @@ const db = vi.hoisted(() => {
       return row;
     }),
     update: vi.fn(async ({ where, data }: Row) => {
-      const row = state.versions.find(v => v.id === where.id)!;
+      const row = state.versions.find(v => same(v.id, where.id))!;
       Object.assign(row, data);
       return row;
     }),
@@ -422,6 +436,8 @@ describe("theme router: looks", () => {
     await recordVersion(look.id, config("#bbbbbb"), { force: true, now: new Date(t0 + 1000) });
     const { versions } = await caller(1).history({ id: look.id });
     expect(versions.map(v => (v.config as Row).buttonColor)).toEqual(["#bbbbbb", "#aaaaaa"]);
+    // Version ids are UUID v7 (BINARY(16)) sent as 32 hex characters
+    expect(versions.every(v => /^[0-9a-f]{32}$/.test(v.id))).toBe(true);
 
     const oldest = versions.at(-1)!;
     await caller(1).restore({ id: look.id, versionId: oldest.id });
@@ -435,7 +451,9 @@ describe("theme router: looks", () => {
     const b = seedLook(1, "B");
     await recordVersion(b.id, config("#cccccc"), { force: true });
     const versionOfB = db.state.versions.find(v => v.themeId === b.id)!;
-    await expect(caller(1).restore({ id: a.id, versionId: versionOfB.id })).rejects.toMatchObject({
+    await expect(
+      caller(1).restore({ id: a.id, versionId: versionOfB.id.toString("hex") })
+    ).rejects.toMatchObject({
       code: "NOT_FOUND",
     });
   });
@@ -552,6 +570,35 @@ describe("theme router: share links", () => {
 
     await caller(1).restore({ id: mine.id, versionId: out.undoVersionId! });
     expect(mine.config).toEqual({ buttonColor: "#123123" });
+  });
+
+  it("Use this look is rate limited per creator", async () => {
+    const shared = seedLook(2, "Northern Lights");
+    const { slug } = await caller(2).share({ id: shared.id });
+    seedLook(1, "Mine");
+    await caller(1).applyShared({ slug: slug!, mode: "apply" });
+    expect(enforceRateLimits).toHaveBeenCalledWith(
+      [{ key: "theme-apply-shared:1", limit: 30, windowSeconds: 3600 }],
+      expect.any(String)
+    );
+  });
+
+  it("an autosave never turns a shared link off", async () => {
+    const look = seedLook(1, "Shared");
+    const { slug } = await caller(1).share({ id: look.id });
+    // The editor still holds the share_level it loaded before Create link
+    await caller(1).editTheme({
+      id: look.id,
+      theme: { name: "Shared", share_level: "private", share_config: {}, config: {} as never },
+    });
+    await caller(1).applyTheme({
+      themeId: 0,
+      lookId: look.id,
+      theme: { name: "Shared", share_level: "private", share_config: {}, config: {} as never },
+    });
+    expect(look.share_level).toBe("link");
+    const anon = themeRouter.createCaller({ req: {} } as never);
+    await expect(anon.bySlug({ slug: slug! })).resolves.toMatchObject({ slug });
   });
 
   it("Save to My looks adds a look without applying it, within the limit", async () => {

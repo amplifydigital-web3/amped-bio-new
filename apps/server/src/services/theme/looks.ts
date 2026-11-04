@@ -1,6 +1,8 @@
 import { TRPCError } from "@trpc/server";
+import { z } from "zod";
 import { prisma } from "@repo/database";
 import { isThemeConfigV2 } from "@repo/constants";
+import { uuidv7 } from "../../utils/uuid-v7";
 
 /**
  * Theme Engine v2 TE-4a (spec 3.9, decision 7): a creator's saved looks and
@@ -21,6 +23,17 @@ export const LOOK_NAME_MAX = 40;
 
 /** The error message a client reads to show "10 of 10 looks". */
 export const THEME_LIMIT = "THEME_LIMIT";
+
+/** A theme_versions id (UUID v7, BINARY(16)) as the 32 hex characters the API uses. */
+export const versionIdSchema = z.string().regex(/^[0-9a-fA-F]{32}$/, "Invalid version id");
+
+export function versionIdToHex(id: Uint8Array): string {
+  return Buffer.from(id).toString("hex");
+}
+
+export function versionIdFromHex(hex: string): Buffer {
+  return Buffer.from(hex, "hex");
+}
 
 export function configVersion(config: unknown): 1 | 2 {
   return isThemeConfigV2(config) ? 2 : 1;
@@ -68,13 +81,13 @@ export async function ownLook(userId: number, id: number) {
 /**
  * Records a save of a look. Within the session window the newest version takes
  * the new config and time; `force` always starts a new version. Then trims the
- * look to its last 20 versions. Returns the id of the version written.
+ * look to its last 20 versions. Returns the id (hex) of the version written.
  */
 export async function recordVersion(
   themeId: number,
   config: unknown,
   { force = false, now = new Date() }: { force?: boolean; now?: Date } = {}
-): Promise<number | null> {
+): Promise<string | null> {
   if (config === null || config === undefined) return null;
   const data = config as object;
   const newest = force
@@ -83,17 +96,17 @@ export async function recordVersion(
         where: { themeId },
         orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       });
-  let written: number;
+  let written: string;
   if (newest && now.getTime() - newest.createdAt.getTime() < VERSION_SESSION_MS) {
     await prisma.themeVersion.update({
       where: { id: newest.id },
       data: { config: data, createdAt: now },
     });
-    written = newest.id;
+    written = versionIdToHex(newest.id);
   } else {
-    written = (
-      await prisma.themeVersion.create({ data: { themeId, config: data, createdAt: now } })
-    ).id;
+    const id = uuidv7();
+    await prisma.themeVersion.create({ data: { id, themeId, config: data, createdAt: now } });
+    written = versionIdToHex(id);
   }
   const stale = await prisma.themeVersion.findMany({
     where: { themeId },
