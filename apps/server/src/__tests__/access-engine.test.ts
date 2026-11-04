@@ -129,9 +129,11 @@ import {
   clearResolvers,
   eligibleUserIds,
   open,
+  registerPaymentVerifier,
   registerResolver,
   viewerKey,
 } from "../services/access/engine";
+import { checkIdentity } from "../services/identity/checks";
 import {
   __resetStakeKindsAllowlistCacheForTests,
   STAKE_KINDS_ALLOWLIST_CACHE_MS,
@@ -169,6 +171,7 @@ function gateWith(ruleId: Buffer | null, adult = false) {
 beforeEach(() => {
   clearResolvers();
   registerResolver("block", { get: async () => state.gate });
+  registerPaymentVerifier(null);
   state.gate = null;
   state.owner = { id: OWNER, handle: "maya", block: "no", page_status: "PUBLISHED" };
   state.viewerBlock = "no";
@@ -235,7 +238,7 @@ describe("preconditions", () => {
   });
 
   it("a kind that is not live yet refuses", async () => {
-    gateWith(addRule("paid", { offerId: "ab".repeat(16) }));
+    gateWith(addRule("member", { planId: 1 }));
     expect((await check(fan, resource)).reason).toBe("kind_unavailable");
   });
 });
@@ -525,6 +528,10 @@ describe("contract and keys", () => {
     expect(
       accessRuleInputSchema.safeParse({ kind: "paid", params: { offerId: "x" } }).success
     ).toBe(false);
+    expect(
+      accessRuleInputSchema.safeParse({ kind: "paid", params: { offerId: "ab".repeat(16) } })
+        .success
+    ).toBe(true);
   });
 
   it("parseRuleRow rejects unknown kinds and bad params", () => {
@@ -540,5 +547,157 @@ describe("contract and keys", () => {
     expect(key.startsWith("v:")).toBe(true);
     expect(key).not.toContain("203.0.113.9");
     expect(viewerKey(fan, OWNER)).toBe(`u:${FAN}`);
+  });
+});
+
+describe("paid (G4, spec 3.3 and decision 5)", () => {
+  const OFFER = "ab".repeat(16);
+  const pay = {
+    offer: null as null | { ownerUserId: number; status: string; amountUnits: bigint },
+    purchase: "none" as "purchased" | "confirming" | "pending" | "none",
+  };
+  const verifier = {
+    offer: vi.fn(async (_id: string) => pay.offer),
+    verifyPurchase: vi.fn(async (_userId: number, _id: string) => pay.purchase),
+  };
+  const sellerFails = { pass: false, reason: "not_verified" };
+
+  beforeEach(() => {
+    pay.offer = { ownerUserId: OWNER, status: "active", amountUnits: 5_000_000n };
+    pay.purchase = "none";
+    verifier.offer.mockClear();
+    verifier.verifyPurchase.mockClear();
+    vi.mocked(checkIdentity).mockClear();
+    registerPaymentVerifier(verifier);
+  });
+
+  it("refuses with kind_unavailable when no verifier is registered (default deny)", async () => {
+    registerPaymentVerifier(null);
+    gateWith(addRule("paid", { offerId: OFFER }));
+    expect(await check(fan, resource)).toMatchObject({
+      allowed: false,
+      reason: "kind_unavailable",
+      hint: { action: "unavailable" },
+    });
+  });
+
+  it("asks a signed out viewer to sign in, without reading purchases", async () => {
+    gateWith(addRule("paid", { offerId: OFFER }));
+    expect(await check(anon, resource)).toMatchObject({
+      reason: "not_signed_in",
+      hint: { action: "sign_in" },
+    });
+    expect(verifier.verifyPurchase).not.toHaveBeenCalled();
+  });
+
+  it("refuses a missing product or another creator's product", async () => {
+    gateWith(addRule("paid", { offerId: OFFER }));
+    pay.offer = null;
+    expect((await check(fan, resource)).reason).toBe("kind_unavailable");
+    pay.offer = { ownerUserId: 99, status: "active", amountUnits: 1n };
+    pay.purchase = "purchased";
+    expect((await check(fan, resource)).reason).toBe("kind_unavailable");
+  });
+
+  it("not bought: Buy with the product and its price", async () => {
+    gateWith(addRule("paid", { offerId: OFFER }));
+    expect(await check(fan, resource)).toMatchObject({
+      allowed: false,
+      reason: "not_purchased",
+      hint: { action: "buy", offerId: OFFER, priceDisplay: "5.00 USDC" },
+      rule: { kind: "paid", summary: "Paid" },
+    });
+    expect(verifier.verifyPurchase).toHaveBeenCalledWith(FAN, OFFER);
+  });
+
+  it("a final purchase passes with ok", async () => {
+    gateWith(addRule("paid", { offerId: OFFER }));
+    pay.purchase = "purchased";
+    expect(await check(fan, resource)).toMatchObject({ allowed: true, reason: "ok" });
+  });
+
+  it("soft unlock: the first confirmation passes with purchase_pending", async () => {
+    gateWith(addRule("paid", { offerId: OFFER }));
+    pay.purchase = "confirming";
+    expect(await check(fan, resource, { intent: "open" })).toMatchObject({
+      allowed: true,
+      reason: "purchase_pending",
+      hint: { action: "none" },
+    });
+  });
+
+  it("sent but not on chain refuses with purchase_pending and no Buy", async () => {
+    gateWith(addRule("paid", { offerId: OFFER }));
+    pay.purchase = "pending";
+    expect(await check(fan, resource)).toMatchObject({
+      allowed: false,
+      reason: "purchase_pending",
+      hint: { action: "none" },
+    });
+  });
+
+  it("a reorg, failure or refund closes access on the next check", async () => {
+    gateWith(addRule("paid", { offerId: OFFER }));
+    pay.purchase = "confirming";
+    expect((await check(fan, resource)).allowed).toBe(true);
+    pay.purchase = "none";
+    expect(await check(fan, resource)).toMatchObject({ allowed: false, reason: "not_purchased" });
+  });
+
+  it("a paused or archived product sells to no one new, buyers keep access", async () => {
+    gateWith(addRule("paid", { offerId: OFFER }));
+    pay.offer = { ownerUserId: OWNER, status: "paused", amountUnits: 5_000_000n };
+    expect(await check(fan, resource)).toMatchObject({
+      reason: "not_purchased",
+      hint: { action: "unavailable" },
+    });
+    pay.purchase = "purchased";
+    expect((await check(fan, resource)).allowed).toBe(true);
+  });
+
+  it("seller precondition: refuses new buyers, buyers keep access (spec 3.4)", async () => {
+    gateWith(addRule("paid", { offerId: OFFER }));
+    state.identity = sellerFails;
+    expect(await check(fan, resource)).toMatchObject({
+      allowed: false,
+      reason: "kind_unavailable",
+      hint: { action: "unavailable" },
+    });
+    pay.purchase = "purchased";
+    expect((await check(fan, resource)).allowed).toBe(true);
+  });
+
+  it("open re-runs the seller check fresh, render does not", async () => {
+    gateWith(addRule("paid", { offerId: OFFER }));
+    await check(fan, resource);
+    expect(vi.mocked(checkIdentity)).toHaveBeenLastCalledWith(OWNER, "seller", { fresh: false });
+    await check(fan, resource, { intent: "open" });
+    expect(vi.mocked(checkIdentity)).toHaveBeenLastCalledWith(OWNER, "seller", { fresh: true });
+  });
+
+  it("a blocked fan is refused even after buying (spec 3.4)", async () => {
+    gateWith(addRule("paid", { offerId: OFFER }));
+    pay.purchase = "purchased";
+    state.followBlocked = true;
+    expect((await check(fan, resource)).reason).toBe("blocked");
+  });
+
+  it("Any of these: Followers or Paid passes on the purchase", async () => {
+    const follower = addRule("follower", {});
+    const paid = addRule("paid", { offerId: OFFER });
+    gateWith(addRule("any", { ruleIds: [follower.toString("hex"), paid.toString("hex")] }));
+    expect((await check(fan, resource)).allowed).toBe(false);
+    pay.purchase = "purchased";
+    expect(await check(fan, resource)).toMatchObject({ allowed: true, reason: "ok" });
+  });
+
+  it("open reveals on a soft unlock and never before", async () => {
+    gateWith(addRule("paid", { offerId: OFFER }));
+    const reveal = vi.fn(async (_d: AccessDecision) => "media-token");
+    pay.purchase = "pending";
+    expect((await open(fan, resource, reveal)).value).toBeUndefined();
+    pay.purchase = "confirming";
+    expect((await open(fan, resource, reveal)).value).toBe("media-token");
+    expect(reveal).toHaveBeenCalledTimes(1);
   });
 });

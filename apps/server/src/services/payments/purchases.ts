@@ -688,6 +688,23 @@ export async function recordPaymentLogs(
   return written;
 }
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * The end of a product's access period (G4, ST-Q44 "Access for N days"), counted from the
+ * first chain confirmation. Lifetime products, content and rows that already carry an end
+ * are left as they are.
+ */
+async function accessWindow(row: PurchaseRow, from: Date): Promise<{ accessUntil?: Date }> {
+  if (!row.offerId || row.accessUntil) return {};
+  const offer = await prisma.offer.findUnique({
+    where: { id: Buffer.from(row.offerId) },
+    select: { accessPeriodDays: true },
+  });
+  if (!offer?.accessPeriodDays) return {};
+  return { accessUntil: new Date(from.getTime() + offer.accessPeriodDays * DAY_MS) };
+}
+
 /**
  * Moves one in flight Purchase forward from its receipt. Safe to call from submit, the status
  * poll, the worker and the indexer: every write names the statuses it moves from.
@@ -721,7 +738,14 @@ export async function settlePurchase(
       // The block that held it is gone (reorg): access closes until it lands again
       const moved = await prisma.purchase.updateMany({
         where: { id: row.id, status: "confirmed_soft" },
-        data: { status: "submitted", blockNumber: null, blockHash: null, softConfirmedAt: null },
+        data: {
+          status: "submitted",
+          blockNumber: null,
+          blockHash: null,
+          softConfirmedAt: null,
+          // A product period restarts when the payment lands again
+          ...(row.offerId ? { accessUntil: null } : {}),
+        },
       });
       if (moved.count) {
         console.warn("[payments] purchase receipt vanished after soft confirm", hash);
@@ -779,6 +803,7 @@ export async function settlePurchase(
         failureCode: null,
         confirmedAt: now,
         softConfirmedAt: row.softConfirmedAt ?? now,
+        ...(await accessWindow(row, row.softConfirmedAt ?? now)),
         ...gas,
       },
     });
@@ -801,7 +826,13 @@ export async function settlePurchase(
     }
     const moved = await prisma.purchase.updateMany({
       where: { id: row.id, status: { in: ["submitted", "failed"] } },
-      data: { status: "confirmed_soft", failureCode: null, softConfirmedAt: now, ...gas },
+      data: {
+        status: "confirmed_soft",
+        failureCode: null,
+        softConfirmedAt: now,
+        ...(await accessWindow(row, now)),
+        ...gas,
+      },
     });
     if (!moved.count) return status;
     await setIntentStatus(row.checkoutIntentId, ["open", "signing", "submitted"], "paid");

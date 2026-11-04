@@ -33,6 +33,7 @@ const signerAccount = privateKeyToAccount(signerKey);
 const fan = privateKeyToAccount(fanKey);
 
 const state = vi.hoisted(() => ({
+  offerPeriodDays: null as number | null,
   purchases: [] as Record<string, any>[],
   intents: [] as Record<string, any>[],
   events: [] as Record<string, any>[],
@@ -144,7 +145,11 @@ vi.mock("@repo/database", () => {
       },
       // C10: the live store policy at prepare and the product sales count
       storeSettings: { findUnique: vi.fn(async () => null) },
-      offer: { updateMany: vi.fn(async () => ({ count: 0 })) },
+      offer: {
+        updateMany: vi.fn(async () => ({ count: 0 })),
+        // G4: the product's access period at the first confirmation
+        findUnique: vi.fn(async () => ({ accessPeriodDays: state.offerPeriodDays })),
+      },
       siteSettings: {
         findUnique: vi.fn(async ({ where }: Row) => state.settings.get(where.setting_key) ?? null),
         upsert: vi.fn(async ({ where, create, update }: Row) => {
@@ -540,6 +545,7 @@ const localSigner = {
 
 beforeEach(() => {
   Object.assign(settings, SETTINGS);
+  state.offerPeriodDays = null;
   state.purchases = [];
   state.events = [];
   state.settings = new Map();
@@ -944,6 +950,42 @@ describe("settlePurchase", () => {
     state.receipt = receiptFor(row, "success", 105n);
     state.head = 105n;
     expect(await settlePurchase(row.id, { now: NOW })).toBe("confirmed_soft");
+  });
+
+  it("a product with an access period ends N days after the first confirmation (G4)", async () => {
+    const row = await submitted();
+    row.offerId = Buffer.alloc(16, 7);
+    state.offerPeriodDays = 30;
+    state.receipt = receiptFor(row);
+    state.head = 100n;
+    expect(await settlePurchase(row.id, { now: NOW })).toBe("confirmed_soft");
+    const end = new Date(NOW.getTime() + 30 * 86_400_000);
+    expect(row.accessUntil).toEqual(end);
+    // Final keeps the end the soft confirmation set
+    state.head = 111n;
+    expect(await settlePurchase(row.id, { now: new Date(NOW.getTime() + 60_000) })).toBe(
+      "confirmed"
+    );
+    expect(row.accessUntil).toEqual(end);
+  });
+
+  it("a reorg clears a product's access end, so it restarts when the payment lands again", async () => {
+    const row = await submitted();
+    row.offerId = Buffer.alloc(16, 7);
+    state.offerPeriodDays = 7;
+    state.receipt = receiptFor(row);
+    await settlePurchase(row.id, { now: NOW });
+    expect(row.accessUntil).toBeInstanceOf(Date);
+    state.receipt = null;
+    expect(await settlePurchase(row.id, { now: NOW })).toBe("submitted");
+    expect(row.accessUntil).toBeNull();
+  });
+
+  it("lifetime products and content leave accessUntil empty", async () => {
+    const row = await submitted();
+    state.receipt = receiptFor(row);
+    await settlePurchase(row.id, { now: NOW });
+    expect(row.accessUntil).toBeNull();
   });
 
   it("a reverted receipt fails it, and a long silence marks it dropped", async () => {
