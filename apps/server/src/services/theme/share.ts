@@ -16,6 +16,11 @@ export const SHARE_SLUG_PATTERN = /^[a-z2-7]{8}$/;
 
 /** Share and unshare per creator, per hour (spec 3.9). */
 export const SHARE_RATE = { limit: 10, windowSeconds: 3600 };
+/**
+ * Use this look and Save to My looks per creator, per hour. Each call counts a
+ * use on the shared look and writes versions, so it is limited like share.
+ */
+export const APPLY_SHARED_RATE = { limit: 30, windowSeconds: 3600 };
 /** theme.bySlug per IP, per minute (spec 3.11). */
 export const BY_SLUG_RATE = { limit: 60, windowSeconds: 60 };
 

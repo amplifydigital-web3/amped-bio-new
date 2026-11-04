@@ -529,10 +529,10 @@ function HistoryDialog({
   const { setPreviewOverride } = useEditor();
   const { refetch } = useThemeActions();
   const refresh = useRefreshLooks();
-  const [restoring, setRestoring] = useState<number | null>(null);
+  const [restoring, setRestoring] = useState<string | null>(null);
   const label = look.name || "My look";
 
-  const restore = async (versionId: number) => {
+  const restore = async (versionId: string) => {
     setRestoring(versionId);
     try {
       await trpcClient.theme.restore.mutate({ id: look.id, versionId });

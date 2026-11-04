@@ -15,7 +15,10 @@ import type { SharedLook } from "@/lib/sharedLook";
  * Theme Engine v2 TE-4b, the share link page (spec 3.9, boards 06, 06m, 13).
  * The look on placeholder content with Pause motion, its layers and cost,
  * then Use this look, Save to My looks and Download when the author allows it.
- * Signed out, the actions go through sign up and come back here to finish.
+ * Signed out, the actions go through sign up and come back here; the visitor
+ * then presses the action again. A link never changes a page on its own: a
+ * signed in creator opening /t/<slug>?use=apply from someone else must not
+ * have their live page replaced without a click.
  */
 
 export const LAYER_NAMES: Record<string, string> = {
@@ -40,7 +43,7 @@ type Mode = "apply" | "save";
 type Done = {
   mode: Mode;
   themeId: number;
-  undoVersionId: number | null;
+  undoVersionId: string | null;
   backgroundKept: boolean;
 };
 
@@ -60,6 +63,13 @@ export function usesLine(uses: number): string | null {
 }
 
 /** The sign up path that comes back here and finishes the action. */
+/** The line shown on return from sign up, asking for the click that finishes. */
+export function resumeLine(mode: Mode): string {
+  return mode === "apply"
+    ? "You're signed in. Press Use this look to put it on your page."
+    : "You're signed in. Press Save to My looks to keep it.";
+}
+
 export function signUpHref(slug: string, mode: Mode): string {
   return `/register?returnTo=${encodeURIComponent(`/t/${slug}?use=${mode}`)}`;
 }
@@ -93,6 +103,7 @@ export function SharedLookView({ look }: { look: SharedLook }) {
   const [done, setDone] = useState<Done | null>(null);
   const [undoOpen, setUndoOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [resume, setResume] = useState<Mode | null>(null);
   const autoRan = useRef(false);
   const status = useRef<HTMLParagraphElement>(null);
 
@@ -100,6 +111,7 @@ export function SharedLookView({ look }: { look: SharedLook }) {
     async (mode: Mode) => {
       setWorking(mode);
       setError(null);
+      setResume(null);
       try {
         const out = await trpcClient.theme.applyShared.mutate({ slug: look.slug, mode });
         setDone(out);
@@ -114,7 +126,9 @@ export function SharedLookView({ look }: { look: SharedLook }) {
     [look.slug]
   );
 
-  // Back from sign up with ?use=apply or ?use=save: finish the action once
+  // Back from sign up with ?use=apply or ?use=save: ask for the click that
+  // finishes it. Never run it from the URL, so a link can't apply a look to a
+  // signed in creator's page without their action.
   useEffect(() => {
     if (autoRan.current || isPending || !signedIn) return;
     const params = new URLSearchParams(window.location.search);
@@ -124,8 +138,8 @@ export function SharedLookView({ look }: { look: SharedLook }) {
     params.delete("use");
     const rest = params.toString();
     window.history.replaceState(null, "", `${window.location.pathname}${rest ? `?${rest}` : ""}`);
-    void run(use);
-  }, [isPending, signedIn, run]);
+    setResume(use);
+  }, [isPending, signedIn]);
 
   // Undo stays for 8 seconds, as in the editor
   useEffect(() => {
@@ -307,6 +321,7 @@ export function SharedLookView({ look }: { look: SharedLook }) {
               )}
             </>
           )}
+          {resume && !done && !error && resumeLine(resume)}
           {error}
         </p>
 

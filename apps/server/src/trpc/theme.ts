@@ -23,6 +23,7 @@ import { pageCost, themeConfigSchema, upgradeTheme, type ThemeConfig } from "@re
 import { enforceRateLimits } from "../utils/rateLimit";
 import { getVisitorIp } from "../services/analytics/visitorIp";
 import {
+  APPLY_SHARED_RATE,
   BY_SLUG_RATE,
   SHARE_RATE,
   SHARE_SLUG_PATTERN,
@@ -46,9 +47,12 @@ import {
   currentLookId,
   ownLook,
   recordVersion,
+  versionIdFromHex,
+  versionIdSchema,
+  versionIdToHex,
 } from "../services/theme/looks";
 
-/** Looks and sharing ship behind SHOW_THEME_SHARING (spec 3.13). */
+/** Looks and sharing ship behind the themeSharing site setting flag (spec 3.13). */
 function requireSharing(): void {
   if (!isFeatureOn("themeSharing")) {
     throw new TRPCError({ code: "FORBIDDEN", message: "Looks are not available yet" });
@@ -64,7 +68,7 @@ const slugSchema = z.string().trim().toLowerCase().regex(SHARE_SLUG_PATTERN);
 async function copyMarketplaceTheme(
   userId: number,
   market: { name: string | null; description: string | null; config: unknown }
-): Promise<{ themeId: number; created: boolean; undoVersionId: number | null }> {
+): Promise<{ themeId: number; created: boolean; undoVersionId: string | null }> {
   const config = (market.config ?? {}) as object;
   if ((await countLooks(userId)) < LOOK_LIMIT) {
     const taken = await prisma.theme.findMany({
@@ -276,11 +280,12 @@ export const themeRouter = router({
 
         const result = await prisma.theme.update({
           where: { id: Number(id) },
+          // TE-4b: share_level and share_config are owned by share and
+          // unshare. The editor sends the values it loaded, so writing them
+          // here would let an autosave after Create link turn the link off.
           data: {
             name,
             description,
-            share_level,
-            share_config: share_config as any,
             config: config as any,
             config_version: configVersion(config),
           },
@@ -421,8 +426,7 @@ export const themeRouter = router({
             data: {
               name: theme.name,
               description: theme.description,
-              share_level: theme.share_level,
-              share_config: theme.share_config as any,
+              // share_level and share_config stay as share and unshare set them
               config: theme.config as any,
               config_version: configVersion(theme.config),
               updated_at: new Date(),
@@ -640,7 +644,11 @@ export const themeRouter = router({
     });
     return {
       themeId: input.id,
-      versions: versions.map(v => ({ ...v, config: v.config as ThemeConfig })),
+      versions: versions.map(v => ({
+        ...v,
+        id: versionIdToHex(v.id),
+        config: v.config as ThemeConfig,
+      })),
     };
   }),
 
@@ -649,12 +657,14 @@ export const themeRouter = router({
    * (so the restore itself can be undone), and the look is applied.
    */
   restore: privateProcedure
-    .input(z.object({ id: z.number(), versionId: z.number() }))
+    .input(z.object({ id: z.number(), versionId: versionIdSchema }))
     .mutation(async ({ ctx, input }) => {
       requireSharing();
       const userId = ctx.user!.sub;
       await ownLook(userId, input.id);
-      const version = await prisma.themeVersion.findUnique({ where: { id: input.versionId } });
+      const version = await prisma.themeVersion.findUnique({
+        where: { id: versionIdFromHex(input.versionId) },
+      });
       if (!version || version.themeId !== input.id) {
         throw new TRPCError({ code: "NOT_FOUND", message: "Version not found" });
       }
@@ -772,6 +782,10 @@ export const themeRouter = router({
     .mutation(async ({ ctx, input }) => {
       requireSharing();
       const userId = ctx.user!.sub;
+      await enforceRateLimits(
+        [{ key: `theme-apply-shared:${userId}`, ...APPLY_SHARED_RATE }],
+        "Too many looks applied. Try again in an hour."
+      );
       const shared = await sharedLook(input.slug);
       const currentId = await currentLookId(userId);
       const current = currentId
@@ -780,7 +794,7 @@ export const themeRouter = router({
       const { config, backgroundKept } = configForApply(shared.config, current?.config);
 
       let themeId: number;
-      let undoVersionId: number | null = null;
+      let undoVersionId: string | null = null;
       if (input.mode === "save" || !current) {
         await assertLookRoom(userId);
         const taken = await prisma.theme.findMany({

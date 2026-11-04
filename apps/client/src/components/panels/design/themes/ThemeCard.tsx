@@ -39,7 +39,7 @@ function useApplyTheme() {
     const marketplace = card.user_id === null && Number.isFinite(numeric);
     // TE-4c (themeSharing): a marketplace apply makes an editable copy. Undo
     // removes a new copy, or restores the look a copy was written into.
-    let copy: { themeId: number; created?: boolean; undoVersionId?: number | null } | null = null;
+    let copy: { themeId: number; created?: boolean; undoVersionId?: string | null } | null = null;
     try {
       await ensureSaved();
       if (marketplace) {

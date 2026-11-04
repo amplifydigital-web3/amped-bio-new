@@ -53,6 +53,7 @@ import {
   LIMIT_LINE,
   SharedLookView,
   costLine,
+  resumeLine,
   signUpHref,
   usesLine,
 } from "./SharedLookView";
@@ -147,7 +148,7 @@ describe("SharedLookView", () => {
     mocks.applyShared.mockResolvedValue({
       themeId: 9,
       mode: "apply",
-      undoVersionId: 77,
+      undoVersionId: "0190f1c2a3b47c8d9e0f1a2b3c4d5e6f",
       backgroundKept: false,
     });
     mocks.restore.mockResolvedValue({});
@@ -160,10 +161,13 @@ describe("SharedLookView", () => {
       "https://app.test/design?tab=themes&look=abcdefgh"
     );
     fireEvent.click(screen.getByText("Undo"));
-    await waitFor(() => expect(mocks.restore).toHaveBeenCalledWith({ id: 9, versionId: 77 }));
+    await waitFor(() => expect(mocks.restore).toHaveBeenCalledWith({
+        id: 9,
+        versionId: "0190f1c2a3b47c8d9e0f1a2b3c4d5e6f",
+      }));
   });
 
-  it("back from sign up with ?use=save, finishes the save once and clears the param", async () => {
+  it("back from sign up with ?use=save, asks for the click, then saves once", async () => {
     window.history.replaceState(null, "", "/t/abcdefgh?use=save");
     mocks.session = { user: { handle: "bob" } };
     mocks.applyShared.mockResolvedValue({
@@ -173,10 +177,22 @@ describe("SharedLookView", () => {
       backgroundKept: true,
     });
     render(<SharedLookView look={look} />);
+    await waitFor(() => expect(screen.getByText(resumeLine("save"))).toBeTruthy());
+    // The URL alone never runs the action
+    expect(mocks.applyShared).not.toHaveBeenCalled();
+    expect(window.location.search).toBe("");
+    fireEvent.click(screen.getByText("Save to My looks"));
     await waitFor(() => expect(screen.getByText(/Saved to My looks\./)).toBeTruthy());
     expect(mocks.applyShared).toHaveBeenCalledTimes(1);
-    expect(window.location.search).toBe("");
     expect(screen.getByText(/Your background stays/)).toBeTruthy();
+  });
+
+  it("back from sign up with ?use=apply, never applies without a click", async () => {
+    window.history.replaceState(null, "", "/t/abcdefgh?use=apply");
+    mocks.session = { user: { handle: "bob" } };
+    render(<SharedLookView look={look} />);
+    await waitFor(() => expect(screen.getByText(resumeLine("apply"))).toBeTruthy());
+    expect(mocks.applyShared).not.toHaveBeenCalled();
   });
 
   it("at 10 looks, says how to make room", async () => {
