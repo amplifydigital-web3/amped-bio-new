@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePrefersReducedMotion } from "@repo/ui";
 import videos from "./effectVideos.json";
 
@@ -15,11 +15,25 @@ export function effectVideoSrc(id: string): string | undefined {
   return MANIFEST[id]?.src;
 }
 
-export function EffectVideo({ id, playing }: { id: string; playing: boolean }) {
+export function EffectVideo({
+  id,
+  playing,
+  onUnavailable,
+}: {
+  id: string;
+  playing: boolean;
+  /** The file is missing or will not play: the tile can fall back to its live effect. */
+  onUnavailable?: () => void;
+}) {
   const ref = useRef<HTMLVideoElement>(null);
   const reducedMotion = usePrefersReducedMotion();
-  const src = effectVideoSrc(id);
+  const [failed, setFailed] = useState(false);
+  const src = failed ? undefined : effectVideoSrc(id);
   const play = playing && !reducedMotion;
+
+  useEffect(() => {
+    setFailed(false);
+  }, [id]);
 
   useEffect(() => {
     const video = ref.current;
@@ -29,7 +43,7 @@ export function EffectVideo({ id, playing }: { id: string; playing: boolean }) {
       // Older browsers return no promise from play()
       const started = video.play() as Promise<void> | undefined;
       started?.catch(() => {});
-    } else {
+    } else if (!video.paused) {
       video.pause();
     }
   }, [play, src]);
@@ -44,6 +58,10 @@ export function EffectVideo({ id, playing }: { id: string; playing: boolean }) {
       playsInline
       preload="none"
       data-effect-video={id}
+      onError={() => {
+        setFailed(true);
+        onUnavailable?.();
+      }}
       className="pointer-events-none absolute inset-0 h-full w-full object-cover transition-opacity duration-[233ms]"
       style={{ opacity: play ? 1 : 0 }}
     />

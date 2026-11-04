@@ -3,8 +3,9 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { findEffect, type ThemeColors } from "@repo/constants";
 import { startCanvas, effectColor, rgba } from "../src/motion/canvas";
 import { CANVAS_MODULE_KEYS, loadCanvasEffect } from "../src/motion/canvas-effects";
+import { createFuzzy } from "../src/motion/canvas-effects/fuzzy";
 import { CursorLayer } from "../src/creator/cursor-layer";
-import { FuzzyName } from "../src/creator/fuzzy-name";
+import { FuzzyName, fuzzyFont } from "../src/creator/fuzzy-name";
 import { ShowcaseProvider } from "../src/creator/showcase-context";
 
 // Theme Engine v2 phase 3c (spec 3.6): the 2D canvas engine and its entries.
@@ -101,6 +102,47 @@ describe("canvas engine", () => {
     expect(handle).toBeNull();
   });
 
+  it("rasterizes Fuzzy text again when the heading resizes", () => {
+    const fills: number[] = [];
+    const sources: { width: number; height: number }[] = [];
+    const ctx = {
+      scale() {},
+      fillText(_text: string, _x: number, y: number) {
+        fills.push(y);
+      },
+    };
+    vi.stubGlobal("document", {
+      hidden: false,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      createElement: () => {
+        const canvas = { width: 0, height: 0, getContext: () => ctx };
+        sources.push(canvas);
+        return canvas;
+      },
+    });
+    const fuzz = createFuzzy(
+      {
+        text: "Maya",
+        font: "normal 700 26px Inter",
+        color: "#ffffff",
+        strength: 40,
+        speed: 50,
+        width: 200,
+        height: 40,
+        x: 0,
+        ascent: 20,
+        descent: 6,
+        align: "left",
+      },
+      2
+    );
+    expect(sources[0]).toMatchObject({ width: 448, height: 80 });
+    fuzz.resize(400, 40);
+    expect(sources[0]!.width).toBe(800);
+    expect(fills).toEqual([27, 27]);
+  });
+
   it("reads a custom color only when the palette is custom", () => {
     expect(effectColor({ palette: "custom", color: "#ff0000" }, "#000000")).toBe("#ff0000");
     expect(effectColor({ palette: "theme", color: "#ff0000" }, "#000000")).toBe("#000000");
@@ -176,5 +218,16 @@ describe("cursor layer and Fuzzy text", () => {
     expect(html).toContain('data-state="plain"');
     expect(html).not.toContain("text-fill-color");
     expect(html).toContain('aria-hidden="true"');
+  });
+
+  it("rasterizes Fuzzy text in the creator's font, so a font pick redraws it", () => {
+    const style = {
+      fontStyle: "normal",
+      fontWeight: "700",
+      fontSize: "26px",
+      fontFamily: '"Times New Roman", serif',
+    };
+    expect(fuzzyFont(style)).toBe('normal 700 26px "Times New Roman", serif');
+    expect(fuzzyFont(style, "Figtree")).toBe("normal 700 26px Figtree");
   });
 });

@@ -17,14 +17,29 @@ import { useShowcase } from "./showcase-context";
 
 const PAD = 12;
 
+/**
+ * The canvas font shorthand for the name: the element's computed style, with
+ * the creator's family when the caller knows it. The canvas rasterizes once,
+ * so the effect also re-runs when this changes (a Text row font pick).
+ */
+export function fuzzyFont(
+  style: { fontStyle: string; fontWeight: string; fontSize: string; fontFamily: string },
+  family?: string
+): string {
+  return `${style.fontStyle} ${style.fontWeight} ${style.fontSize} ${family || style.fontFamily}`;
+}
+
 export function FuzzyName({
   entry,
   text,
   params,
+  fontFamily,
 }: {
   entry: EffectEntry;
   text: string;
   params?: ParamValues;
+  /** The creator's family, so a font change re-rasterizes the canvas. */
+  fontFamily?: string;
 }) {
   const { showcase, paused, device } = useShowcase();
   const reducedMotion = usePrefersReducedMotion();
@@ -48,13 +63,21 @@ export function FuzzyName({
     // A name that wraps keeps the plain heading
     if (node.getBoundingClientRect().height > lineHeight * 1.5) return;
     const values = clampParams(entry, params);
+    const font = fuzzyFont(style, fontFamily);
+    // The canvas rasterizes the text once, so wait for the webfont: drawing the
+    // fallback face would leave the heading in another font for the page's life
+    const fonts = (document as Document & { fonts?: FontFaceSet }).fonts;
+    const fontsReady: Promise<unknown> = fonts?.load?.(font) ?? fonts?.ready ?? Promise.resolve();
     let cancelled = false;
     let stop: (() => void) | undefined;
-    void Promise.all([import("../motion/canvas"), import("../motion/canvas-effects/fuzzy")])
+    void Promise.all([
+      import("../motion/canvas"),
+      import("../motion/canvas-effects/fuzzy"),
+      fontsReady,
+    ])
       .then(([engine, fuzzy]) => {
         if (cancelled) return;
         const rect = box.getBoundingClientRect();
-        const font = `${style.fontStyle} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
         const probe = document.createElement("canvas").getContext("2d");
         if (probe) probe.font = font;
         const metrics = probe?.measureText(text);
@@ -71,7 +94,8 @@ export function FuzzyName({
             width: rect.width - PAD * 2,
             height: rect.height,
             x: 0,
-            baseline: (rect.height + ascent - descent) / 2,
+            ascent,
+            descent,
             align: "left",
           },
           dpr
@@ -82,6 +106,7 @@ export function FuzzyName({
           continuous: true,
           dprCap: dpr,
           effect: {
+            resize: (width, height) => fuzz.resize(width, height),
             frame: ({ ctx, time }) => {
               ctx.save();
               ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -101,7 +126,7 @@ export function FuzzyName({
       stop?.();
       setLive(false);
     };
-  }, [run, text, entry, params, device]);
+  }, [run, text, entry, params, device, fontFamily]);
 
   return (
     <span className="relative inline-block">

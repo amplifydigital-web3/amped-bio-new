@@ -1,7 +1,7 @@
 import { existsSync, statSync } from "fs";
 import path from "path";
-import { describe, expect, it } from "vitest";
-import { render } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
+import { fireEvent, render } from "@testing-library/react";
 import { ALL_EFFECTS } from "@repo/constants";
 import videos from "./effectVideos.json";
 import { EffectVideo, effectVideoSrc } from "./EffectVideo";
@@ -36,6 +36,16 @@ describe("tile videos", () => {
     rerender(<EffectVideo id="scene.aurora" playing />);
     expect(video.getAttribute("src")).toBe(effectVideoSrc("scene.aurora"));
     expect(video.style.opacity).toBe("1");
+  });
+
+  it("reports a video that will not load, so the tile falls back to its live effect", () => {
+    const onUnavailable = vi.fn();
+    const { container } = render(
+      <EffectVideo id="cursor.splash" playing onUnavailable={onUnavailable} />
+    );
+    fireEvent.error(container.querySelector("video")!);
+    expect(onUnavailable).toHaveBeenCalledTimes(1);
+    expect(container.querySelector("video")).toBeNull();
   });
 
   it("renders nothing for an entry with no video", () => {

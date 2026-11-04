@@ -76,6 +76,8 @@ export interface NameTextProps {
   loop?: boolean;
   /** Phase 3e Circular: the page draws the name on the ring, so the heading reads it only. */
   onCircle?: boolean;
+  /** The creator's font family (phase 3c: Fuzzy text rasterizes it on a canvas). */
+  fontFamily?: string;
 }
 
 /** The name's text, with the entry's entrance when it has one. */
@@ -88,6 +90,7 @@ export function NameText({
   params,
   loop = false,
   onCircle = false,
+  fontFamily,
 }: NameTextProps) {
   const ref = useRef<HTMLSpanElement>(null);
   const render = entry.render;
@@ -133,7 +136,7 @@ export function NameText({
 
   // Phase 3c: canvas name effects
   if (render.kind === "canvas" && render.module === "fuzzy") {
-    return <FuzzyName entry={entry} text={text} params={params} />;
+    return <FuzzyName entry={entry} text={text} params={params} fontFamily={fontFamily} />;
   }
   // Phase 3e: the Plus and Showcase name effects
   if (entry.id === "name.rotating-words") {

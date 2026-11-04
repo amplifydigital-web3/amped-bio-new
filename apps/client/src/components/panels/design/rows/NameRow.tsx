@@ -141,6 +141,7 @@ function NameTileView({
                     paused={still}
                     params={TILE_PARAMS[entry.id]}
                     loop
+                    fontFamily={values.fontFamily}
                   />
                 )}
               </ShowcaseProvider>
