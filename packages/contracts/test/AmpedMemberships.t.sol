@@ -459,6 +459,19 @@ contract AmpedMembershipsTest is Test {
         assertEq(mem.getSubscription(REF).nextDue, uint64(due + 5 days + DAYS_30));
     }
 
+    function test_revert_renew_dailyPlanAtTheWindowEdgeChargesOnce() public {
+        _join(_table(REF, PRICE, 1 days, _basic()));
+        uint64 due = mem.getSubscription(REF).nextDue;
+        vm.warp(due + 1 days);
+        _renew();
+        uint64 next = mem.getSubscription(REF).nextDue;
+        assertEq(next, uint64(due + 2 days));
+        vm.prank(relayer);
+        vm.expectRevert(abi.encodeWithSelector(AmpedMemberships.NotDue.selector, next));
+        mem.renew(REF);
+        assertEq(mem.getSubscription(REF).charges, 2);
+    }
+
     function test_revert_renew_beforeDue() public {
         _join(_table());
         uint64 due = mem.getSubscription(REF).nextDue;
@@ -684,7 +697,7 @@ contract AmpedMembershipsTest is Test {
             mem.renew(REF);
         } else {
             mem.renew(REF);
-            uint64 expected = offset <= 1 days ? due + DAYS_30 : uint64(due + offset + DAYS_30);
+            uint64 expected = offset < 1 days ? due + DAYS_30 : uint64(due + offset + DAYS_30);
             assertEq(mem.getSubscription(REF).nextDue, expected);
         }
     }
