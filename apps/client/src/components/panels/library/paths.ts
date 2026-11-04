@@ -36,7 +36,14 @@ export function parseLibraryPath(pathname: string): LibraryRoute | null {
   if (parts.length === 2 && second === "saved") return { view: "saved" };
   if (parts.length === 2 && second === "memberships") return { view: "memberships" };
   if (!second?.startsWith("@")) return null;
-  const handle = decodeURIComponent(second.slice(1)).toLowerCase();
+  // A hand written link can carry a broken escape (`/library/@%`): decode can
+  // throw, and this runs while the panel renders, so refuse the path instead
+  let handle: string;
+  try {
+    handle = decodeURIComponent(second.slice(1)).toLowerCase();
+  } catch {
+    return null;
+  }
   if (!HANDLE_REGEX.test(handle) || handle.length > 64) return null;
   if (parts.length === 2) return { view: "creator", handle };
   if (parts.length === 4 && third === "c" && fourth && CONTENT_PUBLIC_ID_REGEX.test(fourth)) {

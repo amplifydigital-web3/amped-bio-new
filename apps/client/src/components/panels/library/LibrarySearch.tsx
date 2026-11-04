@@ -68,7 +68,11 @@ export function LibrarySearch() {
   const fromHandle = params.get("handle");
   const scope: "all" | "creator" =
     params.get("scope") === "creator" && fromHandle ? "creator" : "all";
-  const [query, setQuery] = useState(params.get("q") ?? "");
+  // A shared or hand written link can carry a longer term than the server
+  // accepts: start from the part it takes instead of showing a load error
+  const [query, setQuery] = useState(() =>
+    (params.get("q") ?? "").slice(0, LIBRARY_LIMITS.searchMaxLength)
+  );
   const debounced = useDebounce(query.trim(), 300);
   const searching = debounced.length >= LIBRARY_LIMITS.searchMinLength;
   const storageKey = recentKey(authUser?.id);

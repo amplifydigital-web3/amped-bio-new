@@ -59,7 +59,7 @@ import { matchingPages } from "@/lib/pdfSearch";
 import { FeatureFlagsProvider } from "@/components/providers/FeatureFlagsProvider";
 import { PLAYER_COPY, PlayerProvider } from "@repo/ui";
 import { SITE_CONTENT_COPY } from "./copy";
-import { isoDuration, publishedLabel } from "@/lib/content";
+import { fetchUpNext, isoDuration, publishedLabel } from "@/lib/content";
 import { buildContentFeedJsonLd, buildContentItemJsonLd } from "@/lib/contentSeo";
 
 const DASHES = new RegExp(`[${String.fromCharCode(0x2013, 0x2014)}]`);
@@ -133,6 +133,22 @@ describe("helpers", () => {
       nextCursor: null,
     });
     expect(feed.mainEntity.itemListElement).toHaveLength(2);
+  });
+  it("never marks a locked card openable in up next", async () => {
+    mocks.feed.mockResolvedValueOnce({
+      items: [
+        card("cur"),
+        card("open"),
+        card("locked", { gate: { kind: "pool_member", summary: "Pool fans", stake: true } }),
+        card("pdf", { kind: "document" }),
+      ],
+      nextCursor: null,
+    });
+    const entries = await fetchUpNext({ handle: "maya", name: "Maya" }, card("cur").publicId);
+    expect(entries.map(entry => [entry.item.title, entry.canOpen])).toEqual([
+      ["Item open", true],
+      ["Item locked", false],
+    ]);
   });
 });
 

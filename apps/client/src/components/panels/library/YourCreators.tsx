@@ -9,7 +9,7 @@ import { useMemo, useState } from "react";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router";
 import { AlertTriangle, ChevronRight, Search, UsersRound, X } from "lucide-react";
-import { TESTNET_NOTICE, type LibraryCreatorRow } from "@repo/constants";
+import { LIBRARY_LIMITS, TESTNET_NOTICE, type LibraryCreatorRow } from "@repo/constants";
 import { Button, EmptyState, ErrorCard, Skeleton, trpc } from "@repo/ui";
 import { useDelayed } from "@/hooks/useDelayed";
 import { LIBRARY_COPY } from "./copy";
@@ -74,7 +74,9 @@ export function CreatorsFooter({ rows }: { rows: LibraryCreatorRow[] }) {
 /** The full page at /library/creators, with search by name or handle. */
 export function YourCreatorsPage() {
   const [query, setQuery] = useState("");
-  const q = query.trim().replace(/^@/, "");
+  // The server caps the search at the same length: a longer term is a bad
+  // request, so the input stops at it rather than showing a load error
+  const q = query.trim().replace(/^@/, "").slice(0, LIBRARY_LIMITS.searchMaxLength);
   const list = useInfiniteQuery(
     trpc.library.creators.infiniteQueryOptions(
       { q: q || undefined },
@@ -143,6 +145,7 @@ export function YourCreatorsPage() {
           id="library-creators-search"
           type="search"
           value={query}
+          maxLength={LIBRARY_LIMITS.searchMaxLength}
           onChange={e => setQuery(e.target.value)}
           placeholder={C.creatorsPage.placeholder}
           autoComplete="off"
