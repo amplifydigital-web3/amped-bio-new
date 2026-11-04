@@ -183,3 +183,61 @@ export const LIBRARY_COPY = {
 } as const;
 
 export type LibraryCopy = typeof LIBRARY_COPY;
+
+/**
+ * Library money copy (FL-7, MB-3; row 125 boards r1, mb-q1, mb-q1d; row 182). Amounts read
+ * $N USDC (D6); plans read every 30 days, never a month (CK-Q80). No stake, pool or tREVO
+ * words on these surfaces (spec 3.8).
+ */
+export const LIBRARY_MONEY_COPY = {
+  rowTitle: "Memberships",
+  rowCount: (n: number) => (n === 1 ? "1 membership" : `${n} memberships`),
+  rowPastDue: "One needs USDC",
+  title: "Memberships",
+  summary:
+    "Each membership renews from your wallet. We remind you 3 days before a charge if your wallet is short.",
+  empty: "No memberships yet",
+  emptyBody: "Join a creator from their page or their section in your Library.",
+  interval: { every_30_days: "every 30 days", yearly: "a year" },
+  amountLine: (amount: string, interval: string) => `${amount} ${interval}`,
+  states: {
+    past_due: (day: number | null) =>
+      day ? `Past due, day ${day} of 7. You keep access while you add USDC.` : "Past due",
+    not_covered: (date: string | null) =>
+      date ? `Not covered yet. Renews ${date}.` : "Not covered yet.",
+    allowanceShort: "Your approval for renewals ran out. Join again to keep renewing.",
+    covered: (date: string) => `Covered through ${date}`,
+    active: (date: string | null) => (date ? `Renews ${date}` : "Active"),
+    renewal_paused: "Renewal paused. The creator is not taking payments right now.",
+    ends: (date: string) => `Ends ${date}. No more charges.`,
+    ended: "Ended",
+  },
+  addUsdc: (amount: string) => `Add ${amount}`,
+  rejoin: "Rejoin",
+  join: "Join",
+  joinFrom: (name: string) => `Join ${name}'s membership`,
+  joinAmount: (amount: string) => `${amount} every 30 days`,
+  manage: "Manage",
+  manageTitle: (plan: string) => plan,
+  nextCharge: "Next charge",
+  coverage: "Coverage",
+  chargesLeft: "Renewals your approval covers",
+  receipts: "Receipts",
+  noReceipts: "No charges yet.",
+  storePolicy: (version: number) => `Store policy, version ${version}, the one you agreed to`,
+  cancel: "Cancel membership",
+  cancelConfirm: (date: string | null) =>
+    date
+      ? `Cancel this membership? No more charges. You keep access until ${date}.`
+      : "Cancel this membership? No more charges.",
+  keep: "Keep membership",
+  canceled: "Membership canceled. No more charges.",
+  cancelFailed: "The cancel did not go through. Nothing changed. Try again.",
+  rejected: "You closed the wallet. Nothing changed.",
+  viewTx: "View on Base",
+  purchases: "Purchases",
+  purchaseState: { pending: "Pending", final: "Final", refunded: "Refunded" },
+  purchaseUntil: (date: string) => `Access until ${date}`,
+  buy: (amount: string) => `Buy ${amount}`,
+  buyFailed: "Checkout did not open. Try again.",
+} as const;

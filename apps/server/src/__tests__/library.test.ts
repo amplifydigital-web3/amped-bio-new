@@ -23,6 +23,19 @@ const limits = vi.hoisted(() => ({ hits: 1 }));
 
 vi.mock("@repo/database", () => ({ prisma: db, Prisma: {} }));
 vi.mock("../utils/auth", () => ({ auth: { api: {} } }));
+// FL-7 money reads are covered in library-money.test.ts
+vi.mock("../services/library/money", () => ({
+  moneyCreatorIds: vi.fn(async () => ({
+    members: new Set<number>(),
+    purchased: new Map<number, number>(),
+    pastDue: new Set<number>(),
+  })),
+  moneyLabels: vi.fn(async () => new Map()),
+  creatorMoneyStatus: vi.fn(async () => ({ membership: null, purchases: 0, plan: null })),
+  libraryMemberships: vi.fn(async () => []),
+  libraryMembership: vi.fn(async () => null),
+  libraryCreatorMoney: vi.fn(async () => ({ membership: null, receipts: [], purchases: [] })),
+}));
 vi.mock("../utils/rateLimit", () => ({ hitRateLimit: vi.fn(async () => limits.hits) }));
 vi.mock("../utils/fileUrlResolver", () => ({ getFileUrl: vi.fn(async () => null) }));
 vi.mock("../services/follow/poolFans", () => ({
@@ -152,7 +165,7 @@ describe("newest and search", () => {
   });
 
   it("answers an empty list for sources that need gating, without a query", async () => {
-    await expect(fan.newest({ source: "member" })).resolves.toEqual({
+    await expect(fan.newest({ source: "pool" })).resolves.toEqual({
       items: [],
       nextCursor: null,
     });

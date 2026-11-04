@@ -38,6 +38,13 @@ import {
   libraryUnsave,
 } from "../services/library/library";
 import type { LibraryViewer } from "../services/library/access";
+import {
+  libraryCreatorMoney,
+  libraryMembership,
+  libraryMemberships,
+} from "../services/library/money";
+import { prisma } from "@repo/database";
+import { z } from "zod";
 
 export const LIBRARY_MESSAGES = {
   off: "The Library is not available yet.",
@@ -144,5 +151,34 @@ export const libraryRouter = router({
   removeFromContinue: privateProcedure.input(librarySaveSchema).mutation(async ({ ctx, input }) => {
     const viewer = await begin(ctx, "save");
     return libraryRemoveFromContinue(viewer.userId, input.publicId);
+  }),
+
+  /** FL-7, MB-3: Memberships (row 125, boards r1, mb-q1): every card, most urgent first. */
+  memberships: privateProcedure.query(async ({ ctx }) => {
+    const viewer = await begin(ctx, "read");
+    return { items: await libraryMemberships(viewer.userId) };
+  }),
+
+  /** FL-7: one membership with its receipts, for the Manage sheet. */
+  membership: privateProcedure
+    .input(z.object({ id: z.string().regex(/^[0-9a-f]{32}$/) }))
+    .query(async ({ ctx, input }) => {
+      const viewer = await begin(ctx, "read");
+      const found = await libraryMembership(viewer.userId, input.id);
+      if (!found) throw new TRPCError({ code: "NOT_FOUND", message: LIBRARY_MESSAGES.notFound });
+      return found;
+    }),
+
+  /** FL-7: the status sheet's membership, receipts and purchases from one creator (row 182). */
+  creatorMoney: privateProcedure.input(libraryCreatorSchema).query(async ({ ctx, input }) => {
+    const viewer = await begin(ctx, "read");
+    const creator = await prisma.user.findFirst({
+      where: { handle: input.handle.toLowerCase() },
+      select: { id: true },
+    });
+    if (!creator || creator.id === viewer.userId) {
+      throw new TRPCError({ code: "NOT_FOUND", message: LIBRARY_MESSAGES.creatorNotFound });
+    }
+    return libraryCreatorMoney(viewer.userId, creator.id);
   }),
 });

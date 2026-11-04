@@ -103,6 +103,17 @@ export function shopHint(decision: AccessDecision): LibraryUnlockHint | null {
       return decision.hint.action === "follow" ? { kind: "follow" } : null;
     case "follow_pending":
       return { kind: "confirm_email" };
+    // FL-7: paid and member rules (the engine's paid and member kinds, G4 and G5)
+    case "not_purchased":
+    case "purchase_pending":
+      return decision.hint.action === "buy"
+        ? { kind: "buy", amount: decision.hint.priceDisplay, offerId: decision.hint.offerId }
+        : null;
+    case "not_member":
+      return { kind: "join", planName: null };
+    case "membership_ended":
+    case "membership_past_due":
+      return { kind: "rejoin", planName: null };
     default:
       return null;
   }

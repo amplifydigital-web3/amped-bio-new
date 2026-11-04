@@ -27,6 +27,9 @@ const mocks = vi.hoisted(() => ({
   ga: vi.fn(),
   newContent: vi.fn(),
   setNewContent: vi.fn(),
+  creatorMoney: vi.fn(async () => ({ membership: null, receipts: [], purchases: [] })),
+  navigate: vi.fn(),
+  checkoutStart: vi.fn(),
 }));
 
 vi.mock("@repo/ui", async () => {
@@ -45,7 +48,10 @@ vi.mock("@repo/ui", async () => {
       setQueryData: (key: unknown, value: unknown) => store.set(JSON.stringify(key), value),
     },
     useOptionalPlayer: () => null,
-    trpcClient: { content: { getReadUrl: { query: vi.fn() } } },
+    trpcClient: {
+      content: { getReadUrl: { query: vi.fn() } },
+      checkout: { start: { mutate: mocks.checkoutStart } },
+    },
     requirePlayerSource: vi.fn(),
     trpc: {
       library: {
@@ -61,6 +67,12 @@ vi.mock("@repo/ui", async () => {
           queryOptions: (input: unknown) => ({
             queryKey: ["library.continue", input],
             queryFn: mocks.continue,
+          }),
+        },
+        creatorMoney: {
+          queryOptions: (input: unknown) => ({
+            queryKey: ["library.creatorMoney", input],
+            queryFn: mocks.creatorMoney,
           }),
         },
         creatorItems: {
@@ -120,6 +132,7 @@ function header(over: Record<string, unknown> = {}) {
       membership: null,
       purchases: { count: 0 },
       follow: { showPublicly: false, emailUpdates: true },
+      plan: null,
     },
     counts: { yours: 1, shop: 0 },
     ...over,
@@ -246,13 +259,20 @@ describe("creator section (row 181, board m4)", () => {
     expect(card.querySelector("img")).toBeNull();
   });
 
-  it("says Join is coming soon until FL-7, and asks to confirm the email for a pending follow", async () => {
+  it("opens Join, Rejoin and Buy for real since FL-7, and asks to confirm the email for a pending follow", async () => {
     const join = {
       ...item,
       publicId: "joinabcdefgh1234",
       title: "Plan only",
       gate: { kind: "member", summary: "Members", stake: false },
       unlockHint: { kind: "join", planName: null },
+    };
+    const buy = {
+      ...item,
+      publicId: "buyabcdefgh12345",
+      title: "Paid track",
+      gate: { kind: "paid", summary: "Paid", stake: false },
+      unlockHint: { kind: "buy", amount: "$3 USDC", offerId: "0f".repeat(16) },
     };
     const pending = {
       ...item,
@@ -261,21 +281,49 @@ describe("creator section (row 181, board m4)", () => {
       gate: { kind: "follower", summary: "Followers", stake: false },
       unlockHint: { kind: "confirm_email" },
     };
+    mocks.checkoutStart.mockResolvedValue({ id: "ab", payPath: "/pay/ab" });
     mocks.creatorItems.mockImplementation(async (input: { seg: string }) =>
       input.seg === "shop"
-        ? { items: [join, pending], nextCursor: null }
+        ? { items: [join, buy, pending], nextCursor: null }
         : { items: [item], nextCursor: null }
     );
     renderSection();
     fireEvent.click(await screen.findByRole("tab", { name: /Shop/ }));
     const joinCard = await screen.findByRole("article", { name: "Plan only, locked" });
-    expect(
-      (within(joinCard).getByRole("button", { name: /Join/ }) as HTMLButtonElement).disabled
-    ).toBe(true);
-    expect(within(joinCard).getByText(LIBRARY_COPY.section.shopLaterHelp)).toBeTruthy();
+    const joinButton = within(joinCard).getByRole("button", { name: "Join" }) as HTMLButtonElement;
+    expect(joinButton.disabled).toBe(false);
+    expect(screen.queryByText(LIBRARY_COPY.section.shopLaterHelp)).toBeNull();
     const pendingCard = screen.getByRole("article", { name: "Followers only, locked" });
     expect(within(pendingCard).getByText(LIBRARY_COPY.section.shopConfirmEmail)).toBeTruthy();
     expect(screen.queryByText(TESTNET_NOTICE)).toBeNull();
+    // Buy navigates to the pay sheet, so it goes last
+    const buyCard = screen.getByRole("article", { name: "Paid track, locked" });
+    fireEvent.click(within(buyCard).getByRole("button", { name: "Buy $3 USDC" }));
+    await waitFor(() =>
+      expect(mocks.checkoutStart).toHaveBeenCalledWith({
+        kind: "purchase",
+        target: { type: "offer", id: "0f".repeat(16) },
+        source: "library",
+      })
+    );
+  });
+
+  it("offers Join from the creator when the fan is not a member and a plan takes members", async () => {
+    mocks.creator.mockResolvedValue(
+      header({
+        status: {
+          membership: null,
+          purchases: { count: 0 },
+          follow: { showPublicly: false, emailUpdates: true },
+          plan: { name: "Inner circle", amountEvery30Days: "5000000" },
+        },
+      })
+    );
+    mocks.creatorItems.mockResolvedValue({ items: [], nextCursor: null });
+    renderSection();
+    fireEvent.click(await screen.findByRole("tab", { name: /Shop/ }));
+    expect(await screen.findByText("Join Maya Lin's membership")).toBeTruthy();
+    expect(screen.getByText("Inner circle, $5 USDC every 30 days")).toBeTruthy();
   });
 });
 

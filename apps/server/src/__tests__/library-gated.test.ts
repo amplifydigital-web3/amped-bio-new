@@ -28,6 +28,19 @@ const poolFans = vi.hoisted(() => ({ set: new Set<number>() }));
 
 vi.mock("@repo/database", () => ({ prisma: db, Prisma: {} }));
 vi.mock("../utils/auth", () => ({ auth: { api: {} } }));
+// FL-7 money reads are covered in library-money.test.ts
+vi.mock("../services/library/money", () => ({
+  moneyCreatorIds: vi.fn(async () => ({
+    members: new Set<number>(),
+    purchased: new Map<number, number>(),
+    pastDue: new Set<number>(),
+  })),
+  moneyLabels: vi.fn(async () => new Map()),
+  creatorMoneyStatus: vi.fn(async () => ({ membership: null, purchases: 0, plan: null })),
+  libraryMemberships: vi.fn(async () => []),
+  libraryMembership: vi.fn(async () => null),
+  libraryCreatorMoney: vi.fn(async () => ({ membership: null, receipts: [], purchases: [] })),
+}));
 vi.mock("../utils/rateLimit", () => ({ hitRateLimit: vi.fn(async () => 1) }));
 vi.mock("../utils/fileUrlResolver", () => ({ getFileUrl: vi.fn(async () => null) }));
 vi.mock("../services/access/engine", () => engine);
@@ -289,12 +302,8 @@ describe("lists through the router", () => {
     expect(db.contentItem.findMany.mock.calls[0]![0].where.accessRuleId).toEqual({ not: null });
   });
 
-  it("answers purchased and member as empty until FL-7, without a query", async () => {
-    await expect(fan.newest({ source: "member" })).resolves.toEqual({
-      items: [],
-      nextCursor: null,
-    });
-    expect(db.contentItem.findMany).not.toHaveBeenCalled();
+  it("filters member and purchased by the FL-7 label: none here, so an empty page", async () => {
+    await expect(fan.newest({ source: "member" })).resolves.toMatchObject({ items: [] });
   });
 
   it("returns Shop items as locked cards with the next step and no media", async () => {

@@ -15,6 +15,7 @@ import { YourCreatorsPage } from "./YourCreators";
 import { SavedPage } from "./SavedPage";
 import { ItemView } from "./ItemView";
 import { CreatorSection } from "./CreatorSection";
+import { MembershipsPage } from "./MembershipsPage";
 
 export function LibraryPanel() {
   const { pathname } = useLocation();
@@ -31,6 +32,7 @@ export function LibraryPanel() {
       {route.view === "search" && <LibrarySearch />}
       {route.view === "creators" && <YourCreatorsPage />}
       {route.view === "saved" && <SavedPage />}
+      {route.view === "memberships" && <MembershipsPage />}
       {route.view === "creator" && <CreatorSection handle={route.handle} />}
       {route.view === "item" && <ItemView handle={route.handle} publicId={route.publicId} />}
     </div>
