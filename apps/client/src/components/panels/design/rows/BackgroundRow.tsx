@@ -1,7 +1,11 @@
 import { useCallback, useMemo, useRef, useState, type DragEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { AlertCircle, AlertTriangle, Play, Upload } from "lucide-react";
-import { ALLOWED_BACKGROUND_FILE_EXTENSIONS, ALLOWED_BACKGROUND_FILE_TYPES } from "@repo/constants";
+import {
+  ALLOWED_BACKGROUND_FILE_EXTENSIONS,
+  ALLOWED_BACKGROUND_FILE_TYPES,
+  findEffect,
+} from "@repo/constants";
 import {
   Button,
   ChipGroup,
@@ -117,6 +121,10 @@ export function BackgroundRow() {
   const design = useDesign();
   const { config, locked, setBackground, preview, endPreview } = design;
   const current = config.background;
+  // Phase 3b (decision 4, board 10): a shader scene replaces the base while it plays
+  const stored = config.particlesEffectId ? findEffect(config.particlesEffectId) : undefined;
+  const shaderScene =
+    isFeatureOn("themeShowcase") && stored?.engine === "webgl" && !stored.retired ? stored : null;
   const [category, setCategory] = useState<Category>(() => categoryOf(current));
   const [allVideos, setAllVideos] = useState(false);
 
@@ -142,10 +150,17 @@ export function BackgroundRow() {
     <DisclosureRow
       id="background"
       label="Background"
-      value={backgroundName(current)}
+      value={shaderScene ? `${shaderScene.label} scene, set in Motion` : backgroundName(current)}
       swatch={<BackgroundRowSwatch background={current} />}
     >
       <div className="space-y-[21px]">
+        {shaderScene && (
+          <p className="text-prism-meta text-prism-ink-2" role="note">
+            {shaderScene.label} plays over this background. Change it in Motion, Scene. This
+            background shows when motion is paused, with reduced motion, and on phones that cannot
+            run the scene.
+          </p>
+        )}
         {/* I03: the current background */}
         <div className="prism-glass-clear flex items-center gap-3 p-[13px]">
           <div className="h-[55px] w-[55px] shrink-0 overflow-hidden rounded-prism-13">

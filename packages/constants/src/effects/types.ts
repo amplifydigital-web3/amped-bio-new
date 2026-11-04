@@ -82,12 +82,17 @@ export type EffectRender =
       options: (p: ParamValues, c: ThemeColors) => ParticlePreset;
       plugins: readonly string[];
     }
-  /** poster is the CSS gradient painted before the engine loads. */
+  /**
+   * program names the GLSL module in packages/ui/src/motion/shaders, loaded in
+   * its own chunk with the engine (phase 3b). poster is the CSS gradient
+   * painted before the engine loads; it reads the params so a custom palette
+   * shows in the poster too.
+   */
   | {
       kind: "webgl";
-      shader: string;
+      program: string;
       uniforms: (p: ParamValues, c: ThemeColors) => Readonly<Record<string, number | number[]>>;
-      poster: (c: ThemeColors) => string;
+      poster: (c: ThemeColors, p?: ParamValues) => string;
     }
   | { kind: "canvas"; module: string }
   /** Renders nothing. The none entry of every layer. */

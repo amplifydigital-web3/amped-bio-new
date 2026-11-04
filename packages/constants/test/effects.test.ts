@@ -133,8 +133,9 @@ describe("registry lookups", () => {
         .filter(e => e.addedIn === 1)
         .map(e => e.legacyId)
     ).toEqual([0, 1, 2, 3, 4, 5, 7, 8, 9]);
-    // The nine v1 overlays plus eight Plus scenes on the slim bundle (phase 2, board 01)
-    expect(listEffects("scene").length).toBe(17);
+    // The nine v1 overlays, eight Plus scenes on the slim bundle (phase 2, board 01)
+    // and the twenty shader scenes (TE-3b)
+    expect(listEffects("scene").length).toBe(37);
     expect(
       listEffects("name")
         .filter(e => e.addedIn === 1)

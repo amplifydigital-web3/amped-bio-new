@@ -214,7 +214,7 @@ const SCENE: EffectEntry = {
   loop: true,
   render: {
     kind: "webgl",
-    shader: "void main(){}",
+    program: "aurora",
     uniforms: (_p, c) => ({ uColor: hexToVec3(c.button) }),
     poster: c => `radial-gradient(circle at 50% 40%, ${c.button}, ${c.text})`,
   },

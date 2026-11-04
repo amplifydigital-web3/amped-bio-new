@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { ChipGroup, ParticlesLayer } from "@repo/ui";
+import { ChipGroup, ParticlesLayer, ShaderLayer } from "@repo/ui";
+import { isFeatureOn } from "../../../../config/featureFlags";
 import { DisclosureRow } from "../kit/DisclosureRow";
 import { OptionGrid, OptionTile } from "../kit/OptionTile";
 import { CreatorBackdrop } from "../kit/CreatorArt";
@@ -10,6 +11,8 @@ import {
   SCENE_FILTER_LABELS,
   SCENE_TILES,
   filterScenes,
+  isShaderTile,
+  sceneTilesFor,
   sceneIndex,
   scenePatch,
   type SceneFilter,
@@ -20,6 +23,11 @@ import {
 // VITE_SHOW_THEME_V2; the v1 Particles row stays in MotionRows.tsx. Tiles draw
 // with the page's own particle layer (tsParticles v4), still until hovered,
 // focused or tapped, one live tile at a time (029 I02, decision 12).
+// Phase 3b: shader tiles paint their poster and run the shader only while
+// live, so at most one WebGL context runs in the row. TE-3g swaps the live
+// shader for a build time video on heavy tiles.
+const showcaseOn = isFeatureOn("themeShowcase");
+const TILES = sceneTilesFor(showcaseOn);
 
 function SceneTileView({
   tile,
@@ -70,8 +78,18 @@ function SceneTileView({
       }}
       art={
         <CreatorBackdrop background={config.background}>
-          {tile.entry.id !== "scene.none" && (
-            <ParticlesLayer entry={tile.entry} colors={colors} paused={!live} />
+          {isShaderTile(tile) ? (
+            <ShaderLayer
+              entry={tile.entry}
+              colors={colors}
+              showcase={showcaseOn}
+              paused={!live}
+              device="typical"
+            />
+          ) : (
+            tile.entry.id !== "scene.none" && (
+              <ParticlesLayer entry={tile.entry} colors={colors} paused={!live} />
+            )
           )}
         </CreatorBackdrop>
       }
@@ -86,7 +104,7 @@ export function SceneRow() {
   const [live, setLive] = useState<string | null>(null);
   const selectedIndex = sceneIndex(values.particlesEffect, config.particlesEffectId);
   const selected = SCENE_TILES[selectedIndex];
-  const shown = filterScenes(SCENE_TILES, filter);
+  const shown = filterScenes(TILES, filter);
   const firstFocusable = shown.some(t => t === selected) ? selected : shown[0];
   return (
     <DisclosureRow id="particles" label="Scene" value={selected?.entry.label ?? "None"}>
@@ -121,9 +139,17 @@ export function SceneRow() {
             onChange={params => update({ particlesParams: params })}
           />
         )}
-        {filter === "shaders" && (
+        {filter === "shaders" && !showcaseOn && (
           <p className="text-prism-meta text-prism-ink-2">
             No shader scenes yet. They arrive with the Showcase effects.
+          </p>
+        )}
+        {isShaderTile(selected) && (
+          <p className="text-prism-meta text-prism-ink-2">
+            {selected!.entry.label} replaces your background while it plays. Your background stays
+            as the still version for Pause motion, reduced motion and phones that cannot run it.
+            {selected!.entry.pointer === "fine" &&
+              " It follows the pointer on computers. On phones it plays without the pointer."}
           </p>
         )}
         <p className="text-prism-meta text-prism-ink-2">

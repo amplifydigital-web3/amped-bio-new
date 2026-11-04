@@ -1,7 +1,16 @@
-import { SCENE_PRESETS, getEffect, type EffectEntry, type ThemeConfig } from "@repo/constants";
+import {
+  SCENE_PRESETS,
+  SHADER_SCENES,
+  getEffect,
+  type EffectEntry,
+  type ThemeConfig,
+} from "@repo/constants";
 
 // Scene row (Theme Engine v2 phase 2, board 01). Decision 4: Scene replaces
-// Particles; the row edits the overlay slot. Shader scenes join in phase 3.
+// Particles; the row edits the overlay slot. Phase 3b adds the shader scenes:
+// one pick per row, so a shader clears the overlay and an overlay clears the
+// shader. A shader is stored by id with particlesEffect 0, so v1 renderers
+// draw the background alone.
 
 export interface SceneTile {
   /** The v1 particlesEffect; for a v2 only scene, the nearest v1 overlay. */
@@ -31,7 +40,18 @@ export const SCENE_TILES: SceneTile[] = [
     effectId: `scene.${key}`,
     entry: getEffect("scene", `scene.${key}`),
   })),
+  ...SHADER_SCENES.map(entry => ({ id: 0, effectId: entry.id, entry })),
 ];
+
+/** Shader tiles show only with the showcase flag (TE-3b); the API drops them without it. */
+export function sceneTilesFor(showcase: boolean): SceneTile[] {
+  return showcase ? SCENE_TILES : SCENE_TILES.filter(tile => tile.entry.engine !== "webgl");
+}
+
+/** True when the tile is a shader scene (it sets the scene base, not the overlay). */
+export function isShaderTile(tile: SceneTile | undefined): boolean {
+  return tile?.entry.engine === "webgl";
+}
 
 export const SCENE_FILTERS = ["all", "light", "particles", "shaders"] as const;
 export type SceneFilter = (typeof SCENE_FILTERS)[number];

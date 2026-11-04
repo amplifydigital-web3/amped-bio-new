@@ -16,6 +16,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { s3Service } from "../services/S3Service";
 import { themeConfigSchema } from "@repo/constants";
+import { guardThemeShowcase } from "../services/themeShowcase";
 import { getFileUrl } from "../utils/fileUrlResolver";
 import { prisma } from "@repo/database";
 
@@ -30,7 +31,8 @@ const themeObjectSchema = z.object({
   description: z.string().optional(),
   share_level: z.string(),
   share_config: z.any(),
-  config: themeConfigSchema.optional(),
+  // Phase 3b: shader scenes are stored only while themeShowcase is on
+  config: themeConfigSchema.optional().transform(config => guardThemeShowcase(config)),
 });
 
 // Schema for applying theme to user

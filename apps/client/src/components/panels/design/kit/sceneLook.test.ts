@@ -1,13 +1,20 @@
 import { describe, expect, it } from "vitest";
-import { SCENE_TILES, filterScenes, sceneIndex, scenePatch } from "./sceneLook";
+import {
+  SCENE_TILES,
+  filterScenes,
+  isShaderTile,
+  sceneIndex,
+  scenePatch,
+  sceneTilesFor,
+} from "./sceneLook";
 
 // Theme Engine v2 phase 2, Scene row (board 01).
 
 describe("scene tiles", () => {
-  it("offers the v1 overlays first, then the eight Plus scenes", () => {
-    expect(SCENE_TILES).toHaveLength(17);
+  it("offers the v1 overlays first, then the eight Plus scenes, then the shader scenes", () => {
+    expect(SCENE_TILES).toHaveLength(37);
     expect(SCENE_TILES.slice(0, 9).map(t => t.id)).toEqual([0, 1, 2, 3, 4, 5, 7, 8, 9]);
-    expect(SCENE_TILES.slice(9).map(t => t.entry.label)).toEqual([
+    expect(SCENE_TILES.slice(9, 17).map(t => t.entry.label)).toEqual([
       "Fire",
       "Triangles",
       "Big circles",
@@ -40,9 +47,28 @@ describe("scene tiles", () => {
   });
 
   it("filters by Show, keeping None", () => {
-    expect(filterScenes(SCENE_TILES, "all")).toHaveLength(17);
+    expect(filterScenes(SCENE_TILES, "all")).toHaveLength(37);
     expect(filterScenes(SCENE_TILES, "light")).toHaveLength(17);
     expect(filterScenes(SCENE_TILES, "particles")).toHaveLength(17);
-    expect(filterScenes(SCENE_TILES, "shaders").map(t => t.entry.id)).toEqual(["scene.none"]);
+    const shaders = filterScenes(SCENE_TILES, "shaders");
+    expect(shaders).toHaveLength(21);
+    expect(shaders[0]!.entry.id).toBe("scene.none");
+  });
+
+  it("offers shader tiles only with the showcase flag (TE-3b)", () => {
+    expect(sceneTilesFor(false)).toHaveLength(17);
+    expect(sceneTilesFor(false).some(isShaderTile)).toBe(false);
+    expect(sceneTilesFor(true)).toBe(SCENE_TILES);
+  });
+
+  it("writes a shader by id with no overlay, so v1 renderers keep the background", () => {
+    const aurora = SCENE_TILES.find(t => t.effectId === "scene.aurora")!;
+    expect(isShaderTile(aurora)).toBe(true);
+    expect(scenePatch(aurora)).toEqual({
+      particlesEffect: 0,
+      particlesEffectId: "scene.aurora",
+      particlesParams: undefined,
+    });
+    expect(sceneIndex(0, "scene.aurora")).toBe(SCENE_TILES.indexOf(aurora));
   });
 });
