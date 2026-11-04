@@ -21,6 +21,9 @@ vi.mock("@repo/database", () => ({
   },
 }));
 
+// G4: only a payment on the chain that sells here opens the item
+vi.mock("../services/usdc/chain", () => ({ paymentChain: { id: 84532 } }));
+
 import { usdcPaymentVerifier } from "../services/access/verifiers/usdc";
 
 const OFFER = "ab".repeat(16);
@@ -49,14 +52,23 @@ describe("usdcPaymentVerifier.offer", () => {
 });
 
 describe("usdcPaymentVerifier.verifyPurchase", () => {
-  it("reads only this fan's rows for this product, in the statuses that matter", async () => {
+  it("reads only this fan's rows for this product, on this chain, in the statuses that matter", async () => {
     await usdcPaymentVerifier.verifyPurchase(20, OFFER, now);
     expect(state.where).toEqual({
       buyerUserId: 20,
+      chainId: 84532,
       targetType: "offer",
       targetId: OFFER,
       status: { in: ["confirmed", "confirmed_soft", "submitting", "submitted"] },
     });
+  });
+
+  it("a refunded, failed or expired row never gives access", async () => {
+    // The query only reads rows that can give access; the others are never returned
+    await usdcPaymentVerifier.verifyPurchase(20, OFFER, now);
+    expect((state.where as { status: { in: string[] } }).status.in).not.toContain("refunded");
+    expect((state.where as { status: { in: string[] } }).status.in).not.toContain("failed");
+    expect((state.where as { status: { in: string[] } }).status.in).not.toContain("expired");
   });
 
   it("none when nothing gives access", async () => {
