@@ -64,7 +64,7 @@ const slugSchema = z.string().trim().toLowerCase().regex(SHARE_SLUG_PATTERN);
 async function copyMarketplaceTheme(
   userId: number,
   market: { name: string | null; description: string | null; config: unknown }
-): Promise<{ themeId: number; created: boolean; undoVersionId: number | null }> {
+): Promise<{ themeId: number; created: boolean; undoVersionId: string | null }> {
   const config = (market.config ?? {}) as object;
   if ((await countLooks(userId)) < LOOK_LIMIT) {
     const taken = await prisma.theme.findMany({
