@@ -9,7 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { QueryClient } from "@tanstack/react-query";
-import { TESTNET_NOTICE } from "@repo/constants";
+import { LIBRARY_LIMITS, TESTNET_NOTICE } from "@repo/constants";
 import { renderWithProviders } from "@/test/utils";
 import { setFeatureFlagOverridesForTests } from "../../../config/featureFlags";
 import {
@@ -180,6 +180,13 @@ describe("Library paths", () => {
     expect(isLibraryPath("/libraryx")).toBe(false);
     expect(isLibraryPath("/library/@bad handle")).toBe(false);
   });
+
+  it("does not throw on a broken escape in a hand written link", () => {
+    // `/library/@%` decodes to a URIError, which would blank the whole panel
+    expect(() => parseLibraryPath("/library/@%")).not.toThrow();
+    expect(parseLibraryPath("/library/@%")).toBeNull();
+    expect(isLibraryPath("/library/@%E0%A4%A")).toBe(false);
+  });
 });
 
 describe("labels and the player item", () => {
@@ -297,6 +304,17 @@ describe("Your creators (row 180, board m3)", () => {
     renderAt(<YourCreatorsPage />, "/library/creators");
     expect(await screen.findByText("Following")).toBeTruthy();
     expect(screen.queryByText(TESTNET_NOTICE)).toBeNull();
+  });
+
+  it("keeps the creator search inside the length the server accepts", async () => {
+    renderAt(<YourCreatorsPage />, "/library/creators");
+    const input = screen.getByLabelText(LIBRARY_COPY.creatorsPage.searchLabel);
+    fireEvent.change(input, { target: { value: "m".repeat(120) } });
+    await waitFor(() =>
+      expect(mocks.creators).toHaveBeenCalledWith(
+        expect.objectContaining({ q: "m".repeat(LIBRARY_LIMITS.searchMaxLength) })
+      )
+    );
   });
 });
 
