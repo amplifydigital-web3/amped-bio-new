@@ -144,31 +144,37 @@ export async function upsertOffer(userId: number, input: OfferUpsertInput) {
     contentItemId: Buffer.from(item.id),
     position,
   }));
-  if (existing) {
-    // Removing an item from a bundle with buyers in access is refused with C10 (Purchase reads)
-    await prisma.$transaction([
-      prisma.offerItem.deleteMany({ where: { offerId: id } }),
-      prisma.offer.update({
-        where: { id },
-        data: { ...data, items: { create: itemRows } },
-      }),
-    ]);
-  } else {
-    const last = await prisma.offer.findFirst({
-      where: { creatorUserId: userId },
-      orderBy: { sortOrder: "desc" },
-      select: { sortOrder: true },
-    });
-    await prisma.offer.create({
-      data: {
-        id,
-        creatorUserId: userId,
-        status: "draft",
-        sortOrder: (last?.sortOrder ?? -1) + 1,
-        ...data,
-        items: { create: itemRows },
-      },
-    });
+  try {
+    if (existing) {
+      // Removing an item from a bundle with buyers in access is refused with C10 (Purchase reads)
+      await prisma.$transaction([
+        prisma.offerItem.deleteMany({ where: { offerId: id } }),
+        prisma.offer.update({
+          where: { id },
+          data: { ...data, items: { create: itemRows } },
+        }),
+      ]);
+    } else {
+      const last = await prisma.offer.findFirst({
+        where: { creatorUserId: userId },
+        orderBy: { sortOrder: "desc" },
+        select: { sortOrder: true },
+      });
+      await prisma.offer.create({
+        data: {
+          id,
+          creatorUserId: userId,
+          status: "draft",
+          sortOrder: (last?.sortOrder ?? -1) + 1,
+          ...data,
+          items: { create: itemRows },
+        },
+      });
+    }
+  } catch (error) {
+    // Two saves with the same slug at once: the unique key refuses the second
+    if ((error as { code?: string })?.code === "P2002") throw new OfferError("slug_taken");
+    throw error;
   }
   return getOffer(userId, offerIdToHex(id));
 }
@@ -199,13 +205,19 @@ export async function setOfferStatus(userId: number, idHex: string, status: Offe
   }
   // An archived product can't be featured
   if (status === "archived") await unfeature(userId, idHex);
-  await prisma.offer.update({
-    where: { id: offer.id },
+  // Archive is final even against a concurrent change: only a non archived row moves
+  const { count } = await prisma.offer.updateMany({
+    where: {
+      id: offer.id,
+      creatorUserId: userId,
+      ...(status === "archived" ? {} : { status: { not: "archived" } }),
+    },
     data: {
       status,
       activatedAt: status === "active" ? (offer.activatedAt ?? new Date()) : offer.activatedAt,
     },
   });
+  if (count === 0) throw new OfferError("archived");
   return getOffer(userId, idHex);
 }
 

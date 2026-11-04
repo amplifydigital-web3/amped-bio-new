@@ -885,6 +885,31 @@ describe("submitPurchase", () => {
     expect(state.intents[0]!.status).toBe("open");
   });
 
+  it("pays once when two intents for the same item are prepared and both are submitted", async () => {
+    const OTHER_INTENT = "0f".repeat(16);
+    state.intents.push({ ...state.intents[0]!, id: Buffer.from(OTHER_INTENT, "hex") });
+    const first = await prepare();
+    const second = await prepare({ intentId: OTHER_INTENT });
+    const firstSig = await signAuthorization(first);
+    const secondSig = await signAuthorization(second);
+    await submitPurchase(20, { purchaseId: (first as any).purchaseId, signature: firstSig }, NOW, 0);
+    expect(
+      await submitPurchase(
+        20,
+        { purchaseId: (second as any).purchaseId, signature: secondSig },
+        NOW,
+        0
+      )
+    ).toEqual({ refused: true, reason: "in_progress", purchaseId: (first as any).purchaseId });
+    expect(relayerCall).toHaveBeenCalledTimes(1);
+    expect(state.purchases[1]!).toMatchObject({ status: "failed", failureCode: "duplicate" });
+    // A third prepare on either intent sees the payment on its way
+    expect(await prepare({ intentId: OTHER_INTENT })).toMatchObject({
+      refused: true,
+      reason: "in_progress",
+    });
+  });
+
   it("re-checks the balance before spending relayer gas", async () => {
     const prepared = await prepare();
     const signature = await signAuthorization(prepared);
@@ -1007,6 +1032,19 @@ describe("settlePurchase", () => {
     expect(state.intents[0]!.status).toBe("open");
   });
 
+  it("is not marked dropped while the fan's authorization can still land", async () => {
+    settings.quoteWindowSeconds = 3600;
+    const row = await submitted();
+    state.receipt = null;
+    const at31 = new Date(NOW.getTime() + 31 * 60 * 1000);
+    row.updatedAt = NOW;
+    expect(await settlePurchase(row.id, { now: at31 })).toBe("submitted");
+    expect(state.intents[0]!.status).toBe("submitted");
+    const pastValidity = new Date(NOW.getTime() + 61 * 60 * 1000);
+    expect(await settlePurchase(row.id, { now: pastValidity })).toBe("failed");
+    expect(row.failureCode).toBe("dropped");
+  });
+
   it("the worker settles in flight rows and expires stale prepared ones", async () => {
     const row = await submitted();
     state.receipt = receiptFor(row);
@@ -1059,6 +1097,26 @@ describe("payment log indexer", () => {
     // The cursor moved; a rerun of the same range stores nothing new
     state.settings.clear();
     expect(await indexPaymentLogsOnce(NOW)).toBe(0);
+  });
+
+  it("skips a log for a purchase another database minted and still moves the cursor", async () => {
+    const stranger = { ...(await submitted()) };
+    state.purchases = [];
+    state.logs = paidLogs(stranger);
+    state.head = 120n;
+    await indexPaymentLogsOnce(NOW);
+    expect(state.settings.get("ampedpay_payments_cursor_84532")?.setting_value).toBe("109");
+  });
+
+  it("a Paid log opens a purchase even after it was marked expired", async () => {
+    await prepare();
+    const row = state.purchases[0]!;
+    row.status = "expired";
+    state.receipt = receiptFor(row);
+    state.logs = paidLogs(row);
+    state.head = 120n;
+    await indexPaymentLogsOnce(NOW);
+    expect(row.status).toBe("confirmed");
   });
 
   it("a Refunded log closes access", async () => {
