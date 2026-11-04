@@ -6,6 +6,8 @@ import { PAGE_VISIBILITY_ROW, PageVisibilityRow } from "./PageVisibilityRow";
 import { PASSWORD_ROW, PasswordRow } from "./PasswordRow";
 import { PUBLIC_URL_ROW, PublicUrlRow } from "./PublicUrlRow";
 import { RNS_REMINDERS_ROW, RnsRemindersRow } from "./RnsRemindersRow";
+import { MESSAGES_ROW, MessagesRow } from "./MessagesRow";
+import { MESSAGES_V2 } from "../inbox/flags";
 import { TWO_FACTOR_ROW, TwoFactorRow } from "./TwoFactorRow";
 import { VerifyEmailCard } from "./VerifyEmailCard";
 
@@ -23,6 +25,7 @@ const ROWS = [
   TWO_FACTOR_ROW,
   CONNECTED_APPS_ROW,
   RNS_REMINDERS_ROW,
+  MESSAGES_ROW,
 ];
 
 export function AccountSettings() {
@@ -48,6 +51,8 @@ export function AccountSettings() {
           <TwoFactorRow />
           <ConnectedAppsRow />
           <RnsRemindersRow />
+          {/* Amped Messages (#2 r4, M5, spec 8.3) */}
+          {MESSAGES_V2 && <MessagesRow />}
         </DisclosureGroup>
       </div>
     </div>

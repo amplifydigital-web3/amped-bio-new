@@ -18,12 +18,7 @@ import {
   useAuth,
 } from "@repo/ui";
 import { WordBadge } from "../kit/WordBadge";
-import {
-  ADMIN_DESTINATIONS,
-  destinationForPath,
-  isMacPlatform,
-  shortcutLabel,
-} from "./destinations";
+import { destinationsFor, destinationForPath, isMacPlatform, shortcutLabel } from "./destinations";
 
 // Screen Review 087 I02, I03, I22. One G1 navigate top bar, 55 high, holding
 // the only page title (Figtree 20/23 700), then Refresh (refetches this
@@ -58,7 +53,8 @@ function ShortcutsDialog({
   onOpenChange: (o: boolean) => void;
 }) {
   const mac = isMacPlatform();
-  const items = ADMIN_DESTINATIONS.filter(item => item.shortcut);
+  const { authUser } = useAuth();
+  const items = destinationsFor(authUser?.role).filter(item => item.shortcut);
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>

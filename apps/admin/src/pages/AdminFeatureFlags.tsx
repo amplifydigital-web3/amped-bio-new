@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { Button, ErrorCard, Skeleton, cn, trpc, trpcClient, type RouterOutputs } from "@repo/ui";
 import { retryToast } from "../kit/parts";
 import { WordBadge } from "../kit/WordBadge";
+import { StakeAllowlistCard } from "./StakeAllowlistCard";
 
 // Feature flags stored in site_settings (packages/constants/src/feature-flags.ts).
 // On and Off save a row that every app reads: the API within 15 seconds, the
@@ -129,6 +130,7 @@ export function AdminFeatureFlags() {
           ))}
         </ul>
       )}
+      <StakeAllowlistCard />
     </div>
   );
 }
