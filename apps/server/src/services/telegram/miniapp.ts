@@ -131,6 +131,8 @@ export async function buildMiniAppPage(
   let skipped = false;
   const blocks: MiniAppBlock[] = [];
   for (const row of rows) {
+    // G3: a gated block never reaches the Mini App; it has no unlock step yet
+    if (row.accessRuleId) continue;
     const block = {
       id: row.id,
       type: row.type,

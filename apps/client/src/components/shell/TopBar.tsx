@@ -9,6 +9,8 @@ import { HelpMenu } from "./HelpMenu";
 import { WalletChip } from "./WalletChip";
 import { AccountMenu } from "./AccountMenu";
 import { InboxButton } from "./InboxButton";
+import { BellCenter } from "../panels/inbox/BellCenter";
+import { MESSAGES_V2 } from "../panels/inbox/flags";
 import { NavItemLink } from "./NavItemLink";
 import { BrandMark } from "./BrandMark";
 import { copyPageLink, publicPageUrl } from "./pageLink";
@@ -105,7 +107,7 @@ export function TopBar() {
           </button>
         </>
       )}
-      <InboxButton />
+      {MESSAGES_V2 ? <BellCenter /> : <InboxButton />}
       <HelpMenu />
       {WALLET_CHIP_PANELS.includes(activePanel) && <WalletChip />}
       <AccountMenu />
@@ -150,7 +152,7 @@ export function MobileTopBar() {
           <PublishPageSheet open={publishOpen} onOpenChange={setPublishOpen} />
         </>
       )}
-      <InboxButton />
+      {MESSAGES_V2 ? <BellCenter /> : <InboxButton />}
       <AccountMenu mobile />
     </header>
   );

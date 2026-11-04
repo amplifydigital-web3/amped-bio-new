@@ -37,12 +37,14 @@ export async function generateMetadata({ params }: ItemPageProps): Promise<Metad
   const title = contentItemTitle(item);
   const description = contentItemDescription(item);
   const url = contentItemUrl(handle, item.publicId);
-  const image = item.cover?.src;
+  // A locked item (content gating 3.2): noindex, and no share image but the blur
+  const locked = Boolean(item.gate);
+  const image = locked ? (item.blur ?? undefined) : item.cover?.src;
   return {
     title,
     description,
     alternates: { canonical: url },
-    robots: { index: true, follow: true },
+    robots: locked ? { index: false, follow: true } : { index: true, follow: true },
     openGraph: {
       type:
         item.kind === "video" ? "video.other" : item.kind === "audio" ? "music.song" : "article",
@@ -62,7 +64,8 @@ export default async function ContentItemPage({ params }: ItemPageProps) {
   const theme = profile.status === "found" ? profile.data.theme?.config : undefined;
   return (
     <>
-      <JsonLd data={buildContentItemJsonLd(item)} />
+      {/* Never JSON-LD for a locked item (leak test) */}
+      {!item.gate && <JsonLd data={buildContentItemJsonLd(item)} />}
       <ContentShell theme={theme}>
         <ItemPageView item={item} />
       </ContentShell>

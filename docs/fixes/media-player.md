@@ -27,7 +27,7 @@ editor or page                API                                    viewer's br
   |                           | buildPlayback: sign each URL         |
   |<-- { playback } ----------|                                      |
   | player.load(item, resolve) ------------------------------------> | HLS from customer-x.cloudflarestream.com/{jwt}/manifest/video.m3u8
-  |                                                                  | audio from media.ampedusercontent.com/audio/{id}/full.m4a?t={token}
+  |                                                                  | audio from usercontent.amped.bio/audio/{id}/full.m4a?t={token}
   | a minute before expiresAt: getReadUrl again, swap URLs, keep place
   | every 10 s of play, on pause, hide and leave: progress.set ----> API
 ```
