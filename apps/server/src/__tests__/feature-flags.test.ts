@@ -131,4 +131,18 @@ describe("what leaves the API", () => {
     const rns = flags.find(flag => flag.key === "rns");
     expect(rns).toMatchObject({ override: null, serverValue: null });
   });
+
+  it("shows the API's environment value and names the app build variables", async () => {
+    env.CHECKOUT_ENABLED = true;
+    const flags = await listFeatureFlags();
+    const checkout = flags.find(flag => flag.key === "checkout");
+    expect(checkout?.env).toEqual([
+      { app: "server", variable: "CHECKOUT_ENABLED", value: true },
+      // The editor inlines VITE_CHECKOUT at build time: the API cannot read it
+      { app: "client", variable: "VITE_CHECKOUT", value: null },
+    ]);
+    const rns = flags.find(flag => flag.key === "rns");
+    expect(rns?.env.map(source => source.app)).toEqual(["client", "landing"]);
+    expect(rns?.env.every(source => source.value === null)).toBe(true);
+  });
 });
