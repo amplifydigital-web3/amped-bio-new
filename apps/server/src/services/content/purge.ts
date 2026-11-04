@@ -2,7 +2,9 @@
  * The purge (Build Board #20, spec 3.12). Deleted items whose restore window has
  * passed lose their files: R2 objects, the Stream video and its clips, their
  * asset rows, and every viewer's playback position. The item row stays, with
- * purgeAfter cleared, as the record reports and copyright notices point at.
+ * purgeAfter cleared, as the record reports and copyright notices point at. Its
+ * access rule is released and, when it was inline and nothing else uses it,
+ * deleted (content gating 3.5): items first, then rules, then the user (AD2).
  * The space the item held is given back here, when its files are really gone.
  *
  * Each item is independent: a storage error leaves that item for the next run.
@@ -11,6 +13,7 @@ import { prisma } from "@repo/database";
 import { deleteR2Object } from "../cloudflare/r2";
 import { deleteStreamVideo } from "../cloudflare/stream";
 import { freeUsedBytes, itemMinutes } from "./quota";
+import { cleanupInlineRule, forgetRules } from "../access/rules";
 
 /** Items purged per run, so one run stays short */
 export const PURGE_BATCH = 50;
@@ -44,6 +47,7 @@ export async function purgeDeletedItems(now: Date = new Date()): Promise<number>
       durationMs: true,
       deletedAt: true,
       purgeAfter: true,
+      accessRuleId: true,
     },
     take: PURGE_BATCH,
   });
@@ -65,10 +69,10 @@ export async function purgeDeletedItems(now: Date = new Date()): Promise<number>
       );
       for (const uid of streamUids) await deleteStreamVideo(uid);
       for (const key of r2Keys) await deleteR2Object(key);
-      await prisma.$transaction(async tx => {
+      const deletedRules = await prisma.$transaction(async tx => {
         const cleared = await tx.contentItem.updateMany({
           where: { id: item.id, status: "DELETED" },
-          data: { purgeAfter: null },
+          data: { purgeAfter: null, ...(item.accessRuleId ? { accessRuleId: null } : {}) },
         });
         await tx.contentAsset.deleteMany({ where: { contentItemId: item.id } });
         await tx.viewerProgress.deleteMany({ where: { contentItemId: item.id } });
@@ -77,7 +81,12 @@ export async function purgeDeletedItems(now: Date = new Date()): Promise<number>
         if (cleared.count === 1 && heldQuota(item)) {
           await freeUsedBytes(item.userId, item.totalBytes, itemMinutes(item), tx);
         }
+        // The item no longer holds its rule; an unused inline rule goes with it
+        return cleared.count === 1 && item.accessRuleId
+          ? cleanupInlineRule(tx, Buffer.from(item.accessRuleId).toString("hex"))
+          : [];
       });
+      await forgetRules(deletedRules);
       purged += 1;
     } catch (error) {
       console.error(
