@@ -125,6 +125,11 @@ export interface CreatorPageProps {
    * apps pass the fontCatalog flag; off, the page draws only the base fonts.
    */
   loadFonts?: boolean;
+  /**
+   * Phase 2b PR 2: the mirrored font links the API returned (getHandle fonts).
+   * When set they replace the Google requests, so visitors never contact Google.
+   */
+  fontLinks?: readonly string[] | null;
 }
 
 export function CreatorPage({
@@ -144,6 +149,7 @@ export function CreatorPage({
   entranceKey,
   device,
   loadFonts = false,
+  fontLinks,
 }: CreatorPageProps) {
   const look = lookFor(theme);
   const sizes = SIZE[size];
@@ -292,7 +298,10 @@ export function CreatorPage({
     </div>
   );
 
-  const fonts = loadFonts ? <CreatorFontLinks theme={theme} profile={profile} /> : null;
+  const fonts =
+    loadFonts || fontLinks ? (
+      <CreatorFontLinks theme={theme} profile={profile} hrefs={fontLinks} />
+    ) : null;
 
   if (embedded) {
     // The editor: the scene stays put outside the scroller and fills the

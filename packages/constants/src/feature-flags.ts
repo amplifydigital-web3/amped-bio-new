@@ -112,6 +112,14 @@ export const FEATURE_FLAGS = {
     default: false,
     env: {},
   },
+  fontDelivery: {
+    label: "Font delivery",
+    description:
+      "Fonts load from Amped's own media host (decision 2): the API mirrors each stylesheet from Google Fonts to R2, and no visitor's browser contacts Google. Off keeps the Google Fonts link. Needs MEDIA_GATEWAY_ORIGIN and R2 on the API and the media gateway's fonts route.",
+    scope: "public",
+    default: false,
+    env: {},
+  },
   motion: {
     label: "Landing motion",
     description: "The landing page hero light, headline motion and How it works.",

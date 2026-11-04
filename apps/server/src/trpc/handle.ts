@@ -1,4 +1,5 @@
 import { messageDoor } from "../services/messaging/messageDoor";
+import { publicFontLinks } from "../services/fonts/fontMirror";
 import { publicProcedure, privateProcedure, router } from "./trpc";
 import { TRPCError } from "@trpc/server";
 import { getFileUrl } from "../utils/fileUrlResolver";
@@ -318,6 +319,15 @@ const appRouter = router({
           messageDoor: messageDoorResult.status === "fulfilled" ? messageDoorResult.value : null,
         },
         theme: themeResult.value,
+        // Theme Engine v2 fonts (2b PR 2): the mirrored font links on the media host,
+        // or null while fontDelivery is off (the page keeps the Google requests)
+        fonts: await publicFontLinks(themeResult.value?.config ?? null, {
+          name,
+          bio: description,
+        }).catch(error => {
+          console.error("[getHandle] font links failed, showing fallback fonts:", error);
+          return [] as string[];
+        }),
         blocks: publicBlocks,
         hasCreatorPool,
         creatorPoolAddress,

@@ -40,7 +40,9 @@ describe("name and body faces", () => {
 
   it("puts the name face on the name and the body style on the bio", () => {
     const html = page(CATALOG);
-    expect(h1(html)).toContain("font-family:&quot;Fraunces&quot;, sans-serif");
+    expect(h1(html)).toContain(
+      "font-family:&quot;Fraunces&quot;, &quot;Fraunces Fallback&quot;, sans-serif"
+    );
     expect(h1(html)).toContain("font-weight:800");
     expect(h1(html)).toContain("font-variation-settings:&quot;opsz&quot; 72");
     const bio = html.match(/<p[^>]*>Night sky/)?.[0] ?? "";

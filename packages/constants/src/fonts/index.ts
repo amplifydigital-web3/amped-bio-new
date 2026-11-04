@@ -271,7 +271,11 @@ export function fontVariationSettings(axes: FontPick["axes"]): string | undefine
 
 export function fontFaceStyle(pick: FontPick, category?: FontCategory): FontFaceStyle {
   const fallback = category ? FONT_FALLBACKS[category] : "sans-serif";
-  const family = FONT_FAMILY_PATTERN.test(pick.family) ? `"${pick.family}", ${fallback}` : fallback;
+  // Phase 2b PR 2: the mirror defines "<Family> Fallback", a local font sized to
+  // the family's metrics, so text does not jump when the real font arrives
+  const family = FONT_FAMILY_PATTERN.test(pick.family)
+    ? `"${pick.family}", "${pick.family} Fallback", ${fallback}`
+    : fallback;
   const style: FontFaceStyle = { fontFamily: family };
   if (pick.weight !== undefined) style.fontWeight = pick.weight;
   if (pick.italic) style.fontStyle = "italic";

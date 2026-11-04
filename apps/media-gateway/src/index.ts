@@ -3,7 +3,8 @@
  *
  * Every R2 byte a viewer receives passes through here:
  *   1. GET or HEAD only. CORS preflight for the app origins.
- *   2. The path must be a served R2 key (originals/, audio/, derived/).
+ *   2. The path must be a served R2 key (originals/, audio/, derived/). Public
+ *      fonts under fonts/ are the exception (fonts.ts, Theme Engine v2 2b PR 2).
  *   3. The token must verify: known kid, valid HMAC, not expired, lifetime within
  *      the cap, and payload.k equal to the path.
  *   4. The item must not be taken down (KV `blocked:{publicId}`).
@@ -26,6 +27,7 @@ import {
   type ViewerContext,
 } from "./headers";
 import { pathForKey, servedKeyFromPath } from "./path";
+import { fontKeyFromPath, serveFont } from "./fonts";
 import { parseRange, resolveRange } from "./range";
 import { verificationKeys, verifyToken } from "./token";
 
@@ -85,6 +87,12 @@ export async function handle(
   }
 
   const url = new URL(request.url);
+  // Public fonts (2b PR 2): no token, open CORS, a year of caching
+  const fontKey = fontKeyFromPath(url.pathname);
+  if (fontKey) {
+    log({ status: "font", key: fontKey, method: request.method });
+    return serveFont(request, env, ctx, fontKey);
+  }
   const served = servedKeyFromPath(url.pathname);
   if (!served) return refuse("path");
   const token = url.searchParams.get("t");

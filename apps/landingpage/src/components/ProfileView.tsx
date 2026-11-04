@@ -189,6 +189,7 @@ export function ProfileView({
   const [blocks, setBlocks] = useState<BlockType[]>(initialData?.blocks ?? []);
   const [theme, setTheme] = useState<Theme | null>(initialData?.theme ?? null);
   const [contentCards, setContentCards] = useState(initialData?.contentCards ?? {});
+  const [fontLinks, setFontLinks] = useState<string[] | null>(initialData?.fonts ?? null);
   const [hasCreatorPool, setHasCreatorPool] = useState(initialData?.hasCreatorPool ?? false);
   const [creatorPoolAddress, setCreatorPoolAddress] = useState(
     initialData?.creatorPoolAddress ?? null
@@ -341,6 +342,7 @@ export function ProfileView({
           setCreatorPoolAddress(data.creatorPoolAddress);
           setTrackingPixels(data.trackingPixels);
           setContentCards(data.contentCards);
+          setFontLinks(data.fonts);
         }
       } catch {
         if (normalizedHandle === DEFAULT_HANDLE) {
@@ -707,6 +709,7 @@ export function ProfileView({
       entranceKey={normalizedHandle}
       device={weakDevice ? "weak" : undefined}
       loadFonts={fontCatalogOn}
+      fontLinks={fontCatalogOn ? fontLinks : null}
     />
   ) : (
     <div

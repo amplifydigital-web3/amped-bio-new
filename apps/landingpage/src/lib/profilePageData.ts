@@ -47,6 +47,11 @@ export interface ProfilePageData {
   indexable: boolean;
   /** Content blocks (#20): cards for public items only, keyed by publicId */
   contentCards: Record<string, ContentCard>;
+  /**
+   * Theme Engine v2 2b PR 2: the page's font stylesheets on Amped's media host,
+   * or null while fontDelivery is off (the page loads them from Google, as before)
+   */
+  fonts: string[] | null;
 }
 
 export const DEFAULT_HANDLE = "landingpage";
@@ -93,6 +98,7 @@ export const DEFAULT_PROFILE_DATA: ProfilePageData = {
   trackingPixels: null,
   indexable: false,
   contentCards: {},
+  fonts: null,
 };
 
 /**
@@ -110,6 +116,7 @@ export function mapGetHandleData(result: HandleOutput, handle: string): ProfileP
     trackingPixels,
     indexable,
     contentCards,
+    fonts,
   } = result;
   return {
     profile: {
@@ -134,5 +141,6 @@ export function mapGetHandleData(result: HandleOutput, handle: string): ProfileP
     trackingPixels: trackingPixels ?? null,
     indexable,
     contentCards: contentCards ?? {},
+    fonts: fonts ?? null,
   };
 }
