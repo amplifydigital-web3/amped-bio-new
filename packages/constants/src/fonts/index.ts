@@ -204,7 +204,7 @@ function uniqueText(text: string): string {
  * order (ital, opsz, wdth, wght), as the API requires. The pick is expected to
  * be clamped against the catalog, so every axis named exists on the family.
  */
-function familyParam(pick: FontPick): string {
+function familyParam(pick: FontPick, weightRange?: readonly [number, number]): string {
   const name = pick.family.trim().replace(/ /g, "+");
   const tags: string[] = [];
   const values: string[] = [];
@@ -220,8 +220,71 @@ function familyParam(pick: FontPick): string {
     }
   }
   tags.push("wght");
-  values.push(String(Math.round(pick.weight ?? 400)));
+  values.push(
+    weightRange
+      ? `${Math.round(weightRange[0])}..${Math.round(weightRange[1])}`
+      : String(Math.round(pick.weight ?? 400))
+  );
   return `family=${name}:${tags.join(",")}@${values.join(",")}`;
+}
+
+/** Weight pulse (TE-3e2, spec 3.5): the weights the name moves between, at most. */
+export const WEIGHT_PULSE_LIMITS: readonly [number, number] = [300, 900];
+/** The narrowest range worth a pulse. */
+const WEIGHT_PULSE_MIN_SPAN = 200;
+
+/**
+ * The weights Weight pulse can use on a family: its wght axis inside 300 to
+ * 900, or null when the family has no axis that wide.
+ */
+export function weightPulseRange(entry: FontCatalogEntry | undefined): [number, number] | null {
+  const axis = entry?.a?.wght;
+  if (!axis) return null;
+  const lo = Math.max(axis[0], WEIGHT_PULSE_LIMITS[0]);
+  const hi = Math.min(axis[1], WEIGHT_PULSE_LIMITS[1]);
+  return hi - lo >= WEIGHT_PULSE_MIN_SPAN ? [lo, hi] : null;
+}
+
+/**
+ * The Lightest and Boldest params for a family: the stored values clamped to
+ * the family's range, in order, at least 100 apart. Null without a range.
+ */
+export function weightPulseParams(
+  entry: FontCatalogEntry | undefined,
+  stored: Readonly<Record<string, number | string>> = {}
+): { lightest: number; boldest: number } | null {
+  const range = weightPulseRange(entry);
+  if (!range) return null;
+  const clamp = (value: unknown, fallback: number) =>
+    typeof value === "number" && Number.isFinite(value)
+      ? Math.min(range[1], Math.max(range[0], Math.round(value)))
+      : fallback;
+  let lightest = clamp(stored["lightest"], range[0]);
+  let boldest = clamp(stored["boldest"], range[1]);
+  if (lightest > boldest) [lightest, boldest] = [boldest, lightest];
+  if (boldest - lightest < 100) {
+    boldest = Math.min(range[1], lightest + 100);
+    lightest = Math.max(range[0], boldest - 100);
+  }
+  return { lightest, boldest };
+}
+
+/**
+ * The css2 URL for a face across a weight range, for Weight pulse: the
+ * variable file from lightest to boldest, with only the given letters.
+ */
+export function fontRangeStylesheetHref(
+  pick: FontPick,
+  range: readonly [number, number],
+  options: { text?: string } = {}
+): string | null {
+  if (!FONT_FAMILY_PATTERN.test(pick.family)) return null;
+  const lo = Math.min(range[0], range[1]);
+  const hi = Math.max(range[0], range[1]);
+  if (!(lo >= 1 && hi <= 1000 && hi > lo)) return null;
+  const text = options.text ? uniqueText(options.text) : "";
+  const tail = text ? `&text=${encodeURIComponent(text)}` : "";
+  return `https://fonts.googleapis.com/css2?${familyParam(pick, [lo, hi])}${tail}&display=swap`;
 }
 
 /**
@@ -289,10 +352,22 @@ export function fontFaceStyle(pick: FontPick, category?: FontCategory): FontFace
  * theme write while the fontCatalog flag is off, so hiding the picker is not
  * the only guard (AGENTS.md, feature flags rule 3).
  */
-export function withoutCatalogFonts<T extends { nameFont?: unknown; bodyFontStyle?: unknown }>(
-  config: T
-): T {
-  if (config.nameFont === undefined && config.bodyFontStyle === undefined) return config;
+export function withoutCatalogFonts<
+  T extends {
+    nameFont?: unknown;
+    bodyFontStyle?: unknown;
+    heroEffectId?: string;
+    heroEffectParams?: unknown;
+  },
+>(config: T): T {
+  // TE-3e2: Weight pulse needs the catalog's variable faces, so it goes too
+  const pulse = config.heroEffectId === "name.weight-pulse";
+  if (config.nameFont === undefined && config.bodyFontStyle === undefined && !pulse) return config;
   const { nameFont: _name, bodyFontStyle: _body, ...rest } = config;
+  if (pulse) {
+    const out = rest as Record<string, unknown>;
+    delete out["heroEffectId"];
+    delete out["heroEffectParams"];
+  }
   return rest as T;
 }

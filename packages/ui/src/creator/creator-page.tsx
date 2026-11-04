@@ -17,6 +17,7 @@ import {
 } from "./look";
 import { CreatorFontLinks } from "./fonts";
 import { NameText } from "./name-effect";
+import { WeightPulseName } from "./weight-pulse";
 import { ParticlesLayer } from "./particles-layer";
 import { gradientScene, textureStyle } from "./scene";
 import { containerSurfaceClass } from "./surface";
@@ -258,13 +259,22 @@ export function CreatorPage({
             )}
             style={nameStyle}
           >
-            <NameText
-              entry={look.name}
-              text={profile.name}
-              colors={look.colors}
-              paused={paused}
-              entranceKey={entranceKey}
-            />
+            {/* TE-3e2: Weight pulse needs the catalog fonts; without them the name is plain */}
+            {look.name.id === "name.weight-pulse" ? (
+              loadFonts ? (
+                <WeightPulseName text={profile.name} params={look.v2.name.params} paused={paused} />
+              ) : (
+                profile.name
+              )
+            ) : (
+              <NameText
+                entry={look.name}
+                text={profile.name}
+                colors={look.colors}
+                paused={paused}
+                entranceKey={entranceKey}
+              />
+            )}
             {nameExtras}
           </h1>
           {/* 109 I06, I07: the RNS chip in the creator font and color, never animated */}
