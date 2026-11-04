@@ -109,5 +109,30 @@ export function useThemeActions() {
     [ensureSaved, refetch, storeOwnTheme]
   );
 
-  return { makeEditableCopy, restoreTheme, storeOwnTheme, refetch, ensureSaved, pending };
+  /** TE-4c: apply one of the creator's saved looks (My looks). */
+  const applyLook = useCallback(
+    async (id: number) => {
+      await ensureSaved();
+      const profile = profileRef.current;
+      await trpcClient.user.edit.mutate({
+        name: profile.name,
+        description: profile.bio,
+        image: profile.photoUrl || "",
+        reward_business_id: "",
+        theme: id,
+      });
+      await refetch();
+    },
+    [ensureSaved, refetch]
+  );
+
+  return {
+    makeEditableCopy,
+    restoreTheme,
+    storeOwnTheme,
+    applyLook,
+    refetch,
+    ensureSaved,
+    pending,
+  };
 }

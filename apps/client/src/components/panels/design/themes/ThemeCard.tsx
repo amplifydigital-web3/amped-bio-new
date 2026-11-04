@@ -37,10 +37,13 @@ function useApplyTheme() {
     const before = previous;
     const numeric = Number(card.id);
     const marketplace = card.user_id === null && Number.isFinite(numeric);
+    // TE-4c (themeSharing): a marketplace apply makes an editable copy. Undo
+    // removes a new copy, or restores the look a copy was written into.
+    let copy: { themeId: number; created?: boolean; undoVersionId?: number | null } | null = null;
     try {
       await ensureSaved();
       if (marketplace) {
-        await trpcClient.theme.applyTheme.mutate({ themeId: numeric });
+        copy = await trpcClient.theme.applyTheme.mutate({ themeId: numeric });
       } else {
         // Local theme files: every space replaced (I04)
         const response = await fetch(`/themes/${card.name.replaceAll(" ", "_")}.ampedtheme`);
@@ -56,7 +59,19 @@ function useApplyTheme() {
         actionProps: {
           children: "Undo",
           onClick: () => {
-            void restoreTheme(before, !marketplace).catch(() =>
+            const undo = async () => {
+              if (copy?.undoVersionId) {
+                await trpcClient.theme.restore.mutate({
+                  id: copy.themeId,
+                  versionId: copy.undoVersionId,
+                });
+                await refetch();
+                return;
+              }
+              await restoreTheme(before, !marketplace);
+              if (copy?.created) await trpcClient.theme.deleteTheme.mutate({ id: copy.themeId });
+            };
+            void undo().catch(() =>
               toast.add({ type: "error", title: "Could not undo. Pick your theme again." })
             );
           },

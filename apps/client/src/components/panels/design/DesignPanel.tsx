@@ -251,7 +251,7 @@ export function DesignPanel() {
       </div>
 
       <TabsContent value="themes" className="mt-0 px-4 pb-6 pt-[21px] md:px-6">
-        <ThemesTab onEditStyle={() => setTab("style")} />
+        <ThemesTab onEditStyle={() => setTab("style")} onJump={setTab} onImport={openImport} />
       </TabsContent>
       <TabsContent value="style" className="mt-0 px-4 pb-6 pt-[21px] md:px-6">
         <StyleTab />

@@ -2,6 +2,7 @@ import {
   THEME_FILE_MAX_BYTES,
   ampedThemeImportSchema,
   themeFileConfig,
+  themeFileV2,
   type ThemeConfig,
 } from "@repo/constants";
 
@@ -29,8 +30,8 @@ export function themeFileName(name: string) {
  * Export the current theme configuration as an AmpedTheme file (.ampedtheme)
  */
 export function exportThemeConfigAsJson(theme: Theme, customFilename?: string) {
-  // Create a Blob containing just the config part of the theme as JSON data
-  const data = JSON.stringify(theme.config, null, 2);
+  // Spec 3.9: export writes a v2 file, the config under a header (themeFile.ts)
+  const data = JSON.stringify(themeFileV2(theme.name, null, new Date(), theme.config), null, 2);
   const blob = new Blob([data], { type: "application/json" });
 
   // Create a temporary URL for the Blob

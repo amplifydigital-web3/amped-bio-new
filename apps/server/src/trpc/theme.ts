@@ -42,6 +42,7 @@ import {
   cleanLookName,
   configVersion,
   copyName,
+  countLooks,
   currentLookId,
   ownLook,
   recordVersion,
@@ -55,6 +56,56 @@ function requireSharing(): void {
 }
 
 const slugSchema = z.string().trim().toLowerCase().regex(SHARE_SLUG_PATTERN);
+
+/**
+ * A marketplace theme as the creator's own look (TE-4c). Returns the look,
+ * whether it is new, and for an overwrite the version Undo restores.
+ */
+async function copyMarketplaceTheme(
+  userId: number,
+  market: { name: string | null; description: string | null; config: unknown }
+): Promise<{ themeId: number; created: boolean; undoVersionId: number | null }> {
+  const config = (market.config ?? {}) as object;
+  if ((await countLooks(userId)) < LOOK_LIMIT) {
+    const taken = await prisma.theme.findMany({
+      where: { user_id: userId, kind: "look" },
+      select: { name: true },
+    });
+    const base = cleanLookName(market.name ?? "") || "My look";
+    const name = taken.some(t => t.name === base)
+      ? copyName(
+          base,
+          taken.map(t => t.name ?? "")
+        )
+      : base;
+    const look = await prisma.theme.create({
+      data: {
+        user_id: userId,
+        name,
+        description: market.description,
+        share_level: "private",
+        share_config: {},
+        config: config as any,
+        kind: "look",
+        config_version: configVersion(config),
+      },
+    });
+    await recordVersion(look.id, config, { force: true });
+    return { themeId: look.id, created: true, undoVersionId: null };
+  }
+  const currentId = (await currentLookId(userId))!;
+  const current = await prisma.theme.findUnique({ where: { id: currentId } });
+  const undoVersionId = await recordVersion(currentId, current?.config, { force: true });
+  await prisma.theme.update({
+    where: { id: currentId },
+    data: { config: config as any, config_version: configVersion(config) },
+  });
+  await recordVersion(currentId, config, { force: true });
+  return { themeId: currentId, created: false, undoVersionId };
+}
+
+/** site_settings key holding the admin's Theme of the week (a share slug). */
+export const THEME_OF_THE_WEEK_KEY = "theme.themeOfTheWeek";
 
 /** A shared look by its slug, or NOT_FOUND (unknown, revoked, or sharing off). */
 async function sharedLook(slug: string) {
@@ -423,6 +474,22 @@ export const themeRouter = router({
           });
         }
 
+        if (isFeatureOn("themeSharing")) {
+          // TE-4c (spec 3.9): the creator gets an editable copy, so edits never
+          // touch the shared row. A new look while there is room; at 10 looks
+          // the copy goes into the current look as a new version instead.
+          const copy = await copyMarketplaceTheme(userId, existingTheme);
+          await prisma.user.update({ where: { id: userId }, data: { theme: copy.themeId } });
+          return {
+            success: true,
+            message: "Theme applied successfully",
+            themeId: copy.themeId,
+            themeName: existingTheme.name,
+            created: copy.created,
+            undoVersionId: copy.undoVersionId,
+          };
+        }
+
         themeToApply = existingTheme;
         themeIdToStore = themeId;
       }
@@ -758,4 +825,46 @@ export const themeRouter = router({
       });
       return { themeId, mode: input.mode, undoVersionId, backgroundKept };
     }),
+
+  /**
+   * Theme of the week (TE-4c, board 04): the admin's pick (a share slug in
+   * site_settings), else the shared, credited look with the most uses among
+   * those edited this week, else none. Public, behind themeSharing.
+   */
+  themeOfTheWeek: publicProcedure.query(async () => {
+    if (!isFeatureOn("themeSharing")) return null;
+    const shared = { kind: "look", share_level: "link", share_credit: true } as const;
+    const pick = await prisma.siteSettings.findUnique({
+      where: { setting_key: THEME_OF_THE_WEEK_KEY },
+    });
+    const slug = pick?.setting_value.trim().toLowerCase();
+    let look =
+      slug && SHARE_SLUG_PATTERN.test(slug)
+        ? await prisma.theme.findFirst({
+            where: { ...shared, share_slug: slug },
+            include: { user: { select: { handle: true } } },
+          })
+        : null;
+    if (!look) {
+      look = await prisma.theme.findFirst({
+        where: {
+          ...shared,
+          share_slug: { not: null },
+          share_uses: { gt: 0 },
+          updated_at: { gte: new Date(Date.now() - 7 * 24 * 3600 * 1000) },
+        },
+        orderBy: [{ share_uses: "desc" }, { id: "asc" }],
+        include: { user: { select: { handle: true } } },
+      });
+    }
+    if (!look?.share_slug) return null;
+    return {
+      slug: look.share_slug,
+      name: look.name ?? "Shared look",
+      author: look.user?.handle ?? null,
+      config: (look.config ?? {}) as ThemeConfig,
+      uses: look.share_uses,
+      picked: Boolean(slug && look.share_slug === slug),
+    };
+  }),
 });

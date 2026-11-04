@@ -20,7 +20,10 @@ vi.mock("@/lib/trpc", () => ({
     },
   },
 }));
-vi.mock("@/lib/panel", () => ({ getPanelEditUrl: (h: string) => `https://app.test/${h}/edit` }));
+vi.mock("@/lib/panel", () => ({
+  getPanelEditUrl: (h: string) => `https://app.test/${h}/edit`,
+  getPanelLookUrl: (s: string) => `https://app.test/design?tab=themes&look=${s}`,
+}));
 vi.mock("next/link", () => ({
   default: ({ href, children, ...props }: any) => (
     <a href={href} {...props}>
@@ -153,6 +156,9 @@ describe("SharedLookView", () => {
     await waitFor(() => expect(screen.getByText(/Applied to your page/)).toBeTruthy());
     expect(mocks.applyShared).toHaveBeenCalledWith({ slug: "abcdefgh", mode: "apply" });
     expect(screen.getByText("Open editor").getAttribute("href")).toBe("https://app.test/bob/edit");
+    expect(screen.getByText("Try it in your editor").getAttribute("href")).toBe(
+      "https://app.test/design?tab=themes&look=abcdefgh"
+    );
     fireEvent.click(screen.getByText("Undo"));
     await waitFor(() => expect(mocks.restore).toHaveBeenCalledWith({ id: 9, versionId: 77 }));
   });
