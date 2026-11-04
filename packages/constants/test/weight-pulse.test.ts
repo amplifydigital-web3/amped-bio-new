@@ -81,6 +81,21 @@ describe("the font request", () => {
     expect(fontRangeStylesheetHref({ family: "Fraunces" }, [500, 500])).toBeNull();
   });
 
+  it("falls back to the plain name face when the range cannot be requested", () => {
+    // An equal or out of range pair (an API write the editor would not make)
+    const requests = creatorFontRequests(
+      {
+        fontFamily: "Inter",
+        nameFont: { family: "Fraunces", weight: 700 },
+        heroEffectId: "name.weight-pulse",
+        heroEffectParams: { lightest: 500, boldest: 500 },
+      } as never,
+      { name: "Rob" }
+    );
+    expect(requests[0]?.role).toBe("name");
+    expect(requests[0]?.url).toContain("wght@700");
+  });
+
   it("creatorFontRequests names the range face first, even when the name uses the body family", () => {
     const requests = creatorFontRequests(
       {

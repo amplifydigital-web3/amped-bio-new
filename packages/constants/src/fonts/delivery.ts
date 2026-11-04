@@ -112,21 +112,25 @@ export function creatorFontRequests(
   const v2 = upgradeTheme(theme ?? undefined);
   const { name, body } = v2.fonts;
   const out: CreatorFontRequest[] = [];
-  // TE-3e2 Weight pulse: the name face across Lightest to Boldest, always its own request
-  if (v2.name.id === "name.weight-pulse") {
-    const lightest = Number(v2.name.params["lightest"]) || 300;
-    const boldest = Number(v2.name.params["boldest"]) || 900;
-    const url = fontRangeStylesheetHref(pickOf(name), [lightest, boldest], {
-      text: profile.name || "Your name",
-    });
-    if (url) out.push({ role: "name", url });
-  }
+  // TE-3e2 Weight pulse: the name face across Lightest to Boldest, always its own
+  // request. When the stored range cannot be requested (reversed to nothing, or
+  // outside 1 to 1000) the plain name face below still loads, so the name never
+  // falls back to the system font.
+  const pulse =
+    v2.name.id === "name.weight-pulse"
+      ? fontRangeStylesheetHref(
+          pickOf(name),
+          [Number(v2.name.params["lightest"]) || 300, Number(v2.name.params["boldest"]) || 900],
+          { text: profile.name || "Your name" }
+        )
+      : null;
+  if (pulse) out.push({ role: "name", url: pulse });
   const nameDiffers =
     name.family !== body.family ||
     name.weight !== 700 ||
     name.italic ||
     Object.keys(name.axes).length > 0;
-  if (nameDiffers && v2.name.id !== "name.weight-pulse") {
+  if (nameDiffers && !pulse) {
     const effect = getEffect("name", v2.name.id);
     const dressesBio =
       v2.name.appliesTo === "nameAndBio" && effect.id !== "name.none" && !isNameEntrance(effect);
