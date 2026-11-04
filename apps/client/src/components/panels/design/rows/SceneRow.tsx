@@ -44,6 +44,7 @@ function SceneTileView({
   onLive: (key: string | null) => void;
 }) {
   const { config, values, locked, update, preview, endPreview } = useDesign();
+  const [videoFailed, setVideoFailed] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout>>();
   useEffect(() => () => clearTimeout(timer.current), []);
   const key = tile.effectId ?? String(tile.id);
@@ -84,11 +85,15 @@ function SceneTileView({
               <ShaderLayer
                 entry={tile.entry}
                 colors={colors}
-                showcase={showcaseOn && !effectVideoSrc(tile.entry.id)}
+                showcase={showcaseOn && (!effectVideoSrc(tile.entry.id) || videoFailed)}
                 paused={!live}
                 device="typical"
               />
-              <EffectVideo id={tile.entry.id} playing={live} />
+              <EffectVideo
+                id={tile.entry.id}
+                playing={live}
+                onUnavailable={() => setVideoFailed(true)}
+              />
             </>
           ) : (
             tile.entry.id !== "scene.none" && (

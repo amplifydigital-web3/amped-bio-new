@@ -31,6 +31,7 @@ function CursorTile({
   onLive: (id: string | null) => void;
 }) {
   const { config, values, locked, update, preview, endPreview } = useDesign();
+  const [videoFailed, setVideoFailed] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout>>();
   useEffect(() => () => clearTimeout(timer.current), []);
   const colors = {
@@ -66,8 +67,8 @@ function CursorTile({
         <CreatorBackdrop background={config.background}>
           <span className="relative flex h-full w-full items-center justify-center">
             {/* Phase 3g: Blob and Splash play their tile video; the light cursors run live */}
-            {effectVideoSrc(entry.id) ? (
-              <EffectVideo id={entry.id} playing={live} />
+            {effectVideoSrc(entry.id) && !videoFailed ? (
+              <EffectVideo id={entry.id} playing={live} onUnavailable={() => setVideoFailed(true)} />
             ) : (
               entry.id !== "cursor.none" && (
                 <CursorLayer
