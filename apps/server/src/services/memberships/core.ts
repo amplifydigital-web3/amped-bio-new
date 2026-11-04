@@ -60,8 +60,11 @@ import { liveVersion, versionSummary } from "../store/policy";
 const BPS = 10_000;
 const hex = (id: Uint8Array) => Buffer.from(id).toString("hex");
 const IN_FLIGHT = ["prepared", "joining"] as const;
-/** Statuses where charges may still happen, so their allowance counts in a new permit. */
-const CHARGING = ["active", "past_due"] as const;
+/**
+ * Statuses whose remaining periods must fit in a new permit: the ones that charge now, plus
+ * a join already sent, because it becomes a charging membership before this permit is used.
+ */
+const CHARGING = ["active", "past_due", "joining"] as const;
 
 export type JoinRecipient = { to: Address; bps: number; role: number };
 export type JoinTable = {
@@ -248,12 +251,15 @@ export async function prepareJoin(
   const price = input.interval === "yearly" ? plan.amountYearly : plan.amountEvery30Days;
   if (!price) return { refused: true, reason: "not_found" };
 
+  // "joining" counts: a join that is already on its way to the chain is a membership in
+  // flight, and a second join would be a second subscription and a second charge. "prepared"
+  // does not count: a second prepare replaces an unsigned first one (below).
   const current = await prisma.membership.findFirst({
     where: {
       fanUserId,
       creatorUserId: creator.id,
       OR: [
-        { status: { in: ["active", "past_due"] } },
+        { status: { in: ["joining", "active", "past_due"] } },
         { status: "canceled", currentPeriodEnd: { gt: now } },
       ],
     },
