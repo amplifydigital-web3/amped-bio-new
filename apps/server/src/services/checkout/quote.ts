@@ -9,7 +9,11 @@
  * CHECKOUT_MOCK_PRICE_SETTING when one is set, until offers arrive with store PR 9. The fee,
  * the pause, the pilot list and the daily limits are the real AmpedPay settings. The provider
  * reads ampedpay once PAY-2 is configured in the environment (contract, relayer, split
- * signer); the client sheet switches to it in CK-5 and changes no screen.
+ * signer); the client sheet switches to it in CK-5.
+ *
+ * CK-5 adds the store policy (store policy 3.4 and 3.6, mobile checkout 5 and 10): the seller
+ * name from the live policy, its version, and whether it changed since this intent was first
+ * quoted. The first quote stores the version on the intent.
  */
 import { prisma } from "@repo/database";
 import {
@@ -21,6 +25,7 @@ import {
   type ThemeConfig,
 } from "@repo/constants";
 import { getFileUrl } from "../../utils/fileUrlResolver";
+import { liveVersion, versionSummary } from "../store/policy";
 import { checkIdentity } from "../identity/checks";
 import { paymentSettings, type PaymentSettings } from "../payments/settings";
 import { checkoutProvider } from "./provider";
@@ -38,13 +43,26 @@ export type CheckoutQuote = {
   status: string;
   state: CheckoutQuoteState;
   provider: CheckoutProvider;
-  item: { title: string; publicId: string; kind: string; adult: boolean; path: string } | null;
+  item: {
+    title: string;
+    publicId: string;
+    kind: string;
+    adult: boolean;
+    path: string;
+    /** Access period in days; null stays in the Library (CK-5 access line) */
+    accessPeriodDays: number | null;
+  } | null;
   creator: {
     handle: string;
     name: string;
     image: string | null;
     theme: AnyThemeConfig | null;
   } | null;
+  /**
+   * The live store policy (CK-5): its seller name and version, and `changed` when it is not
+   * the version this intent was first quoted with. Null before the creator publishes one.
+   */
+  policy: { version: number; sellerName: string; changed: boolean } | null;
   /** USDC units as decimal strings (6 decimals), fee included in amount */
   amount: string;
   fee: string;
@@ -108,6 +126,28 @@ async function sellerPasses(creatorUserId: number): Promise<boolean> {
   return result.pass;
 }
 
+type LiveVersion = NonNullable<Awaited<ReturnType<typeof liveVersion>>>;
+
+/**
+ * The store policy part of a quote. The first quote that sees a live policy stores its version
+ * on the intent; a later live version reads as changed until the fan accepts it in prepare.
+ */
+async function quotePolicy(
+  intent: { id: Uint8Array; storePolicyVersionId: Uint8Array | null },
+  live: LiveVersion
+) {
+  const { sellerName, version } = versionSummary(live);
+  let shown = intent.storePolicyVersionId;
+  if (!shown) {
+    await prisma.checkoutIntent.updateMany({
+      where: { id: Buffer.from(intent.id), storePolicyVersionId: null },
+      data: { storePolicyVersionId: Buffer.from(live.id) },
+    });
+    shown = live.id;
+  }
+  return { version, sellerName, changed: !Buffer.from(shown).equals(Buffer.from(live.id)) };
+}
+
 /**
  * The quote for an intent the viewer has claimed. Only that fan can read it: anyone else
  * gets the same not found as an unknown id, so nothing about the purchase leaks.
@@ -125,6 +165,7 @@ export async function quoteIntent(viewerUserId: number, idHex: string): Promise<
       userId: true,
       status: true,
       expiresAt: true,
+      storePolicyVersionId: true,
     },
   });
   if (!row || row.userId !== viewerUserId) throw notFound();
@@ -150,12 +191,13 @@ export async function quoteIntent(viewerUserId: number, idHex: string): Promise<
       state: status === "paid" ? "paid" : "removed",
       item: null,
       creator: null,
+      policy: null,
       amount: "0",
       fee: "0",
     };
   }
 
-  const [image, theme, wallet, countedToday] = await Promise.all([
+  const [image, theme, wallet, countedToday, live] = await Promise.all([
     getFileUrl({
       legacyImageField: resolved.extra.creatorImage,
       imageFileId: resolved.extra.creatorImageFileId,
@@ -172,7 +214,9 @@ export async function quoteIntent(viewerUserId: number, idHex: string): Promise<
         updatedAt: { gte: startOfUtcDay(now) },
       },
     }),
+    liveVersion(resolved.creatorUserId),
   ]);
+  const policy = live ? await quotePolicy(row, live) : null;
 
   // A product carries its amount (C9); a content target still uses the checkout amount
   const amount = resolved.extra.amountUnits ?? (await checkoutAmount(settings));
@@ -197,11 +241,13 @@ export async function quoteIntent(viewerUserId: number, idHex: string): Promise<
       publicId: resolved.extra.publicId,
       kind: resolved.extra.kind,
       path: resolved.extra.path,
+      accessPeriodDays: resolved.extra.accessPeriodDays,
       // 18+ items are refused at start until A1 opens them (identity checks 4.4), so this
       // is false today; the sheet already sends an 18+ item to the Over 18 check (CK-0 6)
       adult: false,
     },
     creator: { handle, name: resolved.item.creatorName, image, theme },
+    policy,
     amount: amount.toString(),
     fee: fee.toString(),
   };

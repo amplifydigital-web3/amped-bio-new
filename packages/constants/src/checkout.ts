@@ -187,6 +187,19 @@ export const CHECKOUT_COPY = {
   over18: "This item is for over 18s. It cannot be bought here yet.",
   failed: "The payment did not go through. Nothing was taken from your wallet.",
   ended: "This checkout has ended. Start again from the page.",
+  // CK-5: AmpedPay live (mobile checkout 5, 9 and 10)
+  storePolicy: "Store policy",
+  policyChanged: (seller: string) => `${seller} updated their store policy.`,
+  readPolicy: "Read the store policy",
+  networkFee: "Network fee",
+  networkFeePaid: "Paid by Amped.Bio",
+  verified: "Verified",
+  rejected: "You cancelled in your wallet. Nothing was taken from your wallet.",
+  walletMismatch: "Your wallet changed. Sign in again and try once more.",
+  noWallet: "Set up your wallet first. Nothing was taken from your wallet.",
+  screening: "This payment can not go through. Nothing was taken from your wallet.",
+  stillChecking:
+    "Your payment is still on its way. You can close this page. The item opens in your Library when it lands.",
 } as const;
 
 /** The intent a return path points at, or null for any other path. */
@@ -252,6 +265,7 @@ export const PURCHASE_REFUSALS = [
   "wallet_mismatch",
   "insufficient_balance",
   "screening",
+  "policy_changed",
 ] as const;
 export type PurchaseRefusal = (typeof PURCHASE_REFUSALS)[number];
 
@@ -267,6 +281,11 @@ export const purchasePrepareInputSchema = z.object({
     .string()
     .regex(/^0x[0-9a-fA-F]{40}$/)
     .optional(),
+  /**
+   * The live store policy version the fan accepted after "{seller} updated their store
+   * policy." (CK-5). Without it a changed policy refuses with `policy_changed`.
+   */
+  policyVersion: z.number().int().positive().optional(),
 });
 export type PurchasePrepareInput = z.infer<typeof purchasePrepareInputSchema>;
 

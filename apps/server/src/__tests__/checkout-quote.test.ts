@@ -12,6 +12,7 @@ type Row = {
   userId: number | null;
   status: string;
   expiresAt: Date;
+  storePolicyVersionId?: Buffer | null;
 };
 
 const state = vi.hoisted(() => ({
@@ -24,6 +25,8 @@ const state = vi.hoisted(() => ({
   appEnv: "staging",
   testnetChain: true,
   ampedPay: false,
+  live: null as { id: Buffer; version: number; mode: string; settings: unknown } | null,
+  policyWrites: [] as unknown[],
   settings: {
     paymentsPaused: false,
     platformFeeBps: 500,
@@ -74,6 +77,15 @@ vi.mock("@repo/database", () => ({
       ),
       count: vi.fn(async () => state.countedToday),
       update: vi.fn(async () => undefined),
+      updateMany: vi.fn(
+        async (args: { where: { id: Buffer }; data: { storePolicyVersionId: Buffer } }) => {
+          state.policyWrites.push(args);
+          const row = state.rows.find(r => r.id.equals(args.where.id));
+          if (row && !row.storePolicyVersionId)
+            row.storePolicyVersionId = args.data.storePolicyVersionId;
+          return { count: 1 };
+        }
+      ),
     },
   },
 }));
@@ -94,6 +106,14 @@ vi.mock("../services/usdc/chain", () => ({
   },
 }));
 
+vi.mock("../services/store/policy", () => ({
+  liveVersion: vi.fn(async () => state.live),
+  versionSummary: (row: { version: number; settings: { sellerName: string } }) => ({
+    sellerName: row.settings.sellerName,
+    summary: "",
+    version: row.version,
+  }),
+}));
 vi.mock("../services/payments/ready", () => ({ paymentsReady: () => state.ampedPay }));
 vi.mock("../services/payments/settings", () => ({
   paymentSettings: vi.fn(async () => state.settings),
@@ -138,6 +158,8 @@ beforeEach(() => {
   state.appEnv = "staging";
   state.testnetChain = true;
   state.ampedPay = false;
+  state.live = null;
+  state.policyWrites = [];
   state.settings = {
     ...state.settings,
     paymentsPaused: false,
@@ -162,6 +184,7 @@ describe("quoteIntent", () => {
       kind: "VIDEO",
       adult: false,
       path: "/maya/c/abc123",
+      accessPeriodDays: null,
     });
     expect(quote.creator?.handle).toBe("maya");
     expect(quote.creator?.image).toBe("https://example.com/maya.png");
@@ -271,6 +294,41 @@ describe("quoteIntent: terminal and refused states", () => {
     state.appEnv = "production";
     state.testnetChain = false;
     expect((await quoteIntent(20, ID)).provider).toBe("ampedpay");
+  });
+});
+
+describe("quoteIntent: store policy (CK-5)", () => {
+  const version = (n: number) => ({
+    id: Buffer.alloc(16, n),
+    version: n,
+    mode: "standard",
+    settings: { sellerName: "Maya Lin" },
+  });
+
+  it("names the policy seller and stores the version on the intent at the first quote", async () => {
+    state.live = version(2);
+    const quote = await quoteIntent(20, ID);
+    expect(quote.policy).toEqual({ version: 2, sellerName: "Maya Lin", changed: false });
+    expect(state.rows[0]!.storePolicyVersionId).toEqual(Buffer.alloc(16, 2));
+    // A second quote reads the stored version and writes nothing
+    state.policyWrites = [];
+    expect((await quoteIntent(20, ID)).policy?.changed).toBe(false);
+    expect(state.policyWrites).toHaveLength(0);
+  });
+
+  it("reads changed when the creator publishes a new version after the first quote", async () => {
+    state.live = version(2);
+    await quoteIntent(20, ID);
+    state.live = version(3);
+    expect((await quoteIntent(20, ID)).policy).toEqual({
+      version: 3,
+      sellerName: "Maya Lin",
+      changed: true,
+    });
+  });
+
+  it("has no policy before the creator publishes one", async () => {
+    expect((await quoteIntent(20, ID)).policy).toBeNull();
   });
 });
 

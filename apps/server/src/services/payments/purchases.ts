@@ -100,6 +100,8 @@ type Refused = {
   purchaseId?: string;
   amount?: string;
   shortBy?: string;
+  /** policy_changed: the live store policy version the fan must see first */
+  policyVersion?: number;
 };
 
 export type ReceiveAuthorizationPayload = {
@@ -174,6 +176,35 @@ async function setIntentStatus(
   });
 }
 
+/**
+ * The store policy version a purchase carries: the one on the intent, or the live one when the
+ * intent has none yet. A live version newer than the intent's refuses with `policy_changed`
+ * and its version, unless `accepted` is that version; then the intent moves to it.
+ */
+async function policyForPurchase(
+  intent: { id: Uint8Array; storePolicyVersionId: Uint8Array | null },
+  creatorUserId: number,
+  accepted: number | undefined
+): Promise<{ versionId: Buffer | null; refused: Refused | null }> {
+  const live = await liveVersion(creatorUserId);
+  if (!live) return { versionId: null, refused: null };
+  const liveId = Buffer.from(live.id);
+  const shown = intent.storePolicyVersionId ? Buffer.from(intent.storePolicyVersionId) : null;
+  if (shown && !shown.equals(liveId) && accepted !== live.version) {
+    return {
+      versionId: null,
+      refused: { refused: true, reason: "policy_changed", policyVersion: live.version },
+    };
+  }
+  if (!shown || !shown.equals(liveId)) {
+    await prisma.checkoutIntent.update({
+      where: { id: Buffer.from(intent.id) },
+      data: { storePolicyVersionId: liveId },
+    });
+  }
+  return { versionId: liveId, refused: null };
+}
+
 function authorizationMessage(split: SplitTable, contract: Address, splitHash: Hex) {
   return {
     from: split.payer,
@@ -187,7 +218,7 @@ function authorizationMessage(split: SplitTable, contract: Address, splitHash: H
 
 export async function preparePurchase(
   userId: number,
-  input: { intentId: string; amount: string; signer?: string },
+  input: { intentId: string; amount: string; signer?: string; policyVersion?: number },
   now = new Date()
 ): Promise<PreparePurchaseResult> {
   const intent = await prisma.checkoutIntent.findUnique({
@@ -200,6 +231,7 @@ export async function preparePurchase(
       userId: true,
       status: true,
       expiresAt: true,
+      storePolicyVersionId: true,
     },
   });
   // Only the fan who claimed the intent; anyone else gets the same not found
@@ -235,6 +267,11 @@ export async function preparePurchase(
   const resolved = await resolveTarget(targetOf(intent));
   if (!resolved) return { refused: true, reason: "removed" };
   const handle = resolved.item.creatorHandle;
+
+  // The store policy the sheet showed (CK-5, store policy 3.6). A newer live version refuses
+  // until the fan has seen it and accepts it by sending its version.
+  const policy = await policyForPurchase(intent, resolved.creatorUserId, input.policyVersion);
+  if (policy.refused) return policy.refused;
 
   const creatorWallet = await prisma.userWallet.findUnique({
     where: { userId: resolved.creatorUserId },
@@ -360,7 +397,7 @@ export async function preparePurchase(
       // A product purchase names its offer, so Sales and access can read it (C10)
       offerId: intent.targetType === "offer" ? Buffer.from(intent.targetId, "hex") : null,
       // The store policy the buyer was shown (store policy 3.6); null before one is published
-      storePolicyVersionId: (await liveVersion(resolved.creatorUserId))?.id ?? null,
+      storePolicyVersionId: policy.versionId,
       chainId: paymentChain.id,
       payer,
       creatorAddress: creator,
@@ -816,6 +853,24 @@ export async function settlePurchase(
  * The pay sheet polls this after submit (content spec 3.9 step 5). `unlocked` opens the item;
  * `final` means the receipt went out.
  */
+/**
+ * The newest purchase this fan started from an intent, as purchaseStatus reads it (CK-5): the
+ * pay sheet shows Checking on a return to a signing or submitted intent (mobile checkout 9).
+ * Null when nothing was sent yet.
+ */
+export async function purchaseForIntent(userId: number, intentIdHex: string) {
+  const row = await prisma.purchase.findFirst({
+    where: {
+      buyerUserId: userId,
+      checkoutIntentId: hexToIntentId(intentIdHex),
+      status: { notIn: ["prepared", "expired"] },
+    },
+    orderBy: { createdAt: "desc" },
+    select: { id: true },
+  });
+  return row ? purchaseStatus(userId, purchaseIdToHex(row.id)) : null;
+}
+
 export async function purchaseStatus(userId: number, idHex: string) {
   const row = await ownPurchase(userId, idHex);
   let status = row.status as PurchaseStatus;
