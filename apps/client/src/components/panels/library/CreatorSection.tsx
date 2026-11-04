@@ -38,6 +38,7 @@ import {
 import { toast } from "@/components/ui/toast";
 import { trackGAEvent } from "@/utils/ga";
 import { useDelayed } from "@/hooks/useDelayed";
+import { isFeatureOn } from "@/config/featureFlags";
 import { LIBRARY_COPY, LIBRARY_MONEY_COPY } from "./copy";
 import { cardAction, day, joinHref, stateLine, txUrl } from "./MembershipsPage";
 import { LIBRARY_PATHS } from "./paths";
@@ -178,14 +179,15 @@ export function CreatorSection({ handle }: { handle: string }) {
 
 /**
  * FL-7 (spec 2.2 item 5): when the fan is not a member and the creator takes members, one
- * From {creator} row with Join as an outline button. Rejoin when a membership ended.
+ * From {creator} row with Join as an outline button. Rejoin when a membership ended. The
+ * join sheet signs through the memberships checkout, so it waits on the checkout flag.
  */
 function JoinFromRow({ header }: { header: LibraryCreatorHeader }) {
   const navigate = useNavigate();
   const plan = header.status.plan;
   const membership = header.status.membership;
   const current = membership && membership.state !== "ended";
-  if (!plan || current) return null;
+  if (!plan || current || !isFeatureOn("checkout")) return null;
   return (
     <div
       className="mb-[13px] flex flex-wrap items-center gap-3 rounded-prism-13 p-3"
@@ -490,7 +492,8 @@ function BuyAction({ hint }: { hint: { amount: string; offerId?: string } }) {
     onSuccess: ({ payPath }) => navigate(payPath),
     onError: () => toast.add({ type: "error", title: MONEY.buyFailed }),
   });
-  if (!hint.offerId) return null;
+  // Checkout starts through the checkout router, so the button waits on its flag
+  if (!hint.offerId || !isFeatureOn("checkout")) return null;
   return (
     <button
       type="button"

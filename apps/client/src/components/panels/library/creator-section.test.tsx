@@ -13,6 +13,7 @@ import { MemoryRouter } from "react-router";
 import { QueryClient } from "@tanstack/react-query";
 import { renderWithProviders } from "@/test/utils";
 import { ACCESS_STAKE_DISCLOSURE, TESTNET_NOTICE } from "@repo/constants";
+import { setFeatureFlagOverridesForTests } from "../../../config/featureFlags";
 import { LIBRARY_COPY } from "./copy";
 
 const mocks = vi.hoisted(() => ({
@@ -168,6 +169,7 @@ function renderSection() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  setFeatureFlagOverridesForTests({ checkout: true });
   mocks.creator.mockResolvedValue(header());
   mocks.continue.mockResolvedValue({ items: [] });
   mocks.creatorItems.mockResolvedValue({ items: [item], nextCursor: null });
@@ -324,6 +326,41 @@ describe("creator section (row 181, board m4)", () => {
     fireEvent.click(await screen.findByRole("tab", { name: /Shop/ }));
     expect(await screen.findByText("Join Maya Lin's membership")).toBeTruthy();
     expect(screen.getByText("Inner circle, $5 USDC every 30 days")).toBeTruthy();
+  });
+
+  it("offers no Join and no Buy while the checkout flag is off", async () => {
+    setFeatureFlagOverridesForTests({ checkout: false });
+    mocks.creator.mockResolvedValue(
+      header({
+        status: {
+          membership: null,
+          purchases: { count: 0 },
+          follow: { showPublicly: false, emailUpdates: true },
+          plan: { name: "Inner circle", amountEvery30Days: "5000000" },
+        },
+      })
+    );
+    mocks.creatorItems.mockImplementation(async (input: { seg: string }) =>
+      input.seg === "shop"
+        ? {
+            items: [
+              {
+                ...item,
+                publicId: "buyabcdefgh12345",
+                title: "Paid track",
+                gate: { kind: "paid", summary: "Paid", stake: false },
+                unlockHint: { kind: "buy", amount: "$3 USDC", offerId: "0f".repeat(16) },
+              },
+            ],
+            nextCursor: null,
+          }
+        : { items: [item], nextCursor: null }
+    );
+    renderSection();
+    fireEvent.click(await screen.findByRole("tab", { name: /Shop/ }));
+    await screen.findByRole("article", { name: "Paid track, locked" });
+    expect(screen.queryByText("Join Maya Lin's membership")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Buy $3 USDC" })).toBeNull();
   });
 });
 
