@@ -289,3 +289,31 @@ describe("CORS", () => {
     expect(refused.status).toBe(403);
   });
 });
+
+describe("sandbox on every response (media host on amped.bio, spec 3.6)", () => {
+  const SANDBOX = "sandbox; default-src 'none'";
+  const locked = (response: Response) => [
+    response.headers.get("content-security-policy"),
+    response.headers.get("x-content-type-options"),
+  ];
+
+  it("carries the sandbox CSP and nosniff on 200, cache hits, 206, 403 and 405", async () => {
+    const key = `audio/${newPublicId()}/full.m4a`;
+    await put(key, "0123456789");
+    const url = await urlFor(key);
+    const first = await call(url);
+    await first.arrayBuffer();
+    const hit = await call(url);
+    await hit.arrayBuffer();
+    const partial = await call(url, { headers: { Range: "bytes=0-1" } });
+    await partial.arrayBuffer();
+    const refused = await call(`${ORIGIN}${pathForKey(key)}`);
+    const wrongMethod = await call(url, { method: "POST" });
+    for (const response of [first, hit, partial, refused, wrongMethod]) {
+      expect(locked(response)).toEqual([SANDBOX, "nosniff"]);
+    }
+    expect([first.status, hit.status, partial.status, refused.status, wrongMethod.status]).toEqual([
+      200, 200, 206, 403, 405,
+    ]);
+  });
+});

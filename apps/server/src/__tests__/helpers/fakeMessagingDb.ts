@@ -60,7 +60,10 @@ const RELATIONS: Record<string, Record<string, Rel>> = {
 };
 
 /** Single column unique keys checked on create (P2002), per model. */
-const UNIQUE: Record<string, string[]> = { conversation: ["pairKey"] };
+const UNIQUE: Record<string, string[]> = {
+  conversation: ["pairKey"],
+  notificationJob: ["dedupeKey"],
+};
 
 const COMPOSITE: Record<string, string[]> = {
   creatorUserId_fanUserId: ["creatorUserId", "fanUserId"],
@@ -134,7 +137,24 @@ const DEFAULTS: Record<string, () => Row> = {
     unsentAt: null,
     createdAt: new Date(),
   }),
-  notification: () => ({ count: 1, seenAt: null, readAt: null, createdAt: new Date() }),
+  notification: () => ({
+    count: 1,
+    seenAt: null,
+    refId: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  }),
+  notificationJob: () => ({
+    status: "PENDING",
+    attempts: 0,
+    runAfter: new Date(),
+    claimedAt: null,
+    doneAt: null,
+    error: null,
+    dedupeKey: null,
+    createdAt: new Date(),
+  }),
+  pushSubscription: () => ({ userAgent: null, failedAt: null, createdAt: new Date() }),
   telegramOutbox: () => ({ status: "PENDING", attempts: 0, createdAt: new Date() }),
   telegramGroup: () => ({
     ruleKind: "POOL_MEMBER",
@@ -365,6 +385,8 @@ export function createFakeDb() {
       create: async (args: Row) => {
         const row = { ...(DEFAULTS[model]?.() ?? {}), ...args.data };
         for (const field of UNIQUE[model] ?? []) {
+          // Like MySQL, a unique index allows any number of NULLs
+          if (row[field] === null || row[field] === undefined) continue;
           if (table(model).some(other => same(other[field], row[field]))) {
             throw new FakeKnownRequestError("P2002");
           }
@@ -378,6 +400,11 @@ export function createFakeDb() {
         }
         table(model).push(row);
         return withRelations(model, row);
+      },
+      createMany: async (args: Row) => {
+        const rows = (args.data as Row[]).map(data => ({ ...(DEFAULTS[model]?.() ?? {}), ...data }));
+        table(model).push(...rows);
+        return { count: rows.length };
       },
       update: async (args: Row) => {
         const row = table(model).find(r => matches(model, r, args.where));

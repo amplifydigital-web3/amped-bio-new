@@ -1,0 +1,47 @@
+/**
+ * Stream webhook router Worker (Build Board #20, single Cloudflare account).
+ *
+ * Stream allows one webhook per account, and staging and production share one
+ * account. This Worker is that webhook. It verifies the Stream signature, reads
+ * meta.env and forwards the event, re-signed, to the staging or production API.
+ * Handoff and setup: docs/fixes/single-account-usercontent.md.
+ *
+ * There is one deployment for the account, named `account`. The top level is the
+ * local configuration used by the tests and the build check. Deploy with:
+ *   pnpm --filter @repo/stream-webhook-router run deploy
+ * then set the account webhook to https://stream-hooks.amped.bio/cloudflare-stream.
+ *
+ * Vars and secrets are not inherited by environments. Each one repeats them.
+ */
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "amped-stream-webhook-router",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-01",
+  "workers_dev": false,
+  "preview_urls": false,
+  "observability": { "enabled": true },
+  "vars": {
+    "PRODUCTION_TARGET": "http://localhost:43000/webhooks/cloudflare-stream",
+    "STAGING_TARGET": "http://localhost:43001/webhooks/cloudflare-stream",
+  },
+  "secrets": {
+    "required": ["STREAM_WEBHOOK_SECRET", "PRODUCTION_FORWARD_SECRET", "STAGING_FORWARD_SECRET"],
+  },
+  "env": {
+    "account": {
+      "routes": [{ "pattern": "stream-hooks.amped.bio", "custom_domain": true }],
+      "vars": {
+        "PRODUCTION_TARGET": "https://api.amped.bio/webhooks/cloudflare-stream",
+        "STAGING_TARGET": "https://api.staging.amped.bio/webhooks/cloudflare-stream",
+      },
+      "secrets": {
+        "required": [
+          "STREAM_WEBHOOK_SECRET",
+          "PRODUCTION_FORWARD_SECRET",
+          "STAGING_FORWARD_SECRET",
+        ],
+      },
+    },
+  },
+}
