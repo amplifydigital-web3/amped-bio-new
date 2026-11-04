@@ -278,6 +278,7 @@ export function CreatorPage({
               colors={look.colors}
               paused={paused}
               entranceKey={entranceKey}
+              fontFamily={look.values.fontFamily}
             />
             {nameExtras}
           </h1>

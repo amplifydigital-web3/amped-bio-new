@@ -13,31 +13,41 @@ export interface FuzzyOptions {
   speed: number;
   width: number;
   height: number;
-  /** The text's left inset and baseline inside the canvas, in CSS px */
+  /** The text's left inset inside the canvas, in CSS px */
   x: number;
-  baseline: number;
+  /** Font metrics, so the baseline follows a resize */
+  ascent: number;
+  descent: number;
   align: CanvasTextAlign;
 }
 
 export function createFuzzy(options: FuzzyOptions, dpr: number) {
   const source = document.createElement("canvas");
   const pad = 12;
-  source.width = Math.ceil((options.width + pad * 2) * dpr);
-  source.height = Math.ceil(options.height * dpr);
-  const sctx = source.getContext("2d");
-  if (sctx) {
+  // Rasterizes the name for a box size. The engine calls resize() when the
+  // heading changes width, so the canvas never draws a stale layout.
+  const paint = (width: number, height: number) => {
+    source.width = Math.ceil((Math.max(1, width) + pad * 2) * dpr);
+    source.height = Math.ceil(Math.max(1, height) * dpr);
+    const sctx = source.getContext("2d");
+    if (!sctx) return;
     sctx.scale(dpr, dpr);
     sctx.font = options.font;
     sctx.fillStyle = options.color;
     sctx.textAlign = options.align;
     sctx.textBaseline = "alphabetic";
-    sctx.fillText(options.text, options.x + pad, options.baseline);
-  }
+    sctx.fillText(options.text, options.x + pad, (height + options.ascent - options.descent) / 2);
+  };
+  paint(options.width, options.height);
   const amount = (Math.max(0, Math.min(100, options.strength)) / 100) * 8;
   const rate = Math.max(0, options.speed) / 50;
   let tick = 0;
   return {
     pad,
+    /** The host changed size (CSS px): rasterize the name again. */
+    resize(width: number, height: number) {
+      paint(width - pad * 2, height);
+    },
     draw(ctx: CanvasRenderingContext2D, time: number) {
       ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
       // A new shift pattern about 30 times a second at Speed 50

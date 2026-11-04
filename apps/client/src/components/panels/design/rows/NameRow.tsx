@@ -120,6 +120,7 @@ function NameTileView({
                   text={profile.name || "Your name"}
                   colors={colors}
                   paused={still}
+                  fontFamily={values.fontFamily}
                 />
               </ShowcaseProvider>
             </span>
