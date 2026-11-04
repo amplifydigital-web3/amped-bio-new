@@ -1,3 +1,4 @@
+import { messageDoor } from "../services/messaging/messageDoor";
 import { publicProcedure, privateProcedure, router } from "./trpc";
 import { TRPCError } from "@trpc/server";
 import { getFileUrl } from "../utils/fileUrlResolver";
@@ -27,6 +28,7 @@ import { matchReserved } from "../services/reservedHandles";
 import { enforceRateLimits } from "../utils/rateLimit";
 import { getVisitorIp } from "../services/analytics/visitorIp";
 import { publicCardsFor } from "../services/content/publicView";
+import { publicBlocksFor } from "../services/access/blocks";
 import type { ContentBlockConfig, ContentCard } from "@repo/constants";
 
 export const SITEMAP_MAX_PAGE_SIZE = 10000;
@@ -216,6 +218,11 @@ const appRouter = router({
       const blockOptions = rnsIdBlockOptions(blockRows);
       const hasTelegramMessageBlock = blockRows.some(block => block.type === "telegram_message");
       const hasTelegramGroupBlock = blockRows.some(block => block.type === "telegram_group");
+      // Amped Messages (M6): the Message me block's door, read only when the page carries it
+      // (a telegram_message row not yet migrated by 20261103020000 counts too)
+      const hasMessageBlock = blockRows.some(
+        block => block.type === "message" || block.type === "telegram_message"
+      );
       // Content blocks (#20, spec 3.7): cards for the ids they hold, read once per page
       const contentIds = blockRows
         .filter(block => block.type === "content")
@@ -230,6 +237,7 @@ const appRouter = router({
         doorResult,
         groupDoorResult,
         contentResult,
+        messageDoorResult,
       ] = await Promise.allSettled([
         getPublicTheme(Number(theme_id)),
         getFileUrl({
@@ -256,21 +264,27 @@ const appRouter = router({
         contentIds.length && user.page_status === "PUBLISHED" && user.block === "no"
           ? publicCardsFor(user_id, contentIds)
           : Promise.resolve({} as Record<string, ContentCard>),
+        hasMessageBlock ? messageDoor(user_id) : Promise.resolve(null),
       ]);
 
       // The theme is the profile itself, so its failure is fatal
       if (themeResult.status === "rejected") throw themeResult.reason;
 
-      const publicBlocks = blockRows.map(block => ({
-        id: block.id,
-        user_id: block.user_id,
-        type: block.type,
-        order: block.order,
-        clicks: block.clicks,
-        config: sanitizeBlockConfig(block.type, block.config),
-        created_at: block.created_at,
-        updated_at: block.updated_at,
-      }));
+      // G3: gated link, media and text blocks leave as the locked DTO (or not at all
+      // while the accessGating flag is off). Never the URL, body or embed.
+      const publicBlocks = await publicBlocksFor(
+        blockRows.map(block => ({
+          id: block.id,
+          user_id: block.user_id,
+          type: block.type,
+          order: block.order,
+          clicks: block.clicks,
+          config: sanitizeBlockConfig(block.type, block.config),
+          created_at: block.created_at,
+          updated_at: block.updated_at,
+        })),
+        blockRows
+      );
 
       // Any failure shows no chip (fails closed)
       const identity: PublicRnsIdentity =
@@ -300,6 +314,8 @@ const appRouter = router({
           telegramDoor: doorResult.status === "fulfilled" ? doorResult.value : null,
           // Board tg13: open, the rule kind and the bot. Null without the block. Fails closed.
           telegramGroupDoor: groupDoorResult.status === "fulfilled" ? groupDoorResult.value : null,
+          // Amped Messages (M6): open and the rule kind, never an amount. Null without the block.
+          messageDoor: messageDoorResult.status === "fulfilled" ? messageDoorResult.value : null,
         },
         theme: themeResult.value,
         blocks: publicBlocks,

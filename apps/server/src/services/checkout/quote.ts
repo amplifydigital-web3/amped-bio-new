@@ -21,6 +21,7 @@ import {
   type ThemeConfig,
 } from "@repo/constants";
 import { getFileUrl } from "../../utils/fileUrlResolver";
+import { checkIdentity } from "../identity/checks";
 import { paymentSettings, type PaymentSettings } from "../payments/settings";
 import { paymentsReady } from "../payments/ready";
 import { effectiveStatus, hexToIntentId, intentIdToHex, notFound, resolveTarget } from "./intents";
@@ -85,6 +86,19 @@ export async function checkoutAmount(
   if (configured < min) return min;
   if (configured > max) return max;
   return configured;
+}
+
+/**
+ * Verified seller gate (identity checks 5.3, store catalog 1): the creator must hold a
+ * seller pass, Authbase verified plus an active RNS name bound to the same wallet the
+ * quote pays. This is the hard stop before a sale is quoted, so it runs fresh (spec 5.3):
+ * a revoked verification or a lost name stops the next quote, not one up to 24 hours
+ * later. checkIdentity never throws and fails closed: any fail reason, including
+ * "unavailable" when Authbase is down or not configured, refuses the quote.
+ */
+async function sellerPasses(creatorUserId: number): Promise<boolean> {
+  const result = await checkIdentity(creatorUserId, "seller", { fresh: true });
+  return result.pass;
 }
 
 /**
@@ -162,6 +176,7 @@ export async function quoteIntent(viewerUserId: number, idHex: string): Promise<
   if (settings.paymentsPaused) state = "paused";
   else if (!wallet || (settings.pilotOnly && !settings.pilotCreators.includes(handle)))
     state = "seller";
+  else if (!(await sellerPasses(resolved.creatorUserId))) state = "seller";
   else if (countedToday >= settings.purchasesPerDayPerAccount) state = "limit";
 
   return {

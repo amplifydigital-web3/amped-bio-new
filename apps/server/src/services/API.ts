@@ -7,11 +7,13 @@ import cookieParser from "cookie-parser";
 import { trpcMiddleware } from "../trpc/router";
 import wellKnownRouter from "../routes/well-known";
 import blocksSchemasRouter from "../routes/blocks-schemas";
+import messageEmailRouter from "../routes/messageEmail";
 import healthRouter from "../routes/health";
 import analyticsRouter from "../routes/analytics";
 import telegramRouter from "../routes/telegram";
 import telegramOidcRouter from "../routes/telegramOidc";
 import { contentCallbackRouter, contentJobRouter, streamWebhookRouter } from "../routes/content";
+import { goRouter } from "../routes/go";
 import onrampWebhookRouter from "../routes/onramp";
 
 import mcpRouter from "../routes/mcp";
@@ -83,6 +85,10 @@ const apiCors = cors({
   },
 });
 
+// Amped Messages (#2 r4, M4): turn off message reminder emails from the footer link. Mounted
+// before CORS: its form posts from the API host itself, which is not an app origin.
+app.use("/email", express.urlencoded({ extended: false, limit: "4kb" }), messageEmailRouter);
+
 app.use(apiCors);
 
 // Model Context Protocol endpoint bound to the protected resource published at
@@ -131,6 +137,8 @@ app.use("/trpc", trpcMiddleware as any);
 app.use("/.well-known", wellKnownRouter);
 app.use("/api/blocks/schemas", blocksSchemasRouter);
 app.use("/health", healthRouter);
+// Gated link redirect (access gating G3); reads the session cookie
+app.use("/go", goRouter);
 app.use("/api/analytics", analyticsRouter);
 // Log In with Telegram callback (Build Board #2). After cookieParser: it reads the session.
 app.use("/telegram", telegramOidcRouter);

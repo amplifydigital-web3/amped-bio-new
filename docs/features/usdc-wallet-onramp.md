@@ -44,8 +44,8 @@ Direction from Rob, 10 Oct: use Coinbase and Circle contracts and controls for h
 
 ### What ships
 
-1. **USDC in the wallet (#29).** Base beside Libertas Testnet in the wallet. Two balance tiles. Tokens, Activity, Receive with network chips and the Base notice, Fund with Deposit USDC, and Send with an asset chip row. USDC sends are gasless. Flag `VITE_USDC_WALLET`.
-2. **Buy USDC through Coinbase (#5).** Fund gains Buy USDC. One flow, two ways to pay: Apple Pay or Google Pay (no Coinbase account, US) and Pay with your Coinbase account (everywhere Coinbase operates except Japan). Coinbase quotes, charges, verifies and delivers. The wallet shows arrival. Flag `VITE_USDC_ONRAMP`.
+1. **USDC in the wallet (#29).** Base beside Libertas Testnet in the wallet. Two balance tiles. Tokens, Activity, Receive with network chips and the Base notice, Fund with Deposit USDC, and Send with an asset chip row. USDC sends are gasless. Feature flag `usdc` (site_settings; `VITE_USDC_WALLET` is only the fallback while no admin row is set).
+2. **Buy USDC through Coinbase (#5).** Fund gains Buy USDC. One flow, two ways to pay: Apple Pay or Google Pay (no Coinbase account, US) and Pay with your Coinbase account (everywhere Coinbase operates except Japan). Coinbase quotes, charges, verifies and delivers. The wallet shows arrival. Feature flag `onramp`, which needs `usdc` (site_settings; `VITE_USDC_ONRAMP` is only the fallback).
 
 ### Decisions (recommended, with alternatives; Rob to confirm on the board cards)
 
@@ -63,7 +63,7 @@ Direction from Rob, 10 Oct: use Coinbase and Circle contracts and controls for h
 
 ### Out of scope
 
-Off-ramp (#6). Paid items, memberships, AmpedPay, AmpedMemberships (memberships spec phases B and C). MoonPay. Bridge to Revolution (phase D). Native apps (the web flow is the build; the iOS and Android notes in 3.9 are for the Telegram Mini App and any future native shell).
+Off-ramp (#6). Paid items, memberships, AmpedPay, AmpedMemberships (memberships spec phases B and C). MoonPay. Bridge to Revolution (phase D). Native apps (the web flow is the build; the iOS and Android notes in 3.7 are for any future native shell).
 
 ## 3. Detailed spec
 
@@ -162,7 +162,7 @@ export const USDC_DECIMALS = 6;
 
 Server env: `PAYMENT_CHAIN`, `BASE_RPC_URL` (CDP Node RPC for Base, or the public endpoint on staging), `CDP_API_KEY_ID`, `CDP_API_KEY_SECRET`, `CDP_WALLET_SECRET`, `CDP_RELAYER_ACCOUNT` (the server wallet account name per environment), `CDP_ONRAMP_WEBHOOK_SECRET`, `ONRAMP_DOMAIN` (the allowlisted domain), `CIRCLE_API_KEY` (Compliance Engine, when granted), `CHAINALYSIS_ORACLE` (Base address of the sanctions oracle), `USDC_SEND_DAILY_COUNT=10`, `USDC_SEND_DAILY_UNITS=2000000000`, `ONRAMP_DATA_KEY` (for `OnrampUserAuth`).
 
-Client flags: `VITE_USDC_WALLET`, `VITE_USDC_ONRAMP`, `VITE_PAYMENT_CHAIN`.
+Client flags: the `usdc` and `onramp` feature flags in site_settings, read through `isFeatureOn` (`apps/client/src/config/usdc/flags.ts`); `VITE_USDC_WALLET` and `VITE_USDC_ONRAMP` are only the fallback. `VITE_PAYMENT_CHAIN` stays an environment value.
 
 Web3Auth: `chains` gains the Base entry (chainId 8453, or 84532 on staging). Default chain stays Libertas. The wallet switches chains per action: a USDC send calls `switchChain(PAYMENT_CHAIN)` before `signTypedData` and switches back after. Engineering gate: confirm the current Web3Auth SDK signs EIP-712 typed data on Base and switches chains without a reconnect.
 
@@ -236,7 +236,7 @@ Payment flow rule 1 holds: the flow opens from Wallet, Fund (route `/wallet?fund
 6. **Arrived** (o5). Shown only when `chainConfirmed` is true. The USDC tile and Activity update from the invalidated `wallet.balances`. Done, or Back to the item when `returnTo` is set.
 7. **Not completed** (o6). The 3.10 line, Try again (back to Amount), Done. Region not supported (from `onramp.options`) shows Deposit USDC instead of Try again.
 
-Mobile and the Telegram Mini App: the Apple Pay frame needs Safari or Chrome, not a WebView without passkeys, so inside the Mini App the Apple Pay lens is not rendered and the Coinbase account lens opens the system browser. Native shells later use SFSafariViewController or Chrome Custom Tabs per Coinbase's guidance.
+Mobile: the Apple Pay frame needs Safari or Chrome, not a WebView without passkeys. Social app browsers follow mobile checkout section 7 (the fan moves to Safari or Chrome first). There is no Telegram Mini App surface (Rob, 2 Nov: Amped Messages replaced Telegram). Build step (next USDC PR): remove the Telegram WebApp detection in `apps/client/src/components/panels/wallet/buy/BuyUsdcFlow.tsx` (lines 105 to 110 at 98db33f). Native shells later use SFSafariViewController or Chrome Custom Tabs per Coinbase's guidance.
 
 ### 3.8 Admin
 
@@ -248,8 +248,9 @@ Admin, Money (new tab under the existing admin rail): relayer account address an
 - **Custody.** Amped.Bio never holds fan funds or fiat. The relayer account holds ETH for gas only, in a Coinbase held key, and can only call the USDC contract. Counsel confirms this keeps Amped.Bio outside money transmission for the pilot states (memberships spec decision 2 covers the same question).
 - **Coinbase agreements.** The fan accepts Coinbase's Guest Checkout Terms, User Agreement and Privacy Policy before an Apple Pay or Google Pay order (the agreement line in o2). The Coinbase account path runs under the fan's own Coinbase agreement. Counsel reads the CDP Onramp terms and the Prohibited Use Policy against the adult content position: the ramp purchase carries no content, and Buy USDC is never conditioned on what the fan buys later (Rob, 8 Oct).
 - **Credit cards.** No Amped.Bio copy says credit card for US fans. The Coinbase account lens says debit card or bank in the US, debit or credit card in most other countries.
+- **Testnet line.** Wherever tREVO shows beside USDC (the tREVO tile, the Tokens row, the Testnet faucet and Deposit tREVO rows), the line is `TESTNET_NOTICE` from `packages/constants/src/testnet.ts`, verbatim. Never on a USDC surface. Build step (next USDC PR): `apps/client/src/components/panels/wallet/faucet/FaucetCard.tsx` line 23 replaces its own `TESTNET_LINE` literal with `TESTNET_NOTICE` (Full QA 2, CK-Q60).
 - **Screening.** Every send destination and every first use address is screened. A refusal is plain and final in the UI; the admin sees the vendor reference. No screening result is shown to the fan beyond the line.
-- **Privacy.** The Coinbase order carries the fan's wallet address, IP, the opaque `partnerUserRef`, and, in embedded mode, nothing else from us; Coinbase collects phone, email and identity in its own frame under its privacy policy, which the agreement line names. We store the `userAuthToken` encrypted, nothing else Coinbase collected. The Privacy Policy gains Coinbase (on-ramp), Circle (screening) and Chainalysis (screening) as recipients before `VITE_USDC_ONRAMP` turns on in production. `OnrampSession`, `UsdcSend` and `PaymentEvent` join the account export and deletion flow.
+- **Privacy.** The Coinbase order carries the fan's wallet address, IP, the opaque `partnerUserRef`, and, in embedded mode, nothing else from us; Coinbase collects phone, email and identity in its own frame under its privacy policy, which the agreement line names. We store the `userAuthToken` encrypted, nothing else Coinbase collected. The Privacy Policy gains Coinbase (on-ramp), Circle (screening) and Chainalysis (screening) as recipients before the `onramp` feature flag turns on in production. `OnrampSession`, `UsdcSend` and `PaymentEvent` join the account export and deletion flow.
 - **Strings** (for counsel with 083 D1):
   - Receive notice: Send only USDC on Base to this address. Other networks and tokens are lost.
   - Send fee line: Network fee: paid by Amped.Bio.
@@ -272,8 +273,8 @@ KPIs, 90 days after general availability (proposed): on-ramp completion 55% of o
 
 ### 3.11 Phases and build order
 
-- **A1, USDC in the wallet (#29), today.** `packages/web3` chains and USDC, Web3Auth Base entry and per action switching, `chain/base.ts`, `relayer.ts` with the CDP Server Wallet on Base Sepolia, `compliance/screen.ts` with the oracle (Circle when granted), `indexer.ts` with the poller (webhook when confirmed), `UsdcSend`, `PaymentEvent` kinds, `wallet.*` procedures, w1 to w7, Admin Money read only plus Pause USDC sends. Flag `VITE_USDC_WALLET`. Staging on Base Sepolia with Circle test USDC from the Circle faucet.
-- **A2, Buy USDC (#5), after A1 merges.** `OnrampSession`, `OnrampUserAuth`, `onramp.*` procedures, the webhook route and CDP subscription, o1 to o7, Admin Money on-ramp panel and Pause Buy USDC, Privacy Policy recipients. Flag `VITE_USDC_ONRAMP`. Staging through the Coinbase sandbox (`sandbox-` prefix, Apple Pay sandbox flag).
+- **A1, USDC in the wallet (#29), today.** `packages/web3` chains and USDC, Web3Auth Base entry and per action switching, `chain/base.ts`, `relayer.ts` with the CDP Server Wallet on Base Sepolia, `compliance/screen.ts` with the oracle (Circle when granted), `indexer.ts` with the poller (webhook when confirmed), `UsdcSend`, `PaymentEvent` kinds, `wallet.*` procedures, w1 to w7, Admin Money read only plus Pause USDC sends. Feature flag `usdc`. Staging on Base Sepolia with Circle test USDC from the Circle faucet.
+- **A2, Buy USDC (#5), after A1 merges.** `OnrampSession`, `OnrampUserAuth`, `onramp.*` procedures, the webhook route and CDP subscription, o1 to o7, Admin Money on-ramp panel and Pause Buy USDC, Privacy Policy recipients. Feature flag `onramp`. Staging through the Coinbase sandbox (`sandbox-` prefix, Apple Pay sandbox flag).
 - **D, later.** EIP-7702 plus CDP Paymaster to drop the ETH float, once Web3Auth confirms authorization signing. Base to Revolution route through Circle CCTP V2 or Gateway when USDC is on Revolution. MoonPay as the second provider for countries Coinbase does not serve.
 
 ### 3.12 Setup checklist (before the first staging deploy)
@@ -303,13 +304,13 @@ KPIs, 90 days after general availability (proposed): on-ramp completion 55% of o
 13. The webhook rejects a bad signature, is idempotent on replay, and never credits a balance by itself.
 14. Pause USDC sends and Pause Buy USDC stop the respective flows within one request with the paused lines.
 15. Compliance scan: no banned term, no stake, staking, pool or tREVO on USDC surfaces, no credit card in US copy, no dashes.
-16. Reduced motion, keyboard reachability and the 44 target rule hold on every new control. Contrast measured per section 16 of Prism 2.2. The Coinbase frame is reachable by keyboard and labeled.
+16. Reduced motion, keyboard reachability and the 44 target rule hold on every new control, tabs and the Review checkbox row included (no 43 or 24 exceptions). Contrast measured per section 16 of Prism 2.2. The Coinbase frame is reachable by keyboard and labeled.
 17. Typecheck and build pass for `server`, `client`, `landingpage`, `@repo/web3`, `@repo/constants` and `@repo/ui`. Tests: typed data builder, limits, screening (deny, allow, cache), relayer policy rejection, indexer idempotency and reorg, webhook signature and idempotency, status mapping, session and order request shapes, compliance scan.
 
 ### 3.14 Edits this spec makes to other specs
 
 - **Memberships spec (claude/amped-memberships-payments-spec-2026-10-08.md).** 3.4 relayer paragraph: the relayer is the CDP Server Wallet of this spec; AmpedPay and AmpedMemberships are added to its policy in phase B. 3.4 sanctions paragraph: screening per this spec's 3.4. 3.5: `wallet.*` and `onramp.*` rows are replaced by this spec's 3.5. 3.6 and 3.11 A1 and A2: replaced by this spec. 3.12 item 2: counsel reads the CDP Onramp terms and the Headless Onramp agreements. Decision 10: Coinbase, two paths.
-- **App structure v2.** D19 Wallet layout and D05 Send per 3.6. 051 D1: Buy USDC renders only when `VITE_USDC_ONRAMP` is on.
+- **App structure v2.** D19 Wallet layout and D05 Send per 3.6. 051 D1: Buy USDC renders only when the `onramp` feature flag is on.
 - **Privacy notice (#28 parameters, 095).** Recipients gain Coinbase, Circle and Chainalysis.
 - **Adult content (#28).** Unchanged: the on-ramp is content neutral and lives in Wallet only.
 
@@ -333,5 +334,7 @@ KPIs, 90 days after general availability (proposed): on-ramp completion 55% of o
 - Circle CCTP V2 (phase D route): https://developers.circle.com/cctp/migration-from-v1-to-v2
 
 ## Revision log
+
+- 2026-11-03: Full QA 2 (checkout group). Switches are the `usdc` and `onramp` site_settings feature flags. Telegram Mini App removed (no Telegram surfaces). Testnet line is `TESTNET_NOTICE` verbatim, with the FaucetCard build step. 44 targets with no exceptions. Boards w1 to w7 and o1 to o7 redrawn as Prism 2.2 HTML with 1440 and 390 frames.
 
 - 2026-10-10: First standalone spec for #29 and #5 on the Coinbase and Circle stack, per Rob's direction of 10 Oct. Replaces the wallet and on-ramp sections of the 8 Oct memberships spec. Boards w1 to w7 and o1 to o7 drawn for approval.

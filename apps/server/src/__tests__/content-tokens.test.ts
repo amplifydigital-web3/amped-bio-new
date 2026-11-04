@@ -173,9 +173,9 @@ describe("media gateway tokens", () => {
   });
 
   it("builds gateway URLs with an encoded path and token", () => {
-    expect(
-      mediaUrl("derived/abc/COVER/640", "v1.k1.a.b", "https://media.ampedusercontent.com/")
-    ).toBe("https://media.ampedusercontent.com/derived/abc/COVER/640?t=v1.k1.a.b");
+    expect(mediaUrl("derived/abc/COVER/640", "v1.k1.a.b", "https://usercontent.amped.bio/")).toBe(
+      "https://usercontent.amped.bio/derived/abc/COVER/640?t=v1.k1.a.b"
+    );
   });
 });
 
