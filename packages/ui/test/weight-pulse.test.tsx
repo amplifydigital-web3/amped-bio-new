@@ -76,11 +76,13 @@ describe("WeightPulseName", () => {
         Object.assign(new Event("pointermove"), { clientX: x, clientY: y, pointerType: "mouse" })
       );
     move(50, 10);
-    expect(span.style.fontVariationSettings).toBe('"wght" 900');
+    expect(span.style.fontWeight).toBe("900");
+    // The name face's own axes (wdth, opsz) stay inherited
+    expect(span.style.fontVariationSettings).toBe("");
     move(5000, 5000);
     expect(span.style.fontWeight).toBe("300");
     await act(async () => root.unmount());
-    expect(span.style.fontVariationSettings).toBe("");
+    expect(span.style.fontWeight).toBe("");
     vi.unstubAllGlobals();
   });
 });

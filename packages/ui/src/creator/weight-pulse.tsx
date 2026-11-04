@@ -56,8 +56,10 @@ export function WeightPulseName({
       if (!frame) {
         frame = requestAnimationFrame(() => {
           frame = 0;
+          // Only font-weight: it drives the wght axis on a variable face, and
+          // writing font-variation-settings here would replace the width and
+          // optical size axes the name face inherits from the heading.
           node.style.fontWeight = String(weight);
-          node.style.fontVariationSettings = `"wght" ${weight}`;
         });
       }
     };
@@ -66,7 +68,6 @@ export function WeightPulseName({
       window.removeEventListener("pointermove", move);
       if (frame) cancelAnimationFrame(frame);
       node.style.fontWeight = "";
-      node.style.fontVariationSettings = "";
     };
   }, [paused, reducedMotion, lightest, boldest]);
 
