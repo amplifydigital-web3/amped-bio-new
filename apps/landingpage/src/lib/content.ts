@@ -56,8 +56,9 @@ export function playerItemFromCard(
 
 /**
  * Up next for an item page (Fan Library FL-1): the creator's newest video and
- * audio from their public feed. The feed lists only items every visitor can
- * open, so each entry is openable; the player still checks canOpen.
+ * audio from their public feed. With gating on, the feed also lists locked
+ * items (a card with a `gate`); those are never openable from up next, so
+ * autoplay and the queue skip them. The server still refuses a locked read.
  */
 export async function fetchUpNext(
   creator: { handle: string; name: string | null },
@@ -69,7 +70,7 @@ export async function fetchUpNext(
     .map(card => ({
       item: playerItemFromCard(card, creator),
       resolve: resolverFor(card.publicId),
-      canOpen: true,
+      canOpen: !card.gate,
     }));
 }
 
