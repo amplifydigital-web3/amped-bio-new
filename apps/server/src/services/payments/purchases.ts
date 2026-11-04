@@ -218,7 +218,13 @@ export async function preparePurchase(
       select: { id: true },
     }),
     prisma.purchase.findFirst({
-      where: { buyerUserId: userId, checkoutIntentId: intent.id, status: { in: [...IN_FLIGHT] } },
+      // Any intent for the same item: two tabs or devices must not pay twice
+      where: {
+        buyerUserId: userId,
+        targetType: intent.targetType,
+        targetId: intent.targetId,
+        status: { in: [...IN_FLIGHT] },
+      },
       select: { id: true },
     }),
   ]);
@@ -487,8 +493,9 @@ export async function submitPurchase(
     return { refused: true, reason: "paused" };
   }
   if (await overDailyLimits(userId, row.amount, now)) {
-    await prisma.purchase.update({
-      where: { id: row.id },
+    // Only a row still prepared: a concurrent tap may have claimed it already
+    await prisma.purchase.updateMany({
+      where: { id: row.id, status: "prepared" },
       data: { status: "failed", failureCode: "limit" },
     });
     return { refused: true, reason: "limit" };
@@ -526,6 +533,32 @@ export async function submitPurchase(
   });
   if (claimed.count === 0)
     return { refused: false, purchaseId, status: "submitting", txHash: null };
+
+  // A second purchase of the same item (another tab or device prepared one too) must not
+  // pay. Checked after the claim, so of two concurrent submits at least one sees the other;
+  // when both do, both step back and nothing is charged.
+  const other = await prisma.purchase.findFirst({
+    where: {
+      id: { not: row.id },
+      buyerUserId: userId,
+      targetType: row.targetType,
+      targetId: row.targetId,
+      status: { in: [...IN_FLIGHT, ...PURCHASE_ACCESS_STATUSES] },
+    },
+    select: { id: true, status: true },
+  });
+  if (other) {
+    await prisma.purchase.updateMany({
+      where: { id: row.id, status: "submitting" },
+      data: { status: "failed", failureCode: "duplicate" },
+    });
+    const owned = (PURCHASE_ACCESS_STATUSES as readonly string[]).includes(other.status);
+    return {
+      refused: true,
+      reason: owned ? "owned" : "in_progress",
+      purchaseId: purchaseIdToHex(other.id),
+    };
+  }
 
   let txHash: Hex;
   try {
@@ -730,7 +763,10 @@ export async function settlePurchase(
       }
     } else if (
       status === "submitted" &&
-      now.getTime() - row.updatedAt.getTime() > DROPPED_AFTER_MS
+      now.getTime() - row.updatedAt.getTime() > DROPPED_AFTER_MS &&
+      // Until validBefore the transaction can still land; reopening the intent earlier would
+      // let the fan pay a second time
+      BigInt(Math.floor(now.getTime() / 1000)) > splitOf(row).split.validBefore
     ) {
       const moved = await prisma.purchase.updateMany({
         where: { id: row.id, status: "submitted" },

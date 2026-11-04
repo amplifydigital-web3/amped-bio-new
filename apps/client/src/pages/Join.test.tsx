@@ -180,6 +180,35 @@ describe("JoinPage (MB-2)", () => {
     });
   });
 
+  it("says the join is still confirming when the chain is slow, not that nothing was taken", async () => {
+    mocks.plan.mockResolvedValue(plan());
+    mocks.prepare.mockResolvedValue(prepared);
+    mocks.sign
+      .mockResolvedValueOnce(`0x${"aa".repeat(65)}`)
+      .mockResolvedValueOnce(`0x${"bb".repeat(65)}`);
+    mocks.submit.mockResolvedValue({
+      refused: false,
+      membershipId: ID,
+      status: "joining",
+      txHash: null,
+    });
+    mocks.status.mockResolvedValue({ status: "joining", accessUntil: null, inFlight: true });
+    renderJoin();
+    fireEvent.click(await screen.findByRole("checkbox"));
+    vi.useFakeTimers();
+    try {
+      fireEvent.click(screen.getByRole("button", { name: "Join for $5 USDC" }));
+      await vi.advanceTimersByTimeAsync(31_000);
+    } finally {
+      vi.useRealTimers();
+    }
+    expect(
+      await screen.findByText(/Your join is still confirming\. It will show in your Library/)
+    ).toBeTruthy();
+    expect(screen.queryByText(/Nothing left your wallet/)).toBeNull();
+    expect(mocks.status).toHaveBeenCalled();
+  });
+
   it("offers Add USDC when the wallet is short", async () => {
     mocks.plan.mockResolvedValue(plan());
     mocks.prepare.mockResolvedValue({

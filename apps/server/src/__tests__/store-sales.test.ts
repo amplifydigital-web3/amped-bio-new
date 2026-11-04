@@ -103,6 +103,7 @@ function sale(extra: Record<string, unknown> = {}) {
       ],
     },
     status: "confirmed",
+    chainId: 84532,
     txHash: "0xabc",
     softConfirmedAt: new Date("2026-11-01T12:00:00Z"),
     confirmedAt: new Date("2026-11-01T12:05:00Z"),
@@ -160,6 +161,14 @@ describe("Sales list (board k2a)", () => {
     db.purchase.findMany
       .mockResolvedValueOnce([sale({ softConfirmedAt: new Date("2026-09-01T00:00:00Z") })])
       .mockResolvedValueOnce([]);
+    const page = await listSales(MAYA, undefined, NOW);
+    expect(page.rows[0]!.refundable).toBe(false);
+  });
+
+  it("leaves a sale paid on another chain unrefundable, since there is no payment here (C10)", async () => {
+    db.purchase.findMany
+      .mockResolvedValueOnce([sale({ chainId: 1 })])
+      .mockResolvedValueOnce([sale({ chainId: 1 })]);
     const page = await listSales(MAYA, undefined, NOW);
     expect(page.rows[0]!.refundable).toBe(false);
   });
@@ -268,6 +277,21 @@ describe("Refund (board k2b)", () => {
     chain.balance = 100_000_000n;
     db.userWallet.findUnique.mockResolvedValue({ address: other.address });
     expect(await prepareRefund(MAYA, id, NOW)).toEqual({ refused: true, reason: "wallet_changed" });
+  });
+
+  it("refuses a sale paid on another chain: the refund would have no payment here (C10)", async () => {
+    db.purchase.findUnique.mockResolvedValue(sale({ chainId: 1 }));
+    expect(await prepareRefund(MAYA, id, NOW)).toEqual({ refused: true, reason: "not_refundable" });
+
+    // Signatures prepared elsewhere must not reach the relayer either
+    db.purchase.findUnique.mockResolvedValue(sale());
+    const signed = await signRefund(await prepareRefund(MAYA, id, NOW));
+    db.purchase.findUnique.mockResolvedValue(sale({ chainId: 1 }));
+    expect(await submitRefund(MAYA, signed, NOW)).toEqual({
+      refused: true,
+      reason: "not_refundable",
+    });
+    expect(chain.relayer).not.toHaveBeenCalled();
   });
 
   it("sends a signed refund once, through the relayer, with both signatures", async () => {
