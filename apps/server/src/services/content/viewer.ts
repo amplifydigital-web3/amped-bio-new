@@ -9,7 +9,7 @@ import { prisma } from "@repo/database";
 import type { Request } from "express";
 import { hitRateLimit } from "../../utils/rateLimit";
 import { getVisitorIp } from "../analytics/visitorIp";
-import { isPublicItem, openDecision, servedAssetsClean } from "./access";
+import { isPublicItem, openDecision, ownerCanOpen, servedAssetsClean } from "./access";
 import type { DeliveryAccess } from "./delivery";
 
 export const VIEWER_MESSAGES = {
@@ -59,4 +59,25 @@ export async function loadItemForViewer(publicId: string, userId: number | null)
   // An owner previewing their own public item gets the public lifetimes
   const access: DeliveryAccess = isPublicItem(item, item.user) ? "public" : "private";
   return { item, assets, decision, access };
+}
+
+/**
+ * The item and its assets for a reveal the gating engine already passed
+ * (content gating 3.3). Keeps the READY and scan checks; the access step is the
+ * engine's decision. Gated items always sign with the private lifetimes.
+ */
+export async function loadItemForReveal(publicId: string) {
+  const item = await prisma.contentItem.findUnique({
+    where: { publicId },
+    include: { user: { select: { page_status: true, block: true, handle: true, name: true } } },
+  });
+  if (!item || !ownerCanOpen(item)) {
+    throw new TRPCError({ code: "NOT_FOUND", message: VIEWER_MESSAGES.notFound });
+  }
+  const assets = await prisma.contentAsset.findMany({ where: { contentItemId: item.id } });
+  if (!servedAssetsClean(assets)) {
+    throw new TRPCError({ code: "NOT_FOUND", message: VIEWER_MESSAGES.notFound });
+  }
+  const access: DeliveryAccess = isPublicItem(item, item.user) ? "public" : "private";
+  return { item, assets, access };
 }

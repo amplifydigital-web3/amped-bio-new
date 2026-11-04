@@ -136,7 +136,7 @@ const db = vi.hoisted(() => {
       return rows.map(v => pick(v, select));
     }),
     create: vi.fn(async ({ data }: Row) => {
-      const row = { id: state.nextVersion++, createdAt: new Date(), ...data };
+      const row = { createdAt: new Date(), ...data };
       state.versions.push(row);
       return row;
     }),

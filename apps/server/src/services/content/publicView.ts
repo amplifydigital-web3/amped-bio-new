@@ -2,9 +2,12 @@
  * Public reads for content (Build Board #20, spec 3.7 and 3.10, PR 6): the cards
  * a content block shows, the creator feed page, the item page, and the sitemap.
  *
- * Every read goes through PUBLIC_ITEM_WHERE and PUBLIC_CREATOR_WHERE, so a
- * draft, a held or blocked item, a gated item, an 18+ item, a deleted item or a
- * suspended page never appears. Items with a served asset that has not passed
+ * Every read goes through PUBLIC_CREATOR_WHERE and, for cards, the feed and the
+ * item page, listedItemWhere(): PUBLIC_ITEM_WHERE while the accessGating flag is
+ * off, LISTED_ITEM_WHERE when it is on (content gating 3.2). A draft, a held or
+ * blocked item, an 18+ item, a deleted item or a suspended page never appears;
+ * a gated item appears locked, with the blur cover and its rule summary only.
+ * The sitemap and hasPublicContent keep PUBLIC_ITEM_WHERE. Items with a served asset that has not passed
  * its scan are skipped as well. Outputs carry no email, wallet or numeric id.
  */
 import { prisma, type ContentAsset, type ContentItem } from "@repo/database";
@@ -17,7 +20,8 @@ import {
 } from "@repo/constants";
 import { getFileUrl } from "../../utils/fileUrlResolver";
 import { PUBLIC_CREATOR_WHERE, PUBLIC_ITEM_WHERE, servedAssetsClean } from "./access";
-import { buildCard, CARD_ASSET_ROLES } from "./delivery";
+import { buildCard, buildLockedCard, CARD_ASSET_ROLES } from "./delivery";
+import { gatesFor, listedItemWhere } from "./gate";
 import { toDbKind } from "./ids";
 
 export interface PublicCreator {
@@ -86,6 +90,22 @@ async function assetsByItem(itemIds: Uint8Array[], roles?: readonly string[]) {
 
 const hex = (id: Uint8Array) => Buffer.from(id).toString("hex");
 
+/** Gates for the items that carry a rule. Empty while every item is public. */
+async function gatesOf(items: ContentItem[]) {
+  return gatesFor(items.flatMap(item => (item.accessRuleId ? [item.accessRuleId] : [])));
+}
+
+/** The open card, or the locked one for a gated item. */
+function cardFor(
+  item: ContentItem,
+  rows: AssetRow[],
+  gates: Map<string, NonNullable<ContentCard["gate"]>>,
+  now: Date
+): ContentCard {
+  const gate = item.accessRuleId ? gates.get(hex(item.accessRuleId)) : undefined;
+  return gate ? buildLockedCard(item, rows, gate, now) : buildCard(item, rows, now);
+}
+
 /**
  * Cards for a page's content blocks, keyed by publicId. Ids that are not the
  * creator's public items are left out, so a block skips them (spec 3.7).
@@ -105,17 +125,20 @@ export async function publicCardsFor(
     const chunk = unique.slice(start, start + CARD_LOOKUP_CHUNK);
     items.push(
       ...(await prisma.contentItem.findMany({
-        where: { userId, publicId: { in: chunk }, ...PUBLIC_ITEM_WHERE },
+        where: { userId, publicId: { in: chunk }, ...listedItemWhere() },
       }))
     );
   }
   // Every asset, so a dirty one keeps the item off the page
-  const assets = await assetsByItem(items.map(item => item.id));
+  const [assets, gates] = await Promise.all([
+    assetsByItem(items.map(item => item.id)),
+    gatesOf(items),
+  ]);
   const cards: Record<string, ContentCard> = {};
   for (const item of items) {
     const rows = assets.get(hex(item.id)) ?? [];
     if (!servedAssetsClean(rows)) continue;
-    cards[item.publicId] = buildCard(item, rows, now);
+    cards[item.publicId] = cardFor(item, rows, gates, now);
   }
   return cards;
 }
@@ -128,7 +151,7 @@ export async function hasPublicContent(userId: number): Promise<boolean> {
   return count > 0;
 }
 
-/** The creator feed page: public items, newest first (spec 3.7, board cs6). */
+/** The creator feed page: listed items, newest first (spec 3.7, board cs6). */
 export async function publicFeed(
   creator: PublicCreator,
   options: { kind?: ContentUploadKind; cursor?: string; limit: number },
@@ -145,7 +168,7 @@ export async function publicFeed(
   const items: ContentItem[] = await prisma.contentItem.findMany({
     where: {
       userId: creator.id,
-      ...PUBLIC_ITEM_WHERE,
+      ...listedItemWhere(),
       ...(options.kind ? { kind: toDbKind(options.kind) } : {}),
     },
     orderBy: [{ publishedAt: "desc" }, { id: "desc" }],
@@ -153,15 +176,19 @@ export async function publicFeed(
     take: options.limit + 1,
   });
   const page = items.slice(0, options.limit);
-  const assets = await assetsByItem(page.map(item => item.id));
+  const [assets, gates] = await Promise.all([
+    assetsByItem(page.map(item => item.id)),
+    gatesOf(page),
+  ]);
   const cards = page
     .filter(item => servedAssetsClean(assets.get(hex(item.id)) ?? []))
     .map(item =>
-      buildCard(
+      cardFor(
         item,
         (assets.get(hex(item.id)) ?? []).filter(row =>
           (CARD_ASSET_ROLES as readonly string[]).includes(row.role)
         ),
+        gates,
         now
       )
     );
@@ -172,18 +199,33 @@ export async function publicFeed(
   };
 }
 
-/** The item page: one public item of this creator, or null (spec 3.7). */
+/**
+ * The item page: one listed item of this creator, or null (spec 3.7). A gated
+ * item comes back locked: no description, chapters, captions or format.
+ */
 export async function publicItem(
   creator: PublicCreator,
   publicId: string,
   now: Date = new Date()
 ): Promise<ContentPublicItem | null> {
   const item = await prisma.contentItem.findFirst({
-    where: { publicId, userId: creator.id, ...PUBLIC_ITEM_WHERE },
+    where: { publicId, userId: creator.id, ...listedItemWhere() },
   });
   if (!item) return null;
   const rows = (await assetsByItem([item.id])).get(hex(item.id)) ?? [];
   if (!servedAssetsClean(rows)) return null;
+  const creatorView = { handle: creator.handle, name: creator.name, image: creator.image };
+  if (item.accessRuleId) {
+    const gates = await gatesOf([item]);
+    return {
+      ...cardFor(item, rows, gates, now),
+      description: null,
+      chapters: [],
+      captionLangs: [],
+      documentFormat: null,
+      creator: creatorView,
+    };
+  }
   const chapters = Array.isArray(item.chapters)
     ? (item.chapters as Array<{ startMs?: unknown; title?: unknown }>)
         .filter(
@@ -209,7 +251,7 @@ export async function publicItem(
     chapters,
     captionLangs,
     documentFormat,
-    creator: { handle: creator.handle, name: creator.name, image: creator.image },
+    creator: creatorView,
   };
 }
 
