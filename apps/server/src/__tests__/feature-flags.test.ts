@@ -73,6 +73,19 @@ describe("isFeatureOn", () => {
     expect(db.rows.has("feature_flag.checkout")).toBe(false);
     expect(isFeatureOn("checkout")).toBe(true);
   });
+
+  it("reads the telegram group and Mini App fallbacks from the server environment", () => {
+    env.TELEGRAM_GROUPS = false;
+    env.TELEGRAM_MINIAPP = false;
+    expect(isFeatureOn("telegramGroups")).toBe(false);
+    expect(isFeatureOn("telegramMiniApp")).toBe(false);
+    env.TELEGRAM_GROUPS = true;
+    env.TELEGRAM_MINIAPP = true;
+    expect(isFeatureOn("telegramGroups")).toBe(true);
+    expect(isFeatureOn("telegramMiniApp")).toBe(true);
+    env.TELEGRAM_GROUPS = false;
+    env.TELEGRAM_MINIAPP = false;
+  });
 });
 
 describe("refreshFeatureFlags", () => {
