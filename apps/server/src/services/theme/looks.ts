@@ -1,6 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { prisma } from "@repo/database";
 import { isThemeConfigV2 } from "@repo/constants";
+import { uuidv7 } from "../../utils/uuid-v7";
 
 /**
  * Theme Engine v2 TE-4a (spec 3.9, decision 7): a creator's saved looks and
@@ -89,7 +90,9 @@ export async function recordVersion(
       data: { config: data, createdAt: now },
     });
   } else {
-    await prisma.themeVersion.create({ data: { themeId, config: data, createdAt: now } });
+    await prisma.themeVersion.create({
+      data: { id: uuidv7(), themeId, config: data, createdAt: now },
+    });
   }
   const stale = await prisma.themeVersion.findMany({
     where: { themeId },
