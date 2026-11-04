@@ -348,6 +348,21 @@ describe("syncEdge (4.3 to 4.5)", () => {
     expect(item.edgeDirtyAt).not.toBeNull();
   });
 
+  it("marks the item again when a newer sync cleared the mark during its write", async () => {
+    const item = seed({ edgeState: "OPEN", publishState: "DRAFT" });
+    // Another worker applies a newer mark and clears it while this write is in flight
+    edge.putTakedownKey.mockImplementationOnce(async (key: string, value: string) => {
+      edge.kv.set(key, value);
+      item.edgeDirtyAt = null;
+    });
+    await syncEdge([item.publicId]);
+    expect(item).toMatchObject({ edgeState: "PRIVATE" });
+    expect(item.edgeDirtyAt).not.toBeNull();
+    // The next pass sees the state the edge holds and clears the mark
+    await syncEdge([item.publicId]);
+    expect(item.edgeDirtyAt).toBeNull();
+  });
+
   it("uses the bulk endpoints above 20 items", async () => {
     const ids = Array.from(
       { length: EDGE_BULK_THRESHOLD + 1 },

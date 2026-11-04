@@ -231,9 +231,13 @@ async function recordSuccess(item: SyncItem, state: ContentEdgeState): Promise<v
     data: { edgeState: state, edgeDirtyAt: null, edgeAttempts: 0, edgeError: null },
   });
   if (cleared.count === 0) {
+    // Another write marked the item again, or a newer sync cleared its own mark,
+    // while this one was in flight. Record what the edge holds and mark it again,
+    // so the latest desired state is applied on the next pass instead of waiting
+    // for the daily reconcile
     await prisma.contentItem.update({
       where: { id: item.id },
-      data: { edgeState: state, edgeAttempts: 0, edgeError: null },
+      data: { edgeState: state, edgeAttempts: 0, edgeError: null, ...edgeDirty() },
     });
   }
 }
