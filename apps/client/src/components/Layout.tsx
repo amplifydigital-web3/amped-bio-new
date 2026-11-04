@@ -5,6 +5,9 @@ import { useEditor } from "../contexts/EditorContext";
 import { MyPoolDestination } from "./panels/broadcast/MyPoolDestination";
 import { InboxPanel } from "./panels/broadcast/InboxPanel";
 import { INBOX_ON } from "./panels/broadcast/utils";
+import { MessagesInbox } from "./panels/inbox/MessagesInbox";
+import { MessagesRealtime } from "./panels/inbox/realtime";
+import { MESSAGES_V2 } from "./panels/inbox/flags";
 import { TelegramWizard } from "./panels/messages/TelegramWizard";
 import { MESSAGES_ON } from "./panels/messages/shared";
 import { RNSPanel } from "./panels/rns/RNSPanel";
@@ -80,6 +83,8 @@ function ActivePanel({ panel }: { panel: EditorPanelType }) {
     case "my-pool":
       return <MyPoolDestination />;
     case "inbox":
+      // Amped Messages (#2 r4, M5) replaces the Telegram era inbox behind the messages feature flag
+      if (MESSAGES_V2) return <MessagesInbox />;
       return INBOX_ON ? <InboxPanel /> : null;
     case "account":
       return <AccountPanel />;
@@ -133,6 +138,7 @@ export function Layout({ bannerData, bannerLoading }: LayoutProps) {
       <div className="prism-room prism-font min-h-dvh text-prism-ink">
         <Rail />
         <MobileTopBar />
+        {MESSAGES_V2 && <MessagesRealtime />}
 
         <div className="flex gap-[21px] px-[13px] pb-[calc(114px+env(safe-area-inset-bottom,0px))] pt-[13px] md:pb-[21px] md:pl-[131px] md:pr-[21px] md:pt-[21px]">
           {/* Context field */}
