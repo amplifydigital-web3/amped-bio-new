@@ -140,6 +140,34 @@ Supersedes the text named at the top of this file. Source: findings ST-Q1 to ST-
 8. The Over 18 sheet and every 18+ product page show `ALABAMA_HEALTH_WARNINGS` and `SAMHSA_HELPLINE_NOTICE` byte for byte, at 16 or larger, never collapsed (interim, AD-D1).
 9. No pay sheet seller line contains "discretion" or "Payments are final" (CK-D1).
 
+## 8. As built in C9 (3 Nov)
+
+PR `feat/store-catalog`, stacked on C8 (#442). Migration `20261103030000_store_catalog`.
+
+Built:
+
+- `StoreSettings`, `Offer`, `OfferItem`, `StorePolicyVersion`. `store` router: `settings.get`, `settings.update`, `acceptTerms`, `setLive`, `feePreview`, `products.list`, `products.upsert`, `products.setStatus`, `products.reorder`, `policy.get`, `policy.saveDraft`, `policy.preview`, `policy.publish`, and the public `store.public`, `store.product`, `store.publicPolicy`.
+- Go live: the seven steps of section 2, enforced again by `store.setLive` with a fresh seller check. Step 7 is the `adultSetupStep` stub (store policy 3.5).
+- Activate: fresh seller check and a published store policy; `seller` refusals carry the identity reason.
+- Store policy: standard template (Part B, sentence for sentence) or own text with the link detector and the confirmations; 10 publishes a day; past versions to the owner.
+- `storeSales` feature flag (public scope, default off). While it is off, or before go live, only the owner sees the store, through `?preview=1`.
+- Checkout targets gain `offer`: the quote takes the product's amount; Open goes to the product page.
+- Landing: `/{handle}/store`, `/{handle}/store/{slug}`, `/{handle}/store/policy`. Client: Content, Store with Storefront, Products, Membership, Sales and Policy.
+- `scripts/check-compliance-copy.ts` scans `STORE_COPY` and `REFUND_SUMMARY` (acceptance 5).
+
+Changed from the text above, for Rob:
+
+- Seller terms acceptance is `StoreSettings.sellerTermsAcceptedAt` until MB-1 adds `User.payment_terms_accepted_at`.
+- A product's cover is an item's cover image (`Offer.coverItemId`). An image item shows its blur, so the store never serves the image itself. Uploading a product cover and the store banner come later.
+- 18+ products are refused (`item_adult`) until A1 and R4. So the store shows no Adult items card and no Alabama or SAMHSA text yet.
+
+Not in C9, each with its owner:
+
+- The store block (st10) and `store.listForBio`: next store PR.
+- Writing the paid rule onto product items: G4 (the `paid` kind).
+- The seller check in the quote and `pay.prepare` (ST-Q50): #444 and PAY-2 (#449).
+- Report store, Membership tab content (MB-1), Sales and refunds (C10), the policy sheet on the pay sheet (CK-5), the agency draft notice (#38).
+
 ## For counsel
 
 1. AD-D1: whether Alabama Act 2024 HB 164 Section 9 applies to Amped (adult website threshold, Section 2) and where the warnings and helpline must show. The interim text ships until counsel answers in writing.

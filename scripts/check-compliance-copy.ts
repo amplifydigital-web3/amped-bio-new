@@ -34,6 +34,11 @@ import {
   collectMessageCopy,
   collectTelegramCopy,
   findBannedTerms,
+  REFUND_SUMMARY,
+  STORE_COPY,
+  STORE_SALES_COPY,
+  MEMBERSHIP_COPY,
+  STORE_REPORT_LABELS,
 } from "../packages/constants/src/index";
 
 type Hit = { text: string; phrase: string; rule: string };
@@ -91,6 +96,37 @@ export function checkGatingCopy(all: string[], stakeGate: string[]): Hit[] {
   for (const text of stakeGate) {
     for (const phrase of findComplianceTerms(text, ACCESS_BANNED_TERMS)) {
       hits.push({ text, phrase, rule: "gating:stake" });
+    }
+  }
+  return hits;
+}
+
+/**
+ * Store surfaces (C9, store-catalog.md acceptance 5): the content rules, no dashes, no stake words,
+ * and never "Yours to keep", "a month", "monthly" or the word price.
+ */
+const STORE_RETIRED = [
+  "yours to keep",
+  "a month",
+  "monthly",
+  "price",
+  "stake",
+  "staking",
+  "pool",
+  "trevo",
+];
+
+export function checkStoreCopy(all: string[]): Hit[] {
+  const hits: Hit[] = [];
+  for (const text of all) {
+    for (const phrase of findComplianceTerms(text, CONTENT_BANNED_TERMS)) {
+      hits.push({ text, phrase, rule: "store:content" });
+    }
+    if (DASHES.test(text)) hits.push({ text, phrase: "dash", rule: "store:dash" });
+    const lower = text.toLowerCase();
+    for (const phrase of STORE_RETIRED) {
+      if (new RegExp(`\\b${phrase}\\b`).test(lower))
+        hits.push({ text, phrase, rule: "store:retired" });
     }
   }
   return hits;
@@ -191,7 +227,17 @@ async function main() {
   ]);
   const gating = await gatingCopy();
   const gatingOk = report("content gating", "content gating copy", gating.all, gating.hits);
-  if (!telegramOk || !effectsOk || !messagesOk || !gatingOk) process.exit(1);
+  const store = [
+    ...strings(STORE_COPY),
+    ...Object.values(REFUND_SUMMARY),
+    // C10: Sales, refunds and Report store
+    ...strings(STORE_SALES_COPY),
+    ...Object.values(STORE_REPORT_LABELS),
+    // MB-1: renewal reminders and member states
+    ...strings(MEMBERSHIP_COPY),
+  ];
+  const storeOk = report("store", "packages/constants/src/store.ts", store, checkStoreCopy(store));
+  if (!telegramOk || !effectsOk || !messagesOk || !gatingOk || !storeOk) process.exit(1);
 }
 
 const invokedDirectly =

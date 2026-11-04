@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router";
 import { Bell, Megaphone } from "lucide-react";
-import { MESSAGE_UI } from "@repo/constants";
+import { MEMBERSHIP_COPY, MESSAGE_UI } from "@repo/constants";
 import {
   BottomSheet,
   BottomSheetContent,
@@ -157,6 +157,10 @@ function BellList({ open, onNavigate }: { open: boolean; onNavigate: () => void 
         ? LIBRARY_PATHS.item(handle, item.content.publicId)
         : LIBRARY_PATHS.creator(handle);
     }
+    if (item.kind === "MEMBERSHIP_RENEWAL") {
+      // MB-1 (CK-D3): Wallet, Buy USDC, prefilled with the charge
+      return `/wallet?fund=usdc${item.renewal ? `&need=${item.renewal.need}` : ""}&returnTo=${encodeURIComponent("/library/memberships")}`;
+    }
     return item.kind === "BROADCAST"
       ? `/inbox?tab=broadcast${item.broadcastId ? `&b=${item.broadcastId}` : ""}`
       : `/inbox?tab=${item.kind === "REQUEST" ? "requests" : "primary"}&c=${item.conversationId}`;
@@ -168,11 +172,15 @@ function BellList({ open, onNavigate }: { open: boolean; onNavigate: () => void 
         const text =
           item.kind === "CONTENT"
             ? B.content(handle, item.count, item.content?.title ?? null)
-            : item.kind === "BROADCAST"
-              ? B.broadcast(handle)
-              : item.kind === "REQUEST"
-                ? B.request(handle)
-                : B.message(handle, item.count);
+            : item.kind === "MEMBERSHIP_RENEWAL"
+              ? item.renewal?.graceDay
+                ? MEMBERSHIP_COPY.bell.pastDue(handle, item.renewal.graceDay)
+                : MEMBERSHIP_COPY.bell.notReady(handle)
+              : item.kind === "BROADCAST"
+                ? B.broadcast(handle)
+                : item.kind === "REQUEST"
+                  ? B.request(handle)
+                  : B.message(handle, item.count);
         return (
           <li key={item.id}>
             <button

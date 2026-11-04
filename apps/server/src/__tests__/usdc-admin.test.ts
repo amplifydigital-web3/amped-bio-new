@@ -51,6 +51,7 @@ const relayer = {
   address: vi.fn(async () => RELAYER),
   gas: vi.fn(async () => gasState(parseEther("0.2"))),
   submit: vi.fn(),
+  call: vi.fn(),
 } satisfies Relayer;
 
 beforeEach(() => {
