@@ -304,6 +304,13 @@ function upgradeBackground(background: ThemeConfig["background"]): SceneBase {
   }
 }
 
+function cursorSlot(v1: ThemeConfig): { id: string; params: Record<string, number | string> } {
+  const stored = v1.cursorEffectId ? findEffect(v1.cursorEffectId) : undefined;
+  if (!stored || stored.layer !== "cursor" || stored.retired)
+    return { id: "cursor.none", params: {} };
+  return { id: stored.id, params: v1.cursorParams ? clampParams(stored, v1.cursorParams) : {} };
+}
+
 /**
  * A v1 or v2 config to v2. A v2 config is validated and returned as parsed,
  * so upgradeTheme(upgradeTheme(x)) equals upgradeTheme(x). Throws only for a
@@ -416,6 +423,7 @@ export function upgradeTheme(
       ...(v1.heroEffectLoop ? { loop: oneOf(NAME_SETTLES, v1.heroEffectLoop, "always") } : {}),
       appliesTo: oneOf(NAME_TARGETS, v1.heroAppliesTo, "name"),
     },
-    cursor: { id: "cursor.none", params: {} },
+    // Phase 3c: the Cursor row stores its pick by id
+    cursor: cursorSlot(v1),
   });
 }

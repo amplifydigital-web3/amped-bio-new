@@ -27,6 +27,26 @@ describe("guardThemeShowcase", () => {
     expect(guardThemeShowcase(SHADER)).toEqual(SHADER);
   });
 
+  it("drops the cursor, a canvas name effect and Click spark while themeShowcase is off", () => {
+    const config = {
+      fontFamily: "Inter",
+      cursorEffectId: "cursor.glow",
+      cursorParams: { palette: "theme" },
+      heroEffect: 0,
+      heroEffectId: "name.fuzzy",
+      heroEffectParams: { strength: 40 },
+      buttonPressId: "buttonPress.click-spark",
+    };
+    expect(guardThemeShowcase(config)).toEqual({ fontFamily: "Inter", heroEffect: 0 });
+    __setFeatureFlagOverridesForTests({ themeShowcase: true });
+    expect(guardThemeShowcase(config)).toEqual(config);
+  });
+
+  it("keeps core and Plus picks on the other engines", () => {
+    const config = { heroEffectId: "name.shiny", buttonPressId: "buttonPress.ripple" };
+    expect(guardThemeShowcase(config)).toBe(config);
+  });
+
   it("keeps particle scenes stored by id and passes a missing config through", () => {
     const particles = { particlesEffect: 5, particlesEffectId: "scene.fire" };
     expect(guardThemeShowcase(particles)).toBe(particles);

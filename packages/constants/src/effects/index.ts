@@ -18,6 +18,7 @@ export {
   shaderPalette,
 } from "./scenes.shaders";
 export * from "./surfaces";
+export { CURSOR_COLOR_PARAMS, CURSOR_EFFECTS, CURSOR_TRAIL_PARAMS } from "./cursors";
 export { nameSettle, isNameEntrance } from "./names";
 export { NAME_SPEED_FACTOR, NAME_SPEED_PARAM } from "./names";
 export { HOVER_SPEED_MS, HOVER_SPEED_PARAM } from "./buttonHovers";

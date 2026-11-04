@@ -94,6 +94,10 @@ export const themeConfigSchema = z.object({
   // effect and the button hover, clamped against the picked entry on read.
   heroEffectParams: effectParamsSchema.optional(),
   buttonEffectParams: effectParamsSchema.optional(),
+  // Theme Engine v2 Cursor row (spec 3.5, phase 3c), additive and optional:
+  // the cursor effect by id and its params, clamped against the entry on read.
+  cursorEffectId: z.enum(EFFECT_IDS.cursor as unknown as [string, ...string[]]).optional(),
+  cursorParams: effectParamsSchema.optional(),
 });
 
 // Schema for the theme object in editTheme endpoint

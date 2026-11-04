@@ -11,10 +11,12 @@ import { TextRow } from "./rows/TextRow";
 import { ButtonHoverRow, ButtonPressRow, NameEffectRow, ParticlesRow } from "./rows/MotionRows";
 import { NameRow } from "./rows/NameRow";
 import { SceneRow } from "./rows/SceneRow";
+import { CursorRow } from "./rows/CursorRow";
 import { isFeatureOn } from "../../../config/featureFlags";
 
 // Theme Engine v2 (#28, phase 2): the Name row (board 08) and the Scene row (board 01)
 const themeV2On = isFeatureOn("themeV2");
+const themeShowcaseOn = isFeatureOn("themeShowcase");
 
 // Screen Review 027. Style holds Background, Container, Buttons and Text;
 // Motion holds Button hover, Particles and Name effect. One row open at a time.
@@ -69,6 +71,8 @@ export function MotionTab() {
         <ButtonPressRow />
         {themeV2On ? <SceneRow /> : <ParticlesRow />}
         {themeV2On ? <NameRow /> : <NameEffectRow />}
+        {/* Phase 3c: the Cursor row needs the showcase engines */}
+        {themeV2On && themeShowcaseOn && <CursorRow />}
       </DisclosureGroup>
     </>
   );

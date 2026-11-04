@@ -18,6 +18,8 @@ import {
 import { NameText } from "./name-effect";
 import { ParticlesLayer } from "./particles-layer";
 import { ShaderLayer, type EffectDrop } from "./shader-layer";
+import { CursorLayer } from "./cursor-layer";
+import { ShowcaseProvider } from "./showcase-context";
 import { gradientScene, textureStyle } from "./scene";
 import { containerSurfaceClass } from "./surface";
 
@@ -219,6 +221,16 @@ export function CreatorPage({
           paused={paused || weak}
         />
       )}
+      {/* Phase 3c: the cursor effect, above the scene and below the container */}
+      <CursorLayer
+        entry={look.cursor}
+        params={look.cursorParams}
+        colors={look.colors}
+        paused={paused}
+        device={device}
+        showcase={showcase}
+        onDrop={onEffectDropped}
+      />
     </div>
   );
 
@@ -261,6 +273,7 @@ export function CreatorPage({
           >
             <NameText
               entry={look.name}
+              params={look.nameParams}
               text={profile.name}
               colors={look.colors}
               paused={paused}
@@ -303,20 +316,24 @@ export function CreatorPage({
     // The editor: the scene stays put outside the scroller and fills the
     // device while the page scrolls inside it (QA-024)
     return (
-      <div className="relative flex h-full flex-col" style={lookCssVars(look)}>
-        {backgroundLayer}
-        <div className="relative z-[1] flex-1 overflow-auto">{column}</div>
-        {frame}
-      </div>
+      <ShowcaseProvider value={{ showcase, paused, device }}>
+        <div className="relative flex h-full flex-col" style={lookCssVars(look)}>
+          {backgroundLayer}
+          <div className="relative z-[1] flex-1 overflow-auto">{column}</div>
+          {frame}
+        </div>
+      </ShowcaseProvider>
     );
   }
 
   // 039 I05: the background is fixed to the viewport; the document scrolls
   return (
-    <div className="relative min-h-dvh" style={lookCssVars(look)}>
-      {backgroundLayer}
-      {column}
-      {frame}
-    </div>
+    <ShowcaseProvider value={{ showcase, paused, device }}>
+      <div className="relative min-h-dvh" style={lookCssVars(look)}>
+        {backgroundLayer}
+        {column}
+        {frame}
+      </div>
+    </ShowcaseProvider>
   );
 }

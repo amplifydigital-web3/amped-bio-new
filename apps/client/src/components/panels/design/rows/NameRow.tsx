@@ -3,11 +3,13 @@ import { nameSettle, isNameEntrance, NAME_SETTLES, NAME_TARGETS } from "@repo/co
 import {
   ChipGroup,
   NameText,
+  ShowcaseProvider,
   cn,
   effectClassName,
   themeCssVars,
   usePrefersReducedMotion,
 } from "@repo/ui";
+import { isFeatureOn } from "../../../../config/featureFlags";
 import { DisclosureRow } from "../kit/DisclosureRow";
 import { OptionGrid, OptionTile } from "../kit/OptionTile";
 import { CreatorBackdrop } from "../kit/CreatorArt";
@@ -16,6 +18,7 @@ import { cardFill, formatRatio, useDesign } from "../kit/useDesign";
 import { ParamPanel } from "../kit/ParamStrip";
 import {
   NAME_TILES,
+  nameTilesFor,
   nameIndex,
   namePaintedColors,
   namePatch,
@@ -27,6 +30,9 @@ import {
 // VITE_SHOW_THEME_V2; the v1 row stays in MotionRows.tsx.
 
 const SETTLE_LABELS = { once: "Play once", always: "Loop" } as const;
+// Phase 3c: Fuzzy text needs the canvas engine, so it shows with themeShowcase
+const showcaseOn = isFeatureOn("themeShowcase");
+const NAME_ROW_TILES = nameTilesFor(showcaseOn);
 const TARGET_LABELS = { name: "Name", nameAndBio: "Name and bio" } as const;
 
 /** Plays for a moment after a tap or selection. */
@@ -108,12 +114,14 @@ function NameTileView({
                 } as CSSProperties
               }
             >
-              <NameText
-                entry={entry}
-                text={profile.name || "Your name"}
-                colors={colors}
-                paused={still}
-              />
+              <ShowcaseProvider value={{ showcase: showcaseOn, paused: still, device: "typical" }}>
+                <NameText
+                  entry={entry}
+                  text={profile.name || "Your name"}
+                  colors={colors}
+                  paused={still}
+                />
+              </ShowcaseProvider>
             </span>
           </span>
         </CreatorBackdrop>
@@ -140,7 +148,7 @@ export function NameRow() {
     >
       <div className="space-y-[21px]">
         <OptionGrid label="Name effect">
-          {NAME_TILES.map((t, index) => (
+          {NAME_ROW_TILES.map((t, index) => (
             <NameTileView
               key={t.effectId ?? t.id}
               tile={t}
