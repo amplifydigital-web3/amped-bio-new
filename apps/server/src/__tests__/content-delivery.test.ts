@@ -39,7 +39,7 @@ beforeEach(() => {
   resetStreamHostForTests();
   Object.assign(env, {
     MEDIA_TOKEN_KEYS: KEYS,
-    MEDIA_GATEWAY_ORIGIN: "https://media-staging.ampedusercontent.com",
+    MEDIA_GATEWAY_ORIGIN: "https://usercontent.staging.amped.bio",
     CF_STREAM_KEY_ID: "stream-key",
     CF_STREAM_KEY_PEM: PEM,
   });

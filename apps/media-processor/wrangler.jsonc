@@ -11,8 +11,10 @@
  * builds and pushes the container image):
  *   pnpm --filter @repo/media-processor run deploy:staging
  *   pnpm --filter @repo/media-processor run deploy:production
- * Staging and production run on separate Cloudflare accounts (spec 3.17), so set
- * CLOUDFLARE_ACCOUNT_ID for the account you deploy to.
+ * Staging and production share one Cloudflare account (spec 3.17). Each
+ * environment deploys as its own Worker (name-staging, name-production) with its
+ * own bucket, queue and secrets. Always name the environment: a wrong --env flag
+ * reaches the other environment's data.
  *
  * Bindings, vars, queues and containers are not inherited by environments. Each
  * environment repeats them on purpose.

@@ -147,7 +147,7 @@ describe("SharedLookView", () => {
     mocks.applyShared.mockResolvedValue({
       themeId: 9,
       mode: "apply",
-      undoVersionId: 77,
+      undoVersionId: "77".padStart(32, "0"),
       backgroundKept: false,
     });
     mocks.restore.mockResolvedValue({});
@@ -160,7 +160,12 @@ describe("SharedLookView", () => {
       "https://app.test/design?tab=themes&look=abcdefgh"
     );
     fireEvent.click(screen.getByText("Undo"));
-    await waitFor(() => expect(mocks.restore).toHaveBeenCalledWith({ id: 9, versionId: 77 }));
+    await waitFor(() =>
+      expect(mocks.restore).toHaveBeenCalledWith({
+        id: 9,
+        versionId: "00000000000000000000000000000077",
+      })
+    );
   });
 
   it("back from sign up with ?use=save, finishes the save once and clears the param", async () => {

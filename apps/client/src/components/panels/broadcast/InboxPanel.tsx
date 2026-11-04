@@ -240,9 +240,10 @@ function MessageView({ broadcastId, onBack }: { broadcastId: number; onBack: () 
 
 /**
  * Inbox, Updates (boards br3 and br4). Every member gets each broadcast here.
- * Phase 1 has no email. Deep link: /inbox?b={broadcastId}.
+ * Phase 1 has no email. Deep link: /inbox?b={broadcastId}. With Amped Messages (M5) it is
+ * the Broadcast tab of the new Inbox; M9 rebuilds it.
  */
-function UpdatesTab() {
+export function UpdatesTab() {
   const { setActivePanelAndNavigate } = useEditor();
   const [params, setParams] = useSearchParams();
   const openId = Number(params.get("b")) || null;

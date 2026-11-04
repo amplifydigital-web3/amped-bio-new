@@ -40,7 +40,7 @@ type Mode = "apply" | "save";
 type Done = {
   mode: Mode;
   themeId: number;
-  undoVersionId: number | null;
+  undoVersionId: string | null;
   backgroundKept: boolean;
 };
 
