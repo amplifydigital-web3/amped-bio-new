@@ -212,6 +212,7 @@ import {
   updateStore,
 } from "../services/store/settings";
 import { OfferError, setOfferStatus, upsertOffer } from "../services/store/products";
+import { prisma } from "@repo/database";
 import {
   storeForBio,
   storeForBioByHandle,
@@ -447,6 +448,28 @@ describe("products", () => {
     });
     await expect(upsertOffer(MAYA, offerInput({ id: offer.id }))).rejects.toMatchObject({
       code: "archived",
+    });
+  });
+
+  it("an archive that lands between the read and the write still wins", async () => {
+    const offer = await readyStore();
+    await setOfferStatus(MAYA, offer.id, "archived");
+    // The status change read the row before the archive was written
+    const row = table("offer")[0]!;
+    vi.mocked(prisma.offer.findUnique).mockResolvedValueOnce({ ...row, status: "paused" } as never);
+    await expect(setOfferStatus(MAYA, offer.id, "paused")).rejects.toMatchObject({
+      code: "archived",
+    });
+    expect(row.status).toBe("archived");
+  });
+
+  it("a slug taken by a concurrent save is refused as slug_taken", async () => {
+    await readyStore();
+    vi.mocked(prisma.offer.create).mockRejectedValueOnce(
+      Object.assign(new Error("dup"), { code: "P2002" })
+    );
+    await expect(upsertOffer(MAYA, offerInput({ slug: "other" }))).rejects.toMatchObject({
+      code: "slug_taken",
     });
   });
 });
