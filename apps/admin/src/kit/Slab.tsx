@@ -28,7 +28,8 @@ export function SlabTable({
 }) {
   return (
     <div className={cn("prism-slab overflow-hidden font-prism", className)}>
-      <div className="overflow-x-auto">
+      {/* relative: sr-only cells are absolutely placed and would widen the page otherwise */}
+      <div className="relative overflow-x-auto">
         <table aria-label={label} className="w-full border-collapse text-left">
           {children}
         </table>

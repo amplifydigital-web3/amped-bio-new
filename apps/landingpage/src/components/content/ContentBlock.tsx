@@ -15,13 +15,14 @@ import { CardCover, ContentCardLink } from "./ContentCardView";
 import { ReportContentButton } from "./ReportDialog";
 import { SITE_CONTENT_COPY as copy } from "./copy";
 import { CREATOR_FOCUS_RING, creatorSurface } from "./theme";
+import { useCardDecisions } from "./gating";
 
 /**
  * Content block on the creator's page (Build Board #20, spec 3.7, board cs4).
  * Featured plays the first video or track right on the page and shows the rest
  * as cards; grid and list open each item's page. Cards come from the server
- * (getHandle contentCards) for public items only, so a draft, an 18+ item or a
- * removed item never renders. A block with nothing left hides itself.
+ * (getHandle contentCards) for listed items only, so a draft, an 18+ item or a
+ * removed item never renders; a gated item renders locked (content gating 4.2). A block with nothing left hides itself.
  */
 export function ContentBlock({
   block,
@@ -41,12 +42,15 @@ export function ContentBlock({
   const items = (config.publicIds ?? [])
     .map(id => cards[id])
     .filter((card): card is ContentCard => !!card);
+  const decisionFor = useCardDecisions(handle, items);
   if (!items.length) return null;
 
   const creator = { handle, name: creatorName };
   const [first, ...rest] = items;
   const featured = config.layout === "featured" ? first! : null;
-  const featuredPlays = featured && (featured.kind === "video" || featured.kind === "audio");
+  // A locked item never plays on the page: its card opens the item page
+  const featuredPlays =
+    featured && !featured.gate && (featured.kind === "video" || featured.kind === "audio");
   const gridItems = featured ? rest : items;
 
   return (
@@ -95,6 +99,7 @@ export function ContentBlock({
             className="aspect-video w-full"
             sizes="(min-width: 640px) 568px, 100vw"
             eager
+            decision={decisionFor(featured.publicId)}
           />
           <span className="mt-[13px] block text-[18px] font-semibold leading-[24px]">
             {featured.title}
@@ -112,6 +117,7 @@ export function ContentBlock({
                   card={card}
                   href={contentItemPath(handle, card.publicId)}
                   layout="list"
+                  decision={decisionFor(card.publicId)}
                 />
               </li>
             ))}
@@ -120,7 +126,11 @@ export function ContentBlock({
           <ul className="grid grid-cols-2 gap-x-[13px] gap-y-[21px]">
             {gridItems.map(card => (
               <li key={card.publicId}>
-                <ContentCardLink card={card} href={contentItemPath(handle, card.publicId)} />
+                <ContentCardLink
+                  card={card}
+                  href={contentItemPath(handle, card.publicId)}
+                  decision={decisionFor(card.publicId)}
+                />
               </li>
             ))}
           </ul>

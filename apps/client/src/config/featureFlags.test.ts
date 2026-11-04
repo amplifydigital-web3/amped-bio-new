@@ -31,8 +31,14 @@ describe("isFeatureOn", () => {
 describe("parseFeatureFlagOverrides", () => {
   it("keeps public flags with boolean values only", () => {
     expect(
-      parseFeatureFlagOverrides({ rns: true, checkout: "yes", accessGating: true, nope: true })
-    ).toEqual({ rns: true });
+      parseFeatureFlagOverrides({
+        rns: true,
+        checkout: "yes",
+        rnsPublicIdentity: true,
+        accessGating: true,
+        nope: true,
+      })
+    ).toEqual({ rns: true, accessGating: true });
   });
 });
 

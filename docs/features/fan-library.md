@@ -11,23 +11,23 @@ Boards: Fan Library design page, version 2 (m1 to m12 phone, d1, d4, d10 desktop
 
 ### 1.1 What the current specs give a fan
 
-| Need | Where it is today | Gap |
-| --- | --- | --- |
-| See my memberships | Wallet, Memberships tab (mb9): creator, plan, interval, renewal, allowance, Cancel, Renew | Billing only. No content, no benefits list, sits beside token balances. |
-| Open members only content | The creator page content block and the item page amped.bio/handle/c/{publicId} | Per creator. No cross creator view. No newest first. No continue watching. |
-| See everything one creator gave me, and why | Nothing. The creator page shows what anyone sees, with locks. | No view of my access with one creator: plan, purchases, follow, in one place. |
-| Know something new was published | Nothing. Broadcast is a manual message. | A creator must write a broadcast for every drop or fans never hear about it. |
-| Resume a video | PR 6a (#346) stores progress per account. | No list of what I was watching across creators. |
-| Listen on a phone with the screen off | PR 6a: Media Session and one audio element. | Needs the phone player, queue and sleep timer. |
-| Download a file | Content system: single use signed URL when downloads are allowed | Works per item. No list of what I downloaded, no offline video or audio. |
-| Following | Fan Graph: the Following menu on the creator page and People for creators | No fan side list of who I follow with their content. |
-| Live | Out of scope in the content system | #27. |
+| Need                                        | Where it is today                                                                         | Gap                                                                           |
+| ------------------------------------------- | ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| See my memberships                          | Wallet, Memberships tab (mb9): creator, plan, interval, renewal, allowance, Cancel, Renew | Billing only. No content, no benefits list, sits beside token balances.       |
+| Open members only content                   | The creator page content block and the item page amped.bio/handle/c/{publicId}            | Per creator. No cross creator view. No newest first. No continue watching.    |
+| See everything one creator gave me, and why | Nothing. The creator page shows what anyone sees, with locks.                             | No view of my access with one creator: plan, purchases, follow, in one place. |
+| Know something new was published            | Nothing. Broadcast is a manual message.                                                   | A creator must write a broadcast for every drop or fans never hear about it.  |
+| Resume a video                              | PR 6a (#346) stores progress per account.                                                 | No list of what I was watching across creators.                               |
+| Listen on a phone with the screen off       | PR 6a: Media Session and one audio element.                                               | Needs the phone player, queue and sleep timer.                                |
+| Download a file                             | Content system: single use signed URL when downloads are allowed                          | Works per item. No list of what I downloaded, no offline video or audio.      |
+| Following                                   | Fan Graph: the Following menu on the creator page and People for creators                 | No fan side list of who I follow with their content.                          |
+| Live                                        | Out of scope in the content system                                                        | #27.                                                                          |
 
 ### 1.2 What is on development (23 Oct 2026)
 
 - **Destinations.** Seven rail items (app structure D01). Fan accounts (page UNPUBLISHED) see the creator shell with a Home card Make your own page. There is no fan first destination.
 - **Inbox.** A top bar bell opens the broadcast inbox. The list is a feed of items with a `kind`; v1 has `broadcast`. Unread polling every 60 seconds.
-- **Content.** Content system PRs 1 to 5 are merged: `ContentItem` and `ContentAsset` with `publishedAt` and `chapters` (`[{ startMs, title }]`), uploads to R2 and Cloudflare Stream, the processor Worker and the media gateway Worker. Video plays from Stream with signed RS256 tokens; audio, images, documents and files are R2 objects served through the media gateway (`media.ampedusercontent.com`) with HMAC tokens (content system 3.6). In review: PR 6a #346 (signed delivery, the shared player, `ViewerProgress`, captions) and PR 6 #348 (publish, public item and feed pages, the content block).
+- **Content.** Content system PRs 1 to 5 are merged: `ContentItem` and `ContentAsset` with `publishedAt` and `chapters` (`[{ startMs, title }]`), uploads to R2 and Cloudflare Stream, the processor Worker and the media gateway Worker. Video plays from Stream with signed RS256 tokens; audio, images, documents and files are R2 objects served through the media gateway (`usercontent.amped.bio`) with HMAC tokens (content system 3.6). In review: PR 6a #346 (signed delivery, the shared player, `ViewerProgress`, captions) and PR 6 #348 (publish, public item and feed pages, the content block).
 - **Fan Graph.** `Follow` with ACTIVE computed at read. `follow.listFollowing` does not exist; People lists followers for creators only.
 - **Theme.** `ThemeConfigV2` per creator through `upgradeTheme`: scene base, colors, fonts, container and button style, with the contrast guard (4.5:1 cards and buttons, 3:1 name).
 - **Memberships and purchases.** Specified (#25, content system 3.9), not built.
@@ -36,16 +36,16 @@ Boards: Fan Library design page, version 2 (m1 to m12 phone, d1, d4, d10 desktop
 
 ### 1.3 Patterns in the market
 
-| Product | What it does | Take | Avoid |
-| --- | --- | --- | --- |
-| Patreon app (member) | Home and Memberships feeds; Library with recently played, saved and downloads; a page per creator inside the app. | A per creator view. Library with continue, saved, downloads. | Mixing discovery into the paid feed. Burying membership management three taps deep. |
-| Gumroad library | Every purchase in one list, grouped by creator, with the file and a Receipt link. | Group by creator. Purchased is a lasting relationship with a receipt. | Handing out raw file URLs. |
-| Shopify Shop app | Each merchant shows as its own branded store page inside one app, with the shopper's orders from that merchant. | One app frame, each seller's brand inside it. | Letting the seller's brand replace the app navigation. |
-| Kindle, Apple Books | Library by author or collection; the reader opens in the publisher's typography; app chrome stays. | Content in the owner's look; navigation stays ours. | Hiding where an item came from. |
-| Spotify, YouTube | Position sync per account. Mini player that persists. Queue, autoplay, swipe gestures, offline downloads. | Server side position, mini player, queue, autoplay within a source, swipe to dismiss, downloads. | Autoplay into content the fan cannot open. |
-| Netflix | Continue row first. Remove from row, Mark as watched. Offline downloads per item. | Continue first, item menu, downloads. | DRM licensing beyond what the creator allows. |
-| Apple Podcasts | Library search separated from catalog search. | Scoped search. | Two search boxes. |
-| Media Session, Picture in Picture, Web App Manifest | Lock screen controls, PiP, home screen install. | All three in the player and the client shell. | A native app before the web app has proven the flows. |
+| Product                                             | What it does                                                                                                      | Take                                                                                             | Avoid                                                                               |
+| --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------- |
+| Patreon app (member)                                | Home and Memberships feeds; Library with recently played, saved and downloads; a page per creator inside the app. | A per creator view. Library with continue, saved, downloads.                                     | Mixing discovery into the paid feed. Burying membership management three taps deep. |
+| Gumroad library                                     | Every purchase in one list, grouped by creator, with the file and a Receipt link.                                 | Group by creator. Purchased is a lasting relationship with a receipt.                            | Handing out raw file URLs.                                                          |
+| Shopify Shop app                                    | Each merchant shows as its own branded store page inside one app, with the shopper's orders from that merchant.   | One app frame, each seller's brand inside it.                                                    | Letting the seller's brand replace the app navigation.                              |
+| Kindle, Apple Books                                 | Library by author or collection; the reader opens in the publisher's typography; app chrome stays.                | Content in the owner's look; navigation stays ours.                                              | Hiding where an item came from.                                                     |
+| Spotify, YouTube                                    | Position sync per account. Mini player that persists. Queue, autoplay, swipe gestures, offline downloads.         | Server side position, mini player, queue, autoplay within a source, swipe to dismiss, downloads. | Autoplay into content the fan cannot open.                                          |
+| Netflix                                             | Continue row first. Remove from row, Mark as watched. Offline downloads per item.                                 | Continue first, item menu, downloads.                                                            | DRM licensing beyond what the creator allows.                                       |
+| Apple Podcasts                                      | Library search separated from catalog search.                                                                     | Scoped search.                                                                                   | Two search boxes.                                                                   |
+| Media Session, Picture in Picture, Web App Manifest | Lock screen controls, PiP, home screen install.                                                                   | All three in the player and the client shell.                                                    | A native app before the web app has proven the flows.                               |
 
 ### 1.4 Patterns we adopt
 
@@ -220,6 +220,7 @@ model DownloadRecord {
 ### 3.5 Player, downloads and client structure
 
 **Player** (`packages/ui/src/player/`, PR 6a; phone v2 in FL-1).
+
 - `PlayerProvider` owns one `<video>` and one `<audio>` per page and never unmounts them; the full player borrows the video element; the mini player shows when no full player for the item is on screen. Mounted once in the editor and in the public site's handle layout (PR 6) and in the Library.
 - Video: Stream HLS with the signed token, native HLS on Safari and iOS, hls.js 1.6.15 from npm imported on demand. Audio: a native `<audio>` element from the media gateway (`audio/{publicId}/full.m4a`), waveform peaks from `derived/{publicId}/waveform/peaks.json`. URLs refresh a minute before `expiresAt`.
 - Progress every 10 seconds of play, on pause, seek, hide and `pagehide`. Resume at mm:ss and Start over between 30 seconds and 95 percent.
@@ -235,6 +236,7 @@ model DownloadRecord {
 **Item menu (FL-3, m10).** Long press or the more button: Play next, Add to queue, Download (when allowed), Save, Mark as watched, Go to the creator's section, Remove from Continue.
 
 **Offline (FL-5, decision C).**
+
 - Allowed only where the creator allows downloads. Video uses Stream's MP4 rendition (PR 6a already signs it); audio and files use the gateway's single use download URL. Files go into Cache Storage under `downloads/{publicId}`, opened through the service worker.
 - Download all for a course or collection. Download on Wi-Fi only, on by default. Storage meter from the Storage API estimate. Swipe left to remove; Clear all behind a confirm.
 - On every sync (app open, every 6 hours while open), the client asks `library.downloads.check` which records the viewer may still open; files for items the viewer lost access to, or that were unpublished or taken down, are deleted from the cache. Offline opens are allowed for 30 days since the last successful check.

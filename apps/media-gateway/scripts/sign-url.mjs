@@ -5,7 +5,7 @@
  * gateway before PR 6 adds content.getReadUrl. Handoff: docs/fixes/content-media-gateway.md.
  *
  *   pnpm run build:packages
- *   MEDIA_TOKEN_KEYS='s1:...' node apps/media-gateway/scripts/sign-url.mjs <r2Key> [--download] [--ttl 600] [--origin https://media.ampedusercontent-staging.com]
+ *   MEDIA_TOKEN_KEYS='s1:...' node apps/media-gateway/scripts/sign-url.mjs <r2Key> [--download] [--ttl 600] [--origin https://usercontent.staging.amped.bio]
  *
  * The key value is read from the environment and never printed.
  */
@@ -30,10 +30,7 @@ if (!key || !process.env.MEDIA_TOKEN_KEYS) {
 const [signer] = C.parseMediaTokenKeys(process.env.MEDIA_TOKEN_KEYS);
 const download = args.includes("--download");
 const ttl = Number(option("--ttl") ?? 600);
-const origin = (option("--origin") ?? "https://media.ampedusercontent-staging.com").replace(
-  /\/+$/,
-  ""
-);
+const origin = (option("--origin") ?? "https://usercontent.staging.amped.bio").replace(/\/+$/, "");
 const payload = {
   k: key,
   r: "qa",
