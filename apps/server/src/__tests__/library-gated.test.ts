@@ -169,6 +169,31 @@ describe("the Shop hint for a refusal (spec 3.4)", () => {
     });
   });
 
+  it("maps paid and member refusals to Buy, Join and Rejoin (FL-7)", () => {
+    expect(
+      shopHint(
+        decision(false, "not_purchased", "paid", {
+          action: "buy",
+          offerId: "a".repeat(32),
+          priceDisplay: "5 USDC",
+        })
+      )
+    ).toEqual({ kind: "buy", amount: "5 USDC", offerId: "a".repeat(32) });
+    expect(shopHint(decision(false, "not_purchased", "paid"))).toBeNull();
+    expect(shopHint(decision(false, "not_member", "member"))).toEqual({
+      kind: "join",
+      planName: null,
+    });
+    expect(shopHint(decision(false, "membership_ended", "member"))).toEqual({
+      kind: "rejoin",
+      planName: null,
+    });
+  });
+
+  it("leaves a past due member out: Join is refused while a membership is in force", () => {
+    expect(shopHint(decision(false, "membership_past_due", "member"))).toBeNull();
+  });
+
   it("leaves out refusals the fan can not act on", () => {
     for (const reason of [
       "kind_unavailable",

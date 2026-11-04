@@ -20,7 +20,7 @@ Branch `feat/library-money` into `development`. Fan Library plan FL-7, mobile ch
 
 1. **Labels, not access.** Purchased and member items open only through the engine's `paid` (G4) and `member` (G5) kinds. Until they land, a label upgrades items the fan can already open (public or follower) and the Shop shows Buy and Join only when the engine says so. Nothing listed refuses to play.
 2. **Coverage is shared.** One wallet pays every membership. Charges are matched to the balance and approval in due order, so the second card shows the real shortfall.
-3. **A spent approval** (USDC there, approval short) shows Rejoin: a new join signs a new permit. There is no separate re-approve call.
+3. **A spent approval** (USDC there, approval short) has no re-approve call yet, and Join is refused while a membership is in force. The card explains it and points to Manage (Cancel, then Rejoin once the period ends); the Memberships page and the status sheet never offer Join or Rejoin to a member. A re-approve path belongs to MB-2.
 4. **Ended memberships** stay listed for 90 days with Rejoin.
 5. **Wallet change (decision 2) not built:** Wallet never got a Memberships tab, so there is nothing to retire. A Wallet Activity row for membership charges is left for the Wallet owner.
 

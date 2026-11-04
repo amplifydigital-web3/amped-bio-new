@@ -205,7 +205,8 @@ export const LIBRARY_MONEY_COPY = {
       day ? `Past due, day ${day} of 7. You keep access while you add USDC.` : "Past due",
     not_covered: (date: string | null) =>
       date ? `Not covered yet. Renews ${date}.` : "Not covered yet.",
-    allowanceShort: "Your approval for renewals ran out. Join again to keep renewing.",
+    allowanceShort:
+      "Your approval for renewals ran out. Cancel in Manage and rejoin after this period to renew.",
     covered: (date: string) => `Covered through ${date}`,
     active: (date: string | null) => (date ? `Renews ${date}` : "Active"),
     renewal_paused: "Renewal paused. The creator is not taking payments right now.",

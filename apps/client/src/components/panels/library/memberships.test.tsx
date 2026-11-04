@@ -9,6 +9,7 @@ import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router";
 import { QueryClient } from "@tanstack/react-query";
 import { renderWithProviders } from "@/test/utils";
+import { LIBRARY_MONEY_COPY } from "./copy";
 import type { LibraryMembershipCard } from "@repo/constants";
 
 const mocks = vi.hoisted(() => ({
@@ -137,9 +138,8 @@ describe("Memberships (row 125)", () => {
     const second = screen.getByRole("button", { name: "Add $5 USDC" });
     expect(add.className).toContain("prism-btn-primary");
     expect(second.className).not.toContain("prism-btn-primary");
-    expect(screen.getByRole("button", { name: "Rejoin" }).className).not.toContain(
-      "prism-btn-primary"
-    );
+    // Canceled but still in force: Join would be refused, so no Rejoin is offered
+    expect(screen.queryByRole("button", { name: "Rejoin" })).toBeNull();
     fireEvent.click(add);
     expect(screen.getByTestId("where").textContent).toBe(
       "/wallet?fund=usdc&need=3000000&returnTo=%2Flibrary%2Fmemberships"
@@ -150,6 +150,33 @@ describe("Memberships (row 125)", () => {
     mocks.memberships.mockResolvedValue({ items: [] });
     renderPage();
     expect(await screen.findByText("No memberships yet")).toBeTruthy();
+  });
+
+  it("offers Rejoin only after the membership ended, never while one is in force", async () => {
+    mocks.memberships.mockResolvedValue({
+      items: [
+        card({ id: "04".repeat(16), owner: owner("ana"), state: "ends", nextChargeAt: null }),
+        card({
+          id: "05".repeat(16),
+          owner: owner("rae"),
+          state: "not_covered",
+          need: null,
+          allowanceShort: true,
+        }),
+        card({
+          id: "06".repeat(16),
+          owner: owner("lio"),
+          state: "ended",
+          accessUntil: null,
+          nextChargeAt: null,
+        }),
+      ],
+    });
+    renderPage();
+    expect(await screen.findByText(LIBRARY_MONEY_COPY.states.allowanceShort)).toBeTruthy();
+    const rejoin = await screen.findByRole("button", { name: "Rejoin" });
+    fireEvent.click(rejoin);
+    expect(screen.getByTestId("where").textContent).toBe("/join/@lio");
   });
 
   it("opens Manage with receipts and the policy, and cancels with one signature", async () => {

@@ -73,15 +73,14 @@ export function stateLine(card: LibraryMembershipCard): string {
   }
 }
 
-/** The card's action, if any: Add USDC, Join again for a spent approval, or Rejoin. */
+/** The card's action, if any: Add USDC when the wallet is short, or Rejoin once it ended. */
 export function cardAction(card: LibraryMembershipCard): { label: string; href: string } | null {
   if ((card.state === "past_due" || card.state === "not_covered") && card.need) {
     return { label: M.addUsdc(usdcDollarsLabel(card.need)), href: addUsdcHref(card.need) };
   }
-  if (card.state === "not_covered" && card.allowanceShort) {
-    return { label: M.rejoin, href: joinHref(card.owner.handle) };
-  }
-  if (card.state === "ended" || card.state === "ends") {
+  // Rejoin only after the membership ended: Join is refused while one is in force (even
+  // canceled to its period end, or with a spent approval), so the card never offers it
+  if (card.state === "ended") {
     return { label: M.rejoin, href: joinHref(card.owner.handle) };
   }
   return null;

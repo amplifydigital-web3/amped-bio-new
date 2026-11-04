@@ -112,8 +112,10 @@ export function shopHint(decision: AccessDecision): LibraryUnlockHint | null {
     case "not_member":
       return { kind: "join", planName: null };
     case "membership_ended":
-    case "membership_past_due":
       return { kind: "rejoin", planName: null };
+    // A past due member is still a member: the fix is USDC on Library, Memberships, and a
+    // Join would be refused (already a member), so the Shop leaves it out until G5 can
+    // carry the shortfall here
     default:
       return null;
   }
