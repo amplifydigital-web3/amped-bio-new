@@ -78,7 +78,7 @@ describe("Magnet", () => {
       y: 0,
       toJSON() {},
     });
-    const animate = vi.fn();
+    const animate = vi.fn(() => ({ onfinish: null, cancel: () => {} }));
     node.animate = animate as never;
     const handlers = hoverHandlers(findEffect("buttonHover.magnet")!);
     handlers.onPointerMove!({
@@ -104,6 +104,75 @@ describe("Magnet", () => {
       pointerType: "touch",
     } as never);
     expect(node.style.transform).toBe("");
+  });
+
+  it("cancels a frame scheduled by an earlier render before it writes a stale transform", () => {
+    // CreatorButton rebuilds the handlers on every render, so a frame may be
+    // started by one closure and the leave handled by another
+    const pending = new Map<number, FrameRequestCallback>();
+    let next = 0;
+    vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => {
+      pending.set(++next, cb);
+      return next;
+    });
+    vi.stubGlobal("cancelAnimationFrame", (id: number) => {
+      pending.delete(id);
+    });
+    const node = document.createElement("button");
+    node.getBoundingClientRect = () => ({
+      ...box,
+      right: 200,
+      bottom: 50,
+      x: 0,
+      y: 0,
+      toJSON() {},
+    });
+    const entry = findEffect("buttonHover.magnet")!;
+    hoverHandlers(entry).onPointerMove!({
+      currentTarget: node,
+      clientX: 200,
+      clientY: 25,
+      pointerType: "mouse",
+    } as never);
+    hoverHandlers(entry).onPointerLeave!({ currentTarget: node } as never);
+    pending.forEach(cb => cb(0));
+    expect(node.style.transform).toBe("");
+  });
+
+  it("stops a running settle when the pointer comes back", () => {
+    const node = document.createElement("button");
+    node.getBoundingClientRect = () => ({
+      ...box,
+      right: 200,
+      bottom: 50,
+      x: 0,
+      y: 0,
+      toJSON() {},
+    });
+    const settle = { cancel: vi.fn(), onfinish: null };
+    node.animate = vi.fn(() => settle) as never;
+    const frames: FrameRequestCallback[] = [];
+    vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => frames.push(cb));
+    vi.stubGlobal("cancelAnimationFrame", () => {});
+    const handlers = hoverHandlers(findEffect("buttonHover.magnet")!);
+    handlers.onPointerMove!({
+      currentTarget: node,
+      clientX: 200,
+      clientY: 25,
+      pointerType: "mouse",
+    } as never);
+    frames.splice(0).forEach(cb => cb(0));
+    handlers.onPointerLeave!({ currentTarget: node } as never);
+    expect(settle.cancel).not.toHaveBeenCalled();
+    handlers.onPointerMove!({
+      currentTarget: node,
+      clientX: 190,
+      clientY: 25,
+      pointerType: "mouse",
+    } as never);
+    expect(settle.cancel).toHaveBeenCalledTimes(1);
+    frames.splice(0).forEach(cb => cb(0));
+    expect(node.style.transform).toBe("translate(7.2px, 0px) rotate(1.8deg)");
   });
 });
 

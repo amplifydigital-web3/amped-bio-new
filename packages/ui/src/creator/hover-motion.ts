@@ -42,19 +42,56 @@ export interface HoverHandlers {
   onFocus?: (event: { currentTarget: HTMLElement }) => void;
 }
 
+/**
+ * The Magnet's pending frame and settle animation, kept on the element instead
+ * of in the handler closure: CreatorButton rebuilds the handlers on every
+ * render, so a frame or animation started by an earlier render would otherwise
+ * survive a leave and write a stale transform, and a running settle (WAAPI
+ * outranks inline style) would keep the button from following the pointer.
+ * A WeakMap holds no reference to a removed button.
+ */
+interface HoverState {
+  frame: number;
+  settle?: Animation;
+}
+
+const HOVER_STATE = new WeakMap<HTMLElement, HoverState>();
+
+function hoverState(node: HTMLElement): HoverState {
+  let state = HOVER_STATE.get(node);
+  if (!state) {
+    state = { frame: 0 };
+    HOVER_STATE.set(node, state);
+  }
+  return state;
+}
+
+/** Stops a pending frame and a running settle, so the pointer leads again. */
+function stopHover(node: HTMLElement): HoverState {
+  const state = hoverState(node);
+  if (state.frame) cancelAnimationFrame(state.frame);
+  state.frame = 0;
+  state.settle?.cancel();
+  state.settle = undefined;
+  return state;
+}
+
 /** Pointer handlers for a JS hover (Magnet, Jelly), or none for a class hover. */
 export function hoverHandlers(entry: EffectEntry, params: ParamValues = {}): HoverHandlers {
   if (entry.render.kind !== "waapi" || entry.render.trigger !== "hover") return {};
   if (entry.id === "buttonHover.magnet") {
-    let frame = 0;
     return {
+      onPointerEnter: event => {
+        // A settle still playing would hold the button still for its 377 ms
+        stopHover(event.currentTarget);
+      },
       onPointerMove: event => {
         if (event.pointerType === "touch" || reduced()) return;
         const node = event.currentTarget;
         const { clientX, clientY } = event;
-        if (frame) cancelAnimationFrame(frame);
-        frame = requestAnimationFrame(() => {
-          frame = 0;
+        const state = stopHover(node);
+        state.frame = requestAnimationFrame(() => {
+          state.frame = 0;
           node.style.transform = magnetTransform(
             node.getBoundingClientRect(),
             clientX,
@@ -65,15 +102,19 @@ export function hoverHandlers(entry: EffectEntry, params: ParamValues = {}): Hov
       },
       onPointerLeave: event => {
         const node = event.currentTarget;
-        if (frame) cancelAnimationFrame(frame);
-        frame = 0;
+        stopHover(node);
         const from = node.style.transform;
         node.style.transform = "";
         if (from && typeof node.animate === "function" && !reduced()) {
-          node.animate([{ transform: from }, { transform: "none" }], {
+          const state = hoverState(node);
+          const settle = node.animate([{ transform: from }, { transform: "none" }], {
             duration: SETTLE_MS,
             easing: EASE,
           });
+          state.settle = settle;
+          settle.onfinish = () => {
+            if (state.settle === settle) state.settle = undefined;
+          };
         }
       },
     };
