@@ -7,6 +7,13 @@ import {
   offerUpsertSchema,
   storePolicyDraftSchema,
   storeSettingsUpdateSchema,
+  REFUNDS_PER_HOUR,
+  STORE_SALES_COPY,
+  storeRefundPrepareSchema,
+  storeRefundSubmitSchema,
+  storeReportSchema,
+  storeSalesCsvSchema,
+  storeSalesListSchema,
 } from "@repo/constants";
 import { privateProcedure, publicProcedure, router } from "./trpc";
 import { enforceRateLimits } from "../utils/rateLimit";
@@ -34,6 +41,14 @@ import {
   saveDraft,
 } from "../services/store/policy";
 import { storePolicyPublic, storeProductPublic, storePublic } from "../services/store/public";
+import {
+  listSales,
+  prepareRefund,
+  reportStore,
+  salesCsv,
+  submitRefund,
+} from "../services/store/sales";
+import { prisma } from "@repo/database";
 
 const handleSchema = z.string().trim().min(1).max(64);
 
@@ -179,4 +194,71 @@ export const storeRouter = router({
       if (!policy) throw notFound();
       return policy;
     }),
+
+  /**
+   * Sales and refunds (C10, row 161, boards st5 and k2). The caller's own sales only. Buyers
+   * show by name and handle; no email or wallet leaves the server.
+   */
+  sales: router({
+    list: privateProcedure
+      .input(storeSalesListSchema)
+      .query(({ ctx, input }) => listSales(ctx.user!.sub, input?.cursor)),
+    csv: privateProcedure.input(storeSalesCsvSchema).query(async ({ ctx, input }) => {
+      await enforceRateLimits(
+        [{ key: `store_sales_csv:u:${ctx.user!.sub}`, limit: 30, windowSeconds: 3600 }],
+        "Too many exports. Try again in an hour."
+      );
+      return { month: input.month, csv: await salesCsv(ctx.user!.sub, input.month) };
+    }),
+    refund: router({
+      prepare: privateProcedure.input(storeRefundPrepareSchema).mutation(async ({ ctx, input }) => {
+        await enforceRateLimits(
+          [
+            {
+              key: `store_refund:u:${ctx.user!.sub}`,
+              limit: REFUNDS_PER_HOUR * 3,
+              windowSeconds: 3600,
+            },
+          ],
+          "Too many refunds. Try again in an hour."
+        );
+        return prepareRefund(ctx.user!.sub, input.purchaseId);
+      }),
+      submit: privateProcedure.input(storeRefundSubmitSchema).mutation(async ({ ctx, input }) => {
+        await enforceRateLimits(
+          [
+            {
+              key: `store_refund_send:u:${ctx.user!.sub}`,
+              limit: REFUNDS_PER_HOUR,
+              windowSeconds: 3600,
+            },
+          ],
+          "Too many refunds. Try again in an hour."
+        );
+        return submitRefund(ctx.user!.sub, input);
+      }),
+    }),
+  }),
+
+  /** Report store (store policy 3.4, SP-Q48). Only for a store the reporter can see. */
+  report: publicProcedure.input(storeReportSchema).mutation(async ({ ctx, input }) => {
+    await enforceRateLimits(
+      [{ key: `store_report:ip:${getClientIp(ctx.req)}`, limit: 10, windowSeconds: 3600 }],
+      STORE_SALES_COPY.report.failed
+    );
+    const viewer = ctx.user?.sub ?? null;
+    const visible = await storePublic(input.handle, viewer);
+    if (!visible) throw notFound();
+    const creator = await prisma.user.findFirst({
+      where: { handle: input.handle.replace(/^@/, "").toLowerCase() },
+      select: { id: true },
+    });
+    if (!creator) throw notFound();
+    return reportStore({
+      creatorUserId: creator.id,
+      reporterUserId: viewer,
+      reason: input.reason,
+      details: input.details,
+    });
+  }),
 });

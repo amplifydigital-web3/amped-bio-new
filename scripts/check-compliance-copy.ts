@@ -36,6 +36,8 @@ import {
   findBannedTerms,
   REFUND_SUMMARY,
   STORE_COPY,
+  STORE_SALES_COPY,
+  STORE_REPORT_LABELS,
 } from "../packages/constants/src/index";
 
 type Hit = { text: string; phrase: string; rule: string };
@@ -224,7 +226,13 @@ async function main() {
   ]);
   const gating = await gatingCopy();
   const gatingOk = report("content gating", "content gating copy", gating.all, gating.hits);
-  const store = [...strings(STORE_COPY), ...Object.values(REFUND_SUMMARY)];
+  const store = [
+    ...strings(STORE_COPY),
+    ...Object.values(REFUND_SUMMARY),
+    // C10: Sales, refunds and Report store
+    ...strings(STORE_SALES_COPY),
+    ...Object.values(STORE_REPORT_LABELS),
+  ];
   const storeOk = report("store", "packages/constants/src/store.ts", store, checkStoreCopy(store));
   if (!telegramOk || !effectsOk || !messagesOk || !gatingOk || !storeOk) process.exit(1);
 }

@@ -144,3 +144,25 @@ export function formatUsdc(units: bigint, maxDecimals: 2 | 4 = 2): string {
 
 // AmpedPay, the payment contract on this chain (Build Board #50)
 export * from "./ampedpay";
+
+/** EIP-2612 permit (USDC FiatTokenV2). The creator lets AmpedPay pull a refund (C10). */
+export const USDC_PERMIT_TYPES = {
+  Permit: [
+    { name: "owner", type: "address" },
+    { name: "spender", type: "address" },
+    { name: "value", type: "uint256" },
+    { name: "nonce", type: "uint256" },
+    { name: "deadline", type: "uint256" },
+  ],
+} as const;
+
+/** The permit nonce of an owner. */
+export const USDC_NONCES_ABI = [
+  {
+    type: "function",
+    name: "nonces",
+    stateMutability: "view",
+    inputs: [{ name: "owner", type: "address" }],
+    outputs: [{ name: "", type: "uint256" }],
+  },
+] as const;

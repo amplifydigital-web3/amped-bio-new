@@ -142,6 +142,9 @@ vi.mock("@repo/database", () => {
       contentItem: {
         findUnique: vi.fn(async () => ({ title: "Episode 4", publicId: "abc123" })),
       },
+      // C10: the live store policy at prepare and the product sales count
+      storeSettings: { findUnique: vi.fn(async () => null) },
+      offer: { updateMany: vi.fn(async () => ({ count: 0 })) },
       siteSettings: {
         findUnique: vi.fn(async ({ where }: Row) => state.settings.get(where.setting_key) ?? null),
         upsert: vi.fn(async ({ where, create, update }: Row) => {

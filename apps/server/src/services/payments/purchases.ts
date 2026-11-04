@@ -58,6 +58,8 @@ import {
   targetOf,
 } from "../checkout/intents";
 import { checkoutAmount } from "../checkout/quote";
+import { liveVersion } from "../store/policy";
+import { countFinalSale } from "../store/sales";
 import { ampedPayAddress, readContractState } from "./onchain";
 import { paymentsReady } from "./ready";
 import { limitsFromState, paymentSettings } from "./settings";
@@ -357,6 +359,8 @@ export async function preparePurchase(
       targetId: intent.targetId,
       // A product purchase names its offer, so Sales and access can read it (C10)
       offerId: intent.targetType === "offer" ? Buffer.from(intent.targetId, "hex") : null,
+      // The store policy the buyer was shown (store policy 3.6); null before one is published
+      storePolicyVersionId: (await liveVersion(resolved.creatorUserId))?.id ?? null,
       chainId: paymentChain.id,
       payer,
       creatorAddress: creator,
@@ -779,6 +783,8 @@ export async function settlePurchase(
       },
     });
     if (!moved.count) return status;
+    // C10: a product counts a sale once, when it is final
+    await countFinalSale(row.id);
     const block = await client.getBlock({ blockNumber: receipt.blockNumber });
     await recordPaymentLogs(events, () => new Date(Number(block.timestamp) * 1000), contract);
     await setIntentStatus(row.checkoutIntentId, ["open", "signing", "submitted"], "paid");
