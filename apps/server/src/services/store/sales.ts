@@ -73,6 +73,7 @@ type SaleSource = {
   refundRequestedAt: Date | null;
   createdAt: Date;
   storePolicyVersionId: Uint8Array | null;
+  chainId: number;
 };
 
 const SALE_SELECT = {
@@ -92,6 +93,7 @@ const SALE_SELECT = {
   refundRequestedAt: true,
   createdAt: true,
   storePolicyVersionId: true,
+  chainId: true,
 } as const;
 
 const hex = (id: Uint8Array) => Buffer.from(id).toString("hex");
@@ -180,6 +182,11 @@ async function describe(rows: SaleSource[]) {
   });
 }
 
+/** True when the sale can be refunded from this server: the same chain, inside the window. */
+function refundableHere(row: SaleSource, windowDays: number, now: Date): boolean {
+  return row.chainId === paymentChain.id && refundWindowOpen(row, windowDays, now);
+}
+
 function toRow(
   row: SaleSource,
   info: ReturnType<Awaited<ReturnType<typeof describe>>>,
@@ -200,7 +207,7 @@ function toRow(
     paidAt: paidAt(row).toISOString(),
     refundedAt: row.refundedAt?.toISOString() ?? null,
     txHash: row.txHash,
-    refundable: refundWindowOpen(row, windowDays, now),
+    refundable: refundableHere(row, windowDays, now),
   };
 }
 
@@ -355,6 +362,9 @@ export async function prepareRefund(
     return { refused: true, reason: "not_refundable" };
   }
   const settings = await paymentSettings(now.getTime());
+  // A sale paid on another chain has no payment on this AmpedPay: the Refunded log would
+  // never arrive, so the sale can only be refunded where the payment lives
+  if (row.chainId !== paymentChain.id) return { refused: true, reason: "not_refundable" };
   if (!refundWindowOpen(row, settings.refundWindowDays, now)) {
     return { refused: true, reason: "window_closed" };
   }
@@ -466,6 +476,9 @@ export async function submitRefund(
   if (row.status === "refunded") return { refused: false, state: "refunded", txHash: null };
   if (row.refundRequestedAt) return { refused: false, state: "refunding", txHash: null };
   const settings = await paymentSettings(now.getTime());
+  // A sale paid on another chain has no payment on this AmpedPay: refunding it here would
+  // revert on chain, so only the chain that took the payment can refund it
+  if (row.chainId !== paymentChain.id) return { refused: true, reason: "not_refundable" };
   if (!refundWindowOpen(row, settings.refundWindowDays, now)) {
     return { refused: true, reason: "window_closed" };
   }
