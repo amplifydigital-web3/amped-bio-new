@@ -42,6 +42,8 @@ const BPS = 10_000;
 /** Statuses that paid the promoter: a refund keeps the share where it went. */
 const PAID_STATUSES = ["confirmed_soft", "confirmed", "refunded"] as const;
 const MEMBER_PAID = ["active", "past_due", "canceled", "ended"] as const;
+/** Newest first, as a page: ended codes accumulate and a promoter can hold codes from many creators. */
+const LIST_LIMIT = 200;
 /** No 0, O, 1 or I: codes are read aloud and typed from posts. */
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
@@ -159,6 +161,7 @@ export async function listCodes(
   const rows = await prisma.promoterCode.findMany({
     where: { creatorUserId },
     orderBy: { createdAt: "desc" },
+    take: LIST_LIMIT,
     include: { promoter: { select: { handle: true, name: true } } },
   });
   const counts = await stats(
@@ -319,6 +322,7 @@ export async function listMine(
   const rows = await prisma.promoterCode.findMany({
     where: { promoterUserId },
     orderBy: { createdAt: "desc" },
+    take: LIST_LIMIT,
     include: { creator: { select: { handle: true, name: true } } },
   });
   const counts = await stats(

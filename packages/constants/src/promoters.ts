@@ -143,7 +143,8 @@ export const PROMOTER_COPY = {
     edit: "Edit",
     save: "Save code",
   },
-  endConfirm: "End this code? Links with it stop paying the promoter. You can't turn it back on.",
+  endConfirm:
+    "End this code? New sales stop paying the promoter. Memberships that already joined keep their share. You can't turn it back on.",
   copied: "Link copied",
   sales: (n: number) => (n === 1 ? "1 sale" : `${n} sales`),
   earned: (amount: string) => `${amount} to the promoter`,
