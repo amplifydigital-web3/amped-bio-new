@@ -202,7 +202,11 @@ describe("record a relayer top up", () => {
 
   it("refuses a top up larger than the BIGINT gas ledger can store", async () => {
     chain.getTransactionReceipt.mockResolvedValue({ status: "success", blockNumber: 100n });
-    chain.getTransaction.mockResolvedValue({ to: RELAYER, from: TREASURY, value: parseEther("10") });
+    chain.getTransaction.mockResolvedValue({
+      to: RELAYER,
+      from: TREASURY,
+      value: parseEther("10"),
+    });
     await expect(record()).rejects.toThrow(/exceeds the largest amount/);
     expect(db.relayerFundingEvent.create).not.toHaveBeenCalled();
   });

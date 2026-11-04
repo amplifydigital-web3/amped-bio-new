@@ -410,12 +410,13 @@ export function PlayerProvider({
           setCurrent(currentRef.current);
           scheduleRefresh(next.expiresAt, token);
         } catch {
-          // Access may have ended (a fan who lost access finishes this play only)
-          setState({ error: "expired" });
+          // Access ended, or the item was removed or hidden (takedown tk1): stop here
+          active()?.pause();
+          setState({ error: "expired", playing: false });
         }
       }, refreshDelayMs(expiresAt));
     },
-    [clearRefresh, setState]
+    [active, clearRefresh, setState]
   );
 
   const placeVideo = React.useCallback(() => {
