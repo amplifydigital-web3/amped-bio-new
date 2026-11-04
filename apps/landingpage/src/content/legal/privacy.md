@@ -29,6 +29,7 @@ When you create an account and build your page, we collect:
 - **Security:** two factor settings and backup codes (stored protected), and a record of each signed in session with its IP address and browser details.
 - **Your page:** handle, bio, photo, blocks, links, theme and anything else you publish. Your page is public by design.
 - **Uploads:** images and files you upload, stored with our storage provider.
+- **Promoter codes:** if you give someone a code that pays them a share of your sales, or if a creator gives you one, we record the code, both accounts, the share and the code's sales and earnings. A promoter sees how many sales their code brought and what they earned, never who bought.
 - **X import:** if you import from X, the profile details you choose to bring in.
 - **Browser check:** a proof of work check on sign up and sign in to stop automated abuse. It runs on our own service and sets no cookies.
 - **Messages to us:** what you send to support.
@@ -134,6 +135,7 @@ We do not sell your personal information. We do not use it for our own advertisi
 | Message notifications: the bell, notifications on your devices and reminder emails | Push address and keys, browser details, the sender's name and handle, a short preview of the message on your device, your email address, your notification choices | Contract |
 | ndau conversion records | Addresses, amounts, signatures, terms hash | Contract and legal obligation |
 | Send and receive USDC, show your activity | Wallet address, amounts, addresses, transaction IDs | Contract |
+| Pay promoter codes and show their sales and earnings | The code, the creator and promoter accounts, the share, the sales and earnings | Contract |
 | Buy USDC through Coinbase | Wallet address, IP address, amount, region, random reference, Coinbase's order record, the encrypted Coinbase token | Contract |
 | Screen addresses against sanctions and risk lists | Wallet addresses, the vendor's result | Legal obligation and legitimate interests |
 | Written summaries for creators | Page totals, top sources, devices, visitor counts and up to 10 link names | Legitimate interests |
@@ -158,6 +160,7 @@ We do not sell your personal information. We do not use it for our own advertisi
 | Your browser's push service: Google (Chrome and most Android browsers), Apple (Safari), Mozilla (Firefox) or Microsoft (Edge on Windows) | Your device's push address and each notification, encrypted so only your device can read it: the sender's handle and a short preview of the message, or "Sent you a message" for message requests and senders with 18+ content | Deliver notifications to your device, only if you allow them |
 | Telegram (United Arab Emirates and other locations) | Your Telegram user ID and the messages the bot sends you | Deliver what you asked for on Telegram |
 | The public, the Revolution Network and Base | Your public page, handle, wallet address, transactions, pools and the verification status you choose to show | Public by design |
+| Creators and promoters linked by a code | Each other's handle and name, the code, the share and what it earned | Pay a promoter code and show what it earned |
 | Authorities, advisers, a buyer of the business | What the law requires or a transaction needs | Legal duties, rights, a sale or merger |
 
 Creators see totals for their own page. They do not see your IP address, your Amped.Bio account, or your browser ID.
@@ -201,6 +204,7 @@ Creator pages and the public site set nothing in your browser until you choose, 
 | Notification and reminder email records (who, which conversation, when, and the result) | 30 days after the notification is sent or skipped |
 | Telegram group membership records (Telegram user ID, decisions and removals) | Until the creator disconnects the group or closes their account |
 | Support messages | 2 years |
+| Promoter codes (both accounts, the code, the share, the sales and earnings) | While either account is open, then deleted within 30 days of closing it. A sale or membership keeps the code that referred it with the sale record |
 | Checkouts you started (the item, the creator, where you tapped Buy, any promoter code, and the status) | 30 days after the checkout ends, unless it became a purchase |
 | RNS name expiry reminders (your name, its expiry date, the reminder stage, the time of the reminder and how many sends failed) | While your account is open, then deleted within 30 days of closing it |
 | Locked item views and unlocks | 25 months |
