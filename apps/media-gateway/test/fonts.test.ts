@@ -22,6 +22,8 @@ describe("font keys", () => {
     expect(fontKeyFromPath(`/${CSS_KEY}`)).toBe(CSS_KEY);
     expect(fontKeyFromPath(`/${FILE_KEY}`)).toBe(FILE_KEY);
     expect(fontKeyFromPath("/fonts/../originals/x.css")).toBeNull();
+    expect(fontKeyFromPath("/fonts/%2e%2e/originals/x.css")).toBeNull();
+    expect(fontKeyFromPath("/fonts/files/%2e%2e%2foriginals/x.woff2")).toBeNull();
     expect(fontKeyFromPath("/fonts/files/short.woff2")).toBeNull();
     expect(fontKeyFromPath("/fonts/fraunces/abc1234.js")).toBeNull();
     expect(fontKeyFromPath("/originals/abc/file.mp4")).toBeNull();
@@ -59,5 +61,10 @@ describe("serving fonts", () => {
 
   it("still refuses token free reads outside fonts/", async () => {
     expect((await call("/originals/abc/file.mp4")).status).toBe(403);
+  });
+
+  it("cannot be walked out of fonts/ with an encoded path", async () => {
+    expect((await call("/fonts/%2e%2e/originals/abc/file.mp4")).status).toBe(403);
+    expect((await call("/fonts/files/%2e%2e%2f%2e%2e%2foriginals/x.woff2")).status).toBe(403);
   });
 });

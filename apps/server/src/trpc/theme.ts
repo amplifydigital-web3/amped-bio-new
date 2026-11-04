@@ -76,6 +76,8 @@ export const themeRouter = router({
             },
           });
 
+          // 2b PR 2: mirror the fonts now, so the page's first visitor gets them
+          prewarmUserFonts(Number(user_id), config);
           return result;
         }
 
