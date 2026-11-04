@@ -18,7 +18,7 @@ import { safeMode, safeService } from "./safe";
  * It also closes proposals the Safe moved past: when the Safe's nonce passes a proposal
  * that the Safe service reports as not executed, the change reads Superseded.
  *
- * Paid, Share and Refunded are indexed by PAY-2.
+ * Paid, Share and Refunded are indexed by the PAY-2 worker (paymentsWorker.ts).
  */
 
 export const PAYMENTS_INDEXER_TICK_MS = 30_000;
