@@ -104,6 +104,22 @@ export const FEATURE_FLAGS = {
     default: false,
     env: { client: "VITE_SHOW_THEME_V2", landing: "NEXT_PUBLIC_SHOW_THEME_V2" },
   },
+  homeConversionCopy: {
+    label: "Home conversion copy",
+    description:
+      "The conversion and tradability paragraphs on Home. Turn on only with counsel sign off.",
+    scope: "public",
+    default: false,
+    env: { client: "VITE_HOME_CONVERSION_COPY" },
+  },
+  homeUpdatesFrame: {
+    label: "Home updates frame",
+    description:
+      "The onboarding site as an Updates section on Home. Turn on only after that site drops the conversion and tradability paragraphs.",
+    scope: "public",
+    default: false,
+    env: { client: "VITE_HOME_UPDATES_FRAME" },
+  },
   motion: {
     label: "Landing motion",
     description: "The landing page hero light, headline motion and How it works.",
@@ -118,6 +134,22 @@ export const FEATURE_FLAGS = {
     scope: "public",
     default: false,
     env: { client: "VITE_SHOW_TELEGRAM", landing: "NEXT_PUBLIC_SHOW_TELEGRAM" },
+  },
+  telegramGroups: {
+    label: "Telegram groups",
+    description:
+      "Gated creator groups (phase 2): group connect, join checks, the Telegram group block and the hourly group checks. Needs Telegram.",
+    scope: "server",
+    default: false,
+    env: { server: "TELEGRAM_GROUPS" },
+  },
+  telegramMiniApp: {
+    label: "Telegram Mini App",
+    description:
+      "The Mini App page endpoint, follow and share (phase 3). Needs Telegram and the TON safe mode review.",
+    scope: "server",
+    default: false,
+    env: { server: "TELEGRAM_MINIAPP" },
   },
   broadcast: {
     label: "Broadcasts",
