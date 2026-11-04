@@ -47,6 +47,7 @@ import { ampedPayAddress } from "../payments/onchain";
 import { paymentsReady } from "../payments/ready";
 import { paymentSettings } from "../payments/settings";
 import { versionSummary, liveVersion } from "./policy";
+import { checkRefundPause } from "./promoters";
 
 const BPS = 10_000n;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -594,7 +595,23 @@ export async function markRefunded(id: Uint8Array, refundedAt: Date): Promise<bo
       });
     }
   }
-  return wasFinal.count + other.count > 0;
+  const moved = wasFinal.count + other.count > 0;
+  if (moved) {
+    // C12: a code whose refunds pass the pause rate in 30 days pauses for the creator
+    const sale = await prisma.purchase.findUnique({
+      where: { id: Buffer.from(id) },
+      select: { promoterCodeId: true },
+    });
+    if (sale?.promoterCodeId) {
+      await checkRefundPause(sale.promoterCodeId, refundedAt).catch(error =>
+        console.warn(
+          "[store] promoter refund check failed",
+          error instanceof Error ? error.message : error
+        )
+      );
+    }
+  }
+  return moved;
 }
 
 /** A product sale that just became final counts once on its product (Offer.salesCount). */

@@ -1,7 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router";
 import { useQuery } from "@tanstack/react-query";
-import { CHECKOUT_COPY, checkoutIntentIdSchema, formatBps, usdcDollars } from "@repo/constants";
+import {
+  CHECKOUT_COPY,
+  PROMOTER_COPY,
+  checkoutIntentIdSchema,
+  formatBps,
+  usdcDollars,
+} from "@repo/constants";
 import { trpc, useAuth } from "@repo/ui";
 import { useWalletContext } from "@/contexts/WalletContext";
 import { useUsdcBalance } from "@/components/panels/wallet/hooks/useUsdcBalance";
@@ -301,6 +307,12 @@ export function PayPage() {
       <div className="flex flex-col gap-1 pt-[13px]">
         <h1 className="text-[21px] font-bold leading-7">{item?.title}</h1>
         <p className="text-[15px] leading-5 opacity-80">Yours to keep</p>
+        {/* C12: the promoter in the split, named before Pay (content spec 3.9, st9) */}
+        {q.promoter && (
+          <p className="text-[13px] leading-[18px] opacity-80">
+            {PROMOTER_COPY.referredBy(q.promoter.handle)}
+          </p>
+        )}
       </div>
       <Figures>
         <FigureRow label="Amount" value={<Amount units={q.amount} />} />

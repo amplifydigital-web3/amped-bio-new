@@ -13,6 +13,7 @@
  */
 import { prisma } from "@repo/database";
 import {
+  AMPEDPAY_CONTRACT,
   CHECKOUT_MOCK_PRICE_SETTING,
   CHECKOUT_MOCK_PRICE_UNITS,
   type AnyThemeConfig,
@@ -24,6 +25,7 @@ import { getFileUrl } from "../../utils/fileUrlResolver";
 import { checkIdentity } from "../identity/checks";
 import { paymentSettings, type PaymentSettings } from "../payments/settings";
 import { paymentsReady } from "../payments/ready";
+import { resolvePromoter } from "../store/promoters";
 import {
   effectiveStatus,
   hexToIntentId,
@@ -51,6 +53,8 @@ export type CheckoutQuote = {
   feeBps: number;
   quotedAt: string;
   validUntil: string;
+  /** C12: "Referred by @handle" when the intent carries an active, in scope promoter code */
+  promoter: { handle: string } | null;
 };
 
 /** Statuses that count against the daily purchase limits. */
@@ -123,6 +127,7 @@ export async function quoteIntent(viewerUserId: number, idHex: string): Promise<
       userId: true,
       status: true,
       expiresAt: true,
+      via: true,
     },
   });
   if (!row || row.userId !== viewerUserId) throw notFound();
@@ -151,6 +156,7 @@ export async function quoteIntent(viewerUserId: number, idHex: string): Promise<
       creator: null,
       amount: "0",
       fee: "0",
+      promoter: null,
     };
   }
 
@@ -178,6 +184,18 @@ export async function quoteIntent(viewerUserId: number, idHex: string): Promise<
   const fee = (amount * BigInt(settings.platformFeeBps)) / 10_000n;
   const handle = resolved.item.creatorHandle;
 
+  // The same rule prepare applies, without the screening call; prepare has the last word
+  const promoter = await resolvePromoter({
+    via: row.via,
+    creatorUserId: resolved.creatorUserId,
+    targetId: row.targetType === "offer" ? row.targetId : null,
+    buyerUserId: viewerUserId,
+    payer: null,
+    platformFeeBps: settings.platformFeeBps,
+    minCreatorBps: AMPEDPAY_CONTRACT.defaults.minCreatorBps,
+    now,
+  }).catch(() => null);
+
   // Order matters: one state per sheet, the most specific cause first
   let state: CheckoutQuoteState = "ready";
   if (settings.paymentsPaused) state = "paused";
@@ -201,5 +219,6 @@ export async function quoteIntent(viewerUserId: number, idHex: string): Promise<
     creator: { handle, name: resolved.item.creatorName, image, theme },
     amount: amount.toString(),
     fee: fee.toString(),
+    promoter: promoter ? { handle: promoter.handle } : null,
   };
 }

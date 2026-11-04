@@ -6,13 +6,14 @@
  * right now" with no Join.
  */
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router";
+import { useNavigate, useParams, useSearchParams } from "react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useAccount } from "wagmi";
 import {
   CHECKOUT_COPY,
   MEMBERSHIP_ACCESS_STATUSES,
   MEMBERSHIP_COPY,
+  PROMOTER_COPY,
   PLATFORM_FEE_BPS,
   usdcDollarsLabel,
   type MembershipInterval,
@@ -40,6 +41,10 @@ type Phase = "idle" | "preparing" | "signing" | "sending" | "done";
 export function JoinPage() {
   const params = useParams();
   const handle = (params.handle ?? "").replace(/^@/, "").toLowerCase();
+  // C12: the promoter code from the store link; a bad one simply attributes nothing
+  const [search] = useSearchParams();
+  const viaRaw = search.get("via")?.trim() ?? "";
+  const via = /^[A-Za-z0-9_-]{1,32}$/.test(viaRaw) ? viaRaw : undefined;
   const navigate = useNavigate();
   const sign = usePaymentChainSigner();
   const { address } = useAccount();
@@ -65,7 +70,12 @@ export function JoinPage() {
 
   const prepare = useMutation({
     mutationFn: () =>
-      trpcClient.memberships.join.prepare.mutate({ handle, interval, signer: address }),
+      trpcClient.memberships.join.prepare.mutate({
+        handle,
+        interval,
+        signer: address,
+        ...(via ? { via } : {}),
+      }),
   });
 
   const join = async () => {
@@ -237,6 +247,11 @@ export function JoinPage() {
           </Notice>
         ) : null}
         {error ? <Notice variant="warning">{error}</Notice> : null}
+        {prepared?.promoterHandle ? (
+          <p className="text-prism-meta text-prism-ink-2">
+            {PROMOTER_COPY.referredBy(prepared.promoterHandle)}
+          </p>
+        ) : null}
         <p className="text-prism-meta text-prism-ink-2">
           {CHECKOUT_COPY.soldBy(seller)}{" "}
           <a

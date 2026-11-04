@@ -85,6 +85,9 @@ model User {
   memberships             Membership[]             @relation("MembershipFan")
   membershipsSold         Membership[]             @relation("MembershipCreator")
   purchasesSold           Purchase[]               @relation("PurchaseCreator")
+  // Store promoters (C12): codes this creator gave out, and codes this account promotes
+  promoterCodesGiven      PromoterCode[]           @relation("PromoterCodeCreator")
+  promoterCodesHeld       PromoterCode[]           @relation("PromoterCodePromoter")
   telegramAccount         TelegramAccount?
   telegramGroups          TelegramGroup[]
   telegramLinkEvents      TelegramLinkEvent[]
@@ -2014,6 +2017,8 @@ enum NotificationKind {
   BROADCAST
   // MB-1 (CK-D3): renewal readiness and past due reminders, groupKey renewal:{membershipId}
   MEMBERSHIP_RENEWAL
+  // C12: a creator gave this account a promoter code, groupKey promoter:{codeId}
+  PROMOTER_CODE
 }
 
 // One bell row per thing to see. Repeats collapse into the unseen row for the same
@@ -2245,6 +2250,37 @@ model CheckoutIntent {
   @@map("checkout_intents")
 }
 
+/// A promoter code (content PR 12, C12; content spec 3.9 Promoters). A creator gives an
+/// Amped.Bio account a share of 1% to 30% (the payment settings bound it) on every product
+/// and the plan, or on chosen ones. Store links carry ?via={code}; the API adds a promoter row
+/// to the split when the code is active, in scope and not the buyer's own. A code is never
+/// deleted: Purchase and Membership keep its id. Ended is final.
+model PromoterCode {
+  id             Bytes     @id @db.Binary(16)
+  creatorUserId  Int       @map("creator_user_id")
+  promoterUserId Int       @map("promoter_user_id")
+  // Uppercase letters and digits, 4 to 16, unique across Amped.Bio
+  code           String    @unique @db.VarChar(16)
+  bps            Int
+  // "all", or an array of Offer and MembershipPlan ids as hex
+  scope          Json
+  // active | paused | ended
+  status         String    @default("active") @db.VarChar(12)
+  // creator | refunds (refunds above promoter_refund_pause_rate in 30 days)
+  pausedReason   String?   @map("paused_reason") @db.VarChar(12)
+  expiresAt      DateTime? @map("expires_at")
+  endedAt        DateTime? @map("ended_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  creator  User @relation("PromoterCodeCreator", fields: [creatorUserId], references: [id], onDelete: Cascade)
+  promoter User @relation("PromoterCodePromoter", fields: [promoterUserId], references: [id], onDelete: Cascade)
+
+  @@index([creatorUserId, status])
+  @@index([promoterUserId])
+  @@map("promoter_codes")
+}
+
 /// One AmpedPay payment (PAY-2, docs/features/ampedpay.md, content spec 3.9). The id is the
 /// on chain paymentRef, left padded to 32 bytes. Offers arrive with store PR 9 (offerId).
 model Purchase {
@@ -2298,6 +2334,7 @@ model Purchase {
   @@index([status, updatedAt])
   @@index([txHash])
   @@index([refundTxHash])
+  @@index([promoterCodeId])
   @@index([checkoutIntentId])
   @@map("purchases")
 }
@@ -2374,6 +2411,8 @@ model Membership {
   // The store policy the fan agreed to at join (store policy 3.6)
   storePolicyVersionId Bytes?    @map("store_policy_version_id") @db.Binary(16)
   checkoutIntentId     Bytes?    @map("checkout_intent_id") @db.Binary(16)
+  // C12: the promoter code attributed at join. Its row is in joinTable and pays every renewal
+  promoterCodeId       Bytes?    @map("promoter_code_id") @db.Binary(16)
   createdAt            DateTime  @default(now()) @map("created_at")
   updatedAt            DateTime  @updatedAt @map("updated_at")
 
@@ -2383,6 +2422,7 @@ model Membership {
   creator User?          @relation("MembershipCreator", fields: [creatorUserId], references: [id], onDelete: SetNull)
 
   @@unique([chainId, joinHash])
+  @@index([promoterCodeId])
   @@index([fanUserId, status])
   @@index([creatorUserId, status, createdAt])
   @@index([planId, status])

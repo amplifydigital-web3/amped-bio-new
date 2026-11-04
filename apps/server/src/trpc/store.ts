@@ -14,7 +14,19 @@ import {
   storeReportSchema,
   storeSalesCsvSchema,
   storeSalesListSchema,
+  PROMOTER_COPY,
+  bpsPercent,
+  promoterSetStatusSchema,
+  promoterUpsertSchema,
 } from "@repo/constants";
+import {
+  PromoterError,
+  listCodes,
+  listMine as listPromoterMine,
+  setCodeStatus,
+  upsertCode,
+} from "../services/store/promoters";
+import { paymentSettings } from "../services/payments/settings";
 import { privateProcedure, publicProcedure, router } from "./trpc";
 import { enforceRateLimits } from "../utils/rateLimit";
 import { getClientIp } from "../services/analytics/requestContext";
@@ -78,6 +90,20 @@ async function run<T>(work: () => Promise<T>): Promise<T> {
                 : "Check the policy text and publish again.";
       throw new TRPCError({
         code: "BAD_REQUEST",
+        message,
+        cause: { refusal: error.code, detail: error.detail },
+      });
+    }
+    if (error instanceof PromoterError) {
+      const E = PROMOTER_COPY.errors;
+      const message =
+        error.code === "share_range"
+          ? E.share_range(error.detail.min ?? "", error.detail.max ?? "")
+          : error.code === "not_found"
+            ? "This code was not found."
+            : E[error.code];
+      throw new TRPCError({
+        code: error.code === "not_found" ? "NOT_FOUND" : "BAD_REQUEST",
         message,
         cause: { refusal: error.code, detail: error.detail },
       });
@@ -199,6 +225,42 @@ export const storeRouter = router({
    * Sales and refunds (C10, row 161, boards st5 and k2). The caller's own sales only. Buyers
    * show by name and handle; no email or wallet leaves the server.
    */
+  /**
+   * Promoter codes (C12, content spec 3.9 Promoters). The creator's own codes; a share
+   * change applies to new sales. Codes are never deleted: End is final.
+   */
+  promoters: router({
+    list: privateProcedure.query(({ ctx }) => listCodes(ctx.user!.sub)),
+    /** The share range the payment settings allow, for the code sheet */
+    bounds: privateProcedure.query(async () => {
+      const s = await paymentSettings();
+      return {
+        minBps: Math.max(1, s.promoterShareMinBps),
+        maxBps: s.promoterShareMaxBps,
+        feeBps: s.platformFeeBps,
+        min: bpsPercent(Math.max(1, s.promoterShareMinBps)),
+        max: bpsPercent(s.promoterShareMaxBps),
+      };
+    }),
+    upsert: privateProcedure.input(promoterUpsertSchema).mutation(async ({ ctx, input }) => {
+      await enforceRateLimits(
+        [{ key: `store_promoter:u:${ctx.user!.sub}`, limit: 30, windowSeconds: 3600 }],
+        "Too many changes. Try again in an hour."
+      );
+      return run(() => upsertCode(ctx.user!.sub, input));
+    }),
+    setStatus: privateProcedure
+      .input(promoterSetStatusSchema)
+      .mutation(({ ctx, input }) =>
+        run(() => setCodeStatus(ctx.user!.sub, input.id, input.status))
+      ),
+  }),
+
+  /** The codes this account promotes for other creators, with their sales and earnings. */
+  promoter: router({
+    mine: privateProcedure.query(({ ctx }) => listPromoterMine(ctx.user!.sub)),
+  }),
+
   sales: router({
     list: privateProcedure
       .input(storeSalesListSchema)

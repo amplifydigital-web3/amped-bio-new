@@ -47,6 +47,16 @@ const state = vi.hoisted(() => ({
   ready: true,
   item: true,
   pay: {} as Record<string, any>,
+  // C12: what resolvePromoter returns, and what it was asked
+  promoter: null as Record<string, any> | null,
+  promoterCalls: [] as Record<string, any>[],
+}));
+
+vi.mock("../services/store/promoters", () => ({
+  resolvePromoter: vi.fn(async (input: Record<string, any>) => {
+    state.promoterCalls.push(input);
+    return state.promoter;
+  }),
 }));
 
 function matches(row: Row, where: Row = {}): boolean {
@@ -563,6 +573,8 @@ beforeEach(() => {
   state.fanWallet = fan.address;
   state.ready = true;
   state.item = true;
+  state.promoter = null;
+  state.promoterCalls = [];
   relayerCall.mockClear();
   deliverEmail.mockClear();
   setSplitSignerForTests(localSigner);
@@ -572,6 +584,55 @@ const prepare = (overrides: Row = {}) =>
   preparePurchase(20, { intentId: INTENT, amount: "3000000", ...overrides }, NOW);
 
 describe("preparePurchase", () => {
+  it("adds the promoter row when the intent's code attributes, and stores the code (C12)", async () => {
+    const PROMOTER = getAddress("0xd000000000000000000000000000000000000004");
+    state.intents[0]!.via = "MAYA2026";
+    state.promoter = {
+      codeId: Buffer.from("0c".repeat(16), "hex"),
+      promoterUserId: 30,
+      handle: "sam",
+      to: PROMOTER,
+      bps: 1_000,
+    };
+    const result = await prepare({ signer: fan.address });
+    if (result.refused) throw new Error(`refused ${result.reason}`);
+    const row = state.purchases[0]!;
+    expect(row.split.recipients).toEqual([
+      { to: CREATOR, bps: 8_500, role: 0 },
+      { to: TREASURY, bps: 500, role: 1 },
+      { to: PROMOTER, bps: 1_000, role: 2 },
+    ]);
+    expect(row.promoterCodeId).toEqual(Buffer.from("0c".repeat(16), "hex"));
+    expect(row.fee).toBe(150_000n);
+    expect(result.review.promoterHandle).toBe("sam");
+    expect(state.promoterCalls[0]).toMatchObject({
+      via: "MAYA2026",
+      creatorUserId: 10,
+      buyerUserId: 20,
+      targetId: null,
+      screen: true,
+    });
+    // The signed table is the one the contract will hash
+    expect(row.splitHash).toBe(
+      solidityHash({
+        paymentRef: purchasePaymentRef(row.id),
+        payer: fan.address,
+        amount: 3_000_000n,
+        recipients: row.split.recipients,
+        validBefore: BigInt(row.split.validBefore),
+      })
+    );
+  });
+
+  it("sells without a promoter row when no code attributes", async () => {
+    state.intents[0]!.via = "NOPE1234";
+    const result = await prepare({ signer: fan.address });
+    if (result.refused) throw new Error(`refused ${result.reason}`);
+    expect(state.purchases[0]!.split.recipients).toHaveLength(2);
+    expect(state.purchases[0]!.promoterCodeId).toBeNull();
+    expect(result.review.promoterHandle).toBeNull();
+  });
+
   it("signs the split and returns the authorization to sign: to AmpedPay, nonce the split hash", async () => {
     const result = await prepare({ signer: fan.address });
     if (result.refused) throw new Error(`refused ${result.reason}`);
