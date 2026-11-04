@@ -87,6 +87,15 @@ export const PREPARED_TTL_MS = 24 * 60 * 60 * 1000;
 
 const IN_FLIGHT = ["submitting", "submitted"] as const;
 
+/**
+ * A purchase that still gives access right now (G4): confirmed or soft confirmed and,
+ * for a product with an access period, before its end. An ended period leaves the fan
+ * free to buy the product again.
+ */
+export const accessStillOpen = (now: Date) => ({
+  OR: [{ accessUntil: null }, { accessUntil: { gt: now } }],
+});
+
 export class PurchaseInputError extends Error {
   constructor(message: string) {
     super(message);
@@ -214,6 +223,8 @@ export async function preparePurchase(
         targetType: intent.targetType,
         targetId: intent.targetId,
         status: { in: [...PURCHASE_ACCESS_STATUSES] },
+        // A product whose access period ended can be bought again (G4)
+        ...accessStillOpen(now),
       },
       select: { id: true },
     }),
@@ -543,7 +554,13 @@ export async function submitPurchase(
       buyerUserId: userId,
       targetType: row.targetType,
       targetId: row.targetId,
-      status: { in: [...IN_FLIGHT, ...PURCHASE_ACCESS_STATUSES] },
+      OR: [
+        // A payment already on its way, whatever its age
+        { status: { in: [...IN_FLIGHT] } },
+        // Access already owned, so a second payment adds nothing. An ended access
+        // period (G4) does not block the fan from buying again
+        { status: { in: [...PURCHASE_ACCESS_STATUSES] }, ...accessStillOpen(now) },
+      ],
     },
     select: { id: true, status: true },
   });
