@@ -98,8 +98,16 @@ describe("refreshFeatureFlags", () => {
 describe("what leaves the API", () => {
   it("sends only rows of public flags to the apps", async () => {
     await setFeatureFlag("checkout", true, 1);
+    await setFeatureFlag("rnsPublicIdentity", true, 1);
     await setFeatureFlag("accessGating", true, 1);
-    expect(publicFeatureFlagOverrides()).toEqual({ checkout: true });
+    expect(publicFeatureFlagOverrides()).toMatchObject({ checkout: true, accessGating: true });
+    expect(publicFeatureFlagOverrides()).not.toHaveProperty("rnsPublicIdentity");
+  });
+
+  it("sends the API's value for a public flag with only a server variable", () => {
+    __setFeatureFlagOverridesForTests({});
+    expect(publicFeatureFlagOverrides()).toMatchObject({ accessGating: false });
+    expect(publicFeatureFlagOverrides()).not.toHaveProperty("checkout");
   });
 
   it("lists every flag with its row and the value on the API", async () => {

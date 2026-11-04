@@ -24,6 +24,8 @@ export interface UserProfile {
   telegramDoor?: HandleUser["telegramDoor"];
   /** Board tg13: whether Join my Telegram group is live, the rule kind and the bot. */
   telegramGroupDoor?: HandleUser["telegramGroupDoor"];
+  /** Amped Messages (M6): whether Message me is live and the rule kind. Never an amount. */
+  messageDoor?: HandleUser["messageDoor"];
 }
 
 // Theme from tRPC, but with the JSON column typed as the app's ThemeConfig
@@ -123,6 +125,7 @@ export function mapGetHandleData(result: HandleOutput, handle: string): ProfileP
       telegramMark: user.telegramMark === true,
       telegramDoor: user.telegramDoor ?? null,
       telegramGroupDoor: user.telegramGroupDoor ?? null,
+      messageDoor: user.messageDoor ?? null,
     },
     theme: theme ? (theme as unknown as Theme) : null,
     blocks: [...blocksRaw].sort((a, b) => a.order - b.order) as unknown as BlockType[],

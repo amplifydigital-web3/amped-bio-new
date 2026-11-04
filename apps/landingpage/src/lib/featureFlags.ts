@@ -25,6 +25,7 @@ const LANDING_ENV: Partial<Record<FeatureFlagKey, string | undefined>> = {
   themeShowcase: process.env.NEXT_PUBLIC_SHOW_THEME_SHOWCASE,
   motion: process.env.NEXT_PUBLIC_SHOW_MOTION,
   fanGraph: process.env.NEXT_PUBLIC_FAN_GRAPH,
+  messages: process.env.NEXT_PUBLIC_MESSAGES,
 };
 
 /** The flag on the public site: the admin's row, else this build's NEXT_PUBLIC_ variable, else the default */
