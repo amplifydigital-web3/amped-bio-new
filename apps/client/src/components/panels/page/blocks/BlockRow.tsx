@@ -16,6 +16,7 @@ import {
   Library,
   Lock,
   MoreHorizontal,
+  MessageCircle,
   Send,
   Trash2,
   UserPlus,
@@ -63,11 +64,13 @@ function BlockIcon({ block }: { block: BlockType }) {
             ? UsersRound
             : block.type === "rnsid"
               ? IdCard
-              : block.type === "telegram_message" || block.type === "telegram_group"
-                ? Send
-                : block.type === "content"
-                  ? Library
-                  : getPlatformIcon(block.type === "text" ? "text" : block.config.platform);
+              : block.type === "message"
+                ? MessageCircle
+                : block.type === "telegram_message" || block.type === "telegram_group"
+                  ? Send
+                  : block.type === "content"
+                    ? Library
+                    : getPlatformIcon(block.type === "text" ? "text" : block.config.platform);
   return <Icon aria-hidden className="h-[21px] w-[21px] shrink-0 text-prism-ink-2" />;
 }
 

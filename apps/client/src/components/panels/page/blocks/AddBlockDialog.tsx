@@ -7,6 +7,7 @@ import {
   Library,
   Link2,
   Loader2,
+  MessageCircle,
   Plus,
   Send,
   UserPlus,
@@ -16,6 +17,7 @@ import {
 import { BsTelegram } from "react-icons/bs";
 import type { IconType } from "react-icons/lib";
 import {
+  MESSAGE_UI,
   SINGLETON_BLOCK_TYPES,
   TELEGRAM_APP_STRINGS,
   TELEGRAM_LINK,
@@ -51,7 +53,8 @@ export type NewBlockKind =
   | { type: "followers" }
   | { type: "rnsid" }
   | { type: "content" }
-  | { type: "telegram_message" };
+  | { type: "telegram_message" }
+  | { type: "message" };
 
 type SingletonType = (typeof SINGLETON_BLOCK_TYPES)[number];
 
@@ -64,7 +67,9 @@ const rnsOn = isFeatureOn("rns");
 // Content system (Build Board #20, spec 3.7): items from the creator's library
 const contentOn = isFeatureOn("content");
 // Messaging on Telegram (Build Board #2, row 115): Message me on Telegram in Utility
-const telegramOn = isFeatureOn("telegram");
+// Amped Messages (#2 r4, M6): Message me replaces Message me on Telegram in the picker
+const messagesOn = isFeatureOn("messages");
+const telegramOn = !messagesOn && isFeatureOn("telegram");
 
 type Tile = {
   label: string;
@@ -135,6 +140,16 @@ const SECTIONS: { eyebrow: string; tiles: Tile[] }[] = [
     tiles: [
       { label: "Text", icon: FileText, kind: { type: "text" } },
       { label: "Referral link", icon: Link2, kind: { type: "referral" } },
+      ...(messagesOn
+        ? [
+            {
+              label: MESSAGE_UI.blockFields.title,
+              icon: MessageCircle,
+              kind: { type: "message" as const },
+              description: MESSAGE_UI.blockFields.pickerLine,
+            },
+          ]
+        : []),
       ...(telegramOn
         ? [
             {
