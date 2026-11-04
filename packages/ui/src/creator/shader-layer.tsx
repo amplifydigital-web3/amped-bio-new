@@ -33,7 +33,7 @@ export interface ShaderLayerProps {
   colors: ThemeColors;
   paused?: boolean;
   device?: "strong" | "typical" | "weak";
-  /** SHOW_THEME_SHOWCASE: off paints the poster only. */
+  /** themeShowcase flag: off paints the poster only. */
   showcase?: boolean;
   onDrop?: (drop: EffectDrop) => void;
   className?: string;
@@ -74,7 +74,6 @@ export function ShaderLayer({
 }: ShaderLayerProps) {
   const reducedMotion = usePrefersReducedMotion();
   const host = useRef<HTMLDivElement>(null);
-  const canvas = useRef<HTMLCanvasElement>(null);
   const [live, setLive] = useState(false);
   const [dropped, setDropped] = useState(false);
   const reported = useRef(false);
@@ -105,13 +104,13 @@ export function ShaderLayer({
 
   useEffect(() => {
     const element = host.current;
-    const surface = canvas.current;
-    if (!render || still || weak || !element || !surface) {
+    if (!render || still || weak || !element) {
       setLive(false);
       return;
     }
     let cancelled = false;
     let stop: (() => void) | undefined;
+    let surface: HTMLCanvasElement | undefined;
     const cancelStart = afterFirstPaint(() => {
       // The engine and the scene's own GLSL load together, each in its own chunk
       void Promise.all([import("../motion/webgl"), import("../motion/shaders")])
@@ -123,6 +122,13 @@ export function ShaderLayer({
             drop("unavailable");
             return;
           }
+          // A fresh canvas per start: stop() loses its context for good, so a
+          // restart (Speed, device or flag change) cannot reuse the old one
+          surface = document.createElement("canvas");
+          surface.className = "absolute inset-0 h-full w-full";
+          surface.style.opacity = "0";
+          surface.style.transition = `opacity ${MOTION.room}ms ${PRISM_EASE}`;
+          element.appendChild(surface);
           const handle = engine.startShader({
             canvas: surface,
             host: element,
@@ -138,10 +144,18 @@ export function ShaderLayer({
               drop("slow");
             },
             onFirstFrame: () => {
-              if (!cancelled) setLive(true);
+              if (cancelled) return;
+              if (surface) surface.style.opacity = "1";
+              setLive(true);
+            },
+            onLost: () => {
+              setDropped(true);
+              drop("unavailable");
             },
           });
           if (!handle) {
+            surface?.remove();
+            surface = undefined;
             setDropped(true);
             drop("unavailable");
             return;
@@ -158,6 +172,7 @@ export function ShaderLayer({
       cancelled = true;
       cancelStart();
       stop?.();
+      surface?.remove();
       handleRef.current = null;
       setLive(false);
     };
@@ -178,12 +193,6 @@ export function ShaderLayer({
       data-state={live ? "live" : "poster"}
       className={cn("pointer-events-none", className)}
       style={{ background: poster }}
-    >
-      <canvas
-        ref={canvas}
-        className="absolute inset-0 h-full w-full"
-        style={{ opacity: live ? 1 : 0, transition: `opacity ${MOTION.room}ms ${PRISM_EASE}` }}
-      />
-    </div>
+    />
   );
 }

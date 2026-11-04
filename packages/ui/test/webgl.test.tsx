@@ -98,7 +98,17 @@ function run(count: number, step = 16, from = 16) {
 }
 
 function canvasWith(gl: Loose | null) {
-  return { getContext: () => gl, width: 0, height: 0 } as unknown as HTMLCanvasElement;
+  const listeners: Record<string, (() => void)[]> = {};
+  return {
+    getContext: () => gl,
+    width: 0,
+    height: 0,
+    addEventListener: (type: string, fn: () => void) => (listeners[type] ??= []).push(fn),
+    removeEventListener: (type: string, fn: () => void) => {
+      listeners[type] = (listeners[type] ?? []).filter(other => other !== fn);
+    },
+    fire: (type: string) => [...(listeners[type] ?? [])].forEach(fn => fn()),
+  } as unknown as HTMLCanvasElement & { fire: (type: string) => void };
 }
 
 const host = {
@@ -178,6 +188,44 @@ describe("startShader", () => {
   });
 });
 
+describe("startShader context loss", () => {
+  beforeEach(setupWindow);
+
+  it("stops drawing and calls onLost when the browser drops the context", () => {
+    const { gl, calls } = fakeGl();
+    const canvas = canvasWith(gl);
+    const onSlow = vi.fn();
+    const onLost = vi.fn();
+    startShader({ canvas, host, fragment: "x", onSlow, onLost });
+    run(3);
+    const drawn = calls.filter(c => c.name === "drawArrays").length;
+    canvas.fire("webglcontextlost");
+    run(5);
+    expect(onLost).toHaveBeenCalledTimes(1);
+    expect(onSlow).not.toHaveBeenCalled();
+    expect(calls.filter(c => c.name === "drawArrays")).toHaveLength(drawn);
+    expect(frames).toHaveLength(0);
+  });
+
+  it("falls back to onSlow without onLost, and ignores the event its own stop fires", () => {
+    const { gl } = fakeGl();
+    const canvas = canvasWith(gl);
+    const onSlow = vi.fn();
+    const handle = startShader({ canvas, host, fragment: "x", onSlow });
+    canvas.fire("webglcontextlost");
+    expect(onSlow).toHaveBeenCalledTimes(1);
+    handle!.stop();
+    canvas.fire("webglcontextlost");
+    expect(onSlow).toHaveBeenCalledTimes(1);
+  });
+
+  it("frees the context when the shader does not compile", () => {
+    const bad = fakeGl({ compiles: false });
+    expect(startShader({ canvas: canvasWith(bad.gl), host, fragment: "x", onSlow: vi.fn() })).toBeNull();
+    expect(bad.lost.count).toBe(1);
+  });
+});
+
 describe("engine helpers", () => {
   it("reads theme hex colors as vec3 and caps the pixel ratio per device", () => {
     expect(hexToVec3("#ff8000")).toEqual([1, 128 / 255, 0]);
@@ -228,7 +276,8 @@ describe("ShaderLayer", () => {
     expect(html).toContain('data-effect="scene.test-glow"');
     expect(html).toContain('data-state="poster"');
     expect(html).toContain("radial-gradient(circle at 50% 40%, #5650a2, #16152b)");
-    expect(html).toContain("opacity:0");
+    // The canvas is created only when the engine starts, never on the server
+    expect(html).not.toContain("<canvas");
     expect(html).toContain('aria-hidden="true"');
   });
 

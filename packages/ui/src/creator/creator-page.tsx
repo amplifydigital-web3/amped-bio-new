@@ -122,7 +122,7 @@ export interface CreatorPageProps {
    */
   device?: "strong" | "typical" | "weak";
   /**
-   * SHOW_THEME_SHOWCASE (phase 3, TE-3a): showcase engines run. Off, a WebGL
+   * themeShowcase flag (phase 3, TE-3a): showcase engines run. Off, a WebGL
    * scene paints its poster only.
    */
   showcase?: boolean;
