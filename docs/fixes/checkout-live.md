@@ -8,7 +8,7 @@ Branch `feat/checkout-live` into `development`. PR plan CK-5 (wave 4), Build Boa
 
 ## 1. Migration
 
-`packages/database/prisma/migrations/20261104220000_checkout_policy_version/migration.sql`. This is what `prisma migrate diff` generates:
+`packages/database/prisma/migrations/20261104225000_checkout_policy_version/migration.sql`. This is what `prisma migrate diff` generates:
 
 ```sql
 ALTER TABLE `checkout_intents` ADD COLUMN `store_policy_version_id` BINARY(16) NULL;
