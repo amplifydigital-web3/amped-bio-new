@@ -96,6 +96,8 @@ export function stripTags(html: string) {
 
 /** What a block still needs before it can show on the page (presence, not format). */
 export function blockNeed(block: BlockType): BlockNeed {
+  // A locked block (G3) carries no URL or body; the server checked it before locking
+  if (block.gated) return null;
   switch (block.type) {
     case "link":
       return block.config.url ? null : "link";

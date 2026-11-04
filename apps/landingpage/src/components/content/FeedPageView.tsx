@@ -8,6 +8,7 @@ import { cn } from "@repo/ui";
 import { contentItemPath } from "@/lib/content";
 import { trpcClient } from "@/lib/trpc";
 import { ContentCardLink } from "./ContentCardView";
+import { useCardDecisions } from "./gating";
 import { ReportContentButton } from "./ReportDialog";
 import { SITE_CONTENT_COPY as copy } from "./copy";
 import { CREATOR_FOCUS_RING } from "./theme";
@@ -38,6 +39,8 @@ export function FeedPageView({
   const [cursor, setCursor] = useState(initial.nextCursor);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
+  // Locked cards ask once per loaded page (content gating 4.2), up to 48 at a time
+  const decisionFor = useCardDecisions(creator.handle, items);
 
   const more = async () => {
     if (!cursor) return;
@@ -153,6 +156,7 @@ export function FeedPageView({
                   card={card}
                   href={contentItemPath(creator.handle, card.publicId)}
                   sizes="(min-width: 1024px) 245px, 50vw"
+                  decision={decisionFor(card.publicId)}
                 />
               </li>
             ))}
@@ -164,6 +168,7 @@ export function FeedPageView({
                   card={card}
                   href={contentItemPath(creator.handle, card.publicId)}
                   layout="list"
+                  decision={decisionFor(card.publicId)}
                 />
               </li>
             ))}

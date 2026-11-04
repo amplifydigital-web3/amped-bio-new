@@ -7,6 +7,7 @@ import {
 } from "@repo/constants";
 import { uuidv7 } from "../../utils/uuid-v7";
 import { trustedEmailWhere } from "../../utils/verificationGrace";
+import { getFileUrl } from "../../utils/fileUrlResolver";
 import { decryptMessageBody, encryptMessageBody } from "../crypto/messageBody";
 import { messageCaps, messagingEnabled } from "./caps";
 import { conversationPairKey } from "./conversations";
@@ -260,6 +261,10 @@ export type SentDirect = {
   created: boolean;
   repeat: boolean;
   flaggedTerms: { phrase: string; category: string }[];
+  /** The recipient's bell row for this conversation, or null when muted or a repeat. */
+  notificationId: Uint8Array | null;
+  /** The recipient muted this conversation: no bell, push or email (M4). */
+  muted: boolean;
 };
 
 /**
@@ -300,6 +305,8 @@ export async function sendDirect(input: {
         created: false,
         repeat: true,
         flaggedTerms: flags,
+        notificationId: null,
+        muted: false,
       };
     }
   }
@@ -375,7 +382,8 @@ export async function sendDirect(input: {
     });
 
     // Bell row: one unseen row per conversation, count bumps (spec 7.4). Muted: none.
-    const muted = recipient?.mutedUntil && recipient.mutedUntil > now;
+    const muted = !!recipient?.mutedUntil && recipient.mutedUntil > now;
+    let notificationId: Uint8Array | null = null;
     if (!muted) {
       const groupKey = `conv:${Buffer.from(cid).toString("hex")}`;
       const unseen = await tx.notification.findFirst({
@@ -383,14 +391,16 @@ export async function sendDirect(input: {
         select: { id: true },
       });
       if (unseen) {
+        notificationId = unseen.id;
         await tx.notification.update({
           where: { id: unseen.id },
           data: { count: { increment: 1 }, actorId: input.senderId },
         });
       } else {
+        notificationId = uuidv7();
         await tx.notification.create({
           data: {
-            id: uuidv7(),
+            id: notificationId as Buffer,
             userId: input.recipientId,
             kind: folder === "REQUESTS" ? "REQUEST" : "MESSAGE",
             actorId: input.senderId,
@@ -400,7 +410,16 @@ export async function sendDirect(input: {
         });
       }
     }
-    return { messageId, conversationId: cid, folder, created, repeat: false, flaggedTerms: flags };
+    return {
+      messageId,
+      conversationId: cid,
+      folder,
+      created,
+      repeat: false,
+      flaggedTerms: flags,
+      notificationId,
+      muted,
+    };
   });
 }
 
@@ -438,6 +457,17 @@ const personSelect = {
   image: true,
   image_file_id: true,
 } as const;
+
+export type Person = { id: number; name: string; handle: string | null; image: string | null };
+
+/** A person as clients see them, with the avatar URL resolved. Never throws. */
+export async function personOut(user: PersonRow): Promise<Person> {
+  const image = await getFileUrl({
+    legacyImageField: user.image,
+    imageFileId: user.image_file_id,
+  }).catch(() => null);
+  return { id: user.id, name: user.name, handle: user.handle, image };
+}
 
 export type Relation = "member" | "poolFan" | "follower" | "youFollow" | null;
 
@@ -536,7 +566,7 @@ export async function listConversations(input: {
         0;
     return {
       conversationId: Buffer.from(m.conversationId).toString("hex"),
-      person: other ? { id: other.id, name: other.name, handle: other.handle } : null,
+      person: other as PersonRow | null,
       relation: other ? (relations.get(other.id) ?? null) : null,
       preview:
         !last || cleared
@@ -557,7 +587,10 @@ export async function listConversations(input: {
   if (input.filter === "followers") rows = rows.filter(r => r.relation === "follower");
   // Paid members arrive with Memberships (#25)
   if (input.filter === "members") rows = rows.filter(r => r.relation === "member");
-  const page = rows.slice(0, limit);
+  const sliced = rows.slice(0, limit);
+  const page = await Promise.all(
+    sliced.map(async r => ({ ...r, person: r.person ? await personOut(r.person) : null }))
+  );
   const next =
     rows.length > limit ? (page[page.length - 1]?.lastMessageAt?.toISOString() ?? null) : null;
   return { rows: page, nextCursor: next };
@@ -616,8 +649,14 @@ export async function conversationPage(input: {
     folder: me.folder,
     accepted: !!me.acceptedAt,
     linksOff,
-    person: person ? { id: person.id, name: person.name, handle: person.handle } : null,
+    person: person ? await personOut(person) : null,
     deletedAccount: !person,
+    relation: person
+      ? ((await relationsFor(input.userId, [person.id])).get(person.id) ?? null)
+      : null,
+    muted: !!me.mutedUntil && me.mutedUntil > new Date(),
+    archived: !!me.archivedAt,
+    blocked: me.state === "BLOCKED",
     messages: page.map(m => ({
       id: Buffer.from(m.id).toString("hex"),
       mine: m.senderId === input.userId,
@@ -906,10 +945,12 @@ export async function searchPeople(userId: number, q: string) {
     select: { conversationId: true, user: { select: personSelect } },
     take: 20,
   });
-  return members.map(m => ({
-    conversationId: Buffer.from(m.conversationId).toString("hex"),
-    person: { id: m.user.id, name: m.user.name, handle: m.user.handle },
-  }));
+  return Promise.all(
+    members.map(async m => ({
+      conversationId: Buffer.from(m.conversationId).toString("hex"),
+      person: await personOut(m.user),
+    }))
+  );
 }
 
 export type { PersonRow };

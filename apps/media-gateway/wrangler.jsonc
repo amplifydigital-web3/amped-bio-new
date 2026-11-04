@@ -1,17 +1,20 @@
 /**
  * Media gateway Worker (Build Board #20, content system PR 3, spec 3.6).
  *
- * Serves every R2 byte a viewer receives, on its own registrable domain
- * (ampedusercontent.com; ampedusercontent-staging.com on staging), so creator files
- * never share an origin with the app.
+ * Serves every R2 byte a viewer receives, on its own host: usercontent.amped.bio
+ * (usercontent.staging.amped.bio on staging). Rob chose amped.bio subdomains on
+ * 3 Nov 2026 (spec principle 5). The host never serves the app, and every response
+ * carries a sandbox CSP and nosniff, so a creator file cannot run script.
  * Handoff and setup: docs/fixes/content-media-gateway.md.
  *
  * The top level is the local configuration used by `wrangler dev`, the tests and
  * the build check. Deploys always name an environment:
  *   pnpm --filter @repo/media-gateway run deploy:staging
  *   pnpm --filter @repo/media-gateway run deploy:production
- * Staging and production run on separate Cloudflare accounts (spec 3.17), so set
- * CLOUDFLARE_ACCOUNT_ID for the account you deploy to.
+ * Staging and production share one Cloudflare account (spec 3.17). Each
+ * environment deploys as its own Worker (name-staging, name-production) with its
+ * own bucket, queue and secrets. Always name the environment: a wrong --env flag
+ * reaches the other environment's data.
  *
  * Bindings, vars and secrets are not inherited by environments. Each environment
  * repeats them on purpose.
@@ -42,7 +45,7 @@
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["DownloadClaims"] }],
   "env": {
     "staging": {
-      "routes": [{ "pattern": "media.ampedusercontent-staging.com", "custom_domain": true }],
+      "routes": [{ "pattern": "usercontent.staging.amped.bio", "custom_domain": true }],
       "vars": {
         "ALLOWED_ORIGINS": "https://app.staging.amped.bio,https://staging.amped.bio",
       },
@@ -57,7 +60,7 @@
       },
     },
     "production": {
-      "routes": [{ "pattern": "media.ampedusercontent.com", "custom_domain": true }],
+      "routes": [{ "pattern": "usercontent.amped.bio", "custom_domain": true }],
       "vars": {
         "ALLOWED_ORIGINS": "https://app.amped.bio,https://amped.bio",
       },
