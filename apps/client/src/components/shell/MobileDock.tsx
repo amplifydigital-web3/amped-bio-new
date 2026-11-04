@@ -4,6 +4,7 @@ import { BottomSheet, BottomSheetContent, cn } from "@repo/ui";
 import { useEditor } from "@/contexts/EditorContext";
 import { destinationForPanel, dockComposition, type Destination } from "./destinations";
 import { NavItemLink } from "./NavItemLink";
+import { InboxBadge } from "./InboxBadge";
 
 // Screen Review 003. Mobile bottom dock (D09): a dock capsule 21 from the
 // left, right and bottom edges above the safe area, padding 8, items 61 x 64.
@@ -164,7 +165,7 @@ function DockItem({ item, current }: { item: Destination; current: boolean }) {
     <NavItemLink
       panel={item.id}
       current={current}
-      className={cn(itemClass, current ? "prism-dock-lens" : "prism-dock-item")}
+      className={cn("relative", itemClass, current ? "prism-dock-lens" : "prism-dock-item")}
     >
       <Icon
         aria-hidden
@@ -175,6 +176,7 @@ function DockItem({ item, current }: { item: Destination; current: boolean }) {
         strokeWidth={1.5}
       />
       <DockLabel current={current}>{item.label}</DockLabel>
+      {item.id === "inbox" && <InboxBadge />}
     </NavItemLink>
   );
 }
