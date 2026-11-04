@@ -32,6 +32,7 @@ When you create an account and build your page, we collect:
 - **X import:** if you import from X, the profile details you choose to bring in.
 - **Browser check:** a proof of work check on sign up and sign in to stop automated abuse. It runs on our own service and sets no cookies.
 - **Messages to us:** what you send to support.
+- **Your Library:** when you are signed in, the items you save to your Library and when you saved them, and when you last opened each followed creator's section of your Library, so we can show what is new. Only you see them. Creators do not see what you saved or when you visited.
 - **Message notifications:** when you get a message on Amped.Bio, we add it to the bell in the app. If you allow notifications on a device, your browser gives us a push address for that device (a web address at your browser's push service and two keys that encrypt what we send) and the browser details it reports. We store them to notify you on that device. If a message is still unread after 30 minutes, we may email you a reminder that names the sender but never includes the message text. We store whether notifications and reminder emails are on, and which reminders we sent.
 - **New items from creators:** when a creator you follow, or whose pool you stake in, posts an item you can open, we may add it to the bell in the app. If you chose Email me updates when you followed a creator, we may send you at most one email a day listing that creator's new items you can open. We store whether these alerts are on, for every creator or for one, and which emails we sent.
 
@@ -173,6 +174,7 @@ Creator pages and the public site set nothing in your browser until you choose, 
 | `amped_consent_v2` | Local storage | Amped.Bio | Remembers your privacy choices | You make a choice | 24 months |
 | `amped_vid` | Local storage | Amped.Bio | Random ID for return visits | You allow Return visits | 24 months or until withdrawn |
 | `amped_sid` | Session storage | Amped.Bio | Groups events in one visit | You allow Return visits | Until the tab closes |
+| `amped.library.recent.<account>` | Local storage | Amped.Bio | Remembers the words you searched in the Fan Library on this device, one list per account | You search the Fan Library | Until you clear the list or this site's data in your browser |
 | `amped_message_intent`, `amped_tg_link_prefs` | Session storage | Amped.Bio | Returns you to the creator you chose to message, with the Telegram choices you ticked | You tap Message me on Telegram | Until you return, or the tab closes |
 | `_ga`, `_ga_SK6H61G3S1` | Cookies | Google, for Amped.Bio | Recognise return visits in Google Analytics | You choose Accept all or allow Return visits | 24 months or until withdrawn |
 | Referral cookie | Cookie | Amped.Bio | Credits the creator if you sign up from their page | You tap Claim your own Amped.Bio | 30 days |
@@ -206,6 +208,7 @@ Creator pages and the public site set nothing in your browser until you choose, 
 | Checkouts you started (the item, the creator, where you tapped Buy, any promoter code, and the status) | 30 days after the checkout ends, unless it became a purchase |
 | RNS name expiry reminders (your name, its expiry date, the reminder stage, the time of the reminder and how many sends failed) | While your account is open, then deleted within 30 days of closing it |
 | Locked item views and unlocks | 25 months |
+| Library saves and the time you last opened each creator's section | While your account is open, then deleted within 30 days of closing it |
 | Authbase age and seller check results (pass or fail, the reason and when the check ends) | While your account is open, then deleted within 30 days of closing it |
 | Under 18 reviews (that an age check showed under 18, and how we decided) | 5 years |
 

@@ -23,7 +23,7 @@ const mocks = vi.hoisted(() => ({
   unfollow: vi.fn(),
   undo: vi.fn(),
   toast: vi.fn(),
-  assign: vi.fn(),
+  replace: vi.fn(),
   ga: vi.fn(),
   newContent: vi.fn(),
   setNewContent: vi.fn(),
@@ -164,7 +164,7 @@ beforeEach(() => {
   mocks.unfollow.mockResolvedValue({ following: false, restoreToken: "token-1234567890" });
   Object.defineProperty(window, "location", {
     configurable: true,
-    value: { ...window.location, assign: mocks.assign },
+    value: { ...window.location, replace: mocks.replace },
   });
 });
 
@@ -187,7 +187,7 @@ describe("creator section (row 181, board m4)", () => {
     mocks.creator.mockResolvedValue(header({ connected: false }));
     renderSection();
     await waitFor(() =>
-      expect(mocks.assign).toHaveBeenCalledWith(expect.stringMatching(/\/@maya$/))
+      expect(mocks.replace).toHaveBeenCalledWith(expect.stringMatching(/\/@maya$/))
     );
   });
 
