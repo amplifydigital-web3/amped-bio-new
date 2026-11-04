@@ -47,7 +47,11 @@ import { privateProcedure, publicProcedure, router } from "./trpc";
 import { env } from "../env";
 import { hitRateLimit } from "../utils/rateLimit";
 import { uuidv7 } from "../utils/uuid-v7";
-import { contentUploadLimitBytes, contentUploadsOpen } from "../services/cloudflare/config";
+import {
+  contentUploadLimitBytes,
+  contentUploadsOpen,
+  contentVideoUploadsOpen,
+} from "../services/cloudflare/config";
 import {
   abortR2Multipart,
   completeR2Multipart,
@@ -126,6 +130,7 @@ const CREATE_UPLOADS_PER_MINUTE = 30;
 
 const MESSAGES = {
   closed: "Uploads are not open yet.",
+  videoClosed: "Video uploads are not open yet. Upload images, audio, documents or files for now.",
   type: "This file type is not supported for this kind of item.",
   tooLarge: (mb: number) => `This file is larger than the ${mb} MB limit.`,
   noStorage:
@@ -364,6 +369,10 @@ export const contentRouter = router({
       }
 
       const kind: ContentUploadKind = input.kind;
+      // R2 only mode: without the Stream settings every other kind still uploads
+      if (kind === "video" && !contentVideoUploadsOpen()) {
+        throw new TRPCError({ code: "PRECONDITION_FAILED", message: MESSAGES.videoClosed });
+      }
       if (!contentTypeAllowed(kind, input.mimeType, input.fileName)) {
         throw new TRPCError({ code: "BAD_REQUEST", message: MESSAGES.type });
       }
@@ -903,6 +912,10 @@ export const contentRouter = router({
     // Upload the file again into the same item
     const file = input.file;
     const kind = fromDbKind(item.kind) as ContentUploadKind;
+    // R2 only mode: a video would go to Stream, so it is refused here as well
+    if (kind === "video" && !contentVideoUploadsOpen()) {
+      throw new TRPCError({ code: "PRECONDITION_FAILED", message: MESSAGES.videoClosed });
+    }
     if (!contentTypeAllowed(kind, file.mimeType, file.fileName)) {
       throw new TRPCError({ code: "BAD_REQUEST", message: MESSAGES.type });
     }
@@ -1325,6 +1338,7 @@ export const contentRouter = router({
     });
     return {
       uploadsOpen: contentUploadsOpen(),
+      videoUploadsOpen: contentVideoUploadsOpen(),
       bytesLimit: Number(quota.bytesLimit),
       bytesUsed: Number(quota.bytesUsed),
       bytesReserved: Number(quota.bytesReserved),

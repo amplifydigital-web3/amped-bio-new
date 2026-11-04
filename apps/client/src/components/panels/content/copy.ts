@@ -99,6 +99,9 @@ export const CONTENT_COPY = {
     listLabel: "Uploads",
     drop: "Drop files here",
     dropTypes: "Video, audio, images, PDF, EPUB or ZIP",
+    dropTypesNoVideo: "Audio, images, PDF, EPUB or ZIP",
+    videoClosed:
+      "Video uploads are not open yet. Upload images, audio, documents or files for now.",
     choose: "Choose files",
     limits: {
       video: "Video",
@@ -107,6 +110,7 @@ export const CONTENT_COPY = {
       image: "Images",
     },
     spaceLeft: (bytes: string, minutes: number) => `${bytes} and ${minutes} video minutes left`,
+    spaceLeftNoVideo: (bytes: string) => `${bytes} left`,
     rightsTitle: "Your rights and our scan",
     rightsBody:
       "Upload only work you own or have rights to. Every upload is scanned before it goes live.",
