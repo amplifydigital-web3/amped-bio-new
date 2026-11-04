@@ -761,13 +761,27 @@ export const contentRouter = router({
     if (item.moderationState !== "CLEAR") {
       throw new TRPCError({ code: "BAD_REQUEST", message: MESSAGES.publishNotClear });
     }
-    const updated = await prisma.contentItem.update({
-      where: { id: item.id },
-      data: { publishState: "PUBLISHED", publishedAt: item.publishedAt ?? new Date() },
+    const now = new Date();
+    // The first publish is a conditional write, so two taps or two instances can not
+    // both run the FL-6 fan out; a later publish keeps the first publish date.
+    const first = await prisma.contentItem.updateMany({
+      where: { id: item.id, publishedAt: null },
+      data: { publishState: "PUBLISHED", publishedAt: now },
     });
+    if (first.count !== 1) {
+      await prisma.contentItem.update({
+        where: { id: item.id },
+        data: { publishState: "PUBLISHED" },
+      });
+    }
+    const updated = {
+      ...item,
+      publishState: "PUBLISHED" as const,
+      publishedAt: item.publishedAt ?? now,
+    };
     // First publish only (FL-6): new content alerts for a gated item, and the daily
     // email to followers who chose updates. In the background; never fails the publish.
-    if (!item.publishedAt) void onContentPublished(updated);
+    if (first.count === 1) void onContentPublished(updated, now);
     return ownerView(updated);
   }),
 
