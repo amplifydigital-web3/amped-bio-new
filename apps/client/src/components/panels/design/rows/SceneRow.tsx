@@ -146,8 +146,8 @@ export function SceneRow() {
         )}
         {isShaderTile(selected) && (
           <p className="text-prism-meta text-prism-ink-2">
-            {selected!.entry.label} replaces your background while it plays. Your background stays
-            as the still version for Pause motion, reduced motion and phones that cannot run it.
+            {selected!.entry.label} replaces your background while it plays. Pause motion, reduced
+            motion and phones that cannot run it see a still version of the scene instead.
             {selected!.entry.pointer === "fine" &&
               " It follows the pointer on computers. On phones it plays without the pointer."}
           </p>
