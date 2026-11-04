@@ -3,7 +3,7 @@ import { z } from "zod";
 import type { TelegramGroup } from "@repo/database";
 import { DM_RULE_KINDS, TELEGRAM_GROUP_STRINGS as G, type DmRuleKind } from "@repo/constants";
 import { privateProcedure, router } from "../trpc";
-import { env } from "../../env";
+import { isFeatureOn } from "../../services/featureFlags";
 import { enforceRateLimits } from "../../utils/rateLimit";
 import { hexToId, idToHex } from "../../services/analytics/ids";
 import {
@@ -41,7 +41,8 @@ const MESSAGES: Record<GroupError["code"], { code: TRPCError["code"]; message: s
 };
 
 async function run<T>(fn: () => Promise<T>): Promise<T> {
-  if (!env.TELEGRAM_GROUPS) throw new TRPCError({ code: "PRECONDITION_FAILED", message: G.off });
+  if (!isFeatureOn("telegramGroups"))
+    throw new TRPCError({ code: "PRECONDITION_FAILED", message: G.off });
   try {
     return await fn();
   } catch (error) {
@@ -70,12 +71,12 @@ function view(group: TelegramGroup) {
 
 /**
  * telegram.groups (Build Board #2, phase 2, spec r3 3.2 and 3.4, boards tg5 and tg10).
- * Every procedure acts on the caller's own groups. Behind TELEGRAM_GROUPS.
+ * Every procedure acts on the caller's own groups. Behind the telegramGroups feature flag.
  */
 export const telegramGroupsRouter = router({
   /** Pending and connected groups with the past week's totals for connected ones. */
   list: privateProcedure.query(async ({ ctx }) => {
-    if (!env.TELEGRAM_GROUPS) return { enabled: false as const, groups: [] };
+    if (!isFeatureOn("telegramGroups")) return { enabled: false as const, groups: [] };
     const groups = await listCreatorGroups(ctx.user!.sub);
     return {
       enabled: true as const,
@@ -160,7 +161,7 @@ export const telegramGroupsRouter = router({
   canJoin: privateProcedure
     .input(z.object({ creatorUserId: z.number().int().positive() }))
     .query(async ({ ctx, input }) => {
-      if (!env.TELEGRAM_GROUPS) return { open: false, allowed: false };
+      if (!isFeatureOn("telegramGroups")) return { open: false, allowed: false };
       const group = await primaryGroup(input.creatorUserId);
       if (!group?.inviteLink) return { open: false, allowed: false };
       return { open: true, allowed: await qualifies(group, ctx.user!.sub) };
