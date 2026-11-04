@@ -27,6 +27,7 @@ const mocks = vi.hoisted(() => ({
   saved: vi.fn(),
   creators: vi.fn(),
   newest: vi.fn(),
+  search: vi.fn(),
   toast: vi.fn(),
 }));
 
@@ -68,6 +69,7 @@ vi.mock("@repo/ui", async () => {
           infiniteQueryOptions: infiniteOptions("library.creators.inf", mocks.creators),
         },
         newest: { infiniteQueryOptions: infiniteOptions("library.newest", mocks.newest) },
+        search: { infiniteQueryOptions: infiniteOptions("library.search.inf", mocks.search) },
         save: { mutationOptions: mutation },
         unsave: { mutationOptions: mutation },
         markWatched: { mutationOptions: mutation },
@@ -79,6 +81,7 @@ vi.mock("@repo/ui", async () => {
 vi.mock("@/components/ui/toast", () => ({ toast: { add: mocks.toast } }));
 
 import { LibraryHome } from "./LibraryHome";
+import { LibrarySearch } from "./LibrarySearch";
 import { YourCreatorsPage } from "./YourCreators";
 
 const maya = { handle: "maya", name: "Maya Lin", image: null, accent: "#e4572e" };
@@ -127,6 +130,7 @@ beforeEach(() => {
   mocks.saved.mockResolvedValue({ items: [], nextCursor: null });
   mocks.creators.mockResolvedValue({ items: [], nextCursor: null });
   mocks.newest.mockResolvedValue({ items: [], nextCursor: null });
+  mocks.search.mockResolvedValue({ groups: [], nextCursor: null });
 });
 
 describe("Library destination (spec 3.5, CT-D1, CK-D4)", () => {
@@ -312,6 +316,17 @@ describe("Your creators (row 180, board m3)", () => {
     fireEvent.change(input, { target: { value: "m".repeat(120) } });
     await waitFor(() =>
       expect(mocks.creators).toHaveBeenCalledWith(
+        expect.objectContaining({ q: "m".repeat(LIBRARY_LIMITS.searchMaxLength) })
+      )
+    );
+  });
+});
+
+describe("Library search (row 183, boards m2, fl-q7)", () => {
+  it("trims a hand written search link to the length the server accepts", async () => {
+    renderAt(<LibrarySearch />, `/library/search?q=${"m".repeat(120)}`);
+    await waitFor(() =>
+      expect(mocks.search).toHaveBeenCalledWith(
         expect.objectContaining({ q: "m".repeat(LIBRARY_LIMITS.searchMaxLength) })
       )
     );
