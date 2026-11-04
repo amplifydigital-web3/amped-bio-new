@@ -14,7 +14,7 @@ const db = vi.hoisted(() => {
     theme: { findMany: fn() },
     follow: { findMany: fn(), findUnique: fn() },
     contentItem: { findMany: fn(), findUnique: fn(), findFirst: fn(), count: fn() },
-    viewerProgress: { findMany: fn() },
+    viewerProgress: { findMany: fn(), upsert: fn(), deleteMany: fn() },
     savedItem: { findMany: fn(), findUnique: fn(), upsert: fn(), deleteMany: fn() },
     libraryCreatorVisit: { findMany: fn(), upsert: fn() },
   };
@@ -283,5 +283,41 @@ describe("saved", () => {
     ]);
     const page = await fan.saved();
     expect(page.items.map(i => i.title)).toEqual(["Still open"]);
+  });
+});
+
+describe("item menu (FL-3, board m10)", () => {
+  it("marks an item watched at its full length, so it leaves Continue", async () => {
+    const row = item();
+    db.contentItem.findUnique.mockResolvedValue(row);
+    await expect(fan.markWatched({ publicId: row.publicId })).resolves.toEqual({ ok: true });
+    const call = db.viewerProgress.upsert.mock.calls[0][0];
+    expect(call.where).toEqual({ userId_contentItemId: { userId: FAN, contentItemId: row.id } });
+    expect(call.create).toMatchObject({ completed: true, positionMs: 760_000 });
+    expect(call.update).toMatchObject({ completed: true, positionMs: 760_000 });
+  });
+
+  it("refuses to mark an item the fan can not open", async () => {
+    db.contentItem.findUnique.mockResolvedValue(item({ accessRuleId: Buffer.alloc(16, 9) }));
+    await expect(fan.markWatched({ publicId: "item000000000097" })).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
+    expect(db.viewerProgress.upsert).not.toHaveBeenCalled();
+  });
+
+  it("removes from Continue by forgetting only this fan's position", async () => {
+    const row = item();
+    db.contentItem.findUnique.mockResolvedValue({ id: row.id });
+    await expect(fan.removeFromContinue({ publicId: row.publicId })).resolves.toEqual({ ok: true });
+    expect(db.viewerProgress.deleteMany).toHaveBeenCalledWith({
+      where: { userId: FAN, contentItemId: row.id },
+    });
+  });
+
+  it("waits on the flag like every library call", async () => {
+    __setFeatureFlagOverridesForTests({ fanLibrary: false });
+    await expect(fan.markWatched({ publicId: "item000000000096" })).rejects.toMatchObject({
+      code: "PRECONDITION_FAILED",
+    });
   });
 });
