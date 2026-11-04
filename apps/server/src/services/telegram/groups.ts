@@ -7,6 +7,7 @@ import {
   type DmRuleKind,
 } from "@repo/constants";
 import { env } from "../../env";
+import { isFeatureOn } from "../featureFlags";
 import { uuidv7 } from "../../utils/uuid-v7";
 import { findByTelegramId, isReachable } from "./accounts";
 import { getTelegramBot, isTelegramConfigured, telegramBotId } from "./client";
@@ -839,11 +840,11 @@ export function registerGroupOutboxHandlers() {
 const SCHEDULE_MS = 5 * 60 * 1000;
 let scheduler: NodeJS.Timeout | null = null;
 
-/** Every 5 minutes, queue the hourly checks that are due. No-op until TELEGRAM_GROUPS. */
+/** Every 5 minutes, queue the hourly checks that are due. No-op while the telegramGroups flag is off. */
 export function startGroupChecks() {
   if (scheduler || process.env.NODE_ENV === "test") return;
-  if (!env.TELEGRAM_GROUPS || !isTelegramConfigured()) return;
   scheduler = setInterval(() => {
+    if (!isFeatureOn("telegramGroups") || !isTelegramConfigured()) return;
     void queueDueGroupChecks().catch(error =>
       console.error("[telegram] group check scheduling failed", error)
     );

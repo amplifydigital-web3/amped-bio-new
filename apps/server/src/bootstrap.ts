@@ -37,7 +37,7 @@ registerGroupOutboxHandlers();
 startTelegramLoop();
 // Amped Messages (#2 r4, M4): push and email reminder jobs, one polling instance via a Redis lock.
 startNotificationLoop();
-// Phase 2: hourly group checks. No-op until TELEGRAM_GROUPS.
+// Phase 2: hourly group checks. No-op while the telegramGroups feature flag is off.
 startGroupChecks();
 
 // USDC in the wallet (Build Board #29): index USDC transfers on Base. Each tick is a no-op while the usdc flag is off.

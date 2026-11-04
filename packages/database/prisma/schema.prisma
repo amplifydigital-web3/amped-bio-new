@@ -978,7 +978,7 @@ model BroadcastReport {
 // One row per sender. Created by an admin invite or on the first send.
 model BroadcastSenderStatus {
   userId          Int       @id
-  invitedAt       DateTime? // invite-only pilot (BROADCAST_INVITE_ONLY)
+  invitedAt       DateTime? // broadcast pilot invite (recorded, no gate)
   firstApprovedAt DateTime? // set when the first broadcast passes review
   pausedAt        DateTime?
   pausedReason    String?   @db.VarChar(255)

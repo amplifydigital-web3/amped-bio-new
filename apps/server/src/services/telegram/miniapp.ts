@@ -18,6 +18,7 @@ import { cache } from "../../utils/cache";
 import { getFileUrl } from "../../utils/fileUrlResolver";
 import { sanitizeBlockConfig } from "../../utils/sanitizeBlockConfig";
 import { getCreatorSettings, settingsOpen } from "../messaging/access";
+import { isFeatureOn } from "../featureFlags";
 import { findByTelegramId } from "./accounts";
 import { getBotUsername, getTelegramBot } from "./client";
 import { emitTelegramEvent } from "./events";
@@ -114,7 +115,7 @@ export async function buildMiniAppPage(
   viewer: MiniAppUser,
   startParam: string | null
 ): Promise<MiniAppPage> {
-  if (!env.TELEGRAM_MINIAPP || !env.TELEGRAM_ENABLED) throw new MiniAppError("off");
+  if (!isFeatureOn("telegramMiniApp") || !env.TELEGRAM_ENABLED) throw new MiniAppError("off");
   const creator = await creatorFromStartParam(startParam);
   const [account, botUsername, rows, settings, theme, image] = await Promise.all([
     findByTelegramId(viewer.id),
@@ -158,7 +159,7 @@ export async function buildMiniAppPage(
       blocks.push({ id: block.id, kind: "followers", count });
     } else if (block.type === "telegram_group") {
       // Join group: open groups for anyone, gated ones only for a viewer who qualifies
-      if (!env.TELEGRAM_GROUPS || !botUsername) continue;
+      if (!isFeatureOn("telegramGroups") || !botUsername) continue;
       const group = await primaryGroup(creator.id);
       if (!group?.inviteLink) continue;
       const rule = group.ruleKind as DmRuleKind;
@@ -216,7 +217,7 @@ export async function buildMiniAppPage(
 
 /** telegram.miniapp.follow: a linked viewer follows the creator from inside Telegram. */
 export async function miniAppFollow(viewer: MiniAppUser, startParam: string | null) {
-  if (!env.TELEGRAM_MINIAPP || !env.TELEGRAM_ENABLED) throw new MiniAppError("off");
+  if (!isFeatureOn("telegramMiniApp") || !env.TELEGRAM_ENABLED) throw new MiniAppError("off");
   const creator = await creatorFromStartParam(startParam);
   const account = await findByTelegramId(viewer.id);
   if (!account) throw new MiniAppError("not_linked");
@@ -245,7 +246,7 @@ export async function miniAppFollow(viewer: MiniAppUser, startParam: string | nu
  * WebApp.shareMessage. The same card as inline mode, with the buttons that work.
  */
 export async function prepareMiniAppShare(viewer: MiniAppUser, startParam: string | null) {
-  if (!env.TELEGRAM_MINIAPP || !env.TELEGRAM_ENABLED) throw new MiniAppError("off");
+  if (!isFeatureOn("telegramMiniApp") || !env.TELEGRAM_ENABLED) throw new MiniAppError("off");
   const creator = await creatorFromStartParam(startParam);
   const bot = getTelegramBot();
   const botUsername = await getBotUsername();
