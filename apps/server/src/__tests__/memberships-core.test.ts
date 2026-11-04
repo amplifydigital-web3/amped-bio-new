@@ -136,6 +136,7 @@ import {
   submitJoin,
   prepareCancel,
   submitCancel,
+  settlePendingJoinsOnce,
   allowanceFor,
   joinRecipients,
   periodFee,
@@ -398,6 +399,50 @@ describe("join", () => {
     const signed = await signJoin(prepared, otherKey);
     expect(await submitJoin(FAN, signed, NOW, 0)).toEqual({ refused: true, reason: "signature" });
     expect(chain.relayer).not.toHaveBeenCalled();
+  });
+
+  it("marks a join the relayer definitely refused as failed", async () => {
+    const prepared = await prepareJoin(FAN, { handle: "maya", interval: "every_30_days" }, NOW);
+    const signed = await signJoin(prepared);
+    const { RelayerError } = await import("../services/usdc/relayer");
+    chain.relayer.mockRejectedValueOnce(
+      new (RelayerError as unknown as new (c: string) => Error)("reverted")
+    );
+    expect(await submitJoin(FAN, signed, NOW, 0)).toEqual({ refused: true, reason: "relayer" });
+    expect(db.membership.updateMany.mock.calls.at(-1)![0]).toMatchObject({
+      where: { id: (created as { id: Uint8Array }).id, status: "joining" },
+      data: { status: "failed", failureCode: "reverted" },
+    });
+  });
+
+  it("settles a join whose relayer response was lost from the chain", async () => {
+    const prepared = await prepareJoin(FAN, { handle: "maya", interval: "every_30_days" }, NOW);
+    const signed = await signJoin(prepared);
+    const { RelayerError } = await import("../services/usdc/relayer");
+    // CDP accepted the transaction; only the response was lost, so there is no hash to read
+    chain.relayer.mockRejectedValueOnce(
+      new (RelayerError as unknown as new (c: string) => Error)("unavailable")
+    );
+    expect(await submitJoin(FAN, signed, NOW, 0)).toMatchObject({
+      refused: false,
+      status: "joining",
+      txHash: null,
+    });
+    expect(db.membership.updateMany.mock.calls.at(-1)![0].data).toEqual({
+      failureCode: "unconfirmed",
+    });
+
+    // The worker finds the subscription under the membership ref and activates the row
+    created = { ...(created as Record<string, unknown>), status: "joining" };
+    db.membership.findMany.mockResolvedValueOnce([
+      { id: (created as { id: Uint8Array }).id, updatedAt: NOW },
+    ]);
+    chain.sub = { nextDue: 1_796_000_000n, charges: 1, active: true };
+    expect(await settlePendingJoinsOnce(NOW)).toBe(1);
+    const applied = db.membership.updateMany.mock.calls.find(
+      call => call[0].data?.chargeCount !== undefined
+    );
+    expect(applied![0].data).toMatchObject({ status: "active", chargeCount: 1 });
   });
 
   it("splits like the contract", () => {
