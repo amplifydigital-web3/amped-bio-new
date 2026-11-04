@@ -9,7 +9,7 @@ Branch `feat/library-api` into `development`. Fan Library plan FL-2 (Build Board
 `packages/database/prisma/migrations/20261103230000_fan_library_saved_items/migration.sql`
 
 - `saved_items`: `id` UUID v7 `BINARY(16)`, `user_id`, `content_item_id`, `created_at`. One row per fan and item. Cascades with the user and the item.
-- `library_creator_visits`: `user_id`, `creator_id`, `last_visited_at`, key on both. Cascades with both users.
+- `library_creator_visits`: `id` UUID v7 `BINARY(16)`, `user_id`, `creator_id`, `last_visited_at`, unique on user and creator. Cascades with both users.
 - New tables only. No existing table changes. The SQL is byte for byte what `prisma migrate diff` generates from the schema change.
 - The spec names the visit column `bioId`. There is no Bio table; a creator is a user, so the column is `creator_id`.
 

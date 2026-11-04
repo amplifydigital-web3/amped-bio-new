@@ -392,7 +392,7 @@ export async function libraryCreator(
   if (connected) {
     await prisma.libraryCreatorVisit.upsert({
       where: { userId_creatorId: { userId: viewerId, creatorId: creator.id } },
-      create: { userId: viewerId, creatorId: creator.id, lastVisitedAt: now },
+      create: { id: uuidv7(), userId: viewerId, creatorId: creator.id, lastVisitedAt: now },
       update: { lastVisitedAt: now },
     });
   }

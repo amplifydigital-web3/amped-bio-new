@@ -1666,6 +1666,7 @@ model SavedItem {
 // new count on Your creators. The creator is a user: there is no Bio table, so
 // the spec's bioId is creatorId here.
 model LibraryCreatorVisit {
+  id            Bytes    @id @db.Binary(16)
   userId        Int      @map("user_id")
   creatorId     Int      @map("creator_id")
   lastVisitedAt DateTime @map("last_visited_at")
@@ -1673,7 +1674,7 @@ model LibraryCreatorVisit {
   user    User @relation("LibraryVisitsMade", fields: [userId], references: [id], onDelete: Cascade)
   creator User @relation("LibraryVisitsReceived", fields: [creatorId], references: [id], onDelete: Cascade)
 
-  @@id([userId, creatorId])
+  @@unique([userId, creatorId])
   @@index([creatorId])
   @@map("library_creator_visits")
 }
@@ -1992,6 +1993,9 @@ model NotificationJob {
   claimedAt DateTime?
   doneAt    DateTime?
   error     String?               @db.VarChar(255)
+  // email:{userId}:{conversationId} while an email check is PENDING, cleared on claim.
+  // The unique index keeps one pending check per conversation without a race.
+  dedupeKey String?               @unique @db.VarChar(64)
   createdAt DateTime              @default(now())
 
   @@index([status, runAfter])

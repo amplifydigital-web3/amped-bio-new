@@ -3,8 +3,9 @@
  * the rule so the read URLs, progress writes and every public list agree.
  *
  * Public: READY, PUBLISHED, moderation CLEAR, no access rule, not 18+ and not
- * deleted, on a published page whose account is not suspended. Gated items wait
- * for the gating engine (PR 8). 18+ items are refused on every public surface
+ * deleted, on a published page whose account is not suspended. Gated items open
+ * through the gating engine (PR 8, LISTED_ITEM_WHERE and the content resolver).
+ * 18+ items are refused on every public surface
  * until age assurance ships (#28, PR 7); until then no viewer has passed it.
  *
  * Owner: any READY item that is not blocked, so a creator can check a draft or
@@ -18,6 +19,20 @@ export const PUBLIC_ITEM_WHERE = {
   publishState: "PUBLISHED",
   moderationState: "CLEAR",
   accessRuleId: null,
+  adult: false,
+  deletedAt: null,
+} satisfies Prisma.ContentItemWhereInput;
+
+/**
+ * Items a public page may list (content gating 3.2): PUBLIC_ITEM_WHERE without
+ * the rule test. Gated items appear as locked cards and a locked page; they
+ * never reach the sitemap, llms.txt, JSON-LD or hasPublicContent, which keep
+ * PUBLIC_ITEM_WHERE. Used only while the accessGating flag is on.
+ */
+export const LISTED_ITEM_WHERE = {
+  status: "READY",
+  publishState: "PUBLISHED",
+  moderationState: "CLEAR",
   adult: false,
   deletedAt: null,
 } satisfies Prisma.ContentItemWhereInput;
@@ -88,4 +103,21 @@ export function openDecision(
     return ownerCanOpen(item) ? "owner" : null;
   }
   return isPublicItem(item, creator) ? "public" : null;
+}
+
+/** The listed test (LISTED_ITEM_WHERE) for one loaded item and its creator. */
+export function isListedItem(
+  item: Omit<ItemFields, "accessRuleId">,
+  creator: CreatorFields | null
+): boolean {
+  return (
+    item.status === "READY" &&
+    item.publishState === "PUBLISHED" &&
+    item.moderationState === "CLEAR" &&
+    !item.adult &&
+    item.deletedAt === null &&
+    creator !== null &&
+    creator.page_status === PUBLIC_CREATOR_WHERE.page_status &&
+    creator.block === PUBLIC_CREATOR_WHERE.block
+  );
 }

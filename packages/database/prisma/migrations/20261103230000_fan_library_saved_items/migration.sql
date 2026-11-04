@@ -17,12 +17,14 @@ CREATE TABLE `saved_items` (
 
 -- CreateTable
 CREATE TABLE `library_creator_visits` (
+    `id` BINARY(16) NOT NULL,
     `user_id` INTEGER NOT NULL,
     `creator_id` INTEGER NOT NULL,
     `last_visited_at` DATETIME(3) NOT NULL,
 
     INDEX `library_creator_visits_creator_id_idx`(`creator_id`),
-    PRIMARY KEY (`user_id`, `creator_id`)
+    UNIQUE INDEX `library_creator_visits_user_id_creator_id_key`(`user_id`, `creator_id`),
+    PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- AddForeignKey
