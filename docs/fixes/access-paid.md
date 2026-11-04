@@ -30,7 +30,8 @@ Branch `feat/access-paid` into `development`. Gating spec PR plan G4 (`docs/feat
 
 ## 3. Checks run
 
-- `pnpm run typecheck:affected`, `pnpm run build:affected` and `pnpm run test:affected`, with `--concurrency=1`. See the PR for results.
+- `pnpm run typecheck:affected` and `pnpm run build:affected`: all pass, run with turbo concurrency 1.
+- `pnpm run test:affected`: all client, landing, constants, ui, media and auth tests pass. Server `test:unit`: 1,409 passed. Two unhandled errors come from `oauth-trpc` and `oauth-scopes`, which need a local MySQL. They are not related to this branch.
 - New tests:
   - `access-engine.test.ts`: 14 paid tests (default deny, sign in, ownership, Buy hint and price, final, soft unlock, pending, reorg close, paused product, seller precondition, fresh seller check on open, blocked buyer, Any of these, reveal only on a pass).
   - `access-paid-verifier.test.ts`: 8 verifier tests.
