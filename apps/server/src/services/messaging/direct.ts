@@ -260,6 +260,10 @@ export type SentDirect = {
   created: boolean;
   repeat: boolean;
   flaggedTerms: { phrase: string; category: string }[];
+  /** The recipient's bell row for this conversation, or null when muted or a repeat. */
+  notificationId: Uint8Array | null;
+  /** The recipient muted this conversation: no bell, push or email (M4). */
+  muted: boolean;
 };
 
 /**
@@ -300,6 +304,8 @@ export async function sendDirect(input: {
         created: false,
         repeat: true,
         flaggedTerms: flags,
+        notificationId: null,
+        muted: false,
       };
     }
   }
@@ -375,7 +381,8 @@ export async function sendDirect(input: {
     });
 
     // Bell row: one unseen row per conversation, count bumps (spec 7.4). Muted: none.
-    const muted = recipient?.mutedUntil && recipient.mutedUntil > now;
+    const muted = !!recipient?.mutedUntil && recipient.mutedUntil > now;
+    let notificationId: Uint8Array | null = null;
     if (!muted) {
       const groupKey = `conv:${Buffer.from(cid).toString("hex")}`;
       const unseen = await tx.notification.findFirst({
@@ -383,14 +390,16 @@ export async function sendDirect(input: {
         select: { id: true },
       });
       if (unseen) {
+        notificationId = unseen.id;
         await tx.notification.update({
           where: { id: unseen.id },
           data: { count: { increment: 1 }, actorId: input.senderId },
         });
       } else {
+        notificationId = uuidv7();
         await tx.notification.create({
           data: {
-            id: uuidv7(),
+            id: notificationId as Buffer,
             userId: input.recipientId,
             kind: folder === "REQUESTS" ? "REQUEST" : "MESSAGE",
             actorId: input.senderId,
@@ -400,7 +409,16 @@ export async function sendDirect(input: {
         });
       }
     }
-    return { messageId, conversationId: cid, folder, created, repeat: false, flaggedTerms: flags };
+    return {
+      messageId,
+      conversationId: cid,
+      folder,
+      created,
+      repeat: false,
+      flaggedTerms: flags,
+      notificationId,
+      muted,
+    };
   });
 }
 
