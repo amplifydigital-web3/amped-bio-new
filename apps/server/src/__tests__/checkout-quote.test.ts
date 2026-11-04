@@ -21,6 +21,9 @@ const state = vi.hoisted(() => ({
   countedToday: 0,
   seller: { pass: true } as { pass: boolean; reason?: string },
   mockPrice: null as string | null,
+  appEnv: "staging",
+  testnetChain: true,
+  ampedPay: false,
   settings: {
     paymentsPaused: false,
     platformFeeBps: 500,
@@ -75,6 +78,23 @@ vi.mock("@repo/database", () => ({
   },
 }));
 
+vi.mock("../env", () => ({
+  env: {
+    get APP_ENV() {
+      return state.appEnv;
+    },
+  },
+}));
+
+vi.mock("../services/usdc/chain", () => ({
+  paymentChain: {
+    get testnet() {
+      return state.testnetChain;
+    },
+  },
+}));
+
+vi.mock("../services/payments/ready", () => ({ paymentsReady: () => state.ampedPay }));
 vi.mock("../services/payments/settings", () => ({
   paymentSettings: vi.fn(async () => state.settings),
 }));
@@ -89,6 +109,7 @@ const checkIdentity = vi.hoisted(() => vi.fn());
 vi.mock("../services/identity/checks", () => ({ checkIdentity }));
 
 import { quoteIntent } from "../services/checkout/quote";
+import { checkoutProvider, mockProviderAllowed } from "../services/checkout/provider";
 
 const ID = "0f".repeat(16);
 
@@ -114,6 +135,9 @@ beforeEach(() => {
   checkIdentity.mockReset();
   checkIdentity.mockImplementation(async () => state.seller);
   state.mockPrice = null;
+  state.appEnv = "staging";
+  state.testnetChain = true;
+  state.ampedPay = false;
   state.settings = {
     ...state.settings,
     paymentsPaused: false,
@@ -219,6 +243,53 @@ describe("quoteIntent", () => {
   it("the daily purchase limit stops a new payment", async () => {
     state.countedToday = 20;
     expect((await quoteIntent(20, ID)).state).toBe("limit");
+  });
+});
+
+describe("quoteIntent: terminal and refused states", () => {
+  it("a paid intent quotes paid, never ready, even when the item was removed since", async () => {
+    state.rows = [intent({ status: "paid" })];
+    expect((await quoteIntent(20, ID)).state).toBe("paid");
+    state.settings = { ...state.settings, paymentsPaused: true };
+    expect((await quoteIntent(20, ID)).state).toBe("paid");
+    state.item = { ...sellable(), deletedAt: new Date() };
+    expect((await quoteIntent(20, ID)).state).toBe("paid");
+  });
+
+  it("refuses the mock provider in production", async () => {
+    state.appEnv = "production";
+    await expect(quoteIntent(20, ID)).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  });
+
+  it("refuses the mock provider on a mainnet payment chain", async () => {
+    state.testnetChain = false;
+    await expect(quoteIntent(20, ID)).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  });
+
+  it("quotes on AmpedPay once it is configured, in production too (CK-5)", async () => {
+    state.ampedPay = true;
+    state.appEnv = "production";
+    state.testnetChain = false;
+    expect((await quoteIntent(20, ID)).provider).toBe("ampedpay");
+  });
+});
+
+describe("checkoutProvider (mock safety rail)", () => {
+  it("allows the mock only outside production and on a test chain", () => {
+    const env = (appEnv: string, testnetChain: boolean, ampedPay = false) => ({
+      appEnv,
+      testnetChain,
+      ampedPay,
+    });
+    expect(mockProviderAllowed(env("staging", true))).toBe(true);
+    expect(mockProviderAllowed(env("development", true))).toBe(true);
+    expect(mockProviderAllowed(env("production", true))).toBe(false);
+    expect(mockProviderAllowed(env("staging", false))).toBe(false);
+    expect(checkoutProvider(env("staging", true))).toBe("mock");
+    expect(checkoutProvider(env("production", false, true))).toBe("ampedpay");
+    expect(() => checkoutProvider(env("production", false))).toThrow(
+      "Checkout is not available yet."
+    );
   });
 });
 

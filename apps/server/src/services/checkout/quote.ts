@@ -23,7 +23,7 @@ import {
 import { getFileUrl } from "../../utils/fileUrlResolver";
 import { checkIdentity } from "../identity/checks";
 import { paymentSettings, type PaymentSettings } from "../payments/settings";
-import { paymentsReady } from "../payments/ready";
+import { checkoutProvider } from "./provider";
 import {
   effectiveStatus,
   hexToIntentId,
@@ -113,6 +113,8 @@ async function sellerPasses(creatorUserId: number): Promise<boolean> {
  * gets the same not found as an unknown id, so nothing about the purchase leaks.
  */
 export async function quoteIntent(viewerUserId: number, idHex: string): Promise<CheckoutQuote> {
+  // Safety rail: refuses the mock provider in production and on mainnet, whatever the flags
+  const provider = checkoutProvider();
   const row = await prisma.checkoutIntent.findUnique({
     where: { id: hexToIntentId(idHex) },
     select: {
@@ -133,9 +135,7 @@ export async function quoteIntent(viewerUserId: number, idHex: string): Promise<
   const base = {
     id: intentIdToHex(row.id),
     status,
-    // AmpedPay once it is deployed and its accounts are configured (PAY-2); CK-5 switches
-    // the sheet's provider on this
-    provider: paymentsReady() ? ("ampedpay" as const) : ("mock" as const),
+    provider,
     feeBps: settings.platformFeeBps,
     quotedAt: now.toISOString(),
     validUntil: new Date(now.getTime() + settings.quoteWindowSeconds * 1000).toISOString(),
@@ -146,7 +146,8 @@ export async function quoteIntent(viewerUserId: number, idHex: string): Promise<
     if (status === "expired") throw notFound();
     return {
       ...base,
-      state: "removed",
+      // A paid intent stays paid even if the item was removed since
+      state: status === "paid" ? "paid" : "removed",
       item: null,
       creator: null,
       amount: "0",
@@ -180,7 +181,9 @@ export async function quoteIntent(viewerUserId: number, idHex: string): Promise<
 
   // Order matters: one state per sheet, the most specific cause first
   let state: CheckoutQuoteState = "ready";
-  if (settings.paymentsPaused) state = "paused";
+  // Paid is terminal: it never reads ready again, so the sheet cannot offer Pay twice
+  if (status === "paid") state = "paid";
+  else if (settings.paymentsPaused) state = "paused";
   else if (!wallet || (settings.pilotOnly && !settings.pilotCreators.includes(handle)))
     state = "seller";
   else if (!(await sellerPasses(resolved.creatorUserId))) state = "seller";
