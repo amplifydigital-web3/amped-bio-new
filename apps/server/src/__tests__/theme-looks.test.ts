@@ -112,7 +112,8 @@ const db = vi.hoisted(() => {
         )[0] ?? null
     ),
     findUnique: vi.fn(
-      async ({ where }: Row) => state.versions.find(v => v.id === where.id) ?? null
+      async ({ where }: Row) =>
+        state.versions.find(v => Buffer.from(v.id).equals(Buffer.from(where.id))) ?? null
     ),
     findMany: vi.fn(async ({ where, orderBy, skip = 0, take, select }: Row) => {
       const rows = order(
@@ -122,7 +123,7 @@ const db = vi.hoisted(() => {
       return rows.map(v => pick(v, select));
     }),
     create: vi.fn(async ({ data }: Row) => {
-      const row = { id: state.nextVersion++, createdAt: new Date(), ...data };
+      const row = { createdAt: new Date(), ...data };
       state.versions.push(row);
       return row;
     }),
@@ -435,7 +436,12 @@ describe("theme router: looks", () => {
     const b = seedLook(1, "B");
     await recordVersion(b.id, config("#cccccc"), { force: true });
     const versionOfB = db.state.versions.find(v => v.themeId === b.id)!;
-    await expect(caller(1).restore({ id: a.id, versionId: versionOfB.id })).rejects.toMatchObject({
+    await expect(
+      caller(1).restore({
+        id: a.id,
+        versionId: Buffer.from(versionOfB.id).toString("hex"),
+      })
+    ).rejects.toMatchObject({
       code: "NOT_FOUND",
     });
   });

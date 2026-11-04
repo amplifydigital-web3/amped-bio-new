@@ -573,7 +573,11 @@ export const themeRouter = router({
     });
     return {
       themeId: input.id,
-      versions: versions.map(v => ({ ...v, config: v.config as ThemeConfig })),
+      versions: versions.map(version => ({
+        ...version,
+        config: version.config as ThemeConfig,
+        id: Buffer.from(version.id).toString("hex"),
+      })),
     };
   }),
 
@@ -582,12 +586,14 @@ export const themeRouter = router({
    * (so the restore itself can be undone), and the look is applied.
    */
   restore: privateProcedure
-    .input(z.object({ id: z.number(), versionId: z.number() }))
+    .input(z.object({ id: z.number(), versionId: z.string().regex(/^[0-9a-f]{32}$/) }))
     .mutation(async ({ ctx, input }) => {
       requireSharing();
       const userId = ctx.user!.sub;
       await ownLook(userId, input.id);
-      const version = await prisma.themeVersion.findUnique({ where: { id: input.versionId } });
+      const version = await prisma.themeVersion.findUnique({
+        where: { id: Buffer.from(input.versionId, "hex") },
+      });
       if (!version || version.themeId !== input.id) {
         throw new TRPCError({ code: "NOT_FOUND", message: "Version not found" });
       }
@@ -713,7 +719,7 @@ export const themeRouter = router({
       const { config, backgroundKept } = configForApply(shared.config, current?.config);
 
       let themeId: number;
-      let undoVersionId: number | null = null;
+      let undoVersionId: string | null = null;
       if (input.mode === "save" || !current) {
         await assertLookRoom(userId);
         const taken = await prisma.theme.findMany({

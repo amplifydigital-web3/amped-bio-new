@@ -10,11 +10,12 @@ import {
   Maximize2,
   Play,
 } from "lucide-react";
-import { contentCardMeta, type ContentCard } from "@repo/constants";
+import { contentCardMeta, type AccessDecision, type ContentCard } from "@repo/constants";
 import { cn } from "@repo/ui";
 import { publishedLabel } from "@/lib/content";
 import { SITE_CONTENT_COPY as copy } from "./copy";
 import { CREATOR_FOCUS_RING } from "./theme";
+import { CardLock } from "./gating";
 
 const KIND_ICON = {
   video: Film,
@@ -32,19 +33,25 @@ function formatShortClock(ms: number) {
   return h ? `${h}:${String(m).padStart(2, "0")}:${s}` : `${m}:${s}`;
 }
 
-/** The cover well: cover or blur, a kind glyph when there is none, the action pill. */
+/**
+ * The cover well: cover or blur, a kind glyph when there is none, the action
+ * pill. A locked card (content gating 4.2) has only the blur, the lock and the
+ * rule's summary, or Open for you once checkPage passed.
+ */
 export function CardCover({
   card,
   className,
   sizes,
   showPill = true,
   eager = false,
+  decision = null,
 }: {
   card: ContentCard;
   className?: string;
   sizes?: string;
   showPill?: boolean;
   eager?: boolean;
+  decision?: AccessDecision | null;
 }) {
   const Icon = KIND_ICON[card.kind];
   const timed = card.kind === "video" || card.kind === "audio";
@@ -55,7 +62,9 @@ export function CardCover({
         card.blur ? { backgroundImage: `url(${card.blur})`, backgroundSize: "cover" } : undefined
       }
     >
-      {card.cover ? (
+      {card.gate ? (
+        <span className="absolute inset-0 backdrop-blur-[2px]" aria-hidden />
+      ) : card.cover ? (
         <img
           src={card.cover.src}
           srcSet={card.cover.srcSet || undefined}
@@ -74,7 +83,8 @@ export function CardCover({
           {formatShortClock(card.durationMs)}
         </span>
       ) : null}
-      {showPill && (timed || card.kind === "image") && (
+      {card.gate && <CardLock gate={card.gate} decision={decision} />}
+      {showPill && !card.gate && (timed || card.kind === "image") && (
         <span
           aria-hidden
           className="absolute bottom-[8px] left-[8px] inline-flex h-[44px] items-center gap-[8px] rounded-full bg-white pl-[4px] pr-[16px] text-[15px] font-semibold text-[#16152B] shadow"
@@ -95,11 +105,13 @@ export function ContentCardLink({
   href,
   layout = "grid",
   sizes = "(min-width: 640px) 290px, 50vw",
+  decision = null,
 }: {
   card: ContentCard;
   href: string;
   layout?: "grid" | "list";
   sizes?: string;
+  decision?: AccessDecision | null;
 }) {
   const meta = contentCardMeta(card);
   const date = publishedLabel(card.publishedAt);
@@ -114,6 +126,7 @@ export function ContentCardLink({
           className="aspect-square w-[89px] shrink-0"
           sizes="89px"
           showPill={false}
+          decision={decision}
         />
         <span className="min-w-0 flex-1">
           <span className="line-clamp-2 block text-[16px] font-semibold leading-[22px]">
@@ -122,14 +135,20 @@ export function ContentCardLink({
           <span className="block text-[14px] leading-[20px] opacity-80" suppressHydrationWarning>
             {date ? `${meta}, ${date}` : meta}
           </span>
-          <span className="mt-[2px] block text-[13px] opacity-70">{copy.public}</span>
+          <span className="mt-[2px] block text-[13px] opacity-70">
+            {card.gate
+              ? decision?.allowed
+                ? copy.gate.unlocked
+                : copy.gate.lockedFor(card.gate.summary)
+              : copy.public}
+          </span>
         </span>
       </Link>
     );
   }
   return (
     <Link href={href} className={cn("block rounded-[13px]", CREATOR_FOCUS_RING)}>
-      <CardCover card={card} className="aspect-[4/3] w-full" sizes={sizes} />
+      <CardCover card={card} className="aspect-[4/3] w-full" sizes={sizes} decision={decision} />
       <span className="mt-[8px] line-clamp-2 block text-[16px] font-semibold leading-[22px]">
         {card.title}
       </span>

@@ -15,6 +15,12 @@ export type Gate = {
   adult: boolean;
   /** False when the resource is missing from public view (draft, deleted, wrong type) */
   available: boolean;
+  /**
+   * False when even the owner may not open it (content: not READY, moderation
+   * BLOCKED, or a served asset that failed its scan), matching ownerCanOpen.
+   * Omitted means the owner always passes.
+   */
+  ownerCanOpen?: boolean;
 };
 
 export type Resolver = { get(id: string): Promise<Gate | null> };

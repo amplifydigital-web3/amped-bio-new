@@ -4,17 +4,37 @@
  */
 import { registerResolver } from "./engine";
 import { blockResolver } from "./resolvers/block";
+import { contentResolver } from "./resolvers/content";
 
 registerResolver("block", blockResolver);
+registerResolver("content", contentResolver);
 
 export {
   bumpViewer,
   check,
   checkBatch,
   eligibleUserIds,
+  hexToId,
+  idToHex,
   open,
   registerResolver,
   viewerKey,
 } from "./engine";
-export { createRule, deleteRule, listRules, loadRule, updateRule } from "./rules";
+export {
+  cleanupInlineRule,
+  createRule,
+  deleteRule,
+  forgetRules,
+  listRules,
+  loadRule,
+  updateRule,
+} from "./rules";
+export {
+  STAKE_NOT_ALLOWED_MESSAGE,
+  assertStakeKindsAllowed,
+  isStakeKind,
+  stakeKindsAllowed,
+} from "./allowlist";
 export type { Gate, Resolver, Viewer } from "./types";
+export { viewerFrom } from "./viewer";
+export { ACCESS_WRITE_MESSAGES, ownerAccess, ownerPoolId, resolveAccessInput } from "./write";

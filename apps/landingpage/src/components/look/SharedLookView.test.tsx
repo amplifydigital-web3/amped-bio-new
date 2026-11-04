@@ -144,7 +144,7 @@ describe("SharedLookView", () => {
     mocks.applyShared.mockResolvedValue({
       themeId: 9,
       mode: "apply",
-      undoVersionId: 77,
+      undoVersionId: "77".padStart(32, "0"),
       backgroundKept: false,
     });
     mocks.restore.mockResolvedValue({});

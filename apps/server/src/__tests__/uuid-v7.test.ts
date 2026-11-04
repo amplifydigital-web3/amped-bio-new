@@ -71,4 +71,11 @@ describe("uuidv7", () => {
     expect(extracted).toBeGreaterThanOrEqual(before);
     expect(extracted).toBeLessThanOrEqual(after + 5); // 5ms tolerance
   });
+
+  it("is strictly increasing within a process, also inside one millisecond (M5 replay)", () => {
+    const ids = Array.from({ length: 5000 }, () => uuidv7());
+    for (let i = 1; i < ids.length; i++) {
+      expect(ids[i].compare(ids[i - 1])).toBe(1);
+    }
+  });
 });

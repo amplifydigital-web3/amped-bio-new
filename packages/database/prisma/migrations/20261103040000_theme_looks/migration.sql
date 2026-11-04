@@ -11,7 +11,7 @@ UPDATE `themes` SET `kind` = 'marketplace' WHERE `user_id` IS NULL;
 
 -- theme_versions: the last 20 saves of a look
 CREATE TABLE `theme_versions` (
-    `id` INTEGER NOT NULL AUTO_INCREMENT,
+    `id` BINARY(16) NOT NULL,
     `theme_id` INTEGER NOT NULL,
     `config` JSON NOT NULL,
     `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
@@ -23,8 +23,8 @@ CREATE TABLE `theme_versions` (
 ALTER TABLE `theme_versions` ADD CONSTRAINT `theme_versions_theme_id_fkey` FOREIGN KEY (`theme_id`) REFERENCES `themes`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- Every look starts its history with the config it holds today
-INSERT INTO `theme_versions` (`theme_id`, `config`, `created_at`)
-    SELECT `id`, `config`, COALESCE(`updated_at`, `created_at`)
+INSERT INTO `theme_versions` (`id`, `theme_id`, `config`, `created_at`)
+    SELECT UNHEX(REPLACE(UUID(), '-', '')), `id`, `config`, COALESCE(`updated_at`, `created_at`)
     FROM `themes`
     WHERE `user_id` IS NOT NULL AND `config` IS NOT NULL;
 

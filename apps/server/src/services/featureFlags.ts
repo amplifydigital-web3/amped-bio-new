@@ -36,14 +36,24 @@ export function isFeatureOn(key: FeatureFlagKey): boolean {
   return resolveFeatureFlag(key, overrides, serverEnvValue(key));
 }
 
-/** Rows an admin set for public flags. The apps resolve a missing key from their own environment. */
+/**
+ * Rows an admin set for public flags. The apps resolve a missing key from their
+ * own environment. A public flag with only a server variable (accessGating)
+ * sends the API's value, so the apps never show what the API refuses.
+ */
 export function publicFeatureFlagOverrides(): FeatureFlagOverrides {
   const out: FeatureFlagOverrides = {};
   for (const key of PUBLIC_FEATURE_FLAG_KEYS) {
     const value = overrides[key];
     if (value !== undefined) out[key] = value;
+    else if (!hasAppEnv(key)) out[key] = isFeatureOn(key);
   }
   return out;
+}
+
+function hasAppEnv(key: FeatureFlagKey): boolean {
+  const names = FEATURE_FLAGS[key].env as { client?: string; landing?: string };
+  return Boolean(names.client || names.landing);
 }
 
 /** Reload every row. Keeps the last good rows when the database does not answer. */

@@ -12,6 +12,7 @@ import {
   AdminOAuthClients,
   AdminBroadcasts,
   AdminTelegram,
+  AdminMessaging,
   AdminMoney,
   AdminFeatureFlags,
   PaymentsOverview,
@@ -43,6 +44,9 @@ function AppRouter() {
           <Route path="pools" element={<AdminPools />} />
           <Route path="oauth-clients" element={<AdminOAuthClients />} />
           <Route path="broadcasts" element={<AdminBroadcasts />} />
+          {/* Amped Messages (#2 r4, M7): Messaging replaces Telegram in the rail. Telegram
+              stays reachable here for bot health and groups until M8 removes it. */}
+          <Route path="messaging" element={<AdminMessaging />} />
           <Route path="telegram" element={<AdminTelegram />} />
           <Route path="money" element={<AdminMoney />} />
           <Route path="feature-flags" element={<AdminFeatureFlags />} />
