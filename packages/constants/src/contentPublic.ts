@@ -10,6 +10,7 @@ import { z } from "zod";
 import { HANDLE_REGEX } from "./handle";
 import { CONTENT_UPLOAD_KINDS, contentPublicIdSchema } from "./content";
 import type { ContentImageSet } from "./contentPlayer";
+import { ACCESS_RESOURCE_TYPES, type AccessDecision, type AccessRuleKind } from "./access";
 
 /** "@Maya.Lin" and "maya.lin" are the same page. */
 export const contentHandleSchema = z
@@ -95,9 +96,25 @@ export interface ContentCard {
   /** 32 px blur cover, for a placeholder while the cover loads */
   blur: string | null;
   allowDownload: boolean;
+  /**
+   * Set when the item has an access rule (content gating spec 3.2). A locked
+   * card carries no cover, only the blur, and never a media token, rendition,
+   * poster, waveform, description or stake amount.
+   */
+  gate?: ContentGate | null;
 }
 
-/** The item page's server data (spec 3.7). No playback URLs. */
+/** The public face of an item's rule: its kind and summary, never its params. */
+export interface ContentGate {
+  kind: AccessRuleKind;
+  summary: string;
+  /** True when the rule reads a stake: the unlock card shows TESTNET_NOTICE and ACCESS_STAKE_DISCLOSURE */
+  stake: boolean;
+  /** The creator's pool page for Go to the pool. Public already; never an amount. */
+  poolAddress?: string | null;
+}
+
+/** The item page's server data (spec 3.7). No playback URLs. A locked item has no description, chapters or captions. */
 export interface ContentPublicItem extends ContentCard {
   description: string | null;
   chapters: Array<{ startMs: number; title: string }>;
@@ -138,3 +155,45 @@ export function contentCardMeta(card: Pick<ContentCard, "kind" | "durationMs" | 
       return "Download, ZIP";
   }
 }
+
+// ----------------------------------------------------------------------------
+// Content gating (docs/features/content-gating.md, PR C8)
+// ----------------------------------------------------------------------------
+
+/** content.getPreview: what a locked fan may see. Never the full asset. */
+export const contentPreviewSchema = z.object({ publicId: contentPublicIdSchema });
+
+export interface ContentPreview {
+  publicId: string;
+  kind: ContentCard["kind"];
+  blur: string | null;
+  /** The PREVIEW_CLIP (video), through a signed Stream token */
+  clip: { hls: string; dash: string } | null;
+  /** AUDIO_PREVIEW gateway URL */
+  audio: string | null;
+  /** PAGE_PREVIEW gateway URLs (documents), in page order */
+  pages: string[];
+  /** Unix ms when the earliest URL expires (1 hour, content spec 3.6) */
+  expiresAt: number;
+  /** The render decision: available and 18+ only, not the rule */
+  decision: AccessDecision;
+}
+
+/** Cards checked in one call (spec 3.4). */
+export const ACCESS_CHECK_PAGE_MAX = 48;
+
+export const accessCheckPageSchema = z.object({
+  handle: contentHandleSchema,
+  resources: z
+    .array(
+      z.object({
+        type: z.enum(ACCESS_RESOURCE_TYPES),
+        id: z.string().min(1).max(64),
+      })
+    )
+    .min(1)
+    .max(ACCESS_CHECK_PAGE_MAX),
+});
+
+/** checkPage answer, keyed `${type}:${id}` */
+export type AccessCheckPageResult = Record<string, AccessDecision>;

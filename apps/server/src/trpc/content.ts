@@ -38,6 +38,12 @@ import {
   contentPublicItemSchema,
   contentReportSchema,
   contentRetrySchema,
+  contentPreviewSchema,
+  LIVE_ACCESS_RULE_KINDS,
+  ACCESS_RULE_SUMMARIES,
+  type AccessDecision,
+  type ContentAccessInput,
+  type ContentPreview,
   type ContentUploadKind,
 } from "@repo/constants";
 import { privateProcedure, publicProcedure, router } from "./trpc";
@@ -72,11 +78,36 @@ import {
   publicFeed,
   publicItem,
 } from "../services/content/publicView";
-import { isPublicItem } from "../services/content/access";
-import { buildDownload, buildPlayback, DeliveryError } from "../services/content/delivery";
+import {
+  isListedItem,
+  isPublicItem,
+  ownerCanOpen,
+  servedAssetsClean,
+} from "../services/content/access";
+import {
+  buildDownload,
+  buildPlayback,
+  buildPreview,
+  DeliveryError,
+  PREVIEW_ASSET_ROLES,
+} from "../services/content/delivery";
+import {
+  assertStakeKindsAllowed,
+  check,
+  cleanupInlineRule,
+  createRule,
+  forgetRules,
+  loadRule,
+  open,
+  stakeKindsAllowed,
+  viewerFrom,
+} from "../services/access";
+import { isFeatureOn } from "../services/featureFlags";
+import { releaseAllowsSurface } from "../services/content/release";
 import {
   VIEWER_MESSAGES,
   limitViewerReads,
+  loadItemForReveal,
   loadItemForViewer,
   viewerKey,
   viewerUserId,
@@ -128,6 +159,9 @@ const MESSAGES = {
   retryState: "Only items that failed can be retried.",
   retryRate: "You can retry processing once an hour. Try again later, or upload the file again.",
   reportRate: "Too many reports at once. Try again later.",
+  gatingOff: "Gating is not available yet.",
+  ruleKind: "That rule is not available yet.",
+  ruleNotFound: "Rule not found.",
 } as const;
 
 /** Reports per viewer per hour (spec 3.10 rate limits) */
@@ -186,6 +220,99 @@ function ownerView(item: ContentItem) {
     createdAt: item.createdAt,
     updatedAt: item.updatedAt,
   };
+}
+
+// ----------------------------------------------------------------------------
+// Who can open this (content gating spec 3.5, PR C8)
+// ----------------------------------------------------------------------------
+
+const ruleHex = (id: Uint8Array) => Buffer.from(id).toString("hex");
+
+/** The rule ids an item editor write resolves to, created inline where asked. */
+async function resolveAccessInput(
+  tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
+  ownerUserId: number,
+  access: ContentAccessInput
+): Promise<Buffer> {
+  if ("ruleId" in access) {
+    const rule = await loadRule(access.ruleId, { fresh: true });
+    if (!rule || rule === "invalid" || rule.ownerUserId !== ownerUserId) {
+      throw new TRPCError({ code: "NOT_FOUND", message: MESSAGES.ruleNotFound });
+    }
+    if (!(LIVE_ACCESS_RULE_KINDS as readonly string[]).includes(rule.kind)) {
+      throw new TRPCError({ code: "BAD_REQUEST", message: MESSAGES.ruleKind });
+    }
+    const kinds: string[] = [rule.kind];
+    if (rule.kind === "any" || rule.kind === "all") {
+      const leaves = await tx.accessRule.findMany({
+        where: { id: { in: (rule.params.ruleIds as string[]).map(id => Buffer.from(id, "hex")) } },
+        select: { kind: true },
+      });
+      kinds.push(...leaves.map(leaf => leaf.kind));
+    }
+    assertStakeKindsAllowed(ownerUserId, kinds);
+    return Buffer.from(access.ruleId, "hex");
+  }
+  if (access.kind === "any") {
+    assertStakeKindsAllowed(
+      ownerUserId,
+      access.leaves.map(leaf => leaf.kind)
+    );
+    const leafIds: string[] = [];
+    for (const leaf of access.leaves) {
+      leafIds.push(await createRule(ownerUserId, { ...leaf, name: null }, tx));
+    }
+    const id = await createRule(
+      ownerUserId,
+      { kind: "any", params: { ruleIds: leafIds }, name: null },
+      tx
+    );
+    return Buffer.from(id, "hex");
+  }
+  assertStakeKindsAllowed(ownerUserId, [access.kind]);
+  return Buffer.from(await createRule(ownerUserId, { ...access, name: null }, tx), "hex");
+}
+
+/** The item's rule as its owner sees it in the editor, with their own params. */
+async function ownerAccess(item: ContentItem) {
+  if (!item.accessRuleId) return null;
+  const rule = await loadRule(ruleHex(item.accessRuleId), { fresh: true });
+  if (!rule || rule === "invalid")
+    return { ruleId: ruleHex(item.accessRuleId), valid: false as const };
+  const row = await prisma.accessRule.findUnique({
+    where: { id: Buffer.from(item.accessRuleId) },
+    select: { name: true },
+  });
+  const leaves =
+    rule.kind === "any" || rule.kind === "all"
+      ? await Promise.all(
+          (rule.params.ruleIds as string[]).map(async id => {
+            const leaf = await loadRule(id, { fresh: true });
+            return leaf && leaf !== "invalid"
+              ? { ruleId: leaf.id, kind: leaf.kind, params: leaf.params }
+              : null;
+          })
+        )
+      : [];
+  return {
+    ruleId: rule.id,
+    valid: true as const,
+    kind: rule.kind,
+    summary: ACCESS_RULE_SUMMARIES[rule.kind],
+    name: row?.name ?? null,
+    params: rule.params,
+    leaves: leaves.filter((leaf): leaf is NonNullable<typeof leaf> => leaf !== null),
+  };
+}
+
+/** The creator's own pool, for Pool fans and Fans with a minimum stake. */
+async function ownerPoolId(userId: number): Promise<number | null> {
+  const pool = await prisma.creatorPool.findFirst({
+    where: { wallet: { userId }, poolAddress: { not: null } },
+    orderBy: { id: "desc" },
+    select: { id: true },
+  });
+  return pool?.id ?? null;
 }
 
 async function findOwnedItem(publicId: string, userId: number): Promise<ContentItem> {
@@ -603,8 +730,17 @@ export const contentRouter = router({
       where: { contentItemId: item.id },
       orderBy: { createdAt: "asc" },
     });
+    const gating = isFeatureOn("accessGating");
     return {
       ...ownerView(item),
+      // The item editor's "Who can open this" (content gating 4.1)
+      access: gating ? await ownerAccess(item) : null,
+      gating: gating
+        ? {
+            stakeKindsAllowed: stakeKindsAllowed(ctx.user!.sub),
+            poolId: await ownerPoolId(ctx.user!.sub),
+          }
+        : null,
       assets: assets.map(asset => ({
         role: asset.role.toLowerCase(),
         variant: asset.variant,
@@ -625,23 +761,51 @@ export const contentRouter = router({
     if (input.previewConfig && !previewFits(item.kind, input.previewConfig)) {
       throw new TRPCError({ code: "BAD_REQUEST", message: MESSAGES.preview });
     }
-    const updated = await prisma.contentItem.update({
-      where: { id: item.id },
-      data: {
-        ...(input.title !== undefined ? { title: input.title } : {}),
-        ...(input.description !== undefined ? { description: input.description } : {}),
-        ...(input.allowDownload !== undefined ? { allowDownload: input.allowDownload } : {}),
-        ...(input.adult !== undefined ? { adult: input.adult } : {}),
-        ...(input.chapters !== undefined
-          ? { chapters: input.chapters === null ? Prisma.JsonNull : input.chapters }
-          : {}),
-        ...(input.previewConfig !== undefined
-          ? {
-              previewConfig: input.previewConfig === null ? Prisma.JsonNull : input.previewConfig,
-            }
-          : {}),
-      },
-    });
+    if (input.access !== undefined) {
+      if (!isFeatureOn("accessGating")) {
+        throw new TRPCError({ code: "PRECONDITION_FAILED", message: MESSAGES.gatingOff });
+      }
+      // R4 refuses a surface a performer release excludes; C8 leaves the hook
+      if (input.access !== null && !(await releaseAllowsSurface(item, "content"))) {
+        throw new TRPCError({ code: "FORBIDDEN", message: MESSAGES.ruleKind });
+      }
+    }
+    const fields = {
+      ...(input.title !== undefined ? { title: input.title } : {}),
+      ...(input.description !== undefined ? { description: input.description } : {}),
+      ...(input.allowDownload !== undefined ? { allowDownload: input.allowDownload } : {}),
+      ...(input.adult !== undefined ? { adult: input.adult } : {}),
+      ...(input.chapters !== undefined
+        ? { chapters: input.chapters === null ? Prisma.JsonNull : input.chapters }
+        : {}),
+      ...(input.previewConfig !== undefined
+        ? {
+            previewConfig: input.previewConfig === null ? Prisma.JsonNull : input.previewConfig,
+          }
+        : {}),
+    } satisfies Prisma.ContentItemUpdateInput;
+    let updated: ContentItem;
+    if (input.access === undefined) {
+      updated = await prisma.contentItem.update({ where: { id: item.id }, data: fields });
+    } else {
+      // The new rule, the item and the old inline rule's cleanup in one transaction
+      const access = input.access;
+      const result = await prisma.$transaction(async tx => {
+        const ruleId = access === null ? null : await resolveAccessInput(tx, item.userId, access);
+        const row = await tx.contentItem.update({
+          where: { id: item.id },
+          data: { ...fields, accessRuleId: ruleId },
+        });
+        const previous = item.accessRuleId ? Buffer.from(item.accessRuleId) : null;
+        const deleted =
+          previous && !(ruleId && previous.equals(ruleId))
+            ? await cleanupInlineRule(tx, ruleHex(previous))
+            : [];
+        return { row, deleted };
+      });
+      await forgetRules(result.deleted);
+      updated = result.row;
+    }
     // Turning downloads on after READY: Stream makes the MP4 only when asked (spec 3.6)
     if (
       input.allowDownload === true &&
@@ -955,7 +1119,12 @@ export const contentRouter = router({
       include: { user: { select: { page_status: true, block: true } } },
     });
     const viewerId = viewerUserId(ctx);
-    if (!item || (!isPublicItem(item, item.user) && item.userId !== viewerId)) {
+    // A locked item is on public pages too once gating is on, so it can be reported
+    const visible =
+      item &&
+      (isPublicItem(item, item.user) ||
+        (isFeatureOn("accessGating") && isListedItem(item, item.user)));
+    if (!item || (!visible && item.userId !== viewerId)) {
       throw new TRPCError({ code: "NOT_FOUND", message: VIEWER_MESSAGES.notFound });
     }
     await prisma.contentReport.create({
@@ -994,26 +1163,120 @@ export const contentRouter = router({
    */
   getReadUrl: publicProcedure.input(contentReadUrlSchema).query(async ({ ctx, input }) => {
     await limitViewerReads(ctx);
-    const { item, assets, access } = await loadItemForViewer(input.publicId, viewerUserId(ctx));
-    try {
-      if (input.download) {
-        if (!item.allowDownload) {
-          throw new TRPCError({ code: "FORBIDDEN", message: MESSAGES.downloadsOff });
+    type Loaded = Awaited<ReturnType<typeof loadItemForReveal>>;
+    const deliver = async ({ item, assets, access }: Loaded) => {
+      try {
+        if (input.download) {
+          if (!item.allowDownload) {
+            throw new TRPCError({ code: "FORBIDDEN", message: MESSAGES.downloadsOff });
+          }
+          const key = `content-dl:${viewerKey(ctx)}:${item.publicId}`;
+          if ((await hitRateLimit(key, 24 * 60 * 60)) > DOWNLOADS_PER_DAY) {
+            throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: MESSAGES.downloadCap });
+          }
+          return { playback: null, download: await buildDownload(item, assets) };
         }
-        const key = `content-dl:${viewerKey(ctx)}:${item.publicId}`;
-        if ((await hitRateLimit(key, 24 * 60 * 60)) > DOWNLOADS_PER_DAY) {
-          throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: MESSAGES.downloadCap });
+        return { playback: await buildPlayback(item, assets, access), download: null };
+      } catch (error) {
+        if (error instanceof TRPCError) throw error;
+        if (error instanceof DeliveryError && error.reason === "not_ready") {
+          throw new TRPCError({ code: "NOT_FOUND", message: VIEWER_MESSAGES.notFound });
         }
-        return { playback: null, download: await buildDownload(item, assets) };
+        console.error(
+          "[content] read url failed",
+          JSON.stringify({
+            publicId: item.publicId,
+            error: error instanceof Error ? error.message : String(error),
+          })
+        );
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: MESSAGES.delivery });
       }
-      return { playback: await buildPlayback(item, assets, access), download: null };
-    } catch (error) {
-      if (error instanceof TRPCError) throw error;
-      if (error instanceof DeliveryError && error.reason === "not_ready") {
+    };
+
+    if (!isFeatureOn("accessGating")) {
+      const loaded = await loadItemForViewer(input.publicId, viewerUserId(ctx));
+      return { decision: null as AccessDecision | null, ...(await deliver(loaded)) };
+    }
+
+    // Content gating 3.3: one call checks and reveals. The reveal runs only on a pass.
+    const { decision, value } = await open(
+      viewerFrom(ctx),
+      { type: "content", id: input.publicId },
+      async () => deliver(await loadItemForReveal(input.publicId))
+    );
+    if (!decision.allowed || !value) {
+      if (decision.reason === "not_found") {
         throw new TRPCError({ code: "NOT_FOUND", message: VIEWER_MESSAGES.notFound });
       }
+      // The item page shows the unlock card for this decision
+      return { decision: decision as AccessDecision | null, playback: null, download: null };
+    }
+    return { decision: decision as AccessDecision | null, ...value };
+  }),
+
+  /**
+   * What a locked fan may see (content gating 3.3): the blur cover, and the
+   * preview clip, audio preview or first pages. Runs check with intent render,
+   * not open: a preview needs the item available and the 18+ check, not the rule.
+   * Never signs the full video, audio, document or original.
+   */
+  getPreview: publicProcedure.input(contentPreviewSchema).query(async ({ ctx, input }) => {
+    await limitViewerReads(ctx);
+    if (!isFeatureOn("accessGating")) {
+      throw new TRPCError({ code: "NOT_FOUND", message: VIEWER_MESSAGES.notFound });
+    }
+    const viewer = viewerFrom(ctx);
+    const decision = await check(viewer, { type: "content", id: input.publicId });
+    // The preview reads availability and age, not the rule: a rule refusal still previews
+    const previewable =
+      decision.allowed ||
+      !["not_found", "blocked", "age_check_required", "identity_unavailable"].includes(
+        decision.reason
+      );
+    if (!previewable) {
+      if (decision.reason === "not_found") {
+        throw new TRPCError({ code: "NOT_FOUND", message: VIEWER_MESSAGES.notFound });
+      }
+      const item = await prisma.contentItem.findUnique({
+        where: { publicId: input.publicId },
+        select: { publicId: true, kind: true },
+      });
+      if (!item) throw new TRPCError({ code: "NOT_FOUND", message: VIEWER_MESSAGES.notFound });
+      return {
+        publicId: item.publicId,
+        kind: fromDbKind(item.kind) as ContentPreview["kind"],
+        blur: null,
+        clip: null,
+        audio: null,
+        pages: [],
+        expiresAt: Date.now(),
+        decision,
+      } satisfies ContentPreview;
+    }
+    const item = await prisma.contentItem.findUnique({
+      where: { publicId: input.publicId },
+      include: { user: { select: { page_status: true, block: true } } },
+    });
+    // Belt and braces: a refusal that is not about availability (kind_unavailable
+    // after an engine error, for one) must not preview an item nobody may see
+    const visible =
+      item &&
+      (decision.reason === "owner" ? ownerCanOpen(item) : isListedItem(item, item.user));
+    if (!item || !visible) {
+      throw new TRPCError({ code: "NOT_FOUND", message: VIEWER_MESSAGES.notFound });
+    }
+    const allAssets = await prisma.contentAsset.findMany({ where: { contentItemId: item.id } });
+    if (!servedAssetsClean(allAssets)) {
+      throw new TRPCError({ code: "NOT_FOUND", message: VIEWER_MESSAGES.notFound });
+    }
+    const assets = allAssets.filter(asset =>
+      (PREVIEW_ASSET_ROLES as readonly string[]).includes(asset.role)
+    );
+    try {
+      return { ...(await buildPreview(item, assets)), decision } satisfies ContentPreview;
+    } catch (error) {
       console.error(
-        "[content] read url failed",
+        "[content] preview failed",
         JSON.stringify({
           publicId: item.publicId,
           error: error instanceof Error ? error.message : String(error),

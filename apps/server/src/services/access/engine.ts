@@ -28,11 +28,17 @@ import { getVisitorHash } from "../analytics/requestContext";
 import { checkIdentity } from "../identity/checks";
 import { trustedEmailWhere } from "../../utils/verificationGrace";
 import { chainStakeWei, followState, loadPool, mirrorStakeWei } from "./facts";
+import { stakeKindsAllowed } from "./allowlist";
 import { hexToId, idToHex, loadRule, type LoadedRule } from "./rules";
 import type { Gate, Resolver, Viewer } from "./types";
 
 type Intent = "render" | "open";
-export type CheckOptions = { intent?: Intent; fresh?: boolean };
+export type CheckOptions = {
+  intent?: Intent;
+  fresh?: boolean;
+  /** False skips the AccessEvent, for repeated internal checks such as progress writes */
+  record?: boolean;
+};
 
 // ── Resolver registry ───────────────────────────────────────────
 const resolvers = new Map<AccessResourceType, Resolver>();
@@ -80,18 +86,6 @@ export function ageDecision(result: IdentityCheckResult | "signed_out"): AccessD
     default:
       return refuse("age_check_required", { action: "verify_age" });
   }
-}
-
-/** Stake rules are live only for creators on the pilot allowlist (spec 6, flags). */
-export function stakeKindsAllowed(
-  ownerUserId: number,
-  allowlist = env.ACCESS_STAKE_KINDS_ALLOWLIST
-) {
-  return allowlist
-    .split(",")
-    .map(value => value.trim())
-    .filter(Boolean)
-    .includes(String(ownerUserId));
 }
 
 type Owner = { id: number; handle: string | null; block: string; page_status: string };
@@ -266,7 +260,39 @@ export function viewerKey(viewer: Viewer, ownerUserId: number): string {
 }
 
 const EVENT_DEDUPE_SECONDS = 600;
-const RENDER_SAMPLE_RATE = 0.1;
+const EVENT_DEDUPE_MAX_LOCAL = 50_000;
+const localDedupe = new Map<string, number>();
+
+/** For tests only. */
+export function clearEventDedupe() {
+  localDedupe.clear();
+}
+
+/**
+ * First locked render for this key in 10 minutes (spec 3.2 step 6, content
+ * gating 3.6). Redis when there is one; otherwise a per process map with the
+ * same window.
+ */
+async function firstRenderInWindow(dedupe: string): Promise<boolean> {
+  const redis = getRedisClient();
+  if (redis) {
+    try {
+      const first = await redis.set(dedupe, "1", "EX", EVENT_DEDUPE_SECONDS, "NX");
+      return first !== null;
+    } catch {
+      // fall through to the local window
+    }
+  }
+  const now = Date.now();
+  const until = localDedupe.get(dedupe);
+  if (until && until > now) return false;
+  if (localDedupe.size >= EVENT_DEDUPE_MAX_LOCAL) {
+    for (const [key, expires] of localDedupe) if (expires <= now) localDedupe.delete(key);
+    if (localDedupe.size >= EVENT_DEDUPE_MAX_LOCAL) localDedupe.clear();
+  }
+  localDedupe.set(dedupe, now + EVENT_DEDUPE_SECONDS * 1000);
+  return true;
+}
 
 async function recordEvent(
   resource: AccessResource,
@@ -277,7 +303,8 @@ async function recordEvent(
   revealed: boolean
 ) {
   try {
-    if (intent === "render" && (result.allowed || Math.random() >= RENDER_SAMPLE_RATE)) return;
+    // Only locked renders are recorded; a public or passing render is not an event
+    if (intent === "render" && result.allowed) return;
     const type =
       intent === "render"
         ? "locked_view"
@@ -287,15 +314,10 @@ async function recordEvent(
             ? "unlocked"
             : "denied";
     const key = viewerKey(viewer, gate.ownerUserId);
-    const dedupe = `access:ev:${resource.type}:${resource.id}:${key}:${type}`;
-    const redis = getRedisClient();
-    if (redis) {
-      try {
-        const first = await redis.set(dedupe, "1", "EX", EVENT_DEDUPE_SECONDS, "NX");
-        if (first === null) return;
-      } catch {
-        // record without dedupe
-      }
+    // Renders once per viewer key and resource in 10 minutes; denied and revealed every time
+    if (intent === "render") {
+      const first = await firstRenderInWindow(`access:ev:${resource.type}:${resource.id}:${key}`);
+      if (!first) return;
     }
     await prisma.accessEvent.create({
       data: {
@@ -323,8 +345,11 @@ async function decide(
 ): Promise<AccessDecision> {
   if (!gate) return refuse("not_found", { action: "none" });
 
-  // Owner always passes, including drafts (preview)
-  if (viewer.userId !== null && viewer.userId === gate.ownerUserId) return allow("owner");
+  // The owner passes, including drafts (preview), unless the resolver says even
+  // the owner may not open it (content moderation BLOCKED, like ownerCanOpen)
+  if (viewer.userId !== null && viewer.userId === gate.ownerUserId) {
+    return gate.ownerCanOpen === false ? refuse("not_found", { action: "none" }) : allow("owner");
+  }
   if (!gate.available) return refuse("not_found", { action: "none" });
 
   const owner = await loadOwner(gate.ownerUserId);
@@ -395,7 +420,7 @@ export async function check(
     });
     result = refuse("kind_unavailable", { action: "unavailable" });
   }
-  if (gate && result.reason !== "owner") {
+  if (gate && result.reason !== "owner" && opts.record !== false) {
     void recordEvent(resource, gate, viewer, result, intent, false);
   }
   return result;
@@ -491,4 +516,4 @@ export async function eligibleUserIds(
   return { userIds, nextCursor: userIds.length === limit ? userIds.at(-1)! : null };
 }
 
-export { hexToId, idToHex };
+export { hexToId, idToHex, stakeKindsAllowed };

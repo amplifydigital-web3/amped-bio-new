@@ -1,17 +1,24 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { ACCESS_RESOURCE_TYPES, accessRuleInputSchema } from "@repo/constants";
-import { privateProcedure, publicProcedure, router, type Context } from "./trpc";
+import {
+  ACCESS_RESOURCE_TYPES,
+  accessCheckPageSchema,
+  accessRuleInputSchema,
+  type AccessCheckPageResult,
+} from "@repo/constants";
+import { prisma } from "@repo/database";
+import { privateProcedure, publicProcedure, router } from "./trpc";
 import { env } from "../env";
 import {
   check,
+  checkBatch,
   createRule,
   deleteRule,
   listRules,
   updateRule,
-  type Viewer,
+  viewerFrom,
 } from "../services/access";
-import { getClientIp } from "../services/analytics/requestContext";
+import { findPublicCreator } from "../services/content/publicView";
 import { enforceRateLimits } from "../utils/rateLimit";
 import { isFeatureOn } from "../services/featureFlags";
 
@@ -24,20 +31,8 @@ function requireEnabled() {
   }
 }
 
-/** The viewer is always the session account, never client input. */
-function viewerFrom(ctx: Context): Viewer {
-  return {
-    userId: ctx.user?.sub ?? null,
-    wallet: ctx.user?.wallet ?? null,
-    request: {
-      ip: getClientIp(ctx.req),
-      userAgent: String(ctx.req.headers["user-agent"] ?? ""),
-    },
-  };
-}
-
 // Access gating engine (Build Board #21, PR G1). Behind the accessGating feature flag.
-// Block locks, checkPage, openBlock and /go ship in G3.
+// checkPage (content cards) ships in C8; block locks, openBlock and /go in G3.
 export const accessRouter = router({
   // One decision. Public procedures return not_signed_in for anonymous viewers on
   // any kind but public.
@@ -58,6 +53,40 @@ export const accessRouter = router({
       );
       return check(viewer, input.resource, { intent: input.intent });
     }),
+
+  /**
+   * Decisions for the cards on one creator's page (content gating 3.4, CQ2).
+   * Up to 48 resources, all owned by the handle's user: any other resource is
+   * dropped from the answer. Content only in C8; G3 adds blocks. One rate limit
+   * hit per call, not per resource.
+   */
+  checkPage: publicProcedure.input(accessCheckPageSchema).query(async ({ ctx, input }) => {
+    requireEnabled();
+    const viewer = viewerFrom(ctx);
+    const key = viewer.userId !== null ? `u:${viewer.userId}` : `ip:${viewer.request!.ip}`;
+    await enforceRateLimits(
+      [{ key: `access_check_page:${key}`, limit: 30, windowSeconds: 60 }],
+      "Too many requests. Try again in a minute."
+    );
+    const out: AccessCheckPageResult = {};
+    const creator = await findPublicCreator(input.handle);
+    if (!creator) return out;
+    const ids = [
+      ...new Set(input.resources.filter(r => r.type === "content").map(r => r.id)),
+    ].slice(0, 48);
+    if (!ids.length) return out;
+    const owned = await prisma.contentItem.findMany({
+      where: { userId: creator.id, publicId: { in: ids } },
+      select: { publicId: true },
+    });
+    const decisions = await checkBatch(
+      viewer,
+      owned.map(item => ({ type: "content" as const, id: item.publicId })),
+      { intent: "render" }
+    );
+    for (const [key, decision] of decisions) out[key] = decision;
+    return out;
+  }),
 
   rules: router({
     list: privateProcedure.query(async ({ ctx }) => {

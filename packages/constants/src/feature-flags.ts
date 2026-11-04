@@ -203,8 +203,9 @@ export const FEATURE_FLAGS = {
   },
   accessGating: {
     label: "Access gating",
-    description: "The access gating engine (access.* procedures).",
-    scope: "server",
+    description:
+      "The access gating engine (access.* procedures), locked content cards and the item editor's access picker.",
+    scope: "public",
     default: false,
     env: { server: "ACCESS_GATING_ENABLED" },
   },
