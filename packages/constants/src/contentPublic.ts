@@ -8,7 +8,7 @@
  */
 import { z } from "zod";
 import { HANDLE_REGEX } from "./handle";
-import { CONTENT_UPLOAD_KINDS, contentPublicIdSchema } from "./content";
+import { CONTENT_UPLOAD_KINDS, contentAccessInputSchema, contentPublicIdSchema } from "./content";
 import type { ContentImageSet } from "./contentPlayer";
 import { ACCESS_RESOURCE_TYPES, type AccessDecision, type AccessRuleKind } from "./access";
 
@@ -194,6 +194,20 @@ export const accessCheckPageSchema = z.object({
     .min(1)
     .max(ACCESS_CHECK_PAGE_MAX),
 });
+
+/** blocks.setAccessRule: Everyone (null), a saved rule or an inline rule (G3). */
+export const blockSetAccessSchema = z.object({
+  blockId: z.number().int().positive(),
+  access: contentAccessInputSchema.nullable(),
+});
+
+export const blockOpenSchema = z.object({ blockId: z.number().int().positive() });
+
+/** What access.openBlock reveals on a pass: the block's own config. */
+export type BlockReveal =
+  | { kind: "link"; url: string; label: string; platform: string }
+  | { kind: "text"; content: string; platform: string }
+  | { kind: "media"; url: string; label: string; platform: string; content?: string };
 
 /** checkPage answer, keyed `${type}:${id}` */
 export type AccessCheckPageResult = Record<string, AccessDecision>;

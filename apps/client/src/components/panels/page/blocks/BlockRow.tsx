@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
@@ -14,13 +14,16 @@ import {
   GripVertical,
   IdCard,
   Library,
+  Lock,
   MoreHorizontal,
   Send,
   Trash2,
   UserPlus,
   UsersRound,
 } from "lucide-react";
-import { type BlockType, safeHref } from "@repo/constants";
+import { LOCKABLE_BLOCK_TYPES, type BlockType, safeHref } from "@repo/constants";
+import { isFeatureOn } from "@/config/featureFlags";
+import { BlockAccessFields } from "./BlockAccessFields";
 import {
   Menu,
   MenuContent,
@@ -98,7 +101,15 @@ export function BlockRow({
   const hidden = isHidden(block);
   const need = draft ? null : blockNeed(block);
   const title = blockTitle(block);
-  const meta = draft ? "Draft, not on your page yet" : blockMeta(block);
+  const [gated, setGated] = useState(Boolean((block as { gated?: boolean }).gated));
+  // G3: link, media and text blocks can carry a rule once the block exists
+  const lockable =
+    !draft &&
+    block.id > 0 &&
+    isFeatureOn("accessGating") &&
+    (LOCKABLE_BLOCK_TYPES as readonly string[]).includes(block.type);
+  const baseMeta = draft ? "Draft, not on your page yet" : blockMeta(block);
+  const meta = gated && lockable ? (baseMeta ? `Locked, ${baseMeta}` : "Locked") : baseMeta;
 
   // 036 I13: an opened row scrolls into view, 21 below the top bar
   useEffect(() => {
@@ -179,6 +190,9 @@ export function BlockRow({
                 />
               )}
               {hidden && !need && <EyeOff aria-hidden className="h-[13px] w-[13px] shrink-0" />}
+              {gated && lockable && !hidden && !need && (
+                <Lock aria-hidden className="h-[13px] w-[13px] shrink-0" />
+              )}
               <span className="truncate">
                 {need ? NEED_LABEL[need] : hidden ? `Hidden${meta ? `, ${meta}` : ""}` : meta}
               </span>
@@ -254,6 +268,9 @@ export function BlockRow({
       {open && (
         <div className="prism-slab relative mt-2 p-[21px] motion-safe:animate-in motion-safe:fade-in motion-safe:duration-prism-control">
           <BlockFields block={block} onValid={onChange} />
+          {lockable && (
+            <BlockAccessFields blockId={block.id} gated={gated} onGatedChange={setGated} />
+          )}
         </div>
       )}
     </div>

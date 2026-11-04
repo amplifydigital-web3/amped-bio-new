@@ -92,5 +92,9 @@ export const SITE_CONTENT_COPY = {
     blockedBody: "This item is not available to your account.",
     retry: "Try again",
     failed: "We could not check this item. Try again.",
+    // Blocks (G3)
+    lockedText: "Locked post",
+    lockedMedia: "Locked media",
+    openLink: "Open link",
   },
 } as const;

@@ -25,7 +25,28 @@ export type BaseBlock<type extends BaseBlockType = any, T = any> = {
   config: T & { hidden?: boolean };
   created_at?: string;
   updated_at?: string | null;
+  /**
+   * Gated block (access gating G3, spec 3.9). Public pages get the locked DTO:
+   * the label and platform only, never the URL, body or embed. The body comes
+   * from access.openBlock, links open through /go/:blockId.
+   */
+  gated?: true;
+  gate?: BlockGate;
 };
+
+/** The public face of a block's rule: kind and summary, never params or an amount. */
+export type BlockGate = {
+  kind: string;
+  summary: string;
+  /** The rule reads a stake: show TESTNET_NOTICE and ACCESS_STAKE_DISCLOSURE */
+  stake: boolean;
+  /** The creator's public pool page, for Go to the pool */
+  poolAddress?: string | null;
+};
+
+/** Block types a creator can gate in G3. telegram_group keeps its own door (G2). */
+export const LOCKABLE_BLOCK_TYPES = ["link", "media", "text"] as const;
+export type LockableBlockType = (typeof LOCKABLE_BLOCK_TYPES)[number];
 
 export type LinkBlock = BaseBlock<"link", { platform: PlatformId; url: string; label: string }>;
 
