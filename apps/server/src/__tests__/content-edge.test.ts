@@ -277,6 +277,17 @@ describe("syncEdge (4.3 to 4.5)", () => {
     expect(item).toMatchObject({ edgeState: "BLOCKED", edgeDirtyAt: null, edgeAttempts: 0 });
   });
 
+  it("keeps an applied state when only the cache purge fails", async () => {
+    const item = seed({
+      status: "DELETED",
+      deletedAt: NOW,
+      assets: [{ role: "POSTER", storage: "R2", r2Key: "c/x/poster.jpg", streamUid: null }],
+    });
+    edge.purgeGatewayUrls.mockRejectedValueOnce(new Error("purge zone refused"));
+    expect(await syncEdge([item.publicId])).toEqual({ applied: 1, unchanged: 0, failed: 0 });
+    expect(item).toMatchObject({ edgeState: "BLOCKED", edgeDirtyAt: null, edgeAttempts: 0 });
+  });
+
   it("writes the private key for an unpublished item and leaves Stream alone", async () => {
     const item = seed({
       publishState: "DRAFT",

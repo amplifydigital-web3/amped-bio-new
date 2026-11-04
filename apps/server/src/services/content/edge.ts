@@ -309,7 +309,11 @@ async function applyItems(items: SyncItem[], now: Date): Promise<EdgeSyncResult>
           JSON.stringify({ publicId: entry.item.publicId, reason: entry.target.reason })
         );
       }
-      if (entry.purge.length) await purgeGatewayUrls(entry.purge);
+      if (entry.purge.length) {
+        // Cleanup only: a purge failure must never turn an applied state into a
+        // failed attempt, which would show on the tile with nothing left to retry
+        await purgeGatewayUrls(entry.purge).catch(() => 0);
+      }
     } catch (error) {
       await recordFailure(entry.item, error);
       result.failed += 1;
