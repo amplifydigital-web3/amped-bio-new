@@ -43,11 +43,11 @@ export async function resolveAccessInput(
       });
       kinds.push(...leaves.map(leaf => leaf.kind));
     }
-    assertStakeKindsAllowed(ownerUserId, kinds);
+    await assertStakeKindsAllowed(ownerUserId, kinds);
     return Buffer.from(access.ruleId, "hex");
   }
   if (access.kind === "any") {
-    assertStakeKindsAllowed(
+    await assertStakeKindsAllowed(
       ownerUserId,
       access.leaves.map(leaf => leaf.kind)
     );
@@ -62,7 +62,7 @@ export async function resolveAccessInput(
     );
     return Buffer.from(id, "hex");
   }
-  assertStakeKindsAllowed(ownerUserId, [access.kind]);
+  await assertStakeKindsAllowed(ownerUserId, [access.kind]);
   return Buffer.from(await createRule(ownerUserId, { ...access, name: null }, tx), "hex");
 }
 

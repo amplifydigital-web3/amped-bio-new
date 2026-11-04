@@ -6,6 +6,7 @@
  * leak test (acceptance 5). The database is an in memory fake.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { __resetStakeKindsAllowlistCacheForTests } from "../services/access/allowlist";
 
 const { OWNER, FAN, POOL } = vi.hoisted(() => ({ OWNER: 7, FAN: 20, POOL: 5 }));
 
@@ -48,6 +49,7 @@ const db = vi.hoisted(() => {
     created_at: new Date("2026-03-14T10:00:00Z"),
   };
   const prisma: any = {
+    siteSettings: { findUnique: vi.fn(async () => null) },
     user: {
       findFirst: vi.fn(async ({ where }: any) =>
         where.handle === "maya" || where.OR?.some((part: any) => part.handle === "maya")
@@ -278,6 +280,7 @@ const goReq = (blockId: string | number, cookie?: string) =>
   }) as never;
 
 beforeEach(() => {
+  __resetStakeKindsAllowlistCacheForTests();
   db.blocks.length = 0;
   db.rules.clear();
   db.events.length = 0;

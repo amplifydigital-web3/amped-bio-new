@@ -8,6 +8,7 @@
  * markers ("tok:<role>"), so a test can see exactly which roles were signed.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { __resetStakeKindsAllowlistCacheForTests } from "../services/access/allowlist";
 
 const { OWNER, FAN, POOL } = vi.hoisted(() => ({ OWNER: 7, FAN: 20, POOL: 5 }));
 
@@ -46,6 +47,7 @@ const db = vi.hoisted(() => {
     poolOwner: OWNER as number,
   };
   const prisma: any = {
+    siteSettings: { findUnique: vi.fn(async () => null) },
     user: {
       findFirst: vi.fn(async ({ where }: any) =>
         where.handle === "maya" && where.page_status === "PUBLISHED" && where.block === "no"
@@ -294,6 +296,7 @@ function addRule(kind: string, params: Record<string, unknown>, name: string | n
 }
 
 beforeEach(() => {
+  __resetStakeKindsAllowlistCacheForTests();
   db.items.length = 0;
   db.assets.length = 0;
   db.rules.clear();

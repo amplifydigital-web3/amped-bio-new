@@ -291,7 +291,10 @@ export const blocksRouter = router({
     if (!isFeatureOn("accessGating")) return { access: null, gating: null };
     return {
       access: await ownerAccess(block.accessRuleId),
-      gating: { stakeKindsAllowed: stakeKindsAllowed(userId), poolId: await ownerPoolId(userId) },
+      gating: {
+        stakeKindsAllowed: await stakeKindsAllowed(userId),
+        poolId: await ownerPoolId(userId),
+      },
     };
   }),
 

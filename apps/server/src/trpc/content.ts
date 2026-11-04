@@ -647,7 +647,7 @@ export const contentRouter = router({
       access: gating ? await ownerAccess(item.accessRuleId) : null,
       gating: gating
         ? {
-            stakeKindsAllowed: stakeKindsAllowed(ctx.user!.sub),
+            stakeKindsAllowed: await stakeKindsAllowed(ctx.user!.sub),
             poolId: await ownerPoolId(ctx.user!.sub),
           }
         : null,
