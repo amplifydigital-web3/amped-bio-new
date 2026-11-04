@@ -52,4 +52,37 @@ describe("guardThemeShowcase", () => {
     expect(guardThemeShowcase(particles)).toBe(particles);
     expect(guardThemeShowcase(undefined)).toBeUndefined();
   });
+
+  it("drops the Plus hovers, Jelly press and Plus names while themeShowcase is off (TE-3e)", () => {
+    const config = {
+      buttonEffect: 1,
+      buttonEffectId: "buttonHover.magnet",
+      buttonEffectParams: { strength: 80, speed: "fast" },
+      buttonPressId: "buttonPress.jelly-press",
+      heroEffect: 0,
+      heroEffectId: "name.rotating-words",
+      heroEffectParams: { words: "artist, producer" },
+    };
+    expect(guardThemeShowcase(config)).toEqual({ buttonEffect: 1, heroEffect: 0 });
+    for (const id of ["name.circular", "name.depth-parallax"]) {
+      expect(guardThemeShowcase({ heroEffectId: id })).toEqual({});
+    }
+    expect(guardThemeShowcase({ buttonEffectId: "buttonHover.lift-tilt" })).toEqual({});
+    __setFeatureFlagOverridesForTests({ themeShowcase: true });
+    expect(guardThemeShowcase(config)).toEqual(config);
+  });
+
+  it("drops Strength from a core hover and keeps its Speed (TE-3e)", () => {
+    expect(
+      guardThemeShowcase({ buttonEffect: 1, buttonEffectParams: { strength: 90, speed: "slow" } })
+    ).toEqual({ buttonEffect: 1, buttonEffectParams: { speed: "slow" } });
+    expect(guardThemeShowcase({ buttonEffect: 3, buttonEffectParams: { strength: 90 } })).toEqual({
+      buttonEffect: 3,
+    });
+    const core = {
+      buttonEffectId: "buttonHover.fill-sweep",
+      buttonEffectParams: { speed: "fast" },
+    };
+    expect(guardThemeShowcase(core)).toBe(core);
+  });
 });

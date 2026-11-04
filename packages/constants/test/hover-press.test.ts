@@ -33,12 +33,13 @@ describe("phase 2 hovers and presses", () => {
     }
   });
 
-  it("ships Ripple and Dip as core presses, then Click spark (TE-3c)", () => {
+  it("ships Ripple and Dip as core presses, then Click spark (TE-3c) and Jelly press (TE-3e)", () => {
     expect(listEffects("buttonPress").map(e => [e.id, e.engine])).toEqual([
       ["buttonPress.none", "css"],
       ["buttonPress.ripple", "waapi"],
       ["buttonPress.dip", "css"],
       ["buttonPress.click-spark", "canvas"],
+      ["buttonPress.jelly-press", "waapi"],
     ]);
     const ripple = findEffect("buttonPress.ripple")!;
     expect(ripple.render.kind === "waapi" && ripple.render.trigger).toBe("press");

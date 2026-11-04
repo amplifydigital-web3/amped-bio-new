@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { nameSettle, isNameEntrance, NAME_SETTLES, NAME_TARGETS } from "@repo/constants";
 import {
   ChipGroup,
+  CircularName,
   NameText,
   ShowcaseProvider,
   cn,
@@ -33,6 +34,11 @@ const SETTLE_LABELS = { once: "Play once", always: "Loop" } as const;
 // Phase 3c: Fuzzy text needs the canvas engine, so it shows with themeShowcase
 const showcaseOn = isFeatureOn("themeShowcase");
 const NAME_ROW_TILES = nameTilesFor(showcaseOn);
+
+/** Phase 3e: sample params so a tile shows the effect before the creator sets it up. */
+const TILE_PARAMS: Record<string, Record<string, string>> = {
+  "name.rotating-words": { words: "creator, artist" },
+};
 const TARGET_LABELS = { name: "Name", nameAndBio: "Name and bio" } as const;
 
 /** Plays for a moment after a tap or selection. */
@@ -101,7 +107,10 @@ function NameTileView({
           >
             <span
               className={cn(
-                "truncate text-[26px] font-bold leading-[33px]",
+                // The Circular ring draws past the line box, so it is not clipped
+                entry.id === "name.circular"
+                  ? "text-[26px]"
+                  : "truncate text-[26px] font-bold leading-[33px]",
                 effectClassName(entry, still)
               )}
               style={
@@ -115,12 +124,25 @@ function NameTileView({
               }
             >
               <ShowcaseProvider value={{ showcase: showcaseOn, paused: still, device: "typical" }}>
-                <NameText
-                  entry={entry}
-                  text={profile.name || "Your name"}
-                  colors={colors}
-                  paused={still}
-                />
+                {entry.id === "name.circular" ? (
+                  // Phase 3e: the ring around a stand in for the photo
+                  <span className="relative inline-flex h-[28px] w-[28px] items-center justify-center rounded-full bg-[color-mix(in_srgb,currentColor_18%,transparent)]">
+                    <CircularName
+                      text={profile.name || "Your name"}
+                      size={28}
+                      className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
+                    />
+                  </span>
+                ) : (
+                  <NameText
+                    entry={entry}
+                    text={profile.name || "Your name"}
+                    colors={colors}
+                    paused={still}
+                    params={TILE_PARAMS[entry.id]}
+                    loop
+                  />
+                )}
               </ShowcaseProvider>
             </span>
           </span>

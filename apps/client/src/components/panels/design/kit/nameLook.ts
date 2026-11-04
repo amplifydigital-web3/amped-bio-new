@@ -45,11 +45,20 @@ export const NAME_TILES: NameTile[] = [
   ...V2_NAMES.map(([effectId, id]) => ({ id, effectId, entry: getEffect("name", effectId) })),
   // Phase 3c: Fuzzy text on the canvas engine; a renderer without it draws the plain name
   { id: 0, effectId: "name.fuzzy", entry: getEffect("name", "name.fuzzy") },
+  // Phase 3e: Rotating words, Circular and Depth parallax; without the flag, the plain name
+  ...["name.rotating-words", "name.circular", "name.depth-parallax"].map(effectId => ({
+    id: 0,
+    effectId,
+    entry: getEffect("name", effectId),
+  })),
 ];
 
-/** Canvas name effects show only with themeShowcase (TE-3c). They sit last, so indexes hold. */
+/**
+ * Plus and Showcase name effects show only with themeShowcase (TE-3c, TE-3e).
+ * They sit last, so indexes hold.
+ */
 export function nameTilesFor(showcase: boolean): NameTile[] {
-  return showcase ? NAME_TILES : NAME_TILES.filter(tile => tile.entry.engine !== "canvas");
+  return showcase ? NAME_TILES : NAME_TILES.filter(tile => tile.entry.tier === "core");
 }
 
 /** The patch a name tile writes: a v1 tile clears the v2 id; a new pick starts from default params. */

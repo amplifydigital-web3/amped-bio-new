@@ -43,9 +43,14 @@ describe("showcase tiles", () => {
     expect(pressIdsFor(false)).not.toContain("buttonPress.click-spark");
   });
 
-  it("offers Fuzzy text only with the showcase flag, last, so indexes hold", () => {
+  it("offers Fuzzy text and the TE-3e names only with the showcase flag, last, so indexes hold", () => {
     expect(nameTilesFor(true)).toBe(NAME_TILES);
-    expect(nameTilesFor(false)).toHaveLength(NAME_TILES.length - 1);
-    expect(NAME_TILES.at(-1)!.effectId).toBe("name.fuzzy");
+    expect(nameTilesFor(false)).toHaveLength(NAME_TILES.length - 4);
+    expect(NAME_TILES.slice(-4).map(t => t.effectId)).toEqual([
+      "name.fuzzy",
+      "name.rotating-words",
+      "name.circular",
+      "name.depth-parallax",
+    ]);
   });
 });
