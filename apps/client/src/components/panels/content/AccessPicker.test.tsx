@@ -6,11 +6,12 @@ import { AccessPicker } from "./AccessPicker";
 
 // Content gating 4.1 (C8): the item editor's "Who can open this".
 
-const mocks = vi.hoisted(() => ({ update: vi.fn(), preview: vi.fn() }));
+const mocks = vi.hoisted(() => ({ update: vi.fn(), preview: vi.fn(), ruleUpdate: vi.fn() }));
 
 vi.mock("@repo/ui", async () => ({
   ...(await import("./testUi").then(m => m.prismUi())),
   trpc: {
+    blocks: { getAccess: { queryKey: () => ["blocks.getAccess"] } },
     content: {
       get: { queryKey: (input: object) => ["content.get", input] },
       getPreview: {
@@ -21,7 +22,10 @@ vi.mock("@repo/ui", async () => ({
       },
     },
   },
-  trpcClient: { content: { update: { mutate: mocks.update } } },
+  trpcClient: {
+    content: { update: { mutate: mocks.update } },
+    access: { rules: { update: { mutate: mocks.ruleUpdate } } },
+  },
   queryClient: { invalidateQueries: vi.fn(async () => {}) },
 }));
 
@@ -32,6 +36,7 @@ describe("AccessPicker", () => {
   beforeEach(() => {
     mocks.update.mockReset().mockResolvedValue({});
     mocks.preview.mockResolvedValue({ blur: null });
+    mocks.ruleUpdate.mockReset().mockResolvedValue({ ok: true });
   });
 
   it("uses the rule summaries and shows Members and Paid as Later", () => {
@@ -133,5 +138,50 @@ describe("AccessPicker", () => {
     expect(screen.getByLabelText("Minimum stake")).toHaveValue("100");
     fireEvent.click(screen.getByRole("radio", { name: /Everyone/ }));
     await waitFor(() => expect(mocks.update).toHaveBeenCalledWith({ publicId: ID, access: null }));
+  });
+
+  describe("early access date (G6, delta 4)", () => {
+    const RULE = "ab".repeat(16);
+    const inline = { ruleId: RULE, valid: true, kind: "follower", name: null, params: {} };
+
+    it("sets Open to everyone on for the item's own rule, as local midnight", async () => {
+      renderWithProviders(<AccessPicker publicId={ID} access={inline} gating={allowed} />);
+      const input = screen.getByLabelText("Open to everyone on");
+      fireEvent.change(input, { target: { value: "2026-12-01" } });
+      await waitFor(() =>
+        expect(mocks.ruleUpdate).toHaveBeenCalledWith({
+          id: RULE,
+          opensToAllAt: new Date("2026-12-01T00:00:00").toISOString(),
+        })
+      );
+      expect(await screen.findByText("Date saved.")).toBeInTheDocument();
+    });
+
+    it("removes the date", async () => {
+      renderWithProviders(
+        <AccessPicker
+          publicId={ID}
+          access={{ ...inline, opensToAllAt: new Date("2026-12-01T00:00:00").toISOString() }}
+          gating={allowed}
+        />
+      );
+      expect(screen.getByLabelText("Open to everyone on")).toHaveValue("2026-12-01");
+      fireEvent.click(screen.getByRole("button", { name: "Remove date" }));
+      await waitFor(() =>
+        expect(mocks.ruleUpdate).toHaveBeenCalledWith({ id: RULE, opensToAllAt: null })
+      );
+    });
+
+    it("is not shown for Everyone or for a saved rule used elsewhere", () => {
+      const { unmount } = renderWithProviders(
+        <AccessPicker publicId={ID} access={null} gating={allowed} />
+      );
+      expect(screen.queryByLabelText("Open to everyone on")).toBeNull();
+      unmount();
+      renderWithProviders(
+        <AccessPicker publicId={ID} access={{ ...inline, name: "VIP" }} gating={allowed} />
+      );
+      expect(screen.queryByLabelText("Open to everyone on")).toBeNull();
+    });
   });
 });

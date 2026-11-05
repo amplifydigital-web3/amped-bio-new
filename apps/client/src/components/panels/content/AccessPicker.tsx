@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Globe, Loader2, Lock } from "lucide-react";
 import { Input, cn, queryClient, trpc, trpcClient } from "@repo/ui";
@@ -12,6 +12,7 @@ import {
 import { CONTENT_COPY } from "./copy";
 import { LaterPill } from "./parts";
 import { EYEBROW_NAV } from "./lib/labels";
+import { ACCESS_INSIGHTS_COPY } from "../people/accessCopy";
 
 const e = CONTENT_COPY.editor;
 const g = e.gate;
@@ -24,6 +25,10 @@ export interface EditorAccess {
   ruleId: string;
   valid: boolean;
   kind?: string;
+  /** The creator's name for a saved rule; null for a rule set on this item or block */
+  name?: string | null;
+  /** G6: "Open to everyone on" (decision 8). ISO time or null */
+  opensToAllAt?: string | null;
   params?: Record<string, unknown>;
   leaves?: Array<{ ruleId: string; kind: string; params: Record<string, unknown> }>;
 }
@@ -42,6 +47,22 @@ function weiToWhole(wei: unknown): string {
 }
 
 const WHOLE = /^[1-9]\d{0,20}$/;
+
+/** ISO time to the local "YYYY-MM-DD" a date input shows. */
+export function isoToDateInput(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+/** A date input's "YYYY-MM-DD" to the ISO time of that local midnight; "" is null. */
+export function dateInputToIso(value: string): string | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const d = new Date(`${value}T00:00:00`);
+  return Number.isNaN(d.getTime()) ? null : d.toISOString();
+}
 
 function initialState(access: EditorAccess | null | undefined) {
   const leaves = new Set<LeafKind>();
@@ -113,6 +134,11 @@ export function AccessPicker({
   const [amount, setAmount] = useState(start.amount);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const dateId = useId();
+  const [opensOn, setOpensOn] = useState(isoToDateInput(access?.opensToAllAt));
+  const [dateNote, setDateNote] = useState<string | null>(null);
+  // A new choice writes a new inline rule; its early access date carries over to it
+  const carryDate = useRef<string | null>(null);
 
   // A refetch with another rule (another tab) resets the picker
   const ruleId = access?.ruleId ?? null;
@@ -121,8 +147,34 @@ export function AccessPicker({
     setChoice(next.choice);
     setLeaves(next.leaves);
     setAmount(next.amount);
+    const carried = carryDate.current;
+    carryDate.current = null;
+    if (carried && access?.valid && access.name == null && !access.opensToAllAt) {
+      void saveDate(carried);
+    } else {
+      setOpensOn(isoToDateInput(access?.opensToAllAt));
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ruleId]);
+
+  /** The early access date on this item's own rule (G6, decision 8). */
+  async function saveDate(value: string) {
+    if (!access?.ruleId) return;
+    const iso = dateInputToIso(value);
+    setOpensOn(value);
+    setDateNote(null);
+    try {
+      await trpcClient.access.rules.update.mutate({ id: access.ruleId, opensToAllAt: iso });
+      setDateNote(ACCESS_INSIGHTS_COPY.early.saved);
+      await queryClient.invalidateQueries({
+        queryKey: publicId
+          ? trpc.content.get.queryKey({ publicId })
+          : trpc.blocks.getAccess.queryKey(),
+      });
+    } catch {
+      setDateNote(ACCESS_INSIGHTS_COPY.early.failed);
+    }
+  }
 
   const stakeOk = Boolean(gating?.stakeKindsAllowed && gating.poolId);
   const stakeBlocked = gating?.stakeKindsAllowed ? g.noPool : g.notAllowed;
@@ -136,6 +188,7 @@ export function AccessPicker({
   };
 
   async function save(next: ContentAccessInput | null) {
+    carryDate.current = next && opensOn ? opensOn : null;
     setSaving(true);
     setError(null);
     try {
@@ -332,6 +385,16 @@ export function AccessPicker({
         </div>
       )}
 
+      {choice !== "everyone" && access?.valid && access.name == null && (
+        <EarlyAccessRow
+          id={dateId}
+          value={opensOn}
+          note={dateNote}
+          disabled={saving}
+          onChange={value => void saveDate(value)}
+        />
+      )}
+
       {showsStake && (
         <div className="space-y-1 rounded-prism-13 bg-prism-warning-bg p-[13px]">
           <p className="text-prism-meta font-semibold text-prism-warning-ink">{TESTNET_NOTICE}</p>
@@ -348,6 +411,64 @@ export function AccessPicker({
       {choice !== "everyone" && publicId && <LockedPreview publicId={publicId} />}
       <p className="text-prism-meta text-prism-ink-2">{inline ? g.blockNote : g.note}</p>
     </section>
+  );
+}
+
+/**
+ * Early access (gating spec 3.10 delta 4, decision 8): fans who pass the rule open it now,
+ * and everyone can open it from this date. The earliest date is tomorrow.
+ */
+function EarlyAccessRow({
+  id,
+  value,
+  note,
+  disabled,
+  onChange,
+}: {
+  id: string;
+  value: string;
+  note: string | null;
+  disabled: boolean;
+  onChange: (value: string) => void;
+}) {
+  const E = ACCESS_INSIGHTS_COPY.early;
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  return (
+    <div className="space-y-1">
+      <label htmlFor={id} className="text-prism-label font-semibold text-prism-ink">
+        {E.label}
+      </label>
+      <div className="flex items-center gap-2">
+        <Input
+          id={id}
+          type="date"
+          min={isoToDateInput(tomorrow.toISOString())}
+          value={value}
+          disabled={disabled}
+          aria-describedby={`${id}-help`}
+          onChange={event => onChange(event.target.value)}
+        />
+        {value && (
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={() => onChange("")}
+            className="prism-focus min-h-touch shrink-0 rounded-prism-13 px-[13px] text-prism-label font-semibold text-prism-nav"
+          >
+            {E.clear}
+          </button>
+        )}
+      </div>
+      <p id={`${id}-help`} className="text-prism-meta text-prism-ink-2">
+        {E.help}
+      </p>
+      {note && (
+        <p role="status" className="text-prism-meta text-prism-ink-2">
+          {note}
+        </p>
+      )}
+    </div>
   );
 }
 

@@ -16,6 +16,7 @@ import { startRnsExpirySweeper } from "./services/rnsExpiry";
 import { startCheckoutIntentPurge } from "./services/checkout/intents";
 import { getGeoIpReader } from "./services/analytics/geoipDatabase";
 import { startFeatureFlagRefresh } from "./services/featureFlags";
+import { startAccessNightly } from "./services/access/nightly";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
@@ -57,6 +58,8 @@ startOnrampTokenPurge();
 startRnsExpirySweeper();
 // Mobile checkout (Build Board #49): delete checkout intents 30 days after they end
 startCheckoutIntentPurge();
+// Access gating (Build Board #21, G6): nightly leak scan and the 25 month access event purge
+startAccessNightly();
 
 // Analytics location: open (or download) GeoLite2 City at boot so the first
 // visits are located and a missing license key shows in the startup log.
