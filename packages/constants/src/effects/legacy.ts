@@ -362,8 +362,22 @@ export function upgradeTheme(
       text: normalizeHex(v1.fontColor) ?? V1_DEFAULTS.fontColor,
     },
     fonts: {
-      name: { family: fontFamily, weight: 700 },
-      body: { family: fontFamily, weight: 400 },
+      // The Text row stores a name face and body weight, italic and axes on
+      // v1 configs (phase 2b). The body family stays fontFamily.
+      name: v1.nameFont
+        ? {
+            family: v1.nameFont.family,
+            weight: v1.nameFont.weight ?? 700,
+            italic: v1.nameFont.italic ?? false,
+            axes: { ...v1.nameFont.axes },
+          }
+        : { family: fontFamily, weight: 700 },
+      body: {
+        family: fontFamily,
+        weight: v1.bodyFontStyle?.weight ?? 400,
+        italic: v1.bodyFontStyle?.italic ?? false,
+        axes: { ...v1.bodyFontStyle?.axes },
+      },
       size: FONT_SIZE_BY_PX[v1.fontSize ?? V1_DEFAULTS.fontSize] ?? "m",
     },
     scene: {

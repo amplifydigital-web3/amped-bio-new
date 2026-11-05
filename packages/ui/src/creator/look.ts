@@ -3,6 +3,8 @@ import {
   HOVER_SPEED_MS,
   NAME_SPEED_FACTOR,
   findEffect,
+  fontFaceStyle,
+  fontVariationSettings,
   getEffect,
   gradientCss,
   isNameEntrance,
@@ -13,6 +15,8 @@ import {
   type PageCost,
   type AnyThemeConfig,
   type EffectEntry,
+  type FontFaceStyle,
+  type FontPick,
   type ParamValues,
   type ThemeColors,
   type ThemeConfig,
@@ -47,6 +51,15 @@ export interface CreatorLook {
   overlayParams: ParamValues;
   /** The creator's colors as effects read them (theme color mode). */
   colors: ThemeColors;
+  /**
+   * Phase 2b fonts: the name's own face, or null when the theme has none (the
+   * name then wears the body family at 700, as it always has).
+   */
+  nameFont: FontPick | null;
+  /** The name face as CSS, or null. */
+  nameFace: FontFaceStyle | null;
+  /** Body weight, italic and axes as CSS, or an empty object for the v1 look. */
+  bodyFace: Pick<FontFaceStyle, "fontWeight" | "fontStyle" | "fontVariationSettings">;
 }
 
 const PX_BY_SIZE: Record<ThemeConfigV2["fonts"]["size"], string> = {
@@ -90,14 +103,53 @@ export function v1Values(v2: ThemeConfigV2): ThemeConfig {
                 fileId: base.fileId,
               }
             : undefined; // a shader base paints its poster in phase 3
+  const { name, body } = v2.fonts;
+  // A name face only when it differs from the v1 look (body family at 700)
+  const nameDiffers =
+    name.family !== body.family ||
+    name.weight !== 700 ||
+    name.italic ||
+    Object.keys(name.axes).length > 0;
+  const bodyDiffers = body.weight !== 400 || body.italic || Object.keys(body.axes).length > 0;
   return {
     buttonColor: v2.colors.button,
     containerColor: v2.colors.container,
     fontColor: v2.colors.text,
-    fontFamily: v2.fonts.body.family,
+    fontFamily: body.family,
     fontSize: PX_BY_SIZE[v2.fonts.size],
     transparency: v2.colors.containerOpacity,
     background,
+    ...(nameDiffers ? { nameFont: fontPickOf(name) } : {}),
+    ...(bodyDiffers ? { bodyFontStyle: fontStyleOf(body) } : {}),
+  };
+}
+
+type V2Font = ThemeConfigV2["fonts"]["name"];
+
+function fontStyleOf(font: V2Font): Omit<FontPick, "family"> {
+  const axes: FontPick["axes"] = {};
+  if (typeof font.axes.wdth === "number") axes.wdth = font.axes.wdth;
+  if (typeof font.axes.opsz === "number") axes.opsz = font.axes.opsz;
+  return {
+    weight: font.weight,
+    ...(font.italic ? { italic: true } : {}),
+    ...(Object.keys(axes).length > 0 ? { axes } : {}),
+  };
+}
+
+function fontPickOf(font: V2Font): FontPick {
+  return { family: font.family, ...fontStyleOf(font) };
+}
+
+/** Body weight, italic and axes as CSS. Empty when the theme leaves them unset. */
+function bodyFaceOf(values: ThemeConfig): CreatorLook["bodyFace"] {
+  const style = values.bodyFontStyle;
+  if (!style) return {};
+  const variation = fontVariationSettings(style.axes);
+  return {
+    ...(style.weight !== undefined ? { fontWeight: style.weight } : {}),
+    ...(style.italic ? { fontStyle: "italic" as const } : {}),
+    ...(variation ? { fontVariationSettings: variation } : {}),
   };
 }
 
@@ -126,6 +178,9 @@ export function lookFor(theme: AnyThemeConfig | null | undefined): CreatorLook {
       container: values.containerColor || THEME_DEFAULTS.containerColor,
       text,
     },
+    nameFont: values.nameFont ?? null,
+    nameFace: values.nameFont ? fontFaceStyle(values.nameFont) : null,
+    bodyFace: bodyFaceOf(values),
   };
   if (theme) CACHE.set(theme, look);
   return look;

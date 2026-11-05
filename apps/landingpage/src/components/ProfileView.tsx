@@ -227,6 +227,8 @@ export function ProfileView({
   const messagesOn = useFeatureFlag("messages");
   // Theme Engine v2 (#28): the shared CreatorPage shell, staging first
   const themeV2 = useFeatureFlag("themeV2");
+  // Theme Engine v2 fonts (2b): catalog faces load only while fontCatalog is on
+  const fontCatalogOn = useFeatureFlag("fontCatalog");
 
   // Pause motion (041 I02): read the remembered choice once on the client
   useEffect(() => {
@@ -710,6 +712,7 @@ export function ProfileView({
       bottomPadding={`calc(89px + env(safe-area-inset-bottom, 0px) + ${cardShowing ? cardHeight + 13 : 0}px)`}
       entranceKey={normalizedHandle}
       device={weakDevice ? "weak" : undefined}
+      loadFonts={fontCatalogOn}
     />
   ) : (
     <div

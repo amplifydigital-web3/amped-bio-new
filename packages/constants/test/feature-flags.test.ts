@@ -52,4 +52,10 @@ describe("feature flag registry", () => {
       else expect(env.server).toBeTruthy();
     }
   });
+
+  it("registers the font catalog flag as a brand new public flag, off by default", () => {
+    expect(FEATURE_FLAGS.fontCatalog.scope).toBe("public");
+    expect(FEATURE_FLAGS.fontCatalog.default).toBe(false);
+    expect(FEATURE_FLAGS.fontCatalog.env).toEqual({});
+  });
 });
