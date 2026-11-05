@@ -28,7 +28,9 @@ model User {
   description        String? @map("littlelink_description") @db.LongText
   role               String  @default("user")
   block              String  @default("no")
-  theme              String?
+  // Theme Engine v2 TE-4a: the applied theme as an id (a look of the user's,
+  // or a marketplace row). Was a string holding the id; the migration casts it.
+  theme              Int?
   image_file_id      Int?
   reward_business_id String?
 
@@ -38,7 +40,8 @@ model User {
   show_follower_count       Boolean    @default(true)
   follow_disclosure_seen_at DateTime?
 
-  themes            Theme[]
+  themes            Theme[]            @relation("ThemeOwner")
+  appliedTheme      Theme?             @relation("AppliedTheme", fields: [theme], references: [id], onDelete: SetNull)
   blocks            Block[]
   confirmationCodes ConfirmationCode[]
   uploadedFiles     UploadedFile[]
@@ -204,12 +207,39 @@ model Theme {
   thumbnail_file_id Int?
   created_at        DateTime  @default(now())
   updated_at        DateTime? @updatedAt
+  // Theme Engine v2 TE-4a (spec 3.9): look (a creator's saved look, 10 per
+  // user) or marketplace (user_id null). config_version is 1 or 2, set on write.
+  kind              String    @default("look") @db.VarChar(16)
+  config_version    Int       @default(1)
+  // TE-4b (spec 3.9, decision 8): a read only, revocable share link at
+  // amped.bio/t/<share_slug>. 8 random base32 characters; null is not shared.
+  share_slug        String?   @unique @db.VarChar(48)
+  share_credit      Boolean   @default(true)
+  share_download    Boolean   @default(false)
+  // Counted on Use this look and Save to My looks, never on a view
+  share_uses        Int       @default(0)
 
-  user           User?          @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  user           User?          @relation("ThemeOwner", fields: [user_id], references: [id], onDelete: Cascade)
+  versions       ThemeVersion[]
+  appliedBy      User[]         @relation("AppliedTheme")
   category       ThemeCategory? @relation(fields: [category_id], references: [id], onDelete: SetNull)
   thumbnailImage UploadedFile?  @relation("ThemeThumbnailImage", fields: [thumbnail_file_id], references: [id], onDelete: SetNull)
 
   @@map("themes")
+}
+
+/// Theme Engine v2 TE-4a (spec 3.9): the last 20 saves of a look. A save within
+/// 10 minutes of the newest version replaces it, so one editing session is one
+/// version; restore always writes a new one.
+model ThemeVersion {
+  id        Bytes    @id @db.Binary(16)
+  themeId   Int      @map("theme_id")
+  config    Json
+  createdAt DateTime @default(now()) @map("created_at")
+  theme     Theme    @relation(fields: [themeId], references: [id], onDelete: Cascade)
+
+  @@index([themeId, createdAt])
+  @@map("theme_versions")
 }
 
 model Block {

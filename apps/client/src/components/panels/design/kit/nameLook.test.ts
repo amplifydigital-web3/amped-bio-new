@@ -5,12 +5,11 @@ import { NAME_TILES, nameIndex, namePaintedColors, namePatch, nameRowValue } fro
 // Theme Engine v2 phase 2, Name row (board 08).
 
 describe("name tiles", () => {
-  it("offers the six v1 effects first, then nine core effects, then Weight pulse", () => {
-    expect(NAME_TILES).toHaveLength(16);
-    expect(NAME_TILES.at(-1)!.effectId).toBe("name.weight-pulse");
+  it("offers the six v1 effects, the nine core effects, Particle text, Weight pulse, Fuzzy text and the Plus effects", () => {
+    expect(NAME_TILES).toHaveLength(21);
     expect(NAME_TILES.slice(0, 6).map(t => t.id)).toEqual([0, 2, 6, 7, 8, 9]);
     expect(NAME_TILES.slice(0, 6).every(t => !t.effectId)).toBe(true);
-    expect(NAME_TILES.slice(6, 15).map(t => t.entry.label)).toEqual([
+    expect(NAME_TILES.slice(6).map(t => t.entry.label)).toEqual([
       "Shiny",
       "Gradient",
       "Outline",
@@ -20,7 +19,16 @@ describe("name tiles", () => {
       "Split reveal",
       "Typewriter",
       "Decrypt",
+      "Particle text",
+      "Weight pulse",
+      "Fuzzy text",
+      "Rotating words",
+      "Circular",
+      "Depth parallax",
     ]);
+    expect(NAME_TILES.find(t => t.effectId === "name.particle-text")!.entry.tier).toBe("showcase");
+    expect(NAME_TILES.at(-1)!.effectId).toBe("name.depth-parallax");
+    expect(NAME_TILES.find(t => t.effectId === "name.weight-pulse")).toBeDefined();
   });
 
   it("writes the id and keeps the nearest v1 look for renderers without the flag", () => {

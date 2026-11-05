@@ -45,7 +45,7 @@ export type CheckoutSheetExtra = {
   accessPeriodDays: number | null;
   creatorImage: string | null;
   creatorImageFileId: number | null;
-  creatorThemeId: string | null;
+  creatorThemeId: number | null;
 };
 
 /**
@@ -116,7 +116,7 @@ type CreatorRow = {
   page_status: string;
   image: string | null;
   image_file_id: number | null;
-  theme: string | null;
+  theme: number | null;
 };
 
 function creatorSells(user: CreatorRow): boolean {

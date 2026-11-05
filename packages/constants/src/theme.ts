@@ -114,12 +114,18 @@ export const themeConfigSchema = z.object({
   // Theme Engine v2 Scene row (spec 3.5, board 01), additive and optional. A
   // scene with no v1 integer is stored by id; the editor keeps particlesEffect
   // on the nearest v1 overlay. Params are clamped against the entry on read.
+  // Phase 3b: a shader scene id here becomes the v2 scene base, and
+  // particlesEffect stays 0 so v1 renderers draw the background alone.
   particlesEffectId: z.enum(EFFECT_IDS.scene as unknown as [string, ...string[]]).optional(),
   particlesParams: effectParamsSchema.optional(),
   // Editor chrome (spec 3.10): the parameter strip's values for the name
   // effect and the button hover, clamped against the picked entry on read.
   heroEffectParams: effectParamsSchema.optional(),
   buttonEffectParams: effectParamsSchema.optional(),
+  // Theme Engine v2 Cursor row (spec 3.5, phase 3c), additive and optional:
+  // the cursor effect by id and its params, clamped against the entry on read.
+  cursorEffectId: z.enum(EFFECT_IDS.cursor as unknown as [string, ...string[]]).optional(),
+  cursorParams: effectParamsSchema.optional(),
   // Theme Engine v2 fonts (spec 3.8, board 02), additive and optional. The
   // name gets its own face; the body keeps fontFamily (which v1 renderers
   // read) and adds weight, italic and axes. upgradeTheme carries both into

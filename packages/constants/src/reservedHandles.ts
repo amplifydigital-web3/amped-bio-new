@@ -26,6 +26,8 @@ export const SYSTEM_RESERVED_HANDLES: ReadonlySet<string> = new Set([
   "sign",
   // the Telegram Mini App route; it ended in M8 and stays reserved so no account takes it
   "tg",
+  // TE-4b: share links, amped.bio/t/<slug>
+  "t",
   // routes on the board
   "pools",
   "pool",

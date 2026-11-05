@@ -103,7 +103,7 @@ function TextControl({
         className="prism-well prism-focus h-touch w-full px-[13px] text-[20px] outline-none"
       />
       <p id={hintId} className="text-prism-meta text-prism-ink-2">
-        Up to six emoji. Letters and numbers are left out.
+        {spec.hint ?? "Up to six emoji. Letters and numbers are left out."}
       </p>
     </div>
   );

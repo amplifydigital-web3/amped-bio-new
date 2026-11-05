@@ -21,7 +21,7 @@ import { lowPower } from "../motion/watchdog";
  */
 
 export interface EffectDrop {
-  layer: "scene";
+  layer: "scene" | "cursor" | "name";
   id: string;
   reason: "weak" | "slow" | "unavailable";
 }
@@ -37,6 +37,8 @@ export interface ShaderLayerProps {
   showcase?: boolean;
   onDrop?: (drop: EffectDrop) => void;
   className?: string;
+  /** The layer a drop reports (phase 3c: the Blob cursor runs here too). */
+  layer?: "scene" | "cursor";
 }
 
 function afterFirstPaint(run: () => void): () => void {
@@ -68,6 +70,7 @@ export function ShaderLayer({
   showcase = false,
   onDrop,
   className = "absolute inset-0",
+  layer = "scene",
 }: ShaderLayerProps) {
   const reducedMotion = usePrefersReducedMotion();
   const host = useRef<HTMLDivElement>(null);
@@ -81,14 +84,14 @@ export function ShaderLayer({
     () => (render ? render.uniforms(values, colors) : {}),
     [render, values, colors]
   );
-  const poster = render ? render.poster(colors) : undefined;
+  const poster = render ? render.poster(colors, values) : undefined;
   const weak = device === "weak" || (device === undefined && lowPower());
   const still = !showcase || paused || reducedMotion || dropped;
 
   const drop = (reason: EffectDrop["reason"]) => {
     if (!entry || reported.current) return;
     reported.current = true;
-    onDrop?.({ layer: "scene", id: entry.id, reason });
+    onDrop?.({ layer, id: entry.id, reason });
   };
 
   // A weak device keeps the poster; the drop is reported once
@@ -109,9 +112,16 @@ export function ShaderLayer({
     let stop: (() => void) | undefined;
     let surface: HTMLCanvasElement | undefined;
     const cancelStart = afterFirstPaint(() => {
-      void import("../motion/webgl")
-        .then(engine => {
+      // The engine and the scene's own GLSL load together, each in its own chunk
+      void Promise.all([import("../motion/webgl"), import("../motion/shaders")])
+        .then(async ([engine, programs]) => {
+          const fragment = await programs.loadShaderProgram(render.program);
           if (cancelled) return;
+          if (!fragment) {
+            setDropped(true);
+            drop("unavailable");
+            return;
+          }
           // A fresh canvas per start: stop() loses its context for good, so a
           // restart (Speed, device or flag change) cannot reuse the old one
           surface = document.createElement("canvas");
@@ -124,7 +134,7 @@ export function ShaderLayer({
             host: element,
             // The scene sits behind the page, so pointer moves are read on the document
             pointerArea: entry?.pointer === "fine" ? document.body : null,
-            fragment: render.shader,
+            fragment,
             uniforms,
             speed: shaderSpeed(values),
             dprCap: engine.dprCapFor(device),

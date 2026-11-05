@@ -265,6 +265,15 @@ export const FEATURE_FLAGS = {
     default: false,
     env: { server: "ACCESS_GATING_ENABLED" },
   },
+  themeSharing: {
+    label: "Theme sharing",
+    description:
+      "Theme Engine v2 phase 4: saved looks with history, share links and the amped.bio/t page, and the rebuilt Themes tab. Off, the share link page returns 404.",
+    scope: "public",
+    default: false,
+    // A new flag: no environment fallback (AGENTS.md, feature flags)
+    env: {},
+  },
 } as const satisfies Record<string, FeatureFlagDefinition>;
 
 export type FeatureFlagKey = keyof typeof FEATURE_FLAGS;

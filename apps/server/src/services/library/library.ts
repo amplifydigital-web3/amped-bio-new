@@ -68,7 +68,7 @@ type OwnerRow = {
   name: string | null;
   image: string | null;
   image_file_id: number | null;
-  theme: string | null;
+  theme: number | null;
 };
 
 /** Profile, accent and the still theme for each creator, in one theme read. */

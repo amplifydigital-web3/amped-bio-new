@@ -59,6 +59,11 @@ const name = (
   ...extra,
 });
 
+/** The longest second line Rotating words takes (spec 3.5). */
+export const ROTATING_WORDS_MAX = 40;
+/** How long each word shows before the next one swaps in. */
+export const ROTATING_WORDS_MS = 2600;
+
 export const NAME_EFFECTS: readonly EffectEntry[] = [
   name("none", "None", "No effect on your name", 0, ""),
   name(
@@ -140,6 +145,27 @@ export const NAME_EFFECTS: readonly EffectEntry[] = [
     render: { kind: "class", className: "motion-safe:animate-glitch", settledClassName: "" },
   }),
   ...NEW_NAME_EFFECTS(),
+  // Phase 3c: Fuzzy text on the 2D canvas engine. The heading text stays for
+  // screen readers and selection; without the showcase flag the name is plain.
+  {
+    id: "name.fuzzy",
+    layer: "name",
+    label: "Fuzzy text",
+    description: "The edges of your name shimmer",
+    tier: "plus",
+    engine: "canvas",
+    cost: "light",
+    source: "amped",
+    colorMode: "theme",
+    params: {
+      strength: { kind: "range", min: 0, max: 100, step: 1, default: 40, label: "Strength" },
+      speed: { kind: "range", min: 0, max: 100, step: 1, default: 50, label: "Speed" },
+    },
+    // A steady shimmer, not a cycle: Pause motion stops it, so it has no Settle
+    render: { kind: "canvas", module: "fuzzy" },
+    preview: { sample: "name" },
+    addedIn: 2,
+  },
   // TE-3e2 (spec 3.5): Weight pulse. The name's weight follows the pointer,
   // boldest when it is close. Needs a variable name font with a wght axis
   // (the font catalog, fontCatalog flag); the editor sets Lightest and
@@ -168,7 +194,87 @@ export const NAME_EFFECTS: readonly EffectEntry[] = [
     preview: { sample: "name" },
     addedIn: 2,
   },
+  ...PLUS_NAME_EFFECTS(),
 ];
+
+/** The words Rotating words cycles: comma separated, trimmed, blanks left out, at most 8. */
+export function rotatingWords(value: unknown): string[] {
+  if (typeof value !== "string") return [];
+  return value
+    .slice(0, ROTATING_WORDS_MAX)
+    .split(",")
+    .map(word => word.trim())
+    .filter(Boolean)
+    .slice(0, 8);
+}
+
+/**
+ * Phase 3e (spec 3.5, board 08): the Plus and Showcase name effects, behind
+ * themeShowcase. The h1 always holds the plain name for screen readers and
+ * search; without the flag the page shows that plain name.
+ * - Rotating words: a second line under the name swaps through the creator's
+ *   words every 2.6 s. Settle plays one pass, then rests on the first word.
+ * - Circular: the name set on a circle around the photo. Still. Without a
+ *   photo the name shows plain.
+ * - Depth parallax: two shadow layers behind the name follow the pointer, up
+ *   to 8 px. Phones and reduced motion keep the layers still.
+ */
+function PLUS_NAME_EFFECTS(): EffectEntry[] {
+  const base = (
+    id: string,
+    label: string,
+    description: string,
+    extra: Partial<EffectEntry>
+  ): EffectEntry => ({
+    ...name(id, label, description, undefined, ""),
+    tier: "plus",
+    cost: "light",
+    addedIn: 2,
+    ...extra,
+  });
+  return [
+    base("rotating-words", "Rotating words", "A second line swaps through your words", {
+      engine: "waapi",
+      loop: true,
+      loopMs: ROTATING_WORDS_MS,
+      params: {
+        words: {
+          kind: "text",
+          maxLength: ROTATING_WORDS_MAX,
+          default: "",
+          label: "Second line",
+          hint: "Words to rotate, separated by commas. Up to 40 characters.",
+        },
+        speed: NAME_SPEED_PARAM,
+      },
+      render: {
+        kind: "waapi",
+        trigger: "always",
+        keyframes: () => [
+          { opacity: 0, transform: "translateY(0.5em)" },
+          { opacity: 1, transform: "translateY(0)" },
+        ],
+        options: () => ({ duration: 377, easing: "cubic-bezier(0.2,0,0,1)", fill: "both" }),
+      },
+    }),
+    base("circular", "Circular", "Your name on a circle around your photo", {
+      engine: "css",
+      cost: "still",
+      render: { kind: "none" },
+    }),
+    base("depth-parallax", "Depth parallax", "Layers behind your name follow the pointer", {
+      tier: "showcase",
+      engine: "waapi",
+      pointer: "fine",
+      render: {
+        kind: "waapi",
+        trigger: "always",
+        keyframes: () => [],
+        options: () => ({ duration: 377 }),
+      },
+    }),
+  ];
+}
 
 /**
  * Phase 2 (board 08, spec 3.5): the core name effects new in v2. They have no
