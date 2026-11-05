@@ -523,8 +523,12 @@ function VideoPlayer(props: MediaPlayerProps) {
             className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/80 p-[21px] text-center"
             role="alert"
           >
-            <p className="text-[17px] font-semibold">{copy.errorTitle}</p>
-            <p className="text-[14px] text-white/80">{copy.errorBody}</p>
+            <p className="text-[17px] font-semibold">
+              {state.error === "expired" ? copy.goneTitle : copy.errorTitle}
+            </p>
+            {state.error !== "expired" && (
+              <p className="text-[14px] text-white/80">{copy.errorBody}</p>
+            )}
             <button
               type="button"
               onClick={event => {
@@ -951,7 +955,9 @@ function AudioPlayer(props: MediaPlayerProps) {
             className="mt-[13px] flex items-center justify-between gap-3 rounded-[13px] bg-black/40 p-[13px]"
             role="alert"
           >
-            <span className="text-[14px]">{copy.errorTitle}</span>
+            <span className="text-[14px]">
+              {state.error === "expired" ? copy.goneTitle : copy.errorTitle}
+            </span>
             <button
               type="button"
               onClick={player.retry}

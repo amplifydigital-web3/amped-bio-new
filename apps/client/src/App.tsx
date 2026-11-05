@@ -10,7 +10,7 @@ import { signInUrl } from "./components/shell/ShellGate";
 import { useReferralHandler } from "./hooks/useReferralHandler";
 import { ExternalRedirect, NewVersionDialog, ToastCard, useAuth } from "@repo/ui";
 import { ERROR_TOAST_DURATION } from "@/components/ui/toast";
-import { PayHandoffGate } from "@/components/checkout/HandoffCard";
+import { JoinHandoffGate, PayHandoffGate } from "@/components/checkout/HandoffCard";
 
 // Internal Prism component gallery for review (not linked in the app). Served in
 // development, testing and staging builds only, never in production.
@@ -21,6 +21,7 @@ const PrismGallery = lazy(() =>
 
 // Mobile checkout (CK-2). Lazy, so the editor bundle carries none of it
 const PayPage = lazy(() => import("./pages/Pay").then(module => ({ default: module.PayPage })));
+const JoinPage = lazy(() => import("./pages/Join").then(module => ({ default: module.JoinPage })));
 const CheckoutReturnPage = lazy(() =>
   import("./pages/CheckoutReturn").then(module => ({ default: module.CheckoutReturnPage }))
 );
@@ -57,6 +58,19 @@ function AppRouter() {
                 </Suspense>
               </ProtectedRoute>
             </PayHandoffGate>
+          }
+        />
+        {/* MB-2: join a creator's membership (mobile checkout 11, board c2) */}
+        <Route
+          path="/join/:handle"
+          element={
+            <JoinHandoffGate>
+              <ProtectedRoute>
+                <Suspense fallback={<div className="prism-room min-h-dvh" />}>
+                  <JoinPage />
+                </Suspense>
+              </ProtectedRoute>
+            </JoinHandoffGate>
           }
         />
         {/* CK-3: Coinbase returns here from a checkout. No session needed, nothing named */}

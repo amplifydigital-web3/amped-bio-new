@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import { prisma } from "@repo/database";
-import { MESSAGE_LIMITS } from "@repo/constants";
+import { MESSAGE_LIMITS, graceDay } from "@repo/constants";
 import { env } from "../../env";
 import { idToHex } from "../analytics/ids";
 import { personOut, type Person } from "../messaging/direct";
@@ -13,13 +13,15 @@ import { personOut, type Person } from "../messaging/direct";
 
 export type BellItem = {
   id: string;
-  kind: "MESSAGE" | "REQUEST" | "BROADCAST";
+  kind: "MESSAGE" | "REQUEST" | "BROADCAST" | "MEMBERSHIP_RENEWAL" | "PROMOTER_CODE";
   count: number;
   seen: boolean;
   /** conversation id (hex) for MESSAGE and REQUEST */
   conversationId: string | null;
   /** broadcast id for BROADCAST */
   broadcastId: number | null;
+  /** MEMBERSHIP_RENEWAL (MB-1, CK-D3): the charge, for Add USDC prefilled, and the grace day */
+  renewal: { need: string; graceDay: number | null } | null;
   actor: Person | null;
   at: Date;
 };
@@ -43,7 +45,22 @@ export async function listBell(
   const byId = new Map(
     (await Promise.all(actors.map(a => personOut(a)))).map(person => [person.id, person])
   );
+  // Renewal rows carry the charge so Add USDC opens prefilled with it
+  const renewalIds = rows
+    .filter(r => r.kind === "MEMBERSHIP_RENEWAL" && r.refId)
+    .map(r => Buffer.from(r.refId!));
+  const renewals = renewalIds.length
+    ? await prisma.membership.findMany({
+        where: { id: { in: renewalIds } },
+        select: { id: true, pricePerPeriod: true, status: true, pastDueSince: true },
+      })
+    : [];
+  const renewalById = new Map(renewals.map(m => [idToHex(m.id), m]));
   return rows.map(row => {
+    const renewal =
+      row.kind === "MEMBERSHIP_RENEWAL" && row.refId
+        ? renewalById.get(idToHex(row.refId))
+        : undefined;
     const broadcast = row.groupKey.startsWith("broadcast:")
       ? Number(row.groupKey.slice("broadcast:".length))
       : null;
@@ -52,8 +69,18 @@ export async function listBell(
       kind: row.kind,
       count: row.count,
       seen: !!row.seenAt,
-      conversationId: row.kind !== "BROADCAST" && row.refId ? idToHex(row.refId) : null,
+      conversationId:
+        (row.kind === "MESSAGE" || row.kind === "REQUEST") && row.refId ? idToHex(row.refId) : null,
       broadcastId: Number.isInteger(broadcast) ? broadcast : null,
+      renewal: renewal
+        ? {
+            need: renewal.pricePerPeriod.toString(),
+            graceDay:
+              renewal.status === "past_due" && renewal.pastDueSince
+                ? graceDay(renewal.pastDueSince, new Date())
+                : null,
+          }
+        : null,
       actor: row.actorId !== null ? (byId.get(row.actorId) ?? null) : null,
       at: row.updatedAt,
     };

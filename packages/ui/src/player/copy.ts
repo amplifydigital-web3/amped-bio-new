@@ -28,6 +28,8 @@ export const PLAYER_COPY = {
   audioPlayer: (title: string) => `Audio player: ${title}`,
   errorTitle: "This can not play right now",
   errorBody: "Check your connection and try again.",
+  // Content takedown tk1: the item was removed, hidden or closed while playing
+  goneTitle: "This item is no longer available.",
   retry: "Try again",
   chapters: "Chapters",
   chapterAt: (clock: string, title: string) => `Play from ${clock}, ${title}`,
