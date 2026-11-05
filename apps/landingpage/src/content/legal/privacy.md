@@ -32,6 +32,7 @@ When you create an account and build your page, we collect:
 - **X import:** if you import from X, the profile details you choose to bring in.
 - **Browser check:** a proof of work check on sign up and sign in to stop automated abuse. It runs on our own service and sets no cookies.
 - **Messages to us:** what you send to support.
+- **Your Library:** when you are signed in, the items you save to your Library and when you saved them, and when you last opened each followed creator's section of your Library, so we can show what is new. Only you see them. Creators do not see what you saved or when you visited.
 - **Message notifications:** when you get a message on Amped.Bio, we add it to the bell in the app. If you allow notifications on a device, your browser gives us a push address for that device (a web address at your browser's push service and two keys that encrypt what we send) and the browser details it reports. We store them to notify you on that device. If a message is still unread after 30 minutes, we may email you a reminder that names the sender but never includes the message text. We store whether notifications and reminder emails are on, and which reminders we sent.
 
 If you verify your identity with Authbase, we receive your verification status and badge, and only the attributes you choose to share with Amped.Bio: your name as checked on your ID, whether you are over 18, your gender and your country. We never receive your date of birth. Only you can see those shared attributes unless you choose to show one. You can show each attribute on your own, while you are verified, by turning it on in your page's RNS ID block. Anyone who views your page or your RNS name can then see it. Others see only your verification status, and only where you choose to show it, plus the attributes you turned on.
@@ -204,6 +205,7 @@ Creator pages and the public site set nothing in your browser until you choose, 
 | Checkouts you started (the item, the creator, where you tapped Buy, any promoter code, and the status) | 30 days after the checkout ends, unless it became a purchase |
 | RNS name expiry reminders (your name, its expiry date, the reminder stage, the time of the reminder and how many sends failed) | While your account is open, then deleted within 30 days of closing it |
 | Locked item views and unlocks | 25 months |
+| Library saves and the time you last opened each creator's section | While your account is open, then deleted within 30 days of closing it |
 | Authbase age and seller check results (pass or fail, the reason and when the check ends) | While your account is open, then deleted within 30 days of closing it |
 | Under 18 reviews (that an age check showed under 18, and how we decided) | 5 years |
 

@@ -6,6 +6,7 @@ import {
   parseTelegramStartPayload,
 } from "@repo/constants";
 import { env } from "../../env";
+import { isFeatureOn } from "../featureFlags";
 import { findByTelegramId, recordLinkEvent, setGlobalTelegramDelivery } from "./accounts";
 import { userIdForLinkCode } from "./linkCodes";
 import {
@@ -115,7 +116,7 @@ export async function handleStart(ctx: Context) {
     if (await handleDmStart(ctx, account, { userId: creatorId })) return;
   } else if (payload.kind === "legacy_dm") {
     if (await handleDmStart(ctx, account, { handle: payload.handle })) return;
-  } else if (payload.kind === "join" && env.TELEGRAM_GROUPS) {
+  } else if (payload.kind === "join" && isFeatureOn("telegramGroups")) {
     // Join group: t.me/<bot>?start=j_{code} (spec r3 3.5)
     const creatorId = await userIdForLinkCode(payload.code);
     if (creatorId === null) {
@@ -222,7 +223,7 @@ export function installBotHandlers(bot: Bot) {
   // records it on the inbox row and retries the update
   bot.on("my_chat_member", handlePrivateChatMember);
   // Phase 2: groups and inline cards. registerTelegramWebhook (./client.ts) adds
-  // these update kinds to allowed_updates while TELEGRAM_GROUPS is on.
+  // these update kinds to allowed_updates while the telegramGroups flag is on.
   bot.on("chat_join_request", handleJoinRequest);
   bot.on("chat_member", handleGroupMemberUpdate);
   bot.on("message:migrate_to_chat_id", handleChatMigration);

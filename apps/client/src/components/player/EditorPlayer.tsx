@@ -42,7 +42,7 @@ export function EditorMiniPlayer() {
   if (!visible) return null;
   return (
     <>
-      <div aria-hidden className="h-[63px] md:hidden" />
+      <div aria-hidden className="h-[72px] md:hidden" />
       <div className="fixed inset-x-[13px] bottom-[calc(109px+env(safe-area-inset-bottom,0px))] z-40 md:sticky md:inset-x-auto md:bottom-[21px]">
         <MiniPlayer
           onExpand={item => navigate(`/content?tab=library&item=${encodeURIComponent(item.id)}`)}

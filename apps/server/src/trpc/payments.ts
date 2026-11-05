@@ -1,6 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import {
+  checkoutIntentIdSchema,
   purchaseIdSchema,
   purchasePrepareInputSchema,
   purchaseSubmitInputSchema,
@@ -11,6 +12,7 @@ import { isFeatureOn } from "../services/featureFlags";
 import {
   PurchaseInputError,
   preparePurchase,
+  purchaseForIntent,
   purchaseStatus,
   submitPurchase,
 } from "../services/payments/purchases";
@@ -65,5 +67,17 @@ export const paymentsRouter = router({
         "Too many checks. Try again in a minute."
       );
       return run(() => purchaseStatus(ctx.user!.sub, input.purchaseId));
+    }),
+
+  // CK-5: the purchase behind an intent, for Checking on a return to the sheet
+  forIntent: privateProcedure
+    .input(z.object({ intentId: checkoutIntentIdSchema }))
+    .query(async ({ ctx, input }) => {
+      requireEnabled();
+      await enforceRateLimits(
+        [{ key: `payments_status:u:${ctx.user!.sub}`, limit: 120, windowSeconds: 60 }],
+        "Too many checks. Try again in a minute."
+      );
+      return run(() => purchaseForIntent(ctx.user!.sub, input.intentId));
     }),
 });

@@ -48,6 +48,7 @@ const state = vi.hoisted(() => ({
   ready: true,
   item: true,
   pay: {} as Record<string, any>,
+  live: null as Record<string, any> | null,
 }));
 
 function matches(row: Row, where: Row = {}): boolean {
@@ -57,6 +58,7 @@ function matches(row: Row, where: Row = {}): boolean {
     if (Buffer.isBuffer(condition)) return Buffer.isBuffer(value) && condition.equals(value);
     if (condition && typeof condition === "object" && !(condition instanceof Date)) {
       if ("in" in condition) return condition.in.includes(value);
+      if ("notIn" in condition) return !condition.notIn.includes(value);
       if ("not" in condition)
         return condition.not === null ? value !== null : value !== condition.not;
       if ("gte" in condition) return value >= condition.gte;
@@ -133,7 +135,14 @@ vi.mock("@repo/database", () => {
           rows.forEach(r => Object.assign(r, data));
           return { count: rows.length };
         }),
+        update: vi.fn(async ({ where, data }: Row) => {
+          const row = state.intents.find(r => r.id.equals(where.id))!;
+          Object.assign(row, data);
+          return row;
+        }),
       },
+      // CK-5: the live store policy version the intent carries
+      storePolicyVersion: { findUnique: vi.fn(async () => state.live) },
       userWallet: { findUnique: vi.fn(async () => ({ address: CREATOR })) },
       user: {
         findUnique: vi.fn(async () => ({
@@ -144,7 +153,9 @@ vi.mock("@repo/database", () => {
         findUnique: vi.fn(async () => ({ title: "Episode 4", publicId: "abc123" })),
       },
       // C10: the live store policy at prepare and the product sales count
-      storeSettings: { findUnique: vi.fn(async () => null) },
+      storeSettings: {
+        findUnique: vi.fn(async () => (state.live ? { livePolicyVersionId: state.live.id } : null)),
+      },
       offer: {
         updateMany: vi.fn(async () => ({ count: 0 })),
         // G4: the product's access period at the first confirmation
@@ -288,6 +299,7 @@ import { contractLimits } from "../services/payments/settings";
 import {
   hexToPurchaseId,
   preparePurchase,
+  purchaseForIntent,
   purchaseStatus,
   purchasedTargets,
   settlePurchase,
@@ -569,6 +581,7 @@ beforeEach(() => {
   state.fanWallet = fan.address;
   state.ready = true;
   state.item = true;
+  state.live = null;
   relayerCall.mockClear();
   deliverEmail.mockClear();
   setSplitSignerForTests(localSigner);
@@ -954,6 +967,58 @@ async function submitted() {
   await submitPurchase(20, { purchaseId: (prepared as any).purchaseId, signature }, NOW, 0);
   return state.purchases[0]!;
 }
+
+describe("store policy on the purchase (CK-5)", () => {
+  const version = (n: number) => ({
+    id: Buffer.alloc(16, n),
+    version: n,
+    mode: "standard",
+    settings: { sellerName: "Maya Lin" },
+  });
+
+  it("carries the version the intent showed to the purchase", async () => {
+    state.live = version(2);
+    state.intents[0]!.storePolicyVersionId = Buffer.alloc(16, 2);
+    const result = await prepare();
+    expect(result.refused).toBe(false);
+    expect(state.purchases[0]!.storePolicyVersionId).toEqual(Buffer.alloc(16, 2));
+  });
+
+  it("refuses a newer live policy until the fan accepts that version", async () => {
+    state.live = version(3);
+    state.intents[0]!.storePolicyVersionId = Buffer.alloc(16, 2);
+    expect(await prepare()).toEqual({ refused: true, reason: "policy_changed", policyVersion: 3 });
+    expect(state.purchases).toHaveLength(0);
+    // Accepting an older version still refuses
+    expect(await prepare({ policyVersion: 2 })).toMatchObject({ reason: "policy_changed" });
+    const accepted = await prepare({ policyVersion: 3 });
+    expect(accepted.refused).toBe(false);
+    expect(state.intents[0]!.storePolicyVersionId).toEqual(Buffer.alloc(16, 3));
+    expect(state.purchases[0]!.storePolicyVersionId).toEqual(Buffer.alloc(16, 3));
+  });
+
+  it("stores the live version when the intent has none yet", async () => {
+    state.live = version(4);
+    expect((await prepare()).refused).toBe(false);
+    expect(state.intents[0]!.storePolicyVersionId).toEqual(Buffer.alloc(16, 4));
+  });
+});
+
+describe("purchaseForIntent (CK-5 Checking)", () => {
+  it("is null before anything is sent, then reports the sent purchase", async () => {
+    await prepare();
+    expect(await purchaseForIntent(20, INTENT)).toBeNull();
+    state.purchases = [];
+    const row = await submitted();
+    state.receipt = receiptFor(row);
+    expect(await purchaseForIntent(20, INTENT)).toMatchObject({
+      status: "confirmed_soft",
+      unlocked: true,
+    });
+    // Another fan reads nothing
+    expect(await purchaseForIntent(21, INTENT)).toBeNull();
+  });
+});
 
 describe("settlePurchase", () => {
   it("waits for a receipt, opens at soft, finishes at final with events and one receipt", async () => {

@@ -10,6 +10,7 @@ import { startUsdcIndexer } from "./services/usdc";
 import { startPaymentsAdminIndexer } from "./services/payments/indexer";
 import { startPaymentsWorker } from "./services/payments/paymentsWorker";
 import { startContentSweeper } from "./services/content/state";
+import { startEdgeSync } from "./services/content/edge";
 import { startOnrampTokenPurge } from "./services/onramp/sessions";
 import { startRnsExpirySweeper } from "./services/rnsExpiry";
 import { startCheckoutIntentPurge } from "./services/checkout/intents";
@@ -38,7 +39,7 @@ registerGroupOutboxHandlers();
 startTelegramLoop();
 // Amped Messages (#2 r4, M4): push and email reminder jobs, one polling instance via a Redis lock.
 startNotificationLoop();
-// Phase 2: hourly group checks. No-op until TELEGRAM_GROUPS.
+// Phase 2: hourly group checks. No-op while the telegramGroups feature flag is off.
 startGroupChecks();
 
 // USDC in the wallet (Build Board #29): index USDC transfers on Base. Each tick is a no-op while the usdc flag is off.
@@ -49,6 +50,7 @@ startPaymentsAdminIndexer();
 startPaymentsWorker();
 // Content system (Build Board #20): fail uploads left unfinished for 24 hours and release their bytes.
 startContentSweeper();
+startEdgeSync();
 // Buy USDC: delete expired Coinbase userAuthTokens after their 60 day life
 startOnrampTokenPurge();
 // RNS name expiry emails: an hourly sweep, one email per name and stage
