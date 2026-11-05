@@ -29,6 +29,17 @@ import {
   type Reviewer,
 } from "../services/safety/review";
 import { BlocklistError, unblockHash } from "../services/safety/blocklist";
+import {
+  decideCopyright,
+  decideTakedown,
+  getRequest,
+  lateTakedowns,
+  listRequests,
+  nearCopies,
+  restoreAfterCounter,
+  revealContact,
+  suitFiled,
+} from "../services/safety/requests";
 import { caseOverview } from "../services/safety/cases";
 import { getSafetySettings, updateSafetySettings } from "../services/safety/settings";
 
@@ -69,6 +80,7 @@ const settingsPatchSchema = z
 
 const caseIdSchema = z.string().regex(/^[0-9a-f]{32}$/);
 const noteSchema = z.string().trim().min(10).max(2000);
+const requestNumber = z.string().regex(/^(TD|CN|CC)-\d{4}-\d{6}$/);
 
 function reviewerOf(ctx: { user?: { sub: number; role?: string } | null }): Reviewer {
   return { id: ctx.user!.sub, lead: rolesOf(ctx.user!.role).includes("safety_lead") };
@@ -213,6 +225,51 @@ export const safetyRouter = router({
     retryDelivery: safetyLeadProcedure
       .input(z.object({ id: caseIdSchema }))
       .mutation(({ ctx, input }) => run(() => retryDelivery(input.id, reviewerOf(ctx)))),
+  }),
+
+  requests: router({
+    /** Take It Down and copyright requests with their clocks (8.3). */
+    list: safetyProcedure
+      .input(
+        z.object({
+          kind: z.enum(["ncii", "copyright", "counter"]).optional(),
+          open: z.boolean().optional(),
+        })
+      )
+      .query(({ input }) => listRequests(input)),
+    get: safetyProcedure
+      .input(z.object({ number: requestNumber }))
+      .query(({ input }) => run(() => getRequest(input.number))),
+    copies: safetyProcedure
+      .input(z.object({ phash: z.string().regex(/^[0-9a-f]{8,64}$/) }))
+      .query(({ input }) => nearCopies(input.phash)),
+    late: safetyProcedure.query(() => lateTakedowns()),
+    revealContact: safetyLeadProcedure
+      .input(z.object({ number: requestNumber }))
+      .mutation(({ ctx, input }) => run(() => revealContact(input.number, reviewerOf(ctx)))),
+    decide: safetyProcedure
+      .input(
+        z.object({
+          number: requestNumber,
+          outcome: z.enum(["removed", "not_valid"]),
+          note: noteSchema,
+          reason: z.string().trim().max(1000).optional(),
+          blockFile: z.boolean().optional(),
+        })
+      )
+      .mutation(({ ctx, input }) =>
+        run(() =>
+          input.number.startsWith("CN-")
+            ? decideCopyright(input, reviewerOf(ctx))
+            : decideTakedown(input, reviewerOf(ctx))
+        )
+      ),
+    suitFiled: safetyProcedure
+      .input(z.object({ number: requestNumber, reference: z.string().trim().min(3).max(120) }))
+      .mutation(({ ctx, input }) => run(() => suitFiled(input, reviewerOf(ctx)))),
+    restore: safetyLeadProcedure
+      .input(z.object({ number: requestNumber }))
+      .mutation(({ ctx, input }) => run(() => restoreAfterCounter(input.number, reviewerOf(ctx)))),
   }),
 
   blocklist: router({
