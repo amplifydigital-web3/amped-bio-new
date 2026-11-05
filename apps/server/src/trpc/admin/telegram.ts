@@ -176,7 +176,7 @@ export const telegramAdminRouter = router({
     }),
 
   /**
-   * The MESSAGING_INVITE_ONLY pilot ended in PR M2 (msg-invite): messaging is open to every
+   * The messaging invite pilot ended in PR M2 (msg-invite): messaging is open to every
    * account. The admin Pilot tab still calls these until PR M7 removes it.
    */
   listInvited: adminProcedure.query(
