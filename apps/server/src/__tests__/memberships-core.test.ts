@@ -120,6 +120,14 @@ vi.mock("../services/store/policy", () => ({
   versionCoversMemberships: (row: { settings: { memberships?: boolean } }) =>
     row.settings.memberships === true,
 }));
+// C12: the promoter the join's code attributes, if any
+const promo = vi.hoisted(() => ({ value: null as Record<string, any> | null, calls: [] as any[] }));
+vi.mock("../services/store/promoters", () => ({
+  resolvePromoter: vi.fn(async (input: unknown) => {
+    promo.calls.push(input);
+    return promo.value;
+  }),
+}));
 vi.mock("../services/notifications/push", () => ({ sendPush: vi.fn(async () => ({ sent: 1 })) }));
 vi.mock("../utils/email/transport", () => ({
   deliverEmail: vi.fn(async () => ({ transport: "test" })),
@@ -365,6 +373,33 @@ describe("join", () => {
       planVersion: 2,
       storePolicyVersionId: Buffer.alloc(16, 9),
     });
+  });
+
+  it("adds the promoter row from ?via= to the stored table, paid on every renewal (C12)", async () => {
+    promo.calls = [];
+    promo.value = {
+      codeId: Buffer.alloc(16, 7),
+      promoterUserId: 30,
+      handle: "sam",
+      to: getAddress("0xd000000000000000000000000000000000000004"),
+      bps: 1_000,
+    };
+    const result = await prepareJoin(
+      FAN,
+      { handle: "maya", interval: "every_30_days", via: "SAM10" },
+      NOW
+    );
+    promo.value = null;
+    if (result.refused) throw new Error(result.reason);
+    expect(result.typed.join.message.recipients).toEqual([
+      { to: getAddress(CREATOR_WALLET), bps: 8500, role: 0 },
+      { to: getAddress(TREASURY), bps: 500, role: 1 },
+      { to: getAddress("0xd000000000000000000000000000000000000004"), bps: 1000, role: 2 },
+    ]);
+    expect(result.promoterHandle).toBe("sam");
+    expect(result.fee).toBe("250000");
+    expect(created).toMatchObject({ promoterCodeId: Buffer.alloc(16, 7) });
+    expect(promo.calls[0]).toMatchObject({ via: "SAM10", buyerUserId: FAN, screen: true });
   });
 
   it("asks one permit for every membership the fan has", async () => {

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { SalesView } from "./SalesView";
+import { PromotersView } from "./PromotersView";
 import { MembershipTab } from "./MembershipTab";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Check, ExternalLink, Loader2, Package, Plus } from "lucide-react";
@@ -123,6 +124,7 @@ export function StoreTab({ onGoToLibrary }: { onGoToLibrary: () => void }) {
       </TabsContent>
       <TabsContent value="sales" className="mt-0">
         <SalesView />
+        <PromotersView />
       </TabsContent>
       <TabsContent value="policy" className="mt-0">
         <PolicyView />

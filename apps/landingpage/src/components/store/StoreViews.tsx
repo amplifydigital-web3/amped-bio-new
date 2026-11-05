@@ -27,13 +27,30 @@ import { ReportStoreButton } from "./ReportStore";
 
 const LINK_ROW = "inline-flex min-h-[44px] items-center underline-offset-2 hover:underline";
 
+const withVia = (path: string, via: string | null) =>
+  via ? `${path}${path.includes("?") ? "&" : "?"}via=${encodeURIComponent(via)}` : path;
 const storePath = (handle: string) => `/${handle}/store`;
-const productPath = (handle: string, slug: string) => `/${handle}/store/${slug}`;
+const productPath = (handle: string, slug: string, via: string | null = null) =>
+  withVia(`/${handle}/store/${slug}`, via);
 const policyPath = (handle: string, v?: number) => `/${handle}/store/policy${v ? `?v=${v}` : ""}`;
 
 /** Join opens the app's join sheet (MB-2): the fan signs in and signs there. */
-const joinUrl = (handle: string) =>
-  `${process.env.NEXT_PUBLIC_PANEL_URL || "https://app.amped.bio"}/join/@${handle}`;
+const joinUrl = (handle: string, via: string | null = null) =>
+  withVia(`${process.env.NEXT_PUBLIC_PANEL_URL || "https://app.amped.bio"}/join/@${handle}`, via);
+
+/**
+ * The promoter code from ?via= (C12, content spec 3.9). It rides in the URL from the store
+ * to the product page, Buy and Join. No cookie: holding it is attribution tracking, which
+ * waits for counsel's classification under docs/legal/privacy-parameters.md.
+ */
+export function usePromoterVia(): string | null {
+  const [via, setVia] = useState<string | null>(null);
+  useEffect(() => {
+    const raw = new URLSearchParams(window.location.search).get("via")?.trim() ?? "";
+    setVia(/^[A-Za-z0-9_-]{1,32}$/.test(raw) ? raw : null);
+  }, []);
+  return via;
+}
 
 /** Storefront membership card (MB-2, board st4): the plan, its amounts and Join. */
 export function MembershipCard({
@@ -44,6 +61,7 @@ export function MembershipCard({
   preview?: boolean;
 }) {
   const C = MEMBERSHIP_COPY.card;
+  const via = usePromoterVia();
   return (
     <section
       aria-label={C.heading}
@@ -88,7 +106,7 @@ export function MembershipCard({
         </span>
       ) : (
         <a
-          href={joinUrl(plan.handle)}
+          href={joinUrl(plan.handle, via)}
           className={cn(
             "inline-flex min-h-[55px] items-center justify-center rounded-[13px] px-[21px] text-[17px] font-bold",
             CREATOR_FOCUS_RING
@@ -163,9 +181,10 @@ function ProductCard({
   card: StoreProductCard;
   large?: boolean;
 }) {
+  const via = usePromoterVia();
   return (
     <Link
-      href={productPath(handle, card.slug)}
+      href={productPath(handle, card.slug, via)}
       className={cn(
         "group flex flex-col overflow-hidden rounded-[13px] border border-current/15",
         CREATOR_FOCUS_RING
@@ -316,13 +335,14 @@ export function StorefrontView({ store }: { store: StorePublic }) {
 }
 
 export function ProductPageView({ product }: { product: StoreProductPublic }) {
+  const via = usePromoterVia();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const buy = async () => {
     setBusy(true);
     setError(null);
     try {
-      await startProductCheckout({ offerId: product.id, source: "store" });
+      await startProductCheckout({ offerId: product.id, source: "store", via });
     } catch (failure) {
       setError(failure instanceof Error && failure.message ? failure.message : "Try again.");
       setBusy(false);
@@ -383,7 +403,7 @@ export function ProductPageView({ product }: { product: StoreProductPublic }) {
             {MEMBERSHIP_COPY.card.alsoIn(product.membership.name)}{" "}
             {product.preview ? null : (
               <a
-                href={joinUrl(product.handle)}
+                href={joinUrl(product.handle, via)}
                 className={cn(LINK_ROW, "font-bold", CREATOR_FOCUS_RING)}
               >
                 {MEMBERSHIP_COPY.card.joinInstead}

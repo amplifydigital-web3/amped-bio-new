@@ -125,8 +125,45 @@ describe("ProductPageView", () => {
     expect(screen.getByText(/Sold by Maya Lin\./)).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Buy $3 USDC" }));
     await waitFor(() =>
-      expect(mocks.start).toHaveBeenCalledWith({ offerId: "0f".repeat(16), source: "store" })
+      expect(mocks.start).toHaveBeenCalledWith({
+        offerId: "0f".repeat(16),
+        source: "store",
+        via: null,
+      })
     );
+  });
+
+  it("carries the promoter code from ?via= to Buy (C12)", async () => {
+    window.history.replaceState(null, "", "/maya/store/episode-4?via=SAM10");
+    try {
+      render(<ProductPageView product={product} />);
+      fireEvent.click(screen.getByRole("button", { name: "Buy $3 USDC" }));
+      await waitFor(() =>
+        expect(mocks.start).toHaveBeenCalledWith({
+          offerId: "0f".repeat(16),
+          source: "store",
+          via: "SAM10",
+        })
+      );
+    } finally {
+      window.history.replaceState(null, "", "/");
+    }
+  });
+
+  it("puts the code on product links from the storefront", async () => {
+    window.history.replaceState(null, "", "/maya/store?via=SAM10");
+    try {
+      render(<StorefrontView store={store} />);
+      await waitFor(() =>
+        expect(
+          screen
+            .getAllByRole("link")
+            .some(a => a.getAttribute("href") === "/maya/store/episode-4?via=SAM10")
+        ).toBe(true)
+      );
+    } finally {
+      window.history.replaceState(null, "", "/");
+    }
   });
 
   it("can't be bought in preview", () => {

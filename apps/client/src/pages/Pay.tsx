@@ -3,6 +3,7 @@ import { useParams } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import {
   CHECKOUT_COPY,
+  PROMOTER_COPY,
   STORE_COPY,
   checkoutIntentIdSchema,
   formatBps,
@@ -527,6 +528,12 @@ export function PayPage() {
         <p className="text-[15px] leading-5 opacity-80">
           {STORE_COPY.accessLine(item?.accessPeriodDays ?? null)}
         </p>
+        {/* C12: the promoter in the split, named before Pay (content spec 3.9, st9) */}
+        {q.promoter && (
+          <p className="text-[13px] leading-[18px] opacity-80">
+            {PROMOTER_COPY.referredBy(q.promoter.handle)}
+          </p>
+        )}
       </div>
       <Figures>
         <FigureRow label="Amount" value={<Amount units={q.amount} />} />

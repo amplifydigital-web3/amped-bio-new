@@ -36,6 +36,7 @@ const ready = {
   feeBps: 500,
   quotedAt: new Date().toISOString(),
   validUntil: new Date().toISOString(),
+  promoter: null,
 };
 
 afterEach(() => {

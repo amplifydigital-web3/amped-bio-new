@@ -60,6 +60,7 @@ import {
 import { checkoutAmount } from "../checkout/quote";
 import { liveVersion } from "../store/policy";
 import { countFinalSale } from "../store/sales";
+import { resolvePromoter } from "../store/promoters";
 import { ampedPayAddress, readContractState } from "./onchain";
 import { paymentsReady } from "./ready";
 import { limitsFromState, paymentSettings } from "./settings";
@@ -143,6 +144,8 @@ export type PreparePurchaseResult =
         network: string;
         validBefore: string;
         unscreened: boolean;
+        /** C12: Referred by @handle when a promoter row is in the split */
+        promoterHandle: string | null;
       };
     };
 
@@ -240,6 +243,7 @@ export async function preparePurchase(
       userId: true,
       status: true,
       expiresAt: true,
+      via: true,
       storePolicyVersionId: true,
     },
   });
@@ -352,6 +356,20 @@ export async function preparePurchase(
     throw error;
   }
 
+  // C12: a promoter row when the intent carries an active, in scope code. A bad code sells
+  // without one; it never stops the sale
+  const promoter = await resolvePromoter({
+    via: intent.via,
+    creatorUserId: resolved.creatorUserId,
+    targetId: intent.targetType === "offer" ? intent.targetId : null,
+    buyerUserId: userId,
+    payer,
+    platformFeeBps: settings.platformFeeBps,
+    minCreatorBps: limits.minCreatorBps,
+    now,
+    screen: true,
+  });
+
   const id = uuidv7();
   const nowSeconds = BigInt(Math.floor(now.getTime() / 1000));
   const validity = Math.min(settings.quoteWindowSeconds, limits.maxSplitValidity);
@@ -362,6 +380,7 @@ export async function preparePurchase(
     creator,
     treasury: chainState.value.treasury,
     platformFeeBps: settings.platformFeeBps,
+    promoter: promoter ? { to: promoter.to, bps: promoter.bps } : null,
     validBefore: nowSeconds + BigInt(validity),
   });
   try {
@@ -413,6 +432,7 @@ export async function preparePurchase(
       targetId: intent.targetId,
       // A product purchase names its offer, so Sales and access can read it (C10)
       offerId: intent.targetType === "offer" ? Buffer.from(intent.targetId, "hex") : null,
+      promoterCodeId: promoter?.codeId ?? null,
       // The store policy the buyer was shown (store policy 3.6); null before one is published
       storePolicyVersionId: policy.versionId,
       chainId: paymentChain.id,
@@ -454,6 +474,7 @@ export async function preparePurchase(
       network: paymentChain.name,
       validBefore: new Date(Number(split.validBefore) * 1000).toISOString(),
       unscreened,
+      promoterHandle: promoter?.handle ?? null,
     },
   };
 }
