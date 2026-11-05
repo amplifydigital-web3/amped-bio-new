@@ -78,7 +78,8 @@ export function renderDraft(
   creator: Creator,
   storeName: string | null,
   at: Date,
-  adult = false
+  adult = false,
+  memberships = true
 ): { sellerName: string; text: string } {
   const sellerName = sellerNameOf(draft, creator);
   if (draft.mode === "custom") return { sellerName, text: draft.custom.text.trim() };
@@ -92,6 +93,7 @@ export function renderDraft(
       email: draft.standard.email,
       effectiveDate: policyDate(at),
       adult,
+      memberships,
     }),
   };
 }
@@ -121,6 +123,8 @@ type VersionRow = {
 
 type StoredSettings = {
   sellerName: string;
+  /** MB-2: the version includes the memberships section (custom text is the creator's own) */
+  memberships?: boolean;
   seller: StorePolicyDraft["seller"];
   refund?: StorePolicyDraft["standard"]["refund"];
   email?: string | null;
@@ -135,6 +139,17 @@ export function versionSummary(row: Pick<VersionRow, "mode" | "settings" | "vers
     summary: refundSummary(settings.sellerName, { mode, refund: settings.refund }),
     version: row.version,
   };
+}
+
+/** MB-2: section 5 of the standard policy renders only for a store with a membership plan. */
+export async function hasPlan(userId: number): Promise<boolean> {
+  return (await prisma.membershipPlan.count({ where: { creatorUserId: userId } })) > 0;
+}
+
+/** True when the live policy covers memberships (section 5, or the creator's own text). */
+export function versionCoversMemberships(row: { mode: string; settings: unknown }): boolean {
+  if (row.mode === "custom") return true;
+  return (row.settings as StoredSettings).memberships === true;
 }
 
 export async function liveVersion(userId: number): Promise<VersionRow | null> {
@@ -154,7 +169,7 @@ export async function getPolicy(userId: number, now = new Date()) {
   const creator = await creatorOf(userId);
   const draft = readDraft(store.policyDraft);
   const live = await liveVersion(userId);
-  const preview = renderDraft(draft, creator, store.name, now);
+  const preview = renderDraft(draft, creator, store.name, now, false, await hasPlan(userId));
   return {
     draft,
     notice: storePolicyNotice(preview.sellerName),
@@ -180,7 +195,7 @@ export async function saveDraft(userId: number, draft: StorePolicyDraft) {
 export async function previewDraft(userId: number, draft: StorePolicyDraft, now = new Date()) {
   const store = await ensureStore(userId);
   const creator = await creatorOf(userId);
-  const rendered = renderDraft(draft, creator, store.name, now);
+  const rendered = renderDraft(draft, creator, store.name, now, false, await hasPlan(userId));
   return {
     notice: storePolicyNotice(rendered.sellerName),
     text: rendered.text,
@@ -193,7 +208,8 @@ export async function publishPolicy(userId: number, now = new Date()) {
   const store = await ensureStore(userId);
   const creator = await creatorOf(userId);
   const draft = readDraft(store.policyDraft);
-  const rendered = renderDraft(draft, creator, store.name, now);
+  const memberships = await hasPlan(userId);
+  const rendered = renderDraft(draft, creator, store.name, now, false, memberships);
   assertPublishable(draft, rendered.sellerName);
 
   const since = new Date(now.getTime() - DAY_MS);
@@ -218,6 +234,8 @@ export async function publishPolicy(userId: number, now = new Date()) {
   const settings: StoredSettings = {
     sellerName: rendered.sellerName,
     seller: draft.seller,
+    // MB-2: whether this version carries section 5 (a plan can go active only with it)
+    memberships: draft.mode === "custom" || memberships,
     ...(draft.mode === "standard"
       ? { refund: draft.standard.refund, email: draft.standard.email }
       : {}),

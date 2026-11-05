@@ -71,7 +71,11 @@ export async function goLiveChecklist(
       where: { id: userId },
       select: { email_verified: true, wallet: { select: { address: true } } },
     }),
-    prisma.offer.count({ where: { creatorUserId: userId, status: "active" } }),
+    // MB-2: an active membership plan counts as the store's first thing to sell
+    Promise.all([
+      prisma.offer.count({ where: { creatorUserId: userId, status: "active" } }),
+      prisma.membershipPlan.count({ where: { creatorUserId: userId, status: "active" } }),
+    ]).then(([offers, plans]) => offers + plans),
     checkIdentity(userId, "seller", { fresh: opts.fresh }),
     adultSetupStep(userId),
   ]);
@@ -81,7 +85,6 @@ export async function goLiveChecklist(
       state: user?.wallet?.address && isAddress(user.wallet.address) ? "done" : "todo",
     },
     email: { state: user?.email_verified ? "done" : "todo" },
-    // Membership plans count once MB-1 adds them
     product: { state: activeProducts > 0 ? "done" : "todo" },
     seller: {
       state: seller.pass ? "done" : "todo",

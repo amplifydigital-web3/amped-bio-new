@@ -55,7 +55,7 @@ async function runPlan<T>(work: () => Promise<T>): Promise<T> {
             : error.code === "seller"
               ? e.verifySeller
               : error.code === "policy"
-                ? "Publish your store policy first."
+                ? "Publish your store policy again so it includes Memberships."
                 : "That change could not be saved.";
       throw new TRPCError({ code: "BAD_REQUEST", message, cause: { refusal: error.code } });
     }

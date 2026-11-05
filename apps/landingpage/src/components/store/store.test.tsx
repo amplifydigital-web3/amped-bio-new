@@ -4,7 +4,12 @@
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import type { StorePolicyPublic, StoreProductPublic, StorePublic } from "@repo/constants";
+import type {
+  MembershipPlanPublic,
+  StorePolicyPublic,
+  StoreProductPublic,
+  StorePublic,
+} from "@repo/constants";
 
 const mocks = vi.hoisted(() => ({ start: vi.fn(), report: vi.fn() }));
 
@@ -32,6 +37,7 @@ const card = {
   itemCount: 1,
   cover: null,
   itemKinds: ["video"],
+  alsoInMembership: false,
 };
 
 const store: StorePublic = {
@@ -63,6 +69,7 @@ const store: StorePublic = {
     policyVersion: 2,
   },
   preview: false,
+  membership: null,
 };
 
 beforeEach(() => mocks.start.mockReset());
@@ -107,6 +114,7 @@ const product: StoreProductPublic = {
   ],
   policyVersion: 2,
   preview: false,
+  membership: null,
 };
 
 describe("ProductPageView", () => {
@@ -126,6 +134,54 @@ describe("ProductPageView", () => {
     expect(
       (screen.getByRole("button", { name: "Buy $3 USDC" }) as HTMLButtonElement).disabled
     ).toBe(true);
+  });
+});
+
+const plan: MembershipPlanPublic = {
+  id: "0f".repeat(16),
+  handle: "maya",
+  sellerName: "Maya Lin",
+  policyVersion: 2,
+  name: "Inner circle",
+  description: "Early cuts.",
+  benefits: ["Every episode a week early", "A live session every 30 days"],
+  amountEvery30Days: "5000000",
+  amountYearly: "48000000",
+  yearlySavingPercent: 20,
+  memberCount: 12,
+  viewer: null,
+};
+
+describe("Membership on the store (MB-2)", () => {
+  it("shows the membership card with amounts every 30 days and Join to the app", () => {
+    render(<StorefrontView store={{ ...store, membership: plan }} />);
+    expect(screen.getByRole("heading", { name: "Inner circle" })).toBeTruthy();
+    expect(screen.getByText("$5 USDC every 30 days")).toBeTruthy();
+    expect(screen.getByText("or $48 USDC a year, save 20%")).toBeTruthy();
+    expect(screen.getByText("12 members")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Join" }).getAttribute("href")).toMatch(
+      /\/join\/@maya$/
+    );
+    const text = document.body.textContent ?? "";
+    expect(text).not.toMatch(/price|monthly/i);
+  });
+
+  it("has no Join link in preview and no card without a plan", () => {
+    const { unmount } = render(
+      <StorefrontView store={{ ...store, membership: plan, preview: true }} />
+    );
+    expect(screen.queryByRole("link", { name: "Join" })).toBeNull();
+    unmount();
+    render(<StorefrontView store={store} />);
+    expect(screen.queryByText("Inner circle")).toBeNull();
+  });
+
+  it("says a product is also in the membership", () => {
+    render(<ProductPageView product={{ ...product, membership: plan }} />);
+    expect(screen.getByText(/Also included in Inner circle\./)).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Join instead" }).getAttribute("href")).toMatch(
+      /\/join\/@maya$/
+    );
   });
 });
 

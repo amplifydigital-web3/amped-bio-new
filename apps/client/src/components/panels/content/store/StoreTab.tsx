@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { SalesView } from "./SalesView";
+import { MembershipTab } from "./MembershipTab";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Check, ExternalLink, Loader2, Package, Plus } from "lucide-react";
 import {
@@ -8,6 +9,7 @@ import {
   EmptyState,
   Input,
   Notice,
+  Switch,
   Tabs,
   TabsContent,
   TabsList,
@@ -117,11 +119,7 @@ export function StoreTab({ onGoToLibrary }: { onGoToLibrary: () => void }) {
         <ProductsView onGoToLibrary={onGoToLibrary} />
       </TabsContent>
       <TabsContent value="membership" className="mt-0">
-        <EmptyState
-          icon={Package}
-          title="Memberships come next"
-          description="Plans, joins and renewals arrive with memberships. Your store sells products today."
-        />
+        <MembershipTab />
       </TabsContent>
       <TabsContent value="sales" className="mt-0">
         <SalesView />
@@ -545,6 +543,9 @@ function ProductEditor({ product, onDone }: { product: ProductRow | null; onDone
   );
   const [items, setItems] = useState<string[]>(product?.items.map(i => i.publicId) ?? []);
   const [error, setError] = useState<string | null>(null);
+  // MB-2: members open this product's items too, when the creator has a plan
+  const plan = useQuery(trpc.memberships.plan.get.queryOptions());
+  const [alsoInMembership, setAlsoInMembership] = useState(product?.alsoInMembership ?? false);
 
   const units = unitsFromUsdc(amount);
   const net = useMemo(() => {
@@ -563,7 +564,7 @@ function ProductEditor({ product, onDone }: { product: ProductRow | null; onDone
         description: description.trim() || null,
         amountUnits: (units ?? 0n).toString(),
         accessPeriodDays: period === "forever" ? null : (Number(period) as 30 | 365),
-        alsoInMembership: false,
+        alsoInMembership: !!plan.data && alsoInMembership,
         itemPublicIds: items,
         coverItemPublicId: null,
       }),
@@ -633,6 +634,14 @@ function ProductEditor({ product, onDone }: { product: ProductRow | null; onDone
           }}
         />
       </Field>
+      {plan.data ? (
+        <Switch
+          checked={alsoInMembership}
+          onChange={setAlsoInMembership}
+          label={`Also in ${plan.data.name}`}
+          description="Members open it without buying. Everyone else can buy it."
+        />
+      ) : null}
       <Field label="Description">
         <Textarea
           value={description}

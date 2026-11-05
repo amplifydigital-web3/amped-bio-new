@@ -15,6 +15,7 @@ import {
 } from "@repo/constants";
 import { findPublicCreator } from "../content/publicView";
 import { publicOffers } from "./products";
+import { publicPlan } from "../memberships/plans";
 import { liveVersion, publicPolicy, versionSummary } from "./policy";
 import { storeIsPublic } from "./settings";
 
@@ -60,6 +61,7 @@ export async function storePublic(
       summary: summary?.summary ?? "",
       policyVersion: summary?.version ?? 0,
     },
+    membership: await publicPlan(creator.handle, viewerUserId, now),
     preview,
   };
 }
@@ -117,6 +119,9 @@ export async function storeProductPublic(
     description: offer.description,
     items: offer.items,
     policyVersion: summary?.version ?? 0,
+    membership: offer.card.alsoInMembership
+      ? await publicPlan(found.creator.handle, viewerUserId, now)
+      : null,
     preview: found.preview,
   };
 }
