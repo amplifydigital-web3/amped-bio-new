@@ -2,20 +2,22 @@ import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { nameSettle, isNameEntrance, NAME_SETTLES, NAME_TARGETS } from "@repo/constants";
 import {
   ChipGroup,
+  CircularName,
   NameText,
+  ShowcaseProvider,
   WeightPulseName,
   cn,
   effectClassName,
   themeCssVars,
   usePrefersReducedMotion,
 } from "@repo/ui";
+import { isFeatureOn } from "../../../../config/featureFlags";
 import { DisclosureRow } from "../kit/DisclosureRow";
 import { OptionGrid, OptionTile } from "../kit/OptionTile";
 import { CreatorBackdrop } from "../kit/CreatorArt";
 import { ContrastNotice } from "../kit/Notices";
 import { cardFill, formatRatio, useDesign } from "../kit/useDesign";
 import { ParamPanel } from "../kit/ParamStrip";
-import { isFeatureOn } from "../../../../config/featureFlags";
 import { loadFontCatalog } from "./fonts/fontCatalog";
 import type { FontCatalogEntry } from "@repo/constants";
 import { currentNameFont } from "../kit/fontLook";
@@ -28,7 +30,7 @@ import {
 } from "../kit/weightPulse";
 import {
   NAME_TILES,
-  nameRowTiles,
+  nameTilesFor,
   nameIndex,
   namePaintedColors,
   namePatch,
@@ -39,11 +41,33 @@ import {
 // Theme Engine v2 phase 2, Name row (board 08, spec 3.5). Behind
 // VITE_SHOW_THEME_V2; the v1 row stays in MotionRows.tsx.
 
-const SETTLE_LABELS = { once: "Play once", always: "Loop" } as const;
+// TE-3f: Particle text (Showcase) joins the grid with the showcase flag
+const themeShowcaseOn = isFeatureOn("themeShowcase");
 
-// TE-3e2: Weight pulse needs the font catalog
+/**
+ * The Particle text tile draws the name in a still dot pattern: the live
+ * effect is heavy, and heavy tiles never mount a live engine (decision 12).
+ */
+const DOTTED_NAME: CSSProperties = {
+  backgroundImage: "radial-gradient(currentColor 0.9px, transparent 1.3px)",
+  backgroundSize: "3px 3px",
+  WebkitBackgroundClip: "text",
+  backgroundClip: "text",
+  WebkitTextFillColor: "transparent",
+};
+
+const SETTLE_LABELS = { once: "Play once", always: "Loop" } as const;
+// Phase 3c: Fuzzy text needs the canvas engine, so it shows with themeShowcase.
+// TE-3e2: Weight pulse needs the font catalog.
 const fontCatalogOn = isFeatureOn("themeV2") && isFeatureOn("fontCatalog");
-const NAME_ROW_TILES = nameRowTiles(fontCatalogOn);
+const NAME_ROW_TILES = nameTilesFor(themeShowcaseOn).filter(
+  t => fontCatalogOn || t.effectId !== WEIGHT_PULSE_ID
+);
+
+/** Phase 3e: sample params so a tile shows the effect before the creator sets it up. */
+const TILE_PARAMS: Record<string, Record<string, string>> = {
+  "name.rotating-words": { words: "creator, artist" },
+};
 
 /** The catalog families, loaded only while fontCatalog is on (for Weight pulse). */
 function usePulseFamilies(): readonly FontCatalogEntry[] | null {
@@ -141,7 +165,10 @@ function NameTileView({
           >
             <span
               className={cn(
-                "truncate text-[26px] font-bold leading-[33px]",
+                // The Circular ring draws past the line box, so it is not clipped
+                entry.id === "name.circular"
+                  ? "text-[26px]"
+                  : "truncate text-[26px] font-bold leading-[33px]",
                 effectClassName(entry, still)
               )}
               style={
@@ -151,25 +178,42 @@ function NameTileView({
                   "--amped-name-glow": `${values.fontColor}B3`,
                   fontFamily: values.fontFamily,
                   color: values.fontColor,
+                  ...(entry.render.kind === "particles" ? DOTTED_NAME : {}),
                 } as CSSProperties
               }
             >
-              {pulse ? (
-                <span style={{ fontFamily: currentNameFont(config, values.fontFamily).family }}>
-                  <WeightPulseName
+              <ShowcaseProvider
+                value={{ showcase: themeShowcaseOn, paused: still, device: "typical" }}
+              >
+                {pulse ? (
+                  <span style={{ fontFamily: currentNameFont(config, values.fontFamily).family }}>
+                    <WeightPulseName
+                      text={profile.name || "Your name"}
+                      params={weightPulsePatch(pulseEntry)?.heroEffectParams}
+                      paused={!pulseReady}
+                    />
+                  </span>
+                ) : entry.id === "name.circular" ? (
+                  // Phase 3e: the ring around a stand in for the photo
+                  <span className="relative inline-flex h-[28px] w-[28px] items-center justify-center rounded-full bg-[color-mix(in_srgb,currentColor_18%,transparent)]">
+                    <CircularName
+                      text={profile.name || "Your name"}
+                      size={28}
+                      className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
+                    />
+                  </span>
+                ) : (
+                  <NameText
+                    entry={entry}
                     text={profile.name || "Your name"}
-                    params={weightPulsePatch(pulseEntry)?.heroEffectParams}
-                    paused={!pulseReady}
+                    colors={colors}
+                    paused={still}
+                    params={TILE_PARAMS[entry.id]}
+                    loop
+                    fontFamily={values.fontFamily}
                   />
-                </span>
-              ) : (
-                <NameText
-                  entry={entry}
-                  text={profile.name || "Your name"}
-                  colors={colors}
-                  paused={still}
-                />
-              )}
+                )}
+              </ShowcaseProvider>
             </span>
           </span>
         </CreatorBackdrop>
@@ -182,6 +226,11 @@ export function NameRow() {
   const { config, values, locked, update, nameContrast, yourColors } = useDesign();
   const selectedIndex = nameIndex(values.heroEffect, config.heroEffectId);
   const tile = NAME_TILES[selectedIndex] ?? NAME_TILES[0]!;
+  // Roving focus lands on the selected tile when it is in the grid, else the first
+  const focusTile =
+    NAME_ROW_TILES.includes(tile) && (tile.entry.tier !== "showcase" || themeShowcaseOn)
+      ? tile
+      : NAME_ROW_TILES[0];
   const { entry } = tile;
   const settle = nameSettle(entry, config.heroEffectLoop);
   const target = config.heroAppliesTo ?? "name";
@@ -198,15 +247,17 @@ export function NameRow() {
     >
       <div className="space-y-[21px]">
         <OptionGrid label="Name effect">
-          {NAME_ROW_TILES.map((t, index) => (
-            <NameTileView
-              key={t.effectId ?? t.id}
-              tile={t}
-              families={families}
-              selected={index === selectedIndex}
-              focusable={selectedIndex === -1 ? index === 0 : index === selectedIndex}
-            />
-          ))}
+          {NAME_ROW_TILES.map(t =>
+            t.entry.tier === "showcase" && !themeShowcaseOn ? null : (
+              <NameTileView
+                key={t.effectId ?? t.id}
+                tile={t}
+                families={families}
+                selected={t === tile}
+                focusable={t === focusTile}
+              />
+            )
+          )}
         </OptionGrid>
 
         <ParamPanel

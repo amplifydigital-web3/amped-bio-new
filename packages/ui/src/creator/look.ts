@@ -52,6 +52,11 @@ export interface CreatorLook {
   /** A WebGL scene base (phase 3), or null. Its poster paints first. */
   shader: EffectEntry | null;
   shaderParams: ParamValues;
+  /** The cursor effect (phase 3c), or null for none. */
+  cursor: EffectEntry | null;
+  cursorParams: ParamValues;
+  /** The name effect's params from the v2 slot. */
+  nameParams: ParamValues;
   /** The creator's colors as effects read them (theme color mode). */
   colors: ThemeColors;
   /**
@@ -185,6 +190,9 @@ export function lookFor(theme: AnyThemeConfig | null | undefined): CreatorLook {
     overlay: overlay && overlay.id !== "scene.none" ? overlay : null,
     overlayParams: v2.scene.overlay?.params ?? {},
     ...shaderOf(v2),
+    cursor: v2.cursor.id === "cursor.none" ? null : (findEffect(v2.cursor.id) ?? null),
+    cursorParams: v2.cursor.params ?? {},
+    nameParams: v2.name.params ?? {},
     colors: {
       button: values.buttonColor || THEME_DEFAULTS.buttonColor,
       buttonText: text,
@@ -285,7 +293,12 @@ export function nameOnBio(look: CreatorLook): boolean {
 
 /** True when the page has motion that loops, so it gets the Pause motion control (041 I02). */
 export function hasLoopingMotion(look: CreatorLook): boolean {
-  return playingOverlay(look) !== null || nameLoops(look);
+  return (
+    playingOverlay(look) !== null ||
+    nameLoops(look) ||
+    // TE-3f: Particle text twinkles while it shows
+    look.name.render.kind === "particles"
+  );
 }
 
 /** True when a container surface is on. */
