@@ -15,7 +15,9 @@ import { privateProcedure, router } from "./trpc";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { s3Service } from "../services/S3Service";
-import { themeConfigSchema } from "@repo/constants";
+import { themeConfigSchema, type AnyThemeConfig } from "@repo/constants";
+import { guardThemeFonts } from "../services/themeFonts";
+import { prewarmUserFonts } from "../services/fonts/fontMirror";
 import { getFileUrl } from "../utils/fileUrlResolver";
 import { prisma } from "@repo/database";
 
@@ -57,7 +59,8 @@ export const themeRouter = router({
       const user_id = ctx.user!.sub;
 
       // The theme object is now properly validated using the shared schema
-      const { name, description, share_level, share_config, config } = theme;
+      const { name, description, share_level, share_config } = theme;
+      const config = guardThemeFonts(theme.config);
 
       try {
         // If id is 0, create a new theme
@@ -73,6 +76,8 @@ export const themeRouter = router({
             },
           });
 
+          // 2b PR 2: mirror the fonts now, so the page's first visitor gets them
+          prewarmUserFonts(Number(user_id), config);
           return result;
         }
 
@@ -156,6 +161,8 @@ export const themeRouter = router({
           },
         });
 
+        // 2b PR 2: mirror the fonts now, so the page's first visitor gets them
+        prewarmUserFonts(Number(user_id), config);
         return result;
       } catch (error) {
         console.error("error", error);
@@ -294,7 +301,7 @@ export const themeRouter = router({
               description: theme.description,
               share_level: theme.share_level,
               share_config: theme.share_config as any,
-              config: theme.config as any,
+              config: guardThemeFonts(theme.config) as any,
               updated_at: new Date(),
             },
           });
@@ -310,7 +317,7 @@ export const themeRouter = router({
               description: theme.description,
               share_level: theme.share_level,
               share_config: theme.share_config as any,
-              config: theme.config as any,
+              config: guardThemeFonts(theme.config) as any,
             },
           });
 
@@ -354,6 +361,7 @@ export const themeRouter = router({
         },
       });
 
+      prewarmUserFonts(Number(userId), themeToApply.config as AnyThemeConfig | null);
       return {
         success: true,
         message: "Theme applied successfully",

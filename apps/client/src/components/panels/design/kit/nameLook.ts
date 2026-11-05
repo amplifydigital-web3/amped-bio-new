@@ -43,7 +43,14 @@ const V2_NAMES: [string, number][] = [
 export const NAME_TILES: NameTile[] = [
   ...V1_NAMES.map(([id, effectId]) => ({ id, entry: getEffect("name", effectId) })),
   ...V2_NAMES.map(([effectId, id]) => ({ id, effectId, entry: getEffect("name", effectId) })),
+  // TE-3e2: Weight pulse, with the fontCatalog flag; a renderer without it draws the plain name
+  { id: 0, effectId: "name.weight-pulse", entry: getEffect("name", "name.weight-pulse") },
 ];
+
+/** The tiles the row offers: Weight pulse only with fontCatalog. It sits last, so indexes hold. */
+export function nameRowTiles(fontCatalog: boolean): NameTile[] {
+  return fontCatalog ? NAME_TILES : NAME_TILES.filter(t => t.effectId !== "name.weight-pulse");
+}
 
 /** The patch a name tile writes: a v1 tile clears the v2 id; a new pick starts from default params. */
 export function namePatch(tile: NameTile): Partial<ThemeConfig> {
