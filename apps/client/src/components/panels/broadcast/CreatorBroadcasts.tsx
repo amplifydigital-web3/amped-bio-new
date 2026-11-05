@@ -11,6 +11,9 @@ import {
   XCircle,
 } from "lucide-react";
 import {
+  BROADCAST_AUDIENCE_PARAM,
+  BROADCAST_LIMITS,
+  BROADCAST_UI,
   EMAIL_VERIFICATION_GRACE_BROADCASTS,
   EMAIL_VERIFICATION_GRACE_DAYS,
 } from "@repo/constants";
@@ -134,7 +137,7 @@ function Detail({ id, creatorName }: { id: number; creatorName: string }) {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 space-y-2">
           <span className="block text-prism-eyebrow uppercase text-prism-ink-2">
-            To all members
+            {BROADCAST_UI.audience[data.audienceKind].line}
           </span>
           <h2
             id="broadcast-detail-title"
@@ -157,8 +160,7 @@ function Detail({ id, creatorName }: { id: number; creatorName: string }) {
 
       {data.status === "IN_REVIEW" && (
         <Notice variant="warning" title="Waiting for review">
-          Amped reviews each creator&rsquo;s first broadcast before it reaches members. You can
-          withdraw it until then.
+          {BROADCAST_UI.firstSend} You can withdraw it until then.
           <span className="mt-3 block">
             <Button
               variant="secondary"
@@ -182,7 +184,7 @@ function Detail({ id, creatorName }: { id: number; creatorName: string }) {
       )}
       {(data.status === "QUEUED" || data.status === "SENDING") && (
         <Notice variant="info" role="status">
-          Delivering to members&rsquo; inboxes.
+          Delivering to inboxes.
         </Notice>
       )}
 
@@ -211,15 +213,25 @@ function Detail({ id, creatorName }: { id: number; creatorName: string }) {
   );
 }
 
+/** The quota line (spec 8.6 item 2): left today, or which cap is full and when it opens. */
+export function quotaLine(quota: { leftToday: number; usedThisWeek: number }) {
+  if (quota.usedThisWeek >= BROADCAST_LIMITS.perWeek) return BROADCAST_UI.weeklyFull;
+  if (quota.leftToday <= 0) return BROADCAST_UI.dailyFull;
+  return BROADCAST_UI.quota(quota.leftToday);
+}
+
 /**
- * My Pool, Broadcasts (board br2 and br1). Phase 1: all members, Amped inbox
- * only, invite-only pilot. Spec: docs/features/creator-pool-broadcast.md.
+ * Inbox, Broadcast, Sent (M9, spec 8.6 item 2): New broadcast, the quota line, and the
+ * creator's broadcasts to every audience with recipient counts and status. Any creator
+ * with followers or a pool can send. URL: ?compose=1&audience=pool|followers|both opens
+ * the composer; ?s={id} selects a sent broadcast.
  */
-export function BroadcastsTab({ chainId }: { chainId: string }) {
+export function CreatorBroadcasts({ chainId }: { chainId: string }) {
   const { profile } = useEditor();
   const [params, setParams] = useSearchParams();
   const composing = params.get("compose") === "1";
-  const selectedParam = Number(params.get("b")) || null;
+  const audienceParam = BROADCAST_AUDIENCE_PARAM[params.get("audience") ?? ""];
+  const selectedParam = Number(params.get("s")) || null;
 
   const setParam = (key: string, value: string | null) =>
     setParams(
@@ -227,6 +239,7 @@ export function BroadcastsTab({ chainId }: { chainId: string }) {
         const next = new URLSearchParams(current);
         if (value === null) next.delete(key);
         else next.set(key, value);
+        if (key === "compose" && value === null) next.delete("audience");
         return next;
       },
       { replace: true }
@@ -235,14 +248,13 @@ export function BroadcastsTab({ chainId }: { chainId: string }) {
   const overview = useQuery(trpc.broadcast.creator.overview.queryOptions({ chainId }));
   const list = useQuery({
     ...trpc.broadcast.creator.list.queryOptions({ chainId }),
-    enabled: !!overview.data?.pool,
     // Keep chips current while a send is in flight (QA-031); stops once none is
     refetchInterval: q =>
       q.state.data?.some(b => b.status === "QUEUED" || b.status === "SENDING") ? 5000 : false,
   });
   const showSkeleton = useDelayed(overview.isLoading || list.isLoading, 400);
 
-  if (overview.isLoading || (overview.data?.pool && list.isLoading)) {
+  if (overview.isLoading || list.isLoading) {
     return showSkeleton ? (
       <div aria-hidden className="h-96 rounded-prism-21 bg-prism-line/60" />
     ) : null;
@@ -257,44 +269,28 @@ export function BroadcastsTab({ chainId }: { chainId: string }) {
     );
   }
 
-  const { pool, members, quota, canSend, paused, verification, graceSendsLeft, creatorName } =
-    overview.data;
+  const { pool, counts, quota, paused, verification, graceSendsLeft, creatorName } = overview.data;
   const items = list.data ?? [];
   const selected = selectedParam ?? items[0]?.id ?? null;
 
-  if (!pool) {
-    return (
-      <EmptyState
-        icon={Megaphone}
-        title="Broadcasts need a pool"
-        description="Create your pool first. Then you can send updates to its members."
-      />
-    );
-  }
-
-  const blocker = !canSend
+  const blocker = paused
     ? {
-        title: "Broadcasts are invite only for now",
-        body: "Amped is opening broadcasts to pool owners in small groups, by invitation.",
+        title: "Broadcasting is paused",
+        body: "Amped is reviewing reports on a recent broadcast. Support will contact you by email.",
       }
-    : paused
-      ? {
-          title: "Broadcasting is paused",
-          body: "Amped is reviewing reports on a recent broadcast. Support will contact you by email.",
-        }
-      : // Verification grace (Rob, 2026-10-10): a new creator sends for 30 days
-        // or EMAIL_VERIFICATION_GRACE_BROADCASTS sends before this notice holds
-        verification.required
-        ? verification.reason === "milestone"
-          ? {
-              title: "Confirm your email to keep sending",
-              body: `You have sent ${EMAIL_VERIFICATION_GRACE_BROADCASTS} broadcasts without a verified email. Open the confirmation email Amped sent you, then come back here.`,
-            }
-          : {
-              title: "Confirm your email to send",
-              body: `Accounts send without a verified email for ${EMAIL_VERIFICATION_GRACE_DAYS} days. Open the confirmation email Amped sent you, then come back here.`,
-            }
-        : null;
+    : // Verification grace (Rob, 2026-10-10): a new creator sends for 30 days
+      // or EMAIL_VERIFICATION_GRACE_BROADCASTS sends before this notice holds
+      verification.required
+      ? verification.reason === "milestone"
+        ? {
+            title: "Confirm your email to keep sending",
+            body: `You have sent ${EMAIL_VERIFICATION_GRACE_BROADCASTS} broadcasts without a verified email. Open the confirmation email Amped sent you, then come back here.`,
+          }
+        : {
+            title: "Confirm your email to send",
+            body: `Accounts send without a verified email for ${EMAIL_VERIFICATION_GRACE_DAYS} days. Open the confirmation email Amped sent you, then come back here.`,
+          }
+      : null;
 
   // Unverified but still inside the grace: say how much room is left
   const graceLine =
@@ -306,8 +302,9 @@ export function BroadcastsTab({ chainId }: { chainId: string }) {
     return (
       <Composer
         chainId={chainId}
-        poolName={pool.name ?? "your pool"}
-        members={members}
+        poolName={pool ? (pool.name ?? "your pool") : null}
+        counts={counts}
+        initialAudience={audienceParam}
         creatorName={creatorName || profile.name}
         creatorAvatar={profile.photoUrl}
         leftToday={quota.leftToday}
@@ -318,7 +315,8 @@ export function BroadcastsTab({ chainId }: { chainId: string }) {
             current => {
               const next = new URLSearchParams(current);
               next.delete("compose");
-              next.set("b", String(id));
+              next.delete("audience");
+              next.set("s", String(id));
               return next;
             },
             { replace: true }
@@ -332,25 +330,17 @@ export function BroadcastsTab({ chainId }: { chainId: string }) {
     <Button
       size="lg"
       onClick={() => setParam("compose", "1")}
-      disabled={!!blocker || members === 0 || quota.leftToday <= 0}
+      disabled={!!blocker || counts.total === 0 || quota.leftToday <= 0}
     >
       <Megaphone aria-hidden />
-      New broadcast
+      {BROADCAST_UI.newBroadcast}
     </Button>
   );
 
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-prism-label text-prism-ink-2">
-          {members.toLocaleString()} {members === 1 ? "member" : "members"} in{" "}
-          {pool.name ?? "your pool"}.
-          {/* The quota means nothing until the creator is invited (QA-037) */}
-          {canSend &&
-            (quota.leftToday > 0
-              ? ` ${quota.leftToday} ${quota.leftToday === 1 ? "send" : "sends"} left today.`
-              : " No sends left today.")}
-        </p>
+        <p className="text-prism-label text-prism-ink-2">{quotaLine(quota)}</p>
         {newButton}
       </div>
 
@@ -364,9 +354,10 @@ export function BroadcastsTab({ chainId }: { chainId: string }) {
           {graceLine}
         </Notice>
       )}
-      {!blocker && members === 0 && (
-        <Notice variant="info" title="Your pool has no members yet">
-          Share your pool. When people join, you can send them updates here.
+      {!blocker && counts.total === 0 && (
+        <Notice variant="info" title={BROADCAST_UI.emptyAudience.POOL_AND_FOLLOWERS}>
+          Share your page. When people follow you or stake in your pool, you can send them updates
+          here.
         </Notice>
       )}
 
@@ -380,7 +371,7 @@ export function BroadcastsTab({ chainId }: { chainId: string }) {
         <EmptyState
           icon={Megaphone}
           title="No broadcasts yet"
-          description="Send your members an update about your work. It lands in their Amped inbox."
+          description={BROADCAST_UI.sentEmpty}
         />
       ) : (
         <div className="grid gap-5 lg:grid-cols-[minmax(0,380px)_minmax(0,1fr)]">
@@ -393,7 +384,7 @@ export function BroadcastsTab({ chainId }: { chainId: string }) {
                 <button
                   type="button"
                   aria-current={b.id === selected ? "true" : undefined}
-                  onClick={() => setParam("b", String(b.id))}
+                  onClick={() => setParam("s", String(b.id))}
                   className={cn(
                     "prism-focus flex w-full flex-col gap-2 rounded-prism-13 px-4 py-3 text-left",
                     b.id === selected ? "prism-lens-thumb" : "hover:bg-white/50"
@@ -401,6 +392,9 @@ export function BroadcastsTab({ chainId }: { chainId: string }) {
                 >
                   <span className="line-clamp-2 text-prism-label font-semibold text-prism-ink">
                     {b.title}
+                  </span>
+                  <span className="text-prism-meta text-prism-ink-2">
+                    {BROADCAST_UI.audience[b.audienceKind].line}
                   </span>
                   <span className="flex items-center justify-between gap-3">
                     <StatusChip b={b} />

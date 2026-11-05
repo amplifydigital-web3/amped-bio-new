@@ -1,47 +1,69 @@
 import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "react-router";
 import { useChainId } from "wagmi";
-import { Tabs, TabsContent, TabsList, TabsTrigger, trpc } from "@repo/ui";
-import { useDestinationTab } from "@/hooks/useDestinationTab";
+import { Megaphone } from "lucide-react";
+import { BROADCAST_UI } from "@repo/constants";
+import { Button, trpc } from "@repo/ui";
 import { CreatorPoolPanel } from "../createrewardpool/CreatorPoolPanel";
-import { BroadcastsTab } from "./BroadcastsTab";
-import { BROADCAST_ON } from "./utils";
-
-// Every tab this destination can show; the ones not available fall back to Overview
-const TABS = ["overview", "broadcasts"] as const;
+import { BROADCAST_ON, shortTime } from "./utils";
 
 /**
- * My Pool with a Broadcasts tab (Build Board #1, board br2). Broadcasts shows when
- * VITE_SHOW_BROADCAST is on and the creator owns a pool on this network; without it
- * My Pool renders exactly as before. The Telegram group tab ended in PR M8.
+ * My Pool, Overview: one Broadcast card with the last broadcast and a Broadcast button
+ * (M9, spec 8.6 item 4). The button opens Inbox, Broadcast, New broadcast with Pool
+ * stakers picked. The Broadcasts tab moved to the Inbox; the Telegram group tab ended in M8.
  */
-export function MyPoolDestination() {
-  const chainId = useChainId().toString();
-  const [tab, setTab] = useDestinationTab(TABS);
+export function BroadcastCard({ chainId }: { chainId: string }) {
+  const navigate = useNavigate();
   const overview = useQuery({
     ...trpc.broadcast.creator.overview.queryOptions({ chainId }),
     enabled: BROADCAST_ON,
     retry: 1,
   });
-
-  const broadcastsOn = BROADCAST_ON && !!overview.data?.pool;
-  if (!broadcastsOn) return <CreatorPoolPanel />;
-
-  const current = tab === "broadcasts" ? tab : "overview";
+  if (!BROADCAST_ON || !overview.data?.pool) return null;
+  const { last } = overview.data;
+  const S = BROADCAST_UI.myPoolCard;
 
   return (
-    <Tabs value={current} onValueChange={setTab} className="flex flex-col">
-      <div className="px-4 pt-5 md:px-6">
-        <TabsList aria-label="My Pool sections">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="broadcasts">Broadcasts</TabsTrigger>
-        </TabsList>
+    <section
+      aria-labelledby="my-pool-broadcast"
+      className="prism-slab mx-4 mt-5 flex flex-wrap items-center justify-between gap-4 rounded-prism-21 p-5 md:mx-6"
+    >
+      <div className="flex min-w-0 items-start gap-3">
+        <Megaphone
+          aria-hidden
+          className="mt-0.5 h-5 w-5 shrink-0 text-prism-nav"
+          strokeWidth={1.5}
+        />
+        <div className="min-w-0">
+          <h2 id="my-pool-broadcast" className="text-prism-label font-semibold text-prism-ink">
+            {S.title}
+          </h2>
+          <p className="text-prism-meta text-prism-ink-2">
+            {last ? (
+              <>
+                {S.last}: <span className="font-semibold text-prism-ink">{last.title}</span>,{" "}
+                {shortTime(last.createdAt)}
+              </>
+            ) : (
+              S.body
+            )}
+          </p>
+        </div>
       </div>
-      <TabsContent value="overview" className="mt-0">
-        <CreatorPoolPanel />
-      </TabsContent>
-      <TabsContent value="broadcasts" className="px-4 pb-8 md:px-6">
-        <BroadcastsTab chainId={chainId} />
-      </TabsContent>
-    </Tabs>
+      <Button onClick={() => navigate("/inbox/broadcast/new?audience=pool")}>
+        <Megaphone aria-hidden />
+        {S.button}
+      </Button>
+    </section>
+  );
+}
+
+export function MyPoolDestination() {
+  const chainId = useChainId().toString();
+  return (
+    <div className="flex flex-col">
+      <BroadcastCard chainId={chainId} />
+      <CreatorPoolPanel />
+    </div>
   );
 }
