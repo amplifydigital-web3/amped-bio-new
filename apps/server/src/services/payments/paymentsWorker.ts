@@ -8,6 +8,8 @@ import { paymentSettings } from "./settings";
 import { markRefunded } from "../store/sales";
 import { settlePendingJoinsOnce } from "../memberships/core";
 import { applyDuePayoutWallets } from "../merchants/payoutWallets";
+import { deliverDueWebhooks, emitMerchantEvent } from "../partners/webhooks";
+import { isFeatureOn } from "../featureFlags";
 import {
   PREPARED_TTL_MS,
   decodePaymentLogs,
@@ -215,7 +217,17 @@ export function startPaymentsWorker() {
       if (env.AMPEDMEMBERSHIPS_ADDRESS) await settlePendingJoinsOnce();
       if (ticks % LOG_PASS_EVERY === 0) await indexPaymentLogsOnce();
       // AB-1: approved merchant payout wallets take effect 24 hours after approval (M2)
-      if (ticks % LOG_PASS_EVERY === 0) await applyDuePayoutWallets();
+      if (ticks % LOG_PASS_EVERY === 0) {
+        const changed = await applyDuePayoutWallets();
+        // AB-4: tell the merchant its payout wallet changed (partner spec 8.1)
+        for (const merchantId of changed) {
+          await emitMerchantEvent(merchantId, "payout_wallet.changed", {
+            merchant_id: merchantId.toString("hex"),
+          });
+        }
+      }
+      // AB-4: signed webhooks to merchants, with retries (partner spec 8.4)
+      if (isFeatureOn("partnerApi")) await deliverDueWebhooks();
     } catch (error) {
       console.error("[payments worker] tick failed", error);
     } finally {

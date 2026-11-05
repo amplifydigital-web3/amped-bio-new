@@ -307,6 +307,15 @@ export const FEATURE_FLAGS = {
     default: false,
     env: {},
   },
+  // Authbase storefront (Build Board #66, AB-4): /partners/v1 and merchant webhooks
+  partnerApi: {
+    label: "Partner API",
+    description:
+      "Merchants (Authbase) can call /partners/v1 with an API key, and Amped.Bio sends them signed order webhooks.",
+    scope: "server",
+    default: false,
+    env: {},
+  },
 } as const satisfies Record<string, FeatureFlagDefinition>;
 
 export type FeatureFlagKey = keyof typeof FEATURE_FLAGS;

@@ -15,6 +15,7 @@ import telegramOidcRouter from "../routes/telegramOidc";
 import { contentCallbackRouter, contentJobRouter, streamWebhookRouter } from "../routes/content";
 import { goRouter } from "../routes/go";
 import onrampWebhookRouter from "../routes/onramp";
+import partnersRouter from "../routes/partners";
 
 import mcpRouter from "../routes/mcp";
 
@@ -109,6 +110,9 @@ app.use("/internal/content/job", contentJobRouter);
 
 // Buy USDC through Coinbase (Build Board #5): CDP Onramp webhook, signed over the raw body
 app.use("/webhooks/coinbase-onramp", onrampWebhookRouter);
+
+// Partner API for merchants (Build Board #66, AB-4). Bearer keys, no cookies; its own JSON parser
+app.use("/partners/v1", partnersRouter);
 
 // Protected resource metadata (RFC 9728) for MCP clients.
 // Tells clients that the authorization server is at auth.amped.bio.
