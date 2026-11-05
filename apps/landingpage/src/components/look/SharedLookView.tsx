@@ -7,7 +7,7 @@ import { themeFileV2 } from "@repo/constants";
 import { Button, CreatorButton, CreatorPage, themeFileName, usePausedChoice } from "@repo/ui";
 import { Eyebrow } from "@/components/layout/PublicPage";
 import { authClient } from "@/lib/auth-client";
-import { getPanelEditUrl } from "@/lib/panel";
+import { getPanelEditUrl, getPanelLookUrl } from "@/lib/panel";
 import { trpcClient } from "@/lib/trpc";
 import type { SharedLook } from "@/lib/sharedLook";
 
@@ -281,6 +281,11 @@ export function SharedLookView({ look }: { look: SharedLook }) {
         <div className="mt-[21px] flex flex-col gap-[13px] sm:flex-row sm:flex-wrap">
           {action("apply", "Use this look", "default")}
           {action("save", "Save to My looks", "secondary")}
+          {signedIn && (
+            <Button asChild variant="ghost" className="w-full sm:w-auto">
+              <a href={getPanelLookUrl(look.slug)}>Try it in your editor</a>
+            </Button>
+          )}
           {look.download && (
             <Button variant="ghost" className="w-full sm:w-auto" onClick={() => download(look)}>
               Download .ampedtheme

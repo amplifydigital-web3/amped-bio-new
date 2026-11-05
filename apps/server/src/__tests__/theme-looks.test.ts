@@ -13,6 +13,7 @@ const db = vi.hoisted(() => {
     users: [] as Row[],
     nextTheme: 1,
     nextVersion: 1,
+    settings: {} as Record<string, string>,
   };
   // theme_versions ids are BINARY(16) buffers: compare them by content
   const same = (a: unknown, b: unknown): boolean =>
@@ -23,10 +24,13 @@ const db = vi.hoisted(() => {
         value &&
         typeof value === "object" &&
         !(value instanceof Date) &&
-        !Buffer.isBuffer(value) &&
-        "in" in value
+        !Buffer.isBuffer(value)
       ) {
-        return (value.in as unknown[]).some(v => same(row[key], v));
+        const v = row[key];
+        if ("in" in value) return (value.in as unknown[]).some(item => same(v, item));
+        if ("not" in value) return v !== value.not;
+        if ("gt" in value) return v > value.gt;
+        if ("gte" in value) return v >= value.gte;
       }
       return same(row[key], value);
     });
@@ -70,15 +74,17 @@ const db = vi.hoisted(() => {
       }
       return pick(row, select);
     }),
-    findFirst: vi.fn(async ({ where, orderBy, select }: Row) =>
-      pick(
-        order(
-          state.themes.filter(t => matches(t, where)),
-          orderBy
-        )[0],
-        select
-      )
-    ),
+    findFirst: vi.fn(async ({ where, orderBy, select, include }: Row) => {
+      const row = order(
+        state.themes.filter(t => matches(t, where)),
+        orderBy
+      )[0];
+      if (row && include?.user) {
+        const owner = state.users.find(u => u.id === row.user_id);
+        return { ...row, user: owner ? { handle: owner.handle } : null };
+      }
+      return pick(row, select);
+    }),
     findMany: vi.fn(async ({ where, orderBy, select }: Row) =>
       order(
         state.themes.filter(t => matches(t, where)),
@@ -164,7 +170,14 @@ const db = vi.hoisted(() => {
       return row;
     }),
   };
-  return { state, prisma: { theme, themeVersion, user } };
+  const siteSettings = {
+    findUnique: vi.fn(async ({ where }: Row) =>
+      state.settings[where.setting_key] === undefined
+        ? null
+        : { setting_key: where.setting_key, setting_value: state.settings[where.setting_key] }
+    ),
+  };
+  return { state, prisma: { theme, themeVersion, user, siteSettings } };
 });
 
 const flags = vi.hoisted(() => ({ themeSharing: true }));
@@ -229,6 +242,7 @@ beforeEach(() => {
   ];
   db.state.nextTheme = 1;
   db.state.nextVersion = 1;
+  db.state.settings = {};
 });
 
 describe("copyName", () => {
@@ -617,5 +631,70 @@ describe("theme router: share links", () => {
     await expect(caller(1).applyShared({ slug: slug!, mode: "save" })).rejects.toMatchObject({
       message: THEME_LIMIT,
     });
+  });
+});
+
+describe("TE-4c: marketplace apply and Theme of the week", () => {
+  const market = () =>
+    seedLook(0, "Sunset", {
+      user_id: null,
+      kind: "marketplace",
+      config: { buttonColor: "#ff8800" },
+    });
+
+  it("with themeSharing off, a marketplace apply points at the marketplace row", async () => {
+    flags.themeSharing = false;
+    const m = market();
+    const out = await caller(1).applyTheme({ themeId: m.id });
+    expect(out.themeId).toBe(m.id);
+    expect(db.state.users[0]!.theme).toBe(m.id);
+  });
+
+  it("with themeSharing on, the creator gets an editable copy as a new look", async () => {
+    const m = market();
+    const out = await caller(1).applyTheme({ themeId: m.id });
+    const copy = db.state.themes.find(t => t.id === out.themeId)!;
+    expect(copy).toMatchObject({ user_id: 1, kind: "look", name: "Sunset" });
+    expect(copy.config).toEqual({ buttonColor: "#ff8800" });
+    expect(out).toMatchObject({ created: true, undoVersionId: null });
+    expect(db.state.users[0]!.theme).toBe(copy.id);
+  });
+
+  it("at 10 looks, the copy goes into the current look and can be undone", async () => {
+    const mine = seedLook(1, "Mine", { config: { buttonColor: "#123123" } });
+    for (let i = 0; i < LOOK_LIMIT - 1; i += 1) seedLook(1, `Look ${i}`);
+    db.state.users[0]!.theme = mine.id;
+    const m = market();
+    const out = await caller(1).applyTheme({ themeId: m.id });
+    expect(out).toMatchObject({ themeId: mine.id, created: false });
+    expect(mine.config).toEqual({ buttonColor: "#ff8800" });
+    await caller(1).restore({ id: mine.id, versionId: out.undoVersionId! });
+    expect(mine.config).toEqual({ buttonColor: "#123123" });
+  });
+
+  it("Theme of the week is the admin's pick, else the most used look this week", async () => {
+    const anon = themeRouter.createCaller({ req: {} } as never);
+    expect(await anon.themeOfTheWeek()).toBeNull();
+    seedLook(1, "Popular", { share_slug: "aaaaaaaa", share_level: "link", share_uses: 9 });
+    seedLook(2, "Picked", { share_slug: "bbbbbbbb", share_level: "link", share_uses: 1 });
+    seedLook(2, "Anonymous", {
+      share_slug: "cccccccc",
+      share_level: "link",
+      share_uses: 99,
+      share_credit: false,
+    });
+    expect(await anon.themeOfTheWeek()).toMatchObject({
+      name: "Popular",
+      author: "alice",
+      picked: false,
+    });
+    db.state.settings["theme.themeOfTheWeek"] = "BBBBBBBB";
+    expect(await anon.themeOfTheWeek()).toMatchObject({
+      name: "Picked",
+      author: "bob",
+      picked: true,
+    });
+    flags.themeSharing = false;
+    expect(await anon.themeOfTheWeek()).toBeNull();
   });
 });
