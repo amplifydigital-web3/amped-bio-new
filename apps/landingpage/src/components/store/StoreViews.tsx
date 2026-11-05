@@ -15,6 +15,7 @@ import { cn } from "@repo/ui";
 import { trpcClient } from "@/lib/trpc";
 import { startProductCheckout } from "@/lib/checkout";
 import { CREATOR_FOCUS_RING } from "../content/theme";
+import { ReportStoreButton } from "./ReportStore";
 
 /**
  * Store surfaces on the creator's page (C9; content spec 3.8, store-catalog.md 6, store policy
@@ -57,7 +58,16 @@ export function StorePolicyNotice({ notice }: { notice: string }) {
   );
 }
 
-function StoreFooter({ handle, policyVersion }: { handle: string; policyVersion: number }) {
+function StoreFooter({
+  handle,
+  policyVersion,
+  reportStore = false,
+}: {
+  handle: string;
+  policyVersion: number;
+  /** Storefront and policy page: Report store (store policy 3.4, SP-Q22, C10) */
+  reportStore?: boolean;
+}) {
   return (
     <footer className="mt-[34px] flex flex-wrap gap-x-[21px] text-[14px]">
       <Link
@@ -66,6 +76,7 @@ function StoreFooter({ handle, policyVersion }: { handle: string; policyVersion:
       >
         {STORE_COPY.storePolicy}
       </Link>
+      {reportStore ? <ReportStoreButton handle={handle} /> : null}
     </footer>
   );
 }
@@ -215,7 +226,11 @@ export function StorefrontView({ store }: { store: StorePublic }) {
         </Link>
       </section>
 
-      <StoreFooter handle={store.handle} policyVersion={store.buyingHere.policyVersion} />
+      <StoreFooter
+        handle={store.handle}
+        policyVersion={store.buyingHere.policyVersion}
+        reportStore
+      />
     </div>
   );
 }
@@ -350,6 +365,9 @@ export function StorePolicyView({ policy }: { policy: StorePolicyPublic }) {
       <p className="text-[14px] opacity-75">
         {STORE_COPY.policy.published(policy.version, date(policy.publishedAt))}
       </p>
+      <footer className="text-[14px]">
+        <ReportStoreButton handle={policy.handle} />
+      </footer>
     </div>
   );
 }

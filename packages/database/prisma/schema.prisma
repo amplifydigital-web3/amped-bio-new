@@ -1708,6 +1708,8 @@ model ContentReport {
   contentItemId  Bytes?   @map("content_item_id") @db.Binary(16)
   // Store products (PR 9); no relation until Offer exists
   offerId        Bytes?   @map("offer_id") @db.Binary(16)
+  // C10: a report against a whole store (Report store, reason store_policy)
+  storeUserId    Int?     @map("store_user_id")
   reporterUserId Int?     @map("reporter_user_id")
   // copyright | csam | adult | harassment | malware | scam | other
   reason         String   @db.VarChar(20)
@@ -2330,6 +2332,11 @@ model Purchase {
   softConfirmedAt  DateTime? @map("soft_confirmed_at")
   confirmedAt      DateTime? @map("confirmed_at")
   refundedAt       DateTime? @map("refunded_at")
+  // C10: the creator approved a refund and the relayer sent it; cleared if sending failed
+  refundRequestedAt DateTime? @map("refund_requested_at")
+  refundTxHash     String?   @map("refund_tx_hash") @db.VarChar(66)
+  // C10: the creator's live store policy when the sale was prepared (store policy 3.6)
+  storePolicyVersionId Bytes? @map("store_policy_version_id") @db.Binary(16)
   receiptSentAt    DateTime? @map("receipt_sent_at")
   createdAt        DateTime  @default(now()) @map("created_at")
   updatedAt        DateTime  @updatedAt @map("updated_at")
@@ -2342,6 +2349,7 @@ model Purchase {
   @@index([creatorUserId, createdAt])
   @@index([status, updatedAt])
   @@index([txHash])
+  @@index([refundTxHash])
   @@index([checkoutIntentId])
   @@map("purchases")
 }

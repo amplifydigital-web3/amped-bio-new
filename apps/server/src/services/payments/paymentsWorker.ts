@@ -5,6 +5,7 @@ import { env } from "../../env";
 import { paymentChain, paymentClient } from "../usdc/chain";
 import { ampedPayAddress } from "./onchain";
 import { paymentSettings } from "./settings";
+import { markRefunded } from "../store/sales";
 import {
   PREPARED_TTL_MS,
   decodePaymentLogs,
@@ -137,11 +138,9 @@ export async function indexPaymentLogsOnce(now = new Date()): Promise<number> {
       }
       await settlePurchase(id, { now });
     } else if (event.kind === "purchase_refunded") {
-      const moved = await prisma.purchase.updateMany({
-        where: { id, status: { not: "refunded" } },
-        data: { status: "refunded", refundedAt: await occurredAt(event.log.blockNumber!) },
-      });
-      if (moved.count) console.log("[payments] purchase refunded", idHex);
+      // C10: a final product sale also leaves its product's sales count
+      const moved = await markRefunded(id, await occurredAt(event.log.blockNumber!));
+      if (moved) console.log("[payments] purchase refunded", idHex);
     }
   }
   const written = await recordPaymentLogs(events, occurredAt, contract as Address);

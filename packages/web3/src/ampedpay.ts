@@ -166,3 +166,11 @@ export function purchaseIdFromPaymentRef(ref: Hex): string | null {
   if (body.length !== 64 || !/^0{32}[0-9a-f]{32}$/.test(body)) return null;
   return body.slice(32);
 }
+
+/** EIP-712 types of a creator's refund approval. Matches REFUND_TYPEHASH in AmpedPay.sol (C10). */
+export const REFUND_TYPES = {
+  Refund: [
+    { name: "paymentRef", type: "bytes32" },
+    { name: "deadline", type: "uint64" },
+  ],
+} as const;

@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { StorePolicyPublic, StoreProductPublic, StorePublic } from "@repo/constants";
 
-const mocks = vi.hoisted(() => ({ start: vi.fn() }));
+const mocks = vi.hoisted(() => ({ start: vi.fn(), report: vi.fn() }));
 
 vi.mock("next/link", () => ({
   default: ({ href, children, ...props }: any) => (
@@ -16,7 +16,9 @@ vi.mock("next/link", () => ({
   ),
 }));
 vi.mock("@/lib/checkout", () => ({ startProductCheckout: mocks.start }));
-vi.mock("@/lib/trpc", () => ({ trpcClient: {} }));
+vi.mock("@/lib/trpc", () => ({
+  trpcClient: { store: { report: { mutate: mocks.report } } },
+}));
 
 import { ProductPageView, StorefrontView, StorePolicyView } from "./StoreViews";
 
@@ -146,5 +148,23 @@ describe("StorePolicyView", () => {
     expect(screen.getByRole("link", { name: "See the current policy." }).getAttribute("href")).toBe(
       "/maya/store/policy"
     );
+  });
+});
+
+describe("Report store (store policy 3.4, SP-Q48, C10)", () => {
+  it("sends a store policy report for this store from the storefront footer", async () => {
+    mocks.report.mockResolvedValue({ received: true });
+    render(<StorefrontView store={store} />);
+    fireEvent.click(screen.getByRole("button", { name: "Report store" }));
+    fireEvent.click(screen.getByRole("radio", { name: "Store policy breaks the rules" }));
+    fireEvent.click(screen.getByRole("button", { name: "Send report" }));
+    await waitFor(() =>
+      expect(mocks.report).toHaveBeenCalledWith({
+        handle: "maya",
+        reason: "store_policy",
+        details: undefined,
+      })
+    );
+    expect(await screen.findByText("Thanks. Our team reviews every report.")).toBeTruthy();
   });
 });

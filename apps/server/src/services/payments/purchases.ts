@@ -50,8 +50,16 @@ import { getUsdcBalance, paymentChain, paymentClient, usdcDomain } from "../usdc
 import { RelayerError, getRelayer } from "../usdc/relayer";
 import { ScreeningUnavailableError, screenAddress } from "../usdc/screen";
 import { startOfUtcDay } from "../usdc/limits";
-import { effectiveStatus, hexToIntentId, notFound, resolveTarget } from "../checkout/intents";
+import {
+  effectiveStatus,
+  hexToIntentId,
+  notFound,
+  resolveTarget,
+  targetOf,
+} from "../checkout/intents";
 import { checkoutAmount } from "../checkout/quote";
+import { liveVersion } from "../store/policy";
+import { countFinalSale } from "../store/sales";
 import { ampedPayAddress, readContractState } from "./onchain";
 import { paymentsReady } from "./ready";
 import { limitsFromState, paymentSettings } from "./settings";
@@ -229,7 +237,8 @@ export async function preparePurchase(
   const settings = await paymentSettings(now.getTime());
   if (settings.paymentsPaused) return { refused: true, reason: "paused" };
 
-  const resolved = await resolveTarget({ type: "content", id: intent.targetId });
+  // A product (C9) or a single content item (CK-2): the same target the intent stored
+  const resolved = await resolveTarget(targetOf(intent));
   if (!resolved) return { refused: true, reason: "removed" };
   const handle = resolved.item.creatorHandle;
 
@@ -252,7 +261,7 @@ export async function preparePurchase(
   const limits = limitsFromState(chainState.value);
 
   // The price the sheet showed must still be the price
-  const amount = await checkoutAmount(settings);
+  const amount = resolved.extra.amountUnits ?? (await checkoutAmount(settings));
   if (amount.toString() !== input.amount) {
     return { refused: true, reason: "price", amount: amount.toString() };
   }
@@ -354,6 +363,10 @@ export async function preparePurchase(
       creatorUserId: resolved.creatorUserId,
       targetType: intent.targetType,
       targetId: intent.targetId,
+      // A product purchase names its offer, so Sales and access can read it (C10)
+      offerId: intent.targetType === "offer" ? Buffer.from(intent.targetId, "hex") : null,
+      // The store policy the buyer was shown (store policy 3.6); null before one is published
+      storePolicyVersionId: (await liveVersion(resolved.creatorUserId))?.id ?? null,
       chainId: paymentChain.id,
       payer,
       creatorAddress: creator,
@@ -806,6 +819,8 @@ export async function settlePurchase(
       },
     });
     if (!moved.count) return status;
+    // C10: a product counts a sale once, when it is final
+    await countFinalSale(row.id);
     const block = await client.getBlock({ blockNumber: receipt.blockNumber });
     await recordPaymentLogs(events, () => new Date(Number(block.timestamp) * 1000), contract);
     await setIntentStatus(row.checkoutIntentId, ["open", "signing", "submitted"], "paid");

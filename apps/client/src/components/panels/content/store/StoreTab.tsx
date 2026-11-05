@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { SalesView } from "./SalesView";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Check, ExternalLink, Loader2, Package, Plus } from "lucide-react";
 import {
@@ -36,7 +37,7 @@ import {
 /**
  * Content, Store (content PR 9, C9; content spec 3.8, store-catalog.md 2 and 6, store policy
  * 3.1 to 3.5; boards st1, st2, st3, sp1 to sp3, sp7, k1). Sub tabs Storefront, Products,
- * Membership, Sales and Policy. Membership arrives with MB-1 and Sales with C10.
+ * Membership, Sales and Policy. Membership arrives with MB-2; Sales is C10 (SalesView).
  */
 
 const LANDING = import.meta.env.VITE_LANDINGPAGE_URL ?? "";
@@ -123,11 +124,7 @@ export function StoreTab({ onGoToLibrary }: { onGoToLibrary: () => void }) {
         />
       </TabsContent>
       <TabsContent value="sales" className="mt-0">
-        <EmptyState
-          icon={Package}
-          title="Sales come next"
-          description="Sales, receipts and refunds arrive with store checkout."
-        />
+        <SalesView />
       </TabsContent>
       <TabsContent value="policy" className="mt-0">
         <PolicyView />
