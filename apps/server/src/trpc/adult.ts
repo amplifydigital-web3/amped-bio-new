@@ -31,6 +31,8 @@ import {
   submitForReview,
   withdrawRelease,
 } from "../services/safety/adultSetup";
+import { APPEAL_MAX, fileAppeal } from "../services/safety/creators";
+import { SafetyActionError } from "../services/safety/review";
 
 const personId = z.string().regex(/^[0-9a-f]{32}$/);
 
@@ -90,6 +92,28 @@ export const adultRouter = router({
   setItemPeople: privateProcedure
     .input(contentPeopleSchema)
     .mutation(({ ctx, input }) => run(() => setItemPeople(ctx.user!.sub, input))),
+
+  /** Appeal a decision on one of your items (5.4): once, within 30 days, up to 1,000 characters. */
+  appeal: privateProcedure
+    .input(
+      z.object({ publicId: contentPublicIdSchema, text: z.string().trim().min(10).max(APPEAL_MAX) })
+    )
+    .mutation(async ({ ctx, input }) => {
+      try {
+        return await fileAppeal(ctx.user!.sub, input);
+      } catch (error) {
+        if (error instanceof SafetyActionError) {
+          const code = {
+            not_found: "NOT_FOUND",
+            forbidden: "FORBIDDEN",
+            bad_request: "BAD_REQUEST",
+            conflict: "CONFLICT",
+          } as const;
+          throw new TRPCError({ code: code[error.code], message: error.message });
+        }
+        throw error;
+      }
+    }),
 
   /** Submit an 18+ item for review (6.1). Refusals carry the reason code and its text. */
   submitForReview: privateProcedure
