@@ -26,6 +26,19 @@ export function goHref(blockId: number) {
   return `${API}/go/${blockId}`;
 }
 
+/**
+ * GQ2-2: the block the page's one stake notice sits under, the first gated block
+ * behind a stake rule, or null when no block on the page is (decision D2).
+ */
+export function stakeNoticeBlockId(
+  blocks: Array<{ id: number; gated?: boolean; gate?: unknown }>
+): number | null {
+  const first = blocks.find(
+    block => block.gated && (block.gate as { stake?: boolean } | undefined)?.stake === true
+  );
+  return first?.id ?? null;
+}
+
 type Opened = { decision: AccessDecision; block: BlockReveal | null };
 
 /**

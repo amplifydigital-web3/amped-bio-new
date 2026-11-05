@@ -18,7 +18,7 @@ import { PdfViewer } from "./PdfViewer";
 import { ReportContentButton } from "./ReportDialog";
 import { SITE_CONTENT_COPY as copy } from "./copy";
 import { CREATOR_FOCUS_RING } from "./theme";
-import { UnlockCard, useUnlock } from "./gating";
+import { StakeNotices, UnlockCard, useUnlock } from "./gating";
 
 const PILL = cn(
   "inline-flex min-h-[44px] items-center gap-[4px] rounded-full border border-current px-[16px] text-[16px] font-semibold",
@@ -256,6 +256,10 @@ function LockedItemView({ item, gate }: { item: ContentPublicItem; gate: Content
       </div>
       <h1 className="mt-[13px] text-[28px] font-bold leading-[34px]">{item.title}</h1>
       <p className="mt-[4px] text-[15px] opacity-80">{contentCardMeta(item)}</p>
+
+      {/* GQ2-2: the stake notice is in the server HTML and stays until the unlock
+          card, which carries its own, replaces it */}
+      {gate.stake && state.status !== "locked" && <StakeNotices className="mt-[21px]" />}
 
       {state.status === "checking" && (
         <p role="status" className="mt-[21px] text-[15px] opacity-80">
