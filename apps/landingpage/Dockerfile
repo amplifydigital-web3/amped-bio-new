@@ -56,6 +56,11 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
+# The standalone server binds to $HOSTNAME, which Docker sets to the container
+# id, so it would not answer on 127.0.0.1 and the HEALTHCHECK below would fail.
+# Listen on every interface instead.
+ENV HOSTNAME=0.0.0.0
+ENV PORT=3000
 
 COPY --from=builder --chown=node:node /app/apps/landingpage/.next/standalone ./
 COPY --from=builder --chown=node:node /app/apps/landingpage/.next/static ./apps/landingpage/.next/static

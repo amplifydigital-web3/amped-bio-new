@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router";
 import { Bell, Megaphone } from "lucide-react";
-import { MESSAGE_UI } from "@repo/constants";
+import { MEMBERSHIP_COPY, MESSAGE_UI, PROMOTER_COPY } from "@repo/constants";
 import {
   BottomSheet,
   BottomSheetContent,
@@ -21,6 +21,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { PHONE_QUERY, useMediaQuery } from "@/hooks/useMediaQuery";
 import { useEditor } from "@/contexts/EditorContext";
 import { PersonAvatar } from "./parts";
+import { LIBRARY_PATHS } from "../library/paths";
 import { rowTime } from "./util";
 
 type Item = RouterOutputs["notifications"]["list"][number];
@@ -147,20 +148,45 @@ function BellList({ open, onNavigate }: { open: boolean; onNavigate: () => void 
   if (items.length === 0) {
     return <EmptyState icon={Bell} title={B.empty} description={B.emptyBody} className="py-5" />;
   }
-  const target = (item: Item) =>
-    item.kind === "BROADCAST"
+  const target = (item: Item) => {
+    if (item.kind === "CONTENT") {
+      // One new item opens it; several open the creator's Library section (FL-6)
+      const handle = item.actor?.handle;
+      if (!handle) return LIBRARY_PATHS.home;
+      return item.count === 1 && item.content?.title
+        ? LIBRARY_PATHS.item(handle, item.content.publicId)
+        : LIBRARY_PATHS.creator(handle);
+    }
+    if (item.kind === "PROMOTER_CODE") {
+      // C12: the promoter's codes live under Content, Store, Sales
+      return "/content?t=store";
+    }
+    if (item.kind === "MEMBERSHIP_RENEWAL") {
+      // MB-1 (CK-D3): Wallet, Buy USDC, prefilled with the charge
+      return `/wallet?fund=usdc${item.renewal ? `&need=${item.renewal.need}` : ""}&returnTo=${encodeURIComponent("/library/memberships")}`;
+    }
+    return item.kind === "BROADCAST"
       ? `/inbox?tab=broadcast${item.broadcastId ? `&b=${item.broadcastId}` : ""}`
       : `/inbox?tab=${item.kind === "REQUEST" ? "requests" : "primary"}&c=${item.conversationId}`;
+  };
   return (
     <ul className="max-h-[420px] overflow-y-auto py-1">
       {items.map(item => {
         const handle = item.actor?.handle ?? B.someone;
         const text =
-          item.kind === "BROADCAST"
-            ? B.broadcast(handle)
-            : item.kind === "REQUEST"
-              ? B.request(handle)
-              : B.message(handle, item.count);
+          item.kind === "CONTENT"
+            ? B.content(handle, item.count, item.content?.title ?? null)
+            : item.kind === "PROMOTER_CODE"
+              ? PROMOTER_COPY.bell(handle)
+              : item.kind === "MEMBERSHIP_RENEWAL"
+                ? item.renewal?.graceDay
+                  ? MEMBERSHIP_COPY.bell.pastDue(handle, item.renewal.graceDay)
+                  : MEMBERSHIP_COPY.bell.notReady(handle)
+                : item.kind === "BROADCAST"
+                  ? B.broadcast(handle)
+                  : item.kind === "REQUEST"
+                    ? B.request(handle)
+                    : B.message(handle, item.count);
         return (
           <li key={item.id}>
             <button

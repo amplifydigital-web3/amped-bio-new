@@ -23,6 +23,7 @@ import {
   DEFAULT_RNSID_CONFIG,
   DEFAULT_CONTENT_BLOCK_CONFIG,
   DEFAULT_MESSAGE_BLOCK_CONFIG,
+  DEFAULT_STORE_BLOCK_CONFIG,
   SINGLETON_BLOCK_TYPES,
   type BlockType,
 } from "@repo/constants";
@@ -85,6 +86,8 @@ function draftFor(kind: NewBlockKind): BlockType {
         order: 0,
         config: { ...DEFAULT_MESSAGE_BLOCK_CONFIG },
       };
+    case "store":
+      return { id: DRAFT_ID, type: "store", order: 0, config: { ...DEFAULT_STORE_BLOCK_CONFIG } };
     default:
       return { id: DRAFT_ID, type: "text", order: 0, config: { content: "", platform: "text" } };
   }

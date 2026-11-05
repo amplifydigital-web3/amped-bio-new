@@ -18,6 +18,7 @@ import {
   MoreHorizontal,
   MessageCircle,
   Send,
+  ShoppingBag,
   Trash2,
   UserPlus,
   UsersRound,
@@ -70,7 +71,9 @@ function BlockIcon({ block }: { block: BlockType }) {
                   ? Send
                   : block.type === "content"
                     ? Library
-                    : getPlatformIcon(block.type === "text" ? "text" : block.config.platform);
+                    : block.type === "store"
+                      ? ShoppingBag
+                      : getPlatformIcon(block.type === "text" ? "text" : block.config.platform);
   return <Icon aria-hidden className="h-[21px] w-[21px] shrink-0 text-prism-ink-2" />;
 }
 

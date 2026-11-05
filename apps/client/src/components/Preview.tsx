@@ -15,6 +15,7 @@ import { FollowBlock } from "./blocks/FollowBlock";
 import { FollowersBlock } from "./blocks/FollowersBlock";
 import { RnsIdBlock } from "./blocks/RnsIdBlock";
 import { ContentBlockPreview } from "./blocks/ContentBlockPreview";
+import { StoreBlockPreview } from "./blocks/StoreBlockPreview";
 import { MessageBlockPreview } from "./blocks/MessageBlockPreview";
 import { isHTML } from "@/utils/htmlutils";
 import { type BlockType, DEFAULT_RNSID_CONFIG, safeHref, sanitizeRichHtml } from "@repo/constants";
@@ -63,6 +64,10 @@ const messagesOn = isFeatureOn("messages");
 // Theme Engine v2 (#28): the preview mounts the shared CreatorPage shell, so it
 // draws what the public page draws (spec 3.4, closes D10)
 const themeV2On = isFeatureOn("themeV2");
+// Theme Engine v2 phase 3 (TE-3a): showcase engines in the preview
+const themeShowcaseOn = isFeatureOn("themeShowcase");
+// Theme Engine v2 fonts (2b): the preview loads catalog faces with the picker
+const fontCatalogOn = themeV2On && isFeatureOn("fontCatalog");
 
 interface PreviewProps {
   isEditing: boolean;
@@ -282,6 +287,14 @@ export function Preview({
         </ErrorBoundary>
       );
     }
+    // Store block (st10): what visitors get, from store.listForBio
+    if (block.type === "store") {
+      return (
+        <ErrorBoundary key={block.id} fallback={fallback}>
+          <StoreBlockPreview block={block} theme={themeConfig} />
+        </ErrorBoundary>
+      );
+    }
     // Amped Messages (#2 r4, M6): Message me, and a telegram_message row not yet migrated
     if (block.type === "message" || block.type === "telegram_message") {
       if (!messagesOn) return null;
@@ -338,6 +351,8 @@ export function Preview({
         // Editor chrome: Device budget and Pause motion for the preview only
         device={previewMotion.device}
         paused={previewMotion.paused}
+        showcase={themeShowcaseOn}
+        loadFonts={fontCatalogOn}
         profile={{
           name: profile.name,
           photo: profile.photoCmp || profile.photoUrl,

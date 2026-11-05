@@ -18,6 +18,7 @@ import { PeoplePanel } from "./panels/people/PeoplePanel";
 import { ContentPanel } from "./panels/content/ContentPanel";
 import { CONTENT_FLAGS } from "@/config/content/flags";
 import { PagePanel } from "./panels/page/PagePanel";
+import { LibraryPanel } from "./panels/library/LibraryPanel";
 import { DesignPanel } from "./panels/design/DesignPanel";
 import { AccountPanel } from "./panels/account/AccountPanel";
 import { Rail } from "./shell/Rail";
@@ -55,6 +56,7 @@ const RESTYLED_PANELS: EditorPanelType[] = [
   "account",
   "home",
   "explore",
+  "library",
 ];
 
 function ActivePanel({ panel }: { panel: EditorPanelType }) {
@@ -65,6 +67,8 @@ function ActivePanel({ panel }: { panel: EditorPanelType }) {
       return <AnalyticsPanel />;
     case "people":
       return isFeatureOn("fanGraph") ? <PeoplePanel /> : null;
+    case "library":
+      return isFeatureOn("fanLibrary") ? <LibraryPanel /> : null;
     case "content":
       return CONTENT_FLAGS.library ? <ContentPanel /> : null;
     case "explore":

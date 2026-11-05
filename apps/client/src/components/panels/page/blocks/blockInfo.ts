@@ -1,4 +1,4 @@
-import { MESSAGE_UI, type BlockType } from "@repo/constants";
+import { MESSAGE_UI, STORE_COPY, type BlockType } from "@repo/constants";
 import { getPlatformName, getPlatformUrl, platforms, type PlatformId } from "@/utils/platforms";
 
 // Titles, meta lines and validity for block rows (Screen Review 036 I05, I10)
@@ -43,6 +43,8 @@ export function blockTitle(block: BlockType) {
       return "Telegram group";
     case "content":
       return block.config.label || "Content";
+    case "store":
+      return block.config.label || STORE_COPY.block.name;
     default:
       return "Text";
   }
@@ -112,6 +114,8 @@ export function blockMeta(block: BlockType) {
         { featured: "Featured", grid: "Grid", list: "List" }[block.config.layout] ?? "Featured";
       return `${layout}, ${n === 1 ? "1 item" : `${n} items`}`;
     }
+    case "store":
+      return "Up to 6 products, Visit store";
     case "text":
       return stripTags(block.config.content ?? "");
     default:

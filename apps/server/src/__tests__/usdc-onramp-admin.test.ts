@@ -119,9 +119,7 @@ describe("Admin, Money on-ramp read outs", () => {
         { mode: "apple_pay", _count: { _all: 4 } },
         { mode: "coinbase_account", _count: { _all: 2 } },
       ])
-      .mockResolvedValueOnce([
-        { fiatCurrency: "USD", _sum: { fiatAmount: 7500 } },
-      ])
+      .mockResolvedValueOnce([{ fiatCurrency: "USD", _sum: { fiatAmount: 7500 } }])
       .mockResolvedValueOnce([
         { failureCode: "ERROR_CODE_GUEST_TRANSACTION_LIMIT", _count: { _all: 2 } },
       ]);

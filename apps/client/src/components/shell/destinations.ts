@@ -4,6 +4,7 @@ import {
   Home,
   LayoutPanelTop,
   Library,
+  LibraryBig,
   MessageCircle,
   Palette,
   Search,
@@ -19,6 +20,7 @@ import { isFeatureOn } from "../../config/featureFlags";
 export type DestinationId =
   | "home"
   | "explore"
+  | "library"
   | "inbox"
   | "page"
   | "content"
@@ -42,6 +44,9 @@ export interface Destination {
 export const DESTINATIONS: Destination[] = [
   { id: "home", label: "Home", icon: Home, group: "start" },
   { id: "explore", label: "Explore", icon: Search, group: "start" },
+  // Fan Library (#26, FL-3, CT-D1): Start is Home, Explore, Library, Inbox. On phones
+  // dockComposition keeps the shipped dock, so Library sits in More (CK-D4)
+  { id: "library", label: "Library", icon: LibraryBig, group: "start", flag: "fanLibrary" },
   // Amped Messages (#2 r4, M5, spec 8.1): the Inbox with the unread conversations badge
   { id: "inbox", label: "Inbox", icon: MessageCircle, group: "start", flag: "messages" },
   { id: "page", label: "Page", icon: LayoutPanelTop, group: "page" },
@@ -84,6 +89,8 @@ export function destinationForPanel(panel: EditorPanelType): DestinationId | nul
     case "inbox":
       // The broadcast only inbox (messages flag off) has no rail item; the native Inbox does
       return isFlagOn("messages") ? "inbox" : null;
+    case "library":
+      return isFlagOn("fanLibrary") ? "library" : null;
     case "home":
     case "explore":
     case "page":
@@ -114,6 +121,7 @@ export const PANEL_TITLES: Record<EditorPanelType, string> = {
   pay: "Wallet",
   rns: "Wallet",
   inbox: "Inbox",
+  library: "Library",
 };
 
 /** Destinations with autosaved fields show the save status (002 I01, I13). */

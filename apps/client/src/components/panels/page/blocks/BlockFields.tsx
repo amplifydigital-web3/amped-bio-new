@@ -11,6 +11,11 @@ import { RnsIdBlockFields } from "./RnsIdBlockFields";
 import { ContentBlockFields } from "./ContentBlockFields";
 import { RetiredBlockFields } from "./RetiredBlockFields";
 import { MessageBlockFields } from "./MessageBlockFields";
+import { StoreBlockFields } from "./StoreBlockFields";
+import { isFeatureOn } from "../../../../config/featureFlags";
+
+// Amped Messages (M6): a telegram_message row not yet migrated edits as Message me
+const MESSAGES_ON = isFeatureOn("messages");
 
 // Screen Review 037. The fields an open block row needs, one column on the G2
 // slab. Every valid change goes to the editor state at once (the preview
@@ -234,7 +239,9 @@ export function BlockFields({ block, onValid }: { block: BlockType; onValid: Con
     case "content":
       return <ContentBlockFields key={key} config={block.config} onValid={onValid} />;
     case "message":
-    // Amped Messages (M6): a telegram_message row not yet migrated edits as Message me
+      return <MessageBlockFields key={key} config={block.config} onValid={onValid} />;
+    case "store":
+      return <StoreBlockFields key={key} config={block.config} onValid={onValid} />;
     case "telegram_message":
       return <MessageBlockFields key={key} config={block.config} onValid={onValid} />;
     case "telegram_group":

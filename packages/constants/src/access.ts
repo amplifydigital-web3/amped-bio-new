@@ -17,11 +17,12 @@ export const ACCESS_RULE_KINDS = [
 ] as const;
 export type AccessRuleKind = (typeof ACCESS_RULE_KINDS)[number];
 
-// paid joins in G4, member in G5
+// paid joined in G4; member joins in G5
 export const LIVE_ACCESS_RULE_KINDS = [
   "follower",
   "pool_member",
   "stake_min",
+  "paid",
   "any",
   "all",
 ] as const;
@@ -133,6 +134,8 @@ export const accessRuleInputSchema = z.discriminatedUnion("kind", [
       })
       .strict(),
   }),
+  // One of the creator's own products (store PR 9). Checked on the server (G4)
+  z.object({ kind: z.literal("paid"), params: ACCESS_RULE_PARAMS.paid }),
   z.object({ kind: z.literal("any"), params: ACCESS_RULE_PARAMS.any }),
   z.object({ kind: z.literal("all"), params: ACCESS_RULE_PARAMS.all }),
 ]);

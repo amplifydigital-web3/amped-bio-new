@@ -245,11 +245,18 @@ export const MESSAGE_UI = {
     markAll: "Mark all as seen",
     viewAll: "Open Inbox",
     empty: "Nothing new",
-    emptyBody: "Messages and broadcasts show up here.",
+    emptyBody: "Messages, broadcasts and new items from creators show up here.",
     message: (handle: string, count: number) =>
       count > 1 ? `@${handle} sent you ${count} messages` : `@${handle} sent you a message`,
     request: (handle: string) => `@${handle} wants to message you`,
     broadcast: (handle: string) => `@${handle} sent a broadcast`,
+    // Fan Library new content (FL-6). The title never shows for an 18+ item.
+    content: (handle: string, count: number, title: string | null) =>
+      count > 1
+        ? `@${handle} posted ${count} new items`
+        : title
+          ? `@${handle} posted ${title}`
+          : `@${handle} posted something new`,
     someone: "someone",
     error: "Notifications did not load",
   },
@@ -288,6 +295,9 @@ export const MESSAGE_UI = {
     pushHelp: "A notice when a message arrives and Amped.Bio is closed.",
     emailLabel: "Email reminders",
     emailHelp: "An email when a message waits unread for 30 minutes. At most 3 a day.",
+    newContentLabel: "New items from creators",
+    newContentHelp:
+      "A bell alert when a creator you follow, or whose pool you are in, posts an item you can open. Turn it off for one creator in their Library section.",
     blockedTitle: "Blocked accounts",
     blockedEmpty: "You have not blocked anyone.",
     unblock: "Unblock",
