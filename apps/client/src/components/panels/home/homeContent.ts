@@ -1,19 +1,20 @@
 // Screen Review 016. Home copy, approved in the wording pass (D1). Compliance
 // copy: change it only with counsel sign off.
+import { isFeatureOn } from "../../../config/featureFlags";
 
 /**
  * HOME_CONVERSION_COPY (016 I07, D1). The conversion and tradability
  * paragraphs render only when this is on. It ships off until counsel
  * approves the wording.
  */
-export const HOME_CONVERSION_COPY = import.meta.env.VITE_HOME_CONVERSION_COPY === "true";
+export const HOME_CONVERSION_COPY = isFeatureOn("homeConversionCopy");
 
 /**
  * D2 (alternative kept): the onboarding.ampedbio.com page as an Updates
  * section. Off until that site drops the conversion and tradability
  * paragraphs, so the frame cannot bypass HOME_CONVERSION_COPY.
  */
-export const HOME_UPDATES_FRAME = import.meta.env.VITE_HOME_UPDATES_FRAME === "true";
+export const HOME_UPDATES_FRAME = isFeatureOn("homeUpdatesFrame");
 
 export const UPDATES_URL = "https://onboarding.ampedbio.com/";
 

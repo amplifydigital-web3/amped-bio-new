@@ -88,6 +88,15 @@ export const PREPARED_TTL_MS = 24 * 60 * 60 * 1000;
 
 const IN_FLIGHT = ["submitting", "submitted"] as const;
 
+/**
+ * A purchase that still gives access right now (G4): confirmed or soft confirmed and,
+ * for a product with an access period, before its end. An ended period leaves the fan
+ * free to buy the product again.
+ */
+export const accessStillOpen = (now: Date) => ({
+  OR: [{ accessUntil: null }, { accessUntil: { gt: now } }],
+});
+
 export class PurchaseInputError extends Error {
   constructor(message: string) {
     super(message);
@@ -101,6 +110,8 @@ type Refused = {
   purchaseId?: string;
   amount?: string;
   shortBy?: string;
+  /** policy_changed: the live store policy version the fan must see first */
+  policyVersion?: number;
 };
 
 export type ReceiveAuthorizationPayload = {
@@ -177,6 +188,35 @@ async function setIntentStatus(
   });
 }
 
+/**
+ * The store policy version a purchase carries: the one on the intent, or the live one when the
+ * intent has none yet. A live version newer than the intent's refuses with `policy_changed`
+ * and its version, unless `accepted` is that version; then the intent moves to it.
+ */
+async function policyForPurchase(
+  intent: { id: Uint8Array; storePolicyVersionId: Uint8Array | null },
+  creatorUserId: number,
+  accepted: number | undefined
+): Promise<{ versionId: Buffer | null; refused: Refused | null }> {
+  const live = await liveVersion(creatorUserId);
+  if (!live) return { versionId: null, refused: null };
+  const liveId = Buffer.from(live.id);
+  const shown = intent.storePolicyVersionId ? Buffer.from(intent.storePolicyVersionId) : null;
+  if (shown && !shown.equals(liveId) && accepted !== live.version) {
+    return {
+      versionId: null,
+      refused: { refused: true, reason: "policy_changed", policyVersion: live.version },
+    };
+  }
+  if (!shown || !shown.equals(liveId)) {
+    await prisma.checkoutIntent.update({
+      where: { id: Buffer.from(intent.id) },
+      data: { storePolicyVersionId: liveId },
+    });
+  }
+  return { versionId: liveId, refused: null };
+}
+
 function authorizationMessage(split: SplitTable, contract: Address, splitHash: Hex) {
   return {
     from: split.payer,
@@ -190,7 +230,7 @@ function authorizationMessage(split: SplitTable, contract: Address, splitHash: H
 
 export async function preparePurchase(
   userId: number,
-  input: { intentId: string; amount: string; signer?: string },
+  input: { intentId: string; amount: string; signer?: string; policyVersion?: number },
   now = new Date()
 ): Promise<PreparePurchaseResult> {
   const intent = await prisma.checkoutIntent.findUnique({
@@ -204,6 +244,7 @@ export async function preparePurchase(
       status: true,
       expiresAt: true,
       via: true,
+      storePolicyVersionId: true,
     },
   });
   // Only the fan who claimed the intent; anyone else gets the same not found
@@ -218,6 +259,8 @@ export async function preparePurchase(
         targetType: intent.targetType,
         targetId: intent.targetId,
         status: { in: [...PURCHASE_ACCESS_STATUSES] },
+        // A product whose access period ended can be bought again (G4)
+        ...accessStillOpen(now),
       },
       select: { id: true },
     }),
@@ -245,6 +288,11 @@ export async function preparePurchase(
   const resolved = await resolveTarget(targetOf(intent));
   if (!resolved) return { refused: true, reason: "removed" };
   const handle = resolved.item.creatorHandle;
+
+  // The store policy the sheet showed (CK-5, store policy 3.6). A newer live version refuses
+  // until the fan has seen it and accepts it by sending its version.
+  const policy = await policyForPurchase(intent, resolved.creatorUserId, input.policyVersion);
+  if (policy.refused) return policy.refused;
 
   const creatorWallet = await prisma.userWallet.findUnique({
     where: { userId: resolved.creatorUserId },
@@ -386,7 +434,7 @@ export async function preparePurchase(
       offerId: intent.targetType === "offer" ? Buffer.from(intent.targetId, "hex") : null,
       promoterCodeId: promoter?.codeId ?? null,
       // The store policy the buyer was shown (store policy 3.6); null before one is published
-      storePolicyVersionId: (await liveVersion(resolved.creatorUserId))?.id ?? null,
+      storePolicyVersionId: policy.versionId,
       chainId: paymentChain.id,
       payer,
       creatorAddress: creator,
@@ -564,7 +612,13 @@ export async function submitPurchase(
       buyerUserId: userId,
       targetType: row.targetType,
       targetId: row.targetId,
-      status: { in: [...IN_FLIGHT, ...PURCHASE_ACCESS_STATUSES] },
+      OR: [
+        // A payment already on its way, whatever its age
+        { status: { in: [...IN_FLIGHT] } },
+        // Access already owned, so a second payment adds nothing. An ended access
+        // period (G4) does not block the fan from buying again
+        { status: { in: [...PURCHASE_ACCESS_STATUSES] }, ...accessStillOpen(now) },
+      ],
     },
     select: { id: true, status: true },
   });
@@ -742,6 +796,23 @@ export async function recordPaymentLogs(
   return written;
 }
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * The end of a product's access period (G4, ST-Q44 "Access for N days"), counted from the
+ * first chain confirmation. Lifetime products, content and rows that already carry an end
+ * are left as they are.
+ */
+async function accessWindow(row: PurchaseRow, from: Date): Promise<{ accessUntil?: Date }> {
+  if (!row.offerId || row.accessUntil) return {};
+  const offer = await prisma.offer.findUnique({
+    where: { id: Buffer.from(row.offerId) },
+    select: { accessPeriodDays: true },
+  });
+  if (!offer?.accessPeriodDays) return {};
+  return { accessUntil: new Date(from.getTime() + offer.accessPeriodDays * DAY_MS) };
+}
+
 /**
  * Moves one in flight Purchase forward from its receipt. Safe to call from submit, the status
  * poll, the worker and the indexer: every write names the statuses it moves from.
@@ -775,7 +846,14 @@ export async function settlePurchase(
       // The block that held it is gone (reorg): access closes until it lands again
       const moved = await prisma.purchase.updateMany({
         where: { id: row.id, status: "confirmed_soft" },
-        data: { status: "submitted", blockNumber: null, blockHash: null, softConfirmedAt: null },
+        data: {
+          status: "submitted",
+          blockNumber: null,
+          blockHash: null,
+          softConfirmedAt: null,
+          // A product period restarts when the payment lands again
+          ...(row.offerId ? { accessUntil: null } : {}),
+        },
       });
       if (moved.count) {
         console.warn("[payments] purchase receipt vanished after soft confirm", hash);
@@ -836,6 +914,7 @@ export async function settlePurchase(
         failureCode: null,
         confirmedAt: now,
         softConfirmedAt: row.softConfirmedAt ?? now,
+        ...(await accessWindow(row, row.softConfirmedAt ?? now)),
         ...gas,
       },
     });
@@ -858,7 +937,13 @@ export async function settlePurchase(
     }
     const moved = await prisma.purchase.updateMany({
       where: { id: row.id, status: { in: ["submitted", "failed"] } },
-      data: { status: "confirmed_soft", failureCode: null, softConfirmedAt: now, ...gas },
+      data: {
+        status: "confirmed_soft",
+        failureCode: null,
+        softConfirmedAt: now,
+        ...(await accessWindow(row, now)),
+        ...gas,
+      },
     });
     if (!moved.count) return status;
     await setIntentStatus(row.checkoutIntentId, ["open", "signing", "submitted"], "paid");
@@ -873,6 +958,24 @@ export async function settlePurchase(
  * The pay sheet polls this after submit (content spec 3.9 step 5). `unlocked` opens the item;
  * `final` means the receipt went out.
  */
+/**
+ * The newest purchase this fan started from an intent, as purchaseStatus reads it (CK-5): the
+ * pay sheet shows Checking on a return to a signing or submitted intent (mobile checkout 9).
+ * Null when nothing was sent yet.
+ */
+export async function purchaseForIntent(userId: number, intentIdHex: string) {
+  const row = await prisma.purchase.findFirst({
+    where: {
+      buyerUserId: userId,
+      checkoutIntentId: hexToIntentId(intentIdHex),
+      status: { notIn: ["prepared", "expired"] },
+    },
+    orderBy: { createdAt: "desc" },
+    select: { id: true },
+  });
+  return row ? purchaseStatus(userId, purchaseIdToHex(row.id)) : null;
+}
+
 export async function purchaseStatus(userId: number, idHex: string) {
   const row = await ownPurchase(userId, idHex);
   let status = row.status as PurchaseStatus;

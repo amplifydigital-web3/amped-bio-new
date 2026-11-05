@@ -3,6 +3,7 @@ import { prisma } from "@repo/database";
 import { z } from "zod";
 import { bannerSchema } from "../../schemas/banner";
 import { SITE_SETTINGS } from "@repo/constants";
+import { edgeHealth } from "../../services/content/edge";
 
 // Function to check if text contains links
 const containsLink = (text: string): boolean => {
@@ -335,4 +336,7 @@ export const dashboardRouter = router({
         },
       });
     }),
+
+  /** Takedown sync tile (content takedown 4.3, board tk2). Counts only, never ids. */
+  takedownSync: adminProcedure.query(() => edgeHealth()),
 });

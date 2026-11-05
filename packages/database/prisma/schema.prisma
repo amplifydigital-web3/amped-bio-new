@@ -113,9 +113,12 @@ model User {
   onrampAuth          OnrampUserAuth?
 
   // Content system (Build Board #20), PR 2
-  contentItems   ContentItem[]
-  storageQuota   UserStorageQuota?
-  viewerProgress ViewerProgress[]
+  contentItems          ContentItem[]
+  storageQuota          UserStorageQuota?
+  viewerProgress        ViewerProgress[]
+  savedItems            SavedItem[]
+  libraryVisits         LibraryCreatorVisit[] @relation("LibraryVisitsMade")
+  libraryVisitsReceived LibraryCreatorVisit[] @relation("LibraryVisitsReceived")
 
   @@unique([email])
   @@map("users")
@@ -986,7 +989,7 @@ model BroadcastReport {
 // One row per sender. Created by an admin invite or on the first send.
 model BroadcastSenderStatus {
   userId          Int       @id
-  invitedAt       DateTime? // invite-only pilot (BROADCAST_INVITE_ONLY)
+  invitedAt       DateTime? // broadcast pilot invite (recorded, no gate)
   firstApprovedAt DateTime? // set when the first broadcast passes review
   pausedAt        DateTime?
   pausedReason    String?   @db.VarChar(255)
@@ -1455,6 +1458,13 @@ enum ContentStatus {
   DELETED
 }
 
+/// What the edge holds for an item (C7a, content-takedown.md 4.1)
+enum ContentEdgeState {
+  OPEN
+  PRIVATE
+  BLOCKED
+}
+
 enum ContentPublishState {
   DRAFT
   PUBLISHED
@@ -1529,6 +1539,16 @@ model ContentItem {
   publishedAt      DateTime?           @map("published_at")
   deletedAt        DateTime?           @map("deleted_at")
   purgeAfter       DateTime?           @map("purge_after")
+  // Takedown (C7a, content-takedown.md 4.3): what the edge (KV, Stream origins)
+  // holds for this item now, and when it may need to change
+  edgeState        ContentEdgeState    @default(OPEN) @map("edge_state")
+  edgeDirtyAt      DateTime?           @map("edge_dirty_at")
+  edgeAttempts     Int                 @default(0) @map("edge_attempts")
+  edgeError        String?             @map("edge_error") @db.VarChar(160)
+  // Safety hide (R1 sets and clears it through hideItems and restoreItems)
+  hiddenAt         DateTime?           @map("hidden_at")
+  // safety | child_safety | take_it_down | withdrawn
+  hiddenReason     String?             @map("hidden_reason") @db.VarChar(24)
   createdAt        DateTime            @default(now()) @map("created_at")
   updatedAt        DateTime            @updatedAt @map("updated_at")
 
@@ -1539,11 +1559,13 @@ model ContentItem {
   // gated item never turns public. Never SetNull.
   accessRule     AccessRule?      @relation(fields: [accessRuleId], references: [id], onDelete: Restrict)
   viewerProgress ViewerProgress[]
+  savedItems     SavedItem[]
   offerItems     OfferItem[]
 
   @@index([userId, status])
   @@index([userId, publishState, publishedAt])
   @@index([accessRuleId])
+  @@index([edgeDirtyAt])
   @@map("content_items")
 }
 
@@ -1759,6 +1781,41 @@ model ViewerProgress {
   @@index([userId, lastPlayedAt])
   @@index([contentItemId])
   @@map("viewer_progress")
+}
+
+// Fan Library (#26) FL-2: items a fan saved to their Library. Access is
+// rechecked on every read; a saved item the fan can no longer open is hidden,
+// not deleted, and shows again if access returns.
+model SavedItem {
+  id            Bytes    @id @db.Binary(16)
+  userId        Int      @map("user_id")
+  contentItemId Bytes    @map("content_item_id") @db.Binary(16)
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contentItem ContentItem @relation(fields: [contentItemId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, contentItemId])
+  @@index([userId, createdAt])
+  @@index([contentItemId])
+  @@map("saved_items")
+}
+
+// Fan Library (#26) FL-2: when a fan last opened a creator's section, for the
+// new count on Your creators. The creator is a user: there is no Bio table, so
+// the spec's bioId is creatorId here.
+model LibraryCreatorVisit {
+  id            Bytes    @id @db.Binary(16)
+  userId        Int      @map("user_id")
+  creatorId     Int      @map("creator_id")
+  lastVisitedAt DateTime @map("last_visited_at")
+
+  user    User @relation("LibraryVisitsMade", fields: [userId], references: [id], onDelete: Cascade)
+  creator User @relation("LibraryVisitsReceived", fields: [creatorId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, creatorId])
+  @@index([creatorId])
+  @@map("library_creator_visits")
 }
 
 // ===== Messaging on Telegram, phase 1: fan to creator messages (PR 3) =====
@@ -2236,6 +2293,9 @@ model CheckoutIntent {
   via           String?   @db.VarChar(32)
   // Where the fan tapped Buy, for the phone funnel
   source        String    @db.VarChar(16)
+  // The store policy version the sheet showed (CK-5, store policy 3.6). Set at the first quote;
+  // moved to the live version only when the fan accepts a changed policy
+  storePolicyVersionId Bytes? @map("store_policy_version_id") @db.Binary(16)
   expiresAt     DateTime  @map("expires_at")
   claimedAt     DateTime? @map("claimed_at")
   createdAt     DateTime  @default(now()) @map("created_at")

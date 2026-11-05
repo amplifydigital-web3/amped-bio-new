@@ -52,7 +52,12 @@ import {
   publishPolicy,
   saveDraft,
 } from "../services/store/policy";
-import { storePolicyPublic, storeProductPublic, storePublic } from "../services/store/public";
+import {
+  storeForBioByHandle,
+  storePolicyPublic,
+  storeProductPublic,
+  storePublic,
+} from "../services/store/public";
 import {
   listSales,
   prepareRefund,
@@ -211,6 +216,17 @@ export const storeRouter = router({
       const product = await storeProductPublic(input.handle, input.slug, ctx.user?.sub ?? null);
       if (!product) throw notFound();
       return product;
+    }),
+
+  /** Store block on the bio (st10). Null hides the block: not live, no products. */
+  listForBio: publicProcedure
+    .input(z.object({ handle: handleSchema }))
+    .query(async ({ ctx, input }) => {
+      await enforceRateLimits(
+        [{ key: `store_public:ip:${getClientIp(ctx.req)}`, limit: 240, windowSeconds: 60 }],
+        "Too many requests. Try again in a minute."
+      );
+      return storeForBioByHandle(input.handle);
     }),
 
   publicPolicy: publicProcedure

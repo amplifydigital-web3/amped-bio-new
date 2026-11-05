@@ -15,6 +15,7 @@ import { FollowBlock } from "./blocks/FollowBlock";
 import { FollowersBlock } from "./blocks/FollowersBlock";
 import { RnsIdBlock } from "./blocks/RnsIdBlock";
 import { ContentBlockPreview } from "./blocks/ContentBlockPreview";
+import { StoreBlockPreview } from "./blocks/StoreBlockPreview";
 import { TelegramGroupPreview, TelegramMessagePreview } from "./blocks/TelegramMessageBlock";
 import { MessageBlockPreview } from "./blocks/MessageBlockPreview";
 import { isHTML } from "@/utils/htmlutils";
@@ -281,6 +282,14 @@ export function Preview({
       return (
         <ErrorBoundary key={block.id} fallback={fallback}>
           <ContentBlockPreview block={block} theme={themeConfig} />
+        </ErrorBoundary>
+      );
+    }
+    // Store block (st10): what visitors get, from store.listForBio
+    if (block.type === "store") {
+      return (
+        <ErrorBoundary key={block.id} fallback={fallback}>
+          <StoreBlockPreview block={block} theme={themeConfig} />
         </ErrorBoundary>
       );
     }

@@ -10,7 +10,7 @@
  *   images, covers         public 24 h rounded up to the hour   private 5 min
  *   documents              public 1 h                            private 5 min
  *   audio, waveform, VTT   public 24 h rounded up to the hour   private duration + 10 min, 4 h max
- *   Stream token           public duration + 30 min, 6 h max    private duration + 10 min, 4 h max
+ *   Stream token           duration + 10 min, 4 h max, public and private (takedown TD3)
  *   downloads              2 min; R2 files single use
  *   previews (C8)          1 h for the blur, clip, audio preview and preview pages
  *
@@ -97,11 +97,9 @@ export function deliveryExpiry(
           : nowSec + Math.min(durationSec + 10 * MINUTE, 4 * HOUR);
       break;
     case "stream":
-      exp =
-        nowSec +
-        (access === "public"
-          ? Math.min(durationSec + 30 * MINUTE, 6 * HOUR)
-          : Math.min(durationSec + 10 * MINUTE, 4 * HOUR));
+      // Takedown TD3 (content-takedown.md): public matches private, so a video
+      // hidden or unpublished stops within 4 hours even for a copied token
+      exp = nowSec + Math.min(durationSec + 10 * MINUTE, 4 * HOUR);
       break;
     case "download":
       exp = nowSec + 2 * MINUTE;
@@ -135,7 +133,14 @@ class Signer {
     const exp = deliveryExpiry(kind, this.access, this.item.durationMs, this.now);
     this.note(exp);
     const token = signMediaToken(
-      { k: asset.r2Key, r: asset.role.toLowerCase(), exp, dl: 0 },
+      {
+        k: asset.r2Key,
+        r: asset.role.toLowerCase(),
+        exp,
+        dl: 0,
+        // Public class (takedown TD2): the gateway refuses it once the item goes private
+        ...(this.access === "public" ? { p: 1 as const } : {}),
+      },
       undefined,
       this.now
     );

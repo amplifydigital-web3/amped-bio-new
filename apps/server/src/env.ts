@@ -242,8 +242,10 @@ const envSchema = z.object({
   // Fallback of the `messages` feature flag (admin Feature flags) when it has no row.
   // Off makes every Inbox read only (spec 7.1).
   MESSAGING_ENABLED: boolSchema(true),
-  // Gated creator groups (phase 2)
+  // Fallback of the `telegramGroups` feature flag (admin Feature flags) when it has no row.
+  // Gated creator groups (phase 2).
   TELEGRAM_GROUPS: boolSchema(false),
+  // Fallback of the `telegramMiniApp` feature flag (admin Feature flags) when it has no row.
   // The Mini App page endpoint, follow and share (phase 3). Counsel confirms TON safe mode first.
   TELEGRAM_MINIAPP: boolSchema(false),
 
@@ -351,6 +353,15 @@ const envSchema = z.object({
   // Stream customer code for thumbnail URLs (customer-{code}.cloudflarestream.com). Optional:
   // read from the video when empty
   CF_STREAM_CUSTOMER_CODE: z.string().default(""),
+  // Content takedown (C7a, content-takedown.md 4.9). The TAKEDOWN KV namespace id the
+  // media gateway reads (takedown, takedown-staging) and a token with Workers KV
+  // Storage Edit on that account. Without both, edge sync logs an alert and waits.
+  CF_TAKEDOWN_NAMESPACE_ID: z.string().default(""),
+  CF_KV_API_TOKEN: z.string().default(""),
+  // Zone id of amped.bio (holds both media hosts) and a token with Zone Cache Purge.
+  // Optional: purge is cleanup only; the KV key already stops delivery.
+  CF_MEDIA_ZONE_ID: z.string().default(""),
+  CF_CACHE_PURGE_TOKEN: z.string().default(""),
   // Per kind upload limits in MB (spec 3.2)
   UPLOAD_LIMIT_CONTENT_VIDEO_MB: numSchema(2048),
   UPLOAD_LIMIT_CONTENT_AUDIO_MB: numSchema(500),
