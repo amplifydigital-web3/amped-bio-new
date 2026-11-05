@@ -212,6 +212,14 @@ export const FEATURE_FLAGS = {
     default: false,
     env: { client: "VITE_CONTENT" },
   },
+  fanLibrary: {
+    label: "Fan Library",
+    description:
+      "Fan Library (Build Board #26): up next and the queue on public item pages, and the Library pages as they ship (FL-1 to FL-7).",
+    scope: "public",
+    default: false,
+    env: {},
+  },
   contentUploads: {
     label: "Content uploads",
     description:
@@ -248,6 +256,14 @@ export const FEATURE_FLAGS = {
     scope: "server",
     default: false,
     env: { server: "PAYMENTS_ENABLED" },
+  },
+  storeSales: {
+    label: "Store sales",
+    description:
+      "Creator stores and product pages are public and take payments. Off: a store renders for its owner in preview only (store catalog 2).",
+    scope: "public",
+    default: false,
+    env: {},
   },
   accessGating: {
     label: "Access gating",

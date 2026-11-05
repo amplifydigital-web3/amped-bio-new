@@ -8,7 +8,10 @@ import { registerMessagingOutboxHandlers } from "./services/messaging/delivery";
 import { registerGroupOutboxHandlers, startGroupChecks } from "./services/telegram/groups";
 import { startUsdcIndexer } from "./services/usdc";
 import { startPaymentsAdminIndexer } from "./services/payments/indexer";
+import { startPaymentsWorker } from "./services/payments/paymentsWorker";
+import { startMembershipRenewals } from "./services/memberships/renewals";
 import { startContentSweeper } from "./services/content/state";
+import { startEdgeSync } from "./services/content/edge";
 import { startOnrampTokenPurge } from "./services/onramp/sessions";
 import { startRnsExpirySweeper } from "./services/rnsExpiry";
 import { startCheckoutIntentPurge } from "./services/checkout/intents";
@@ -45,8 +48,11 @@ startUsdcIndexer();
 // AmpedPay admin (Build Board #50): mark Safe changes applied from the contract's events.
 // No-op until AMPEDPAY_ADDRESS is set.
 startPaymentsAdminIndexer();
+startPaymentsWorker();
+startMembershipRenewals();
 // Content system (Build Board #20): fail uploads left unfinished for 24 hours and release their bytes.
 startContentSweeper();
+startEdgeSync();
 // Buy USDC: delete expired Coinbase userAuthTokens after their 60 day life
 startOnrampTokenPurge();
 // RNS name expiry emails: an hourly sweep, one email per name and stage

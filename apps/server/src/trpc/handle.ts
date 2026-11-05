@@ -30,7 +30,8 @@ import { enforceRateLimits } from "../utils/rateLimit";
 import { getVisitorIp } from "../services/analytics/visitorIp";
 import { publicCardsFor } from "../services/content/publicView";
 import { publicBlocksFor } from "../services/access/blocks";
-import type { ContentBlockConfig, ContentCard } from "@repo/constants";
+import type { ContentBlockConfig, ContentCard, StoreBioBlock } from "@repo/constants";
+import { storeForBio } from "../services/store/public";
 
 export const SITEMAP_MAX_PAGE_SIZE = 10000;
 
@@ -229,6 +230,8 @@ const appRouter = router({
         .filter(block => block.type === "content")
         .flatMap(block => (block.config as Partial<ContentBlockConfig> | null)?.publicIds ?? [])
         .filter((id): id is string => typeof id === "string");
+      // Store block (st10): the creator's products, read only when the page carries it
+      const hasStoreBlock = blockRows.some(block => block.type === "store");
       const [
         themeResult,
         imageResult,
@@ -239,6 +242,7 @@ const appRouter = router({
         groupDoorResult,
         contentResult,
         messageDoorResult,
+        storeBlockResult,
       ] = await Promise.allSettled([
         getPublicTheme(Number(theme_id)),
         getFileUrl({
@@ -266,6 +270,10 @@ const appRouter = router({
           ? publicCardsFor(user_id, contentIds)
           : Promise.resolve({} as Record<string, ContentCard>),
         hasMessageBlock ? messageDoor(user_id) : Promise.resolve(null),
+        // Public stores only, never the owner's preview; a suspended page shows none
+        hasStoreBlock && user.handle && user.page_status === "PUBLISHED" && user.block === "no"
+          ? storeForBio({ id: user_id, handle: user.handle.toLowerCase(), name })
+          : Promise.resolve(null),
       ]);
 
       // The theme is the profile itself, so its failure is fatal
@@ -336,6 +344,12 @@ const appRouter = router({
           contentResult,
           {} as Record<string, ContentCard>,
           "content cards"
+        ),
+        // Store block (st10): null hides the block. Fails closed.
+        storeBlock: settledOrFallback(
+          storeBlockResult,
+          null as StoreBioBlock | null,
+          "store block"
         ),
         indexable: isUserIndexable(user, publicBlocks.length),
       };

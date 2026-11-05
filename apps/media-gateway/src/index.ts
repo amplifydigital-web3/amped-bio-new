@@ -7,7 +7,8 @@
  *      fonts under fonts/ are the exception (fonts.ts, Theme Engine v2 2b PR 2).
  *   3. The token must verify: known kid, valid HMAC, not expired, lifetime within
  *      the cap, and payload.k equal to the path.
- *   4. The item must not be taken down (KV `blocked:{publicId}`).
+ *   4. The item must not be taken down (KV `blocked:{publicId}`), and a public
+ *      class token must not be used once the item went private (`private:{publicId}`).
  *   5. A download token is single use (Durable Object keyed by its jti).
  *   6. Serve from the edge cache by the token free key, or from R2 with Range and
  *      conditional requests, filling the cache for objects up to 512 MB.
@@ -30,6 +31,11 @@ import { pathForKey, servedKeyFromPath } from "./path";
 import { fontKeyFromPath, serveFont } from "./fonts";
 import { parseRange, resolveRange } from "./range";
 import { verificationKeys, verifyToken } from "./token";
+import {
+  parseTakedownBlockedValue,
+  takedownBlockedKey,
+  takedownPrivateKey,
+} from "@repo/constants/src/mediaToken";
 
 export { DownloadClaims };
 
@@ -113,8 +119,23 @@ export async function handle(
   const payload = check.payload;
   if (payload.k !== served.key) return refuse("path_mismatch", { key: served.key });
 
-  if ((await env.TAKEDOWN.get(`blocked:${served.publicId}`)) !== null) {
-    return refuse("takedown", { key: served.key });
+  // Takedown (content-takedown.md 4.7). Both reads skip cacheTtl, so a write is
+  // honored everywhere within KV's 60 second propagation. Checked before the
+  // edge cache, so a cached copy is never served for a blocked or private item.
+  const blocked = await env.TAKEDOWN.get(takedownBlockedKey(served.publicId));
+  if (blocked !== null) {
+    // A Safety reviewer may open a hidden item (R2); nobody opens a child safety one
+    const { r } = parseTakedownBlockedValue(blocked);
+    if (payload.a !== "safety" || r === "child_safety") {
+      return refuse("takedown", { key: served.key });
+    }
+  } else if (
+    payload.p === 1 &&
+    // The blur of a gated item stays public (content gating 3.2)
+    payload.r !== "blur" &&
+    (await env.TAKEDOWN.get(takedownPrivateKey(served.publicId))) !== null
+  ) {
+    return refuse("private", { key: served.key });
   }
 
   const context: ViewerContext = { payload, origin, allowed, now };

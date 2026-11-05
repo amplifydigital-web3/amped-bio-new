@@ -123,9 +123,9 @@ describe("delivery lifetimes (spec 3.6)", () => {
     expect(deliveryExpiry("timed", "private", 10 * 3600_000, now) - nowSec).toBe(4 * 3600);
   });
 
-  it("gives Stream tokens duration plus 30 or 10 minutes, capped", () => {
-    expect(deliveryExpiry("stream", "public", 12 * 60_000, now) - nowSec).toBe(42 * 60);
-    expect(deliveryExpiry("stream", "public", 9 * 3600_000, now) - nowSec).toBe(6 * 3600);
+  it("gives Stream tokens duration plus 10 minutes, capped at 4 hours (takedown TD3)", () => {
+    expect(deliveryExpiry("stream", "public", 12 * 60_000, now) - nowSec).toBe(22 * 60);
+    expect(deliveryExpiry("stream", "public", 9 * 3600_000, now) - nowSec).toBe(4 * 3600);
     expect(deliveryExpiry("stream", "private", 12 * 60_000, now) - nowSec).toBe(22 * 60);
     expect(deliveryExpiry("stream", "private", 9 * 3600_000, now) - nowSec).toBe(4 * 3600);
     expect(deliveryExpiry("download", "public", null, now) - nowSec).toBe(120);
@@ -184,8 +184,8 @@ describe("buildPlayback", () => {
     );
     expect(tokenOf(playback.video!.poster!)?.k).toBe("derived/abcdefghijklmnop/cover/1280.jpg");
     expect(playback.captions).toEqual([{ lang: "en", label: "English", src: null }]);
-    // The earliest expiry is the Stream token: 12:40 plus 30 minutes
-    expect(playback.expiresAt).toBe((nowSec + 760 + 30 * 60) * 1000);
+    // The earliest expiry is the Stream token: 12:40 plus 10 minutes (takedown TD3)
+    expect(playback.expiresAt).toBe((nowSec + 760 + 10 * 60) * 1000);
   });
 
   it("signs the audio rendition, waveform and caption files, never the upload", async () => {
