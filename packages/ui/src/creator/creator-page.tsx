@@ -1,6 +1,6 @@
 "use client";
 
-import type { CSSProperties, ReactNode, Ref } from "react";
+import { useState, type CSSProperties, type ReactNode, type Ref } from "react";
 import { sanitizeRichHtml, type AnyThemeConfig } from "@repo/constants";
 import { cn } from "../utils";
 import {
@@ -17,6 +17,7 @@ import {
 } from "./look";
 import { CreatorFontLinks } from "./fonts";
 import { NameText } from "./name-effect";
+import { ParticleName } from "./particle-name";
 import { WeightPulseName } from "./weight-pulse";
 import { ParticlesLayer } from "./particles-layer";
 import { ShaderLayer, type EffectDrop } from "./shader-layer";
@@ -175,6 +176,9 @@ export function CreatorPage({
   const texture = textureStyle(background);
   // Phase 2 Name row: Settle, Applies to and the text entrances
   const weak = device === "weak";
+  // TE-3f: Particle text hides the heading's ink only once its dots are drawn
+  const [dotsDrawn, setDotsDrawn] = useState(false);
+  const particleName = look.name.render.kind === "particles";
   // Phase 2b: the name's own face over the body font, when the theme has one
   const nameStyle = {
     ...textStyle,
@@ -237,7 +241,8 @@ export function CreatorPage({
           entry={playingOverlay(look)}
           params={look.overlayParams}
           colors={look.colors}
-          paused={paused || weak}
+          // A Showcase overlay (Comet trails) holds its still frame while the flag is off
+          paused={paused || weak || (playingOverlay(look)?.tier === "showcase" && !showcase)}
         />
       )}
     </div>
@@ -296,8 +301,25 @@ export function CreatorPage({
             )}
             style={nameStyle}
           >
-            {/* TE-3e2: Weight pulse needs the catalog fonts; without them the name is plain */}
-            {look.name.id === "name.weight-pulse" ? (
+            {particleName ? (
+              <span
+                className="relative inline-block max-w-full"
+                style={dotsDrawn ? { color: "transparent" } : undefined}
+              >
+                {profile.name}
+                <ParticleName
+                  entry={look.name}
+                  params={look.v2.name.params}
+                  colors={look.colors}
+                  showcase={showcase}
+                  paused={paused}
+                  weak={weak}
+                  text={profile.name}
+                  onDrawn={setDotsDrawn}
+                />
+              </span>
+            ) : look.name.id === "name.weight-pulse" ? (
+              // TE-3e2: Weight pulse needs the catalog fonts; without them the name is plain
               loadFonts ? (
                 <WeightPulseName text={profile.name} params={look.v2.name.params} paused={paused} />
               ) : (

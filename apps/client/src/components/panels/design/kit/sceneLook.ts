@@ -1,4 +1,5 @@
 import {
+  EMITTER_SCENES,
   SCENE_PRESETS,
   SHADER_SCENES,
   getEffect,
@@ -40,12 +41,29 @@ export const SCENE_TILES: SceneTile[] = [
     effectId: `scene.${key}`,
     entry: getEffect("scene", `scene.${key}`),
   })),
+  // Phase 3b: the shader scenes (scenes.shaders.ts)
   ...SHADER_SCENES.map(entry => ({ id: 0, effectId: entry.id, entry })),
+  // TE-3f: the emitter scenes (Plus) and Comet trails (Showcase)
+  ...Object.entries(EMITTER_SCENES).map(([key, scene]) => ({
+    id: scene.fallback,
+    effectId: `scene.${key}`,
+    entry: getEffect("scene", `scene.${key}`),
+  })),
+  { id: 8, effectId: "scene.trail", entry: getEffect("scene", "scene.trail") },
 ];
+
+/**
+ * The tiles the row shows. Showcase tiles (shader scenes, Comet trails) need
+ * SHOW_THEME_SHOWCASE; with it off they stay out of the grid, and a page that
+ * already stores one shows its still frame (CreatorPage).
+ */
+export function offeredScenes(tiles: SceneTile[], showcase: boolean): SceneTile[] {
+  return showcase ? tiles : tiles.filter(t => t.entry.tier !== "showcase");
+}
 
 /** Shader tiles show only with the showcase flag (TE-3b); the API drops them without it. */
 export function sceneTilesFor(showcase: boolean): SceneTile[] {
-  return showcase ? SCENE_TILES : SCENE_TILES.filter(tile => tile.entry.engine !== "webgl");
+  return offeredScenes(SCENE_TILES, showcase);
 }
 
 /** True when the tile is a shader scene (it sets the scene base, not the overlay). */

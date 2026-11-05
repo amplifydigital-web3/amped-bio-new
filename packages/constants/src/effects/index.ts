@@ -22,3 +22,24 @@ export { nameSettle, isNameEntrance } from "./names";
 export { NAME_SPEED_FACTOR, NAME_SPEED_PARAM } from "./names";
 export { HOVER_SPEED_MS, HOVER_SPEED_PARAM } from "./buttonHovers";
 export { PAGE_BUDGET, pageCost, type CostPart, type PageCost } from "./cost";
+export {
+  COMET_PARAMS,
+  EMITTER_PARTICLE_LIMIT,
+  EMITTER_SCENES,
+  PARTICLE_PLUGINS,
+  PARTICLE_TEXT_PARAMS,
+  STILL_COUNT_KEY,
+  TRAIL_LENGTH_PARAM,
+  cometTrailOptions,
+  emitterSceneOptions,
+  particleTextOptions,
+  textDotCount,
+  type EmitterScene,
+  type ParticlePlugin,
+} from "./scenes.emitters";
+export {
+  COMET_TRAILS_EFFECT,
+  EMITTER_SCENE_EFFECTS,
+  PARTICLE_TEXT_EFFECT,
+  PLUGIN_SCENE_IDS,
+} from "./scenes.plugins";

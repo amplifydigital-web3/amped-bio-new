@@ -148,16 +148,17 @@ describe("registry lookups", () => {
         .filter(e => e.addedIn === 1)
         .map(e => e.legacyId)
     ).toEqual([0, 1, 2, 3, 4, 5, 7, 8, 9]);
-    // The nine v1 overlays, eight Plus scenes on the slim bundle (phase 2, board 01)
-    // and the twenty shader scenes (TE-3b)
-    expect(listEffects("scene").length).toBe(37);
+    // The nine v1 overlays, eight Plus scenes on the slim bundle (phase 2, board 01),
+    // the twenty shader scenes (TE-3b), five emitter scenes and Comet trails (TE-3f)
+    expect(listEffects("scene").length).toBe(43);
     expect(
       listEffects("name")
         .filter(e => e.addedIn === 1)
         .map(e => e.legacyId)
     ).toEqual([0, 2, 6, 7, 8, 9]);
-    // The six v1 name effects, nine core effects (phase 2, board 08) and Weight pulse (TE-3e2)
-    expect(listEffects("name").length).toBe(16);
+    // The six v1 name effects, nine core effects (phase 2, board 08), Particle text (TE-3f)
+    // and Weight pulse (TE-3e2)
+    expect(listEffects("name").length).toBe(17);
     // The ten v1 styles plus Hard shadow (phase 2, board 07) and Specular (phase 3d)
     expect(listEffects("button").length).toBe(12);
     // The ten v1 hovers plus five core hovers (phase 2, board 09)

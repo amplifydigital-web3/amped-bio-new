@@ -26,6 +26,7 @@ import {
 // Phase 3b: shader tiles paint their poster and run the shader only while
 // live, so at most one WebGL context runs in the row. TE-3g swaps the live
 // shader for a build time video on heavy tiles.
+// TE-3b, TE-3f: shader scenes and Showcase scenes join the grid with the flag
 const showcaseOn = isFeatureOn("themeShowcase");
 const TILES = sceneTilesFor(showcaseOn);
 
