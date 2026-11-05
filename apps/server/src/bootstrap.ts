@@ -9,6 +9,7 @@ import { registerGroupOutboxHandlers, startGroupChecks } from "./services/telegr
 import { startUsdcIndexer } from "./services/usdc";
 import { startPaymentsAdminIndexer } from "./services/payments/indexer";
 import { startPaymentsWorker } from "./services/payments/paymentsWorker";
+import { startMembershipRenewals } from "./services/memberships/renewals";
 import { startContentSweeper } from "./services/content/state";
 import { startEdgeSync } from "./services/content/edge";
 import { startOnrampTokenPurge } from "./services/onramp/sessions";
@@ -48,6 +49,7 @@ startUsdcIndexer();
 // No-op until AMPEDPAY_ADDRESS is set.
 startPaymentsAdminIndexer();
 startPaymentsWorker();
+startMembershipRenewals();
 // Content system (Build Board #20): fail uploads left unfinished for 24 hours and release their bytes.
 startContentSweeper();
 startEdgeSync();

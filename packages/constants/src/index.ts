@@ -43,5 +43,6 @@ export * from "./access";
 export * from "./checkout";
 export * from "./store";
 export * from "./storeSales";
+export * from "./memberships";
 export * from "./compliance";
 export * from "./inAppBrowser";

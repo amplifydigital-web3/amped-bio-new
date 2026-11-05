@@ -37,6 +37,7 @@ import {
   REFUND_SUMMARY,
   STORE_COPY,
   STORE_SALES_COPY,
+  MEMBERSHIP_COPY,
   STORE_REPORT_LABELS,
 } from "../packages/constants/src/index";
 
@@ -232,6 +233,8 @@ async function main() {
     // C10: Sales, refunds and Report store
     ...strings(STORE_SALES_COPY),
     ...Object.values(STORE_REPORT_LABELS),
+    // MB-1: renewal reminders and member states
+    ...strings(MEMBERSHIP_COPY),
   ];
   const storeOk = report("store", "packages/constants/src/store.ts", store, checkStoreCopy(store));
   if (!telegramOk || !effectsOk || !messagesOk || !gatingOk || !storeOk) process.exit(1);

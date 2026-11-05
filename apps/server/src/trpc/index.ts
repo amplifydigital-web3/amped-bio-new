@@ -35,6 +35,7 @@ import { libraryRouter } from "./library";
 import { checkoutRouter } from "./checkout";
 import { storeRouter } from "./store";
 import { paymentsRouter } from "./payments";
+import { membershipsRouter } from "./memberships";
 import { identityRouter } from "./identity";
 import { accessRouter } from "./access";
 import { inferRouterOutputs } from "@trpc/server";
@@ -84,6 +85,8 @@ const mergedRouter = router({
   // Creator stores (content PR 9, C9)
   store: storeRouter,
   payments: paymentsRouter,
+  // Memberships core (MB-1, Build Board #25 and #51)
+  memberships: membershipsRouter,
   // Identity checks through Authbase: Over 18 and verified seller (Build Board #47)
   identity: identityRouter,
   // Access gating engine core (Build Board #21), behind the accessGating feature flag

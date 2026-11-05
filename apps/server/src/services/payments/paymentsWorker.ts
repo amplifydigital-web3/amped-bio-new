@@ -6,6 +6,7 @@ import { paymentChain, paymentClient } from "../usdc/chain";
 import { ampedPayAddress } from "./onchain";
 import { paymentSettings } from "./settings";
 import { markRefunded } from "../store/sales";
+import { settlePendingJoinsOnce } from "../memberships/core";
 import {
   PREPARED_TTL_MS,
   decodePaymentLogs,
@@ -209,6 +210,8 @@ export function startPaymentsWorker() {
     running = true;
     try {
       await settlePendingOnce();
+      // MB-1: joins whose submit response was lost
+      if (env.AMPEDMEMBERSHIPS_ADDRESS) await settlePendingJoinsOnce();
       if (ticks % LOG_PASS_EVERY === 0) await indexPaymentLogsOnce();
     } catch (error) {
       console.error("[payments worker] tick failed", error);

@@ -166,3 +166,18 @@ export const USDC_NONCES_ABI = [
     outputs: [{ name: "", type: "uint256" }],
   },
 ] as const;
+export * from "./ampedmemberships";
+
+/** The allowance an owner gave a spender (the renewal readiness check). */
+export const USDC_ALLOWANCE_ABI = [
+  {
+    type: "function",
+    name: "allowance",
+    stateMutability: "view",
+    inputs: [
+      { name: "owner", type: "address" },
+      { name: "spender", type: "address" },
+    ],
+    outputs: [{ name: "", type: "uint256" }],
+  },
+] as const;

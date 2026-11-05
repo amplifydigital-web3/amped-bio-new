@@ -81,6 +81,9 @@ model User {
   offers                  Offer[]
   storePolicyVersions     StorePolicyVersion[]
   purchases               Purchase[]               @relation("PurchaseBuyer")
+  membershipPlan          MembershipPlan?
+  memberships             Membership[]             @relation("MembershipFan")
+  membershipsSold         Membership[]             @relation("MembershipCreator")
   purchasesSold           Purchase[]               @relation("PurchaseCreator")
   telegramAccount         TelegramAccount?
   telegramGroups          TelegramGroup[]
@@ -2066,6 +2069,8 @@ enum NotificationKind {
   MESSAGE
   REQUEST
   BROADCAST
+  // MB-1 (CK-D3): renewal readiness and past due reminders, groupKey renewal:{membershipId}
+  MEMBERSHIP_RENEWAL
 }
 
 // One bell row per thing to see. Repeats collapse into the unseen row for the same
@@ -2355,4 +2360,92 @@ model Purchase {
   @@index([refundTxHash])
   @@index([checkoutIntentId])
   @@map("purchases")
+}
+
+// ================ Memberships core (MB-1, Build Board #25 and #51) ================
+// One plan per creator (memberships decision 6). Amounts in USDC units. A new amount bumps
+// version, so members keep the terms they joined with (planRef = plan id and version).
+model MembershipPlan {
+  id                Bytes    @id @db.Binary(16)
+  creatorUserId     Int      @unique @map("creator_user_id")
+  name              String   @db.VarChar(40)
+  description       String?  @db.VarChar(280)
+  // string[], up to 6 of 80 characters
+  benefits          Json
+  amountEvery30Days BigInt   @map("amount_every_30_days")
+  // null = every 30 days only
+  amountYearly      BigInt?  @map("amount_yearly")
+  // draft | active | paused
+  status            String   @default("draft") @db.VarChar(12)
+  version           Int      @default(1)
+  showMemberCount   Boolean  @default(true) @map("show_member_count")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  creator     User         @relation(fields: [creatorUserId], references: [id], onDelete: Cascade)
+  memberships Membership[]
+
+  @@map("membership_plans")
+}
+
+// One row per join. A fan who rejoins after an end gets a new row. subscriptionRef on chain
+// is this id, left padded (membershipRef in @repo/web3).
+model Membership {
+  id                   Bytes     @id @db.Binary(16)
+  planId               Bytes     @map("plan_id") @db.Binary(16)
+  planVersion          Int       @map("plan_version")
+  fanUserId            Int?      @map("fan_user_id")
+  creatorUserId        Int?      @map("creator_user_id")
+  // every_30_days | yearly
+  interval             String    @db.VarChar(16)
+  // prepared | joining | active | past_due | canceled | ended | failed
+  status               String    @default("prepared") @db.VarChar(12)
+  chainId              Int       @map("chain_id")
+  member               String    @db.VarChar(42)
+  creatorAddress       String    @map("creator_address") @db.VarChar(42)
+  // USDC units per period, frozen at join; fee is the platform share of one period
+  pricePerPeriod       BigInt    @map("price_per_period")
+  fee                  BigInt
+  periodSeconds        Int       @map("period_seconds")
+  // The signed table: { recipients, validBefore, planRef, splitSignature }
+  joinTable            Json      @map("join_table")
+  joinHash             String    @map("join_hash") @db.Char(66)
+  // The allowance the join permit asked for
+  permitValue          BigInt    @map("permit_value")
+  joinTxHash           String?   @map("join_tx_hash") @db.VarChar(66)
+  chargeCount          Int       @default(0) @map("charge_count")
+  currentPeriodStart   DateTime? @map("current_period_start")
+  // Access runs to here; the next charge is due here
+  currentPeriodEnd     DateTime? @map("current_period_end")
+  lastChargeTxHash     String?   @map("last_charge_tx_hash") @db.VarChar(66)
+  // Readiness: the check 3 days before a charge found the wallet short
+  notReadyAt           DateTime? @map("not_ready_at")
+  pastDueSince         DateTime? @map("past_due_since")
+  // The last grace day a reminder went out for (1, 3 or 6)
+  lastReminderDay      Int?      @map("last_reminder_day")
+  // Seller pass lapsed: renewals wait (identity checks 5.4)
+  renewalPausedAt      DateTime? @map("renewal_paused_at")
+  canceledAt           DateTime? @map("canceled_at")
+  endedAt              DateTime? @map("ended_at")
+  // member_canceled | past_due | seller_lapsed | plan_removed | account_deleted
+  endReason            String?   @map("end_reason") @db.VarChar(20)
+  endTxHash            String?   @map("end_tx_hash") @db.VarChar(66)
+  failureCode          String?   @map("failure_code") @db.VarChar(64)
+  // The store policy the fan agreed to at join (store policy 3.6)
+  storePolicyVersionId Bytes?    @map("store_policy_version_id") @db.Binary(16)
+  checkoutIntentId     Bytes?    @map("checkout_intent_id") @db.Binary(16)
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+
+  // A deleted creator ends every membership (account deletion calls endByPlatform first)
+  plan    MembershipPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  fan     User?          @relation("MembershipFan", fields: [fanUserId], references: [id], onDelete: SetNull)
+  creator User?          @relation("MembershipCreator", fields: [creatorUserId], references: [id], onDelete: SetNull)
+
+  @@unique([chainId, joinHash])
+  @@index([fanUserId, status])
+  @@index([creatorUserId, status, createdAt])
+  @@index([planId, status])
+  @@index([status, currentPeriodEnd])
+  @@map("memberships")
 }

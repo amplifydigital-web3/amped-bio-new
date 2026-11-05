@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router";
 import { Bell, Megaphone } from "lucide-react";
-import { MESSAGE_UI } from "@repo/constants";
+import { MEMBERSHIP_COPY, MESSAGE_UI } from "@repo/constants";
 import {
   BottomSheet,
   BottomSheetContent,
@@ -148,19 +148,26 @@ function BellList({ open, onNavigate }: { open: boolean; onNavigate: () => void 
     return <EmptyState icon={Bell} title={B.empty} description={B.emptyBody} className="py-5" />;
   }
   const target = (item: Item) =>
-    item.kind === "BROADCAST"
-      ? `/inbox?tab=broadcast${item.broadcastId ? `&b=${item.broadcastId}` : ""}`
-      : `/inbox?tab=${item.kind === "REQUEST" ? "requests" : "primary"}&c=${item.conversationId}`;
+    item.kind === "MEMBERSHIP_RENEWAL"
+      ? // MB-1 (CK-D3): Wallet, Buy USDC, prefilled with the charge
+        `/wallet?fund=usdc${item.renewal ? `&need=${item.renewal.need}` : ""}&returnTo=${encodeURIComponent("/library/memberships")}`
+      : item.kind === "BROADCAST"
+        ? `/inbox?tab=broadcast${item.broadcastId ? `&b=${item.broadcastId}` : ""}`
+        : `/inbox?tab=${item.kind === "REQUEST" ? "requests" : "primary"}&c=${item.conversationId}`;
   return (
     <ul className="max-h-[420px] overflow-y-auto py-1">
       {items.map(item => {
         const handle = item.actor?.handle ?? B.someone;
         const text =
-          item.kind === "BROADCAST"
-            ? B.broadcast(handle)
-            : item.kind === "REQUEST"
-              ? B.request(handle)
-              : B.message(handle, item.count);
+          item.kind === "MEMBERSHIP_RENEWAL"
+            ? item.renewal?.graceDay
+              ? MEMBERSHIP_COPY.bell.pastDue(handle, item.renewal.graceDay)
+              : MEMBERSHIP_COPY.bell.notReady(handle)
+            : item.kind === "BROADCAST"
+              ? B.broadcast(handle)
+              : item.kind === "REQUEST"
+                ? B.request(handle)
+                : B.message(handle, item.count);
         return (
           <li key={item.id}>
             <button
