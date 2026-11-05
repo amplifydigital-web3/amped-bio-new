@@ -26,6 +26,7 @@ import { matchReserved } from "../services/reservedHandles";
 import { enforceRateLimits } from "../utils/rateLimit";
 import { getVisitorIp } from "../services/analytics/visitorIp";
 import { publicCardsFor } from "../services/content/publicView";
+import { publicBlocksFor } from "../services/access/blocks";
 import type { ContentBlockConfig, ContentCard } from "@repo/constants";
 
 export const SITEMAP_MAX_PAGE_SIZE = 10000;
@@ -256,12 +257,16 @@ const appRouter = router({
       // The theme is the profile itself, so its failure is fatal
       if (themeResult.status === "rejected") throw themeResult.reason;
 
+      // G3: gated link, media and text blocks leave as the locked DTO (or not at all
+      // while the accessGating flag is off). Never the URL, body or embed.
       // Telegram groups ended with Telegram (M8). The owner still gets the row, so the
       // editor shows its notice until they remove it; visitors never receive it, and the
       // page and preview render nothing for it
-      const publicBlocks = blockRows
-        .filter(block => isOwner || block.type !== "telegram_group")
-        .map(block => ({
+      const visibleRows = blockRows.filter(
+        block => isOwner || block.type !== "telegram_group"
+      );
+      const publicBlocks = await publicBlocksFor(
+        visibleRows.map(block => ({
           id: block.id,
           user_id: block.user_id,
           type: block.type,
@@ -270,7 +275,9 @@ const appRouter = router({
           config: sanitizeBlockConfig(block.type, block.config),
           created_at: block.created_at,
           updated_at: block.updated_at,
-        }));
+        })),
+        visibleRows
+      );
 
       // Any failure shows no chip (fails closed)
       const identity: PublicRnsIdentity =

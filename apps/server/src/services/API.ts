@@ -11,6 +11,7 @@ import messageEmailRouter from "../routes/messageEmail";
 import healthRouter from "../routes/health";
 import analyticsRouter from "../routes/analytics";
 import { contentCallbackRouter, contentJobRouter, streamWebhookRouter } from "../routes/content";
+import { goRouter } from "../routes/go";
 import onrampWebhookRouter from "../routes/onramp";
 
 import mcpRouter from "../routes/mcp";
@@ -130,6 +131,8 @@ app.use("/trpc", trpcMiddleware as any);
 app.use("/.well-known", wellKnownRouter);
 app.use("/api/blocks/schemas", blocksSchemasRouter);
 app.use("/health", healthRouter);
+// Gated link redirect (access gating G3); reads the session cookie
+app.use("/go", goRouter);
 app.use("/api/analytics", analyticsRouter);
 
 app.get("/", (req, res) => {

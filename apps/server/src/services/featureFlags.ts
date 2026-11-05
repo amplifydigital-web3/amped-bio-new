@@ -36,14 +36,24 @@ export function isFeatureOn(key: FeatureFlagKey): boolean {
   return resolveFeatureFlag(key, overrides, serverEnvValue(key));
 }
 
-/** Rows an admin set for public flags. The apps resolve a missing key from their own environment. */
+/**
+ * Rows an admin set for public flags. The apps resolve a missing key from their
+ * own environment. A public flag with only a server variable (accessGating)
+ * sends the API's value, so the apps never show what the API refuses.
+ */
 export function publicFeatureFlagOverrides(): FeatureFlagOverrides {
   const out: FeatureFlagOverrides = {};
   for (const key of PUBLIC_FEATURE_FLAG_KEYS) {
     const value = overrides[key];
     if (value !== undefined) out[key] = value;
+    else if (!hasAppEnv(key)) out[key] = isFeatureOn(key);
   }
   return out;
+}
+
+function hasAppEnv(key: FeatureFlagKey): boolean {
+  const names = FEATURE_FLAGS[key].env as { client?: string; landing?: string };
+  return Boolean(names.client || names.landing);
 }
 
 /** Reload every row. Keeps the last good rows when the database does not answer. */
@@ -73,6 +83,20 @@ export async function startFeatureFlagRefresh(): Promise<void> {
   timer.unref?.();
 }
 
+/**
+ * One environment variable a flag falls back to. Only the API can read its own
+ * variables: the editor inlines VITE_* and the landing inlines NEXT_PUBLIC_* at
+ * build time, so their value is unknown here and stays null.
+ */
+export interface FeatureFlagEnvView {
+  /** The app that reads this variable */
+  app: "server" | "client" | "landing";
+  /** The variable name */
+  variable: string;
+  /** The value the API reads, or null for a variable inside an app build */
+  value: boolean | null;
+}
+
 export interface FeatureFlagView {
   key: FeatureFlagKey;
   label: string;
@@ -82,7 +106,8 @@ export interface FeatureFlagView {
   override: boolean | null;
   /** The value on this API, or null for a flag the API does not read */
   serverValue: boolean | null;
-  env: { server?: string; client?: string; landing?: string };
+  /** Every variable the flag falls back to, in the order the admin page shows them */
+  env: FeatureFlagEnvView[];
   default: boolean;
 }
 
@@ -91,15 +116,21 @@ export async function listFeatureFlags(): Promise<FeatureFlagView[]> {
   await refreshFeatureFlags();
   return FEATURE_FLAG_KEYS.map(key => {
     const def = FEATURE_FLAGS[key];
-    const flagEnv = def.env as FeatureFlagView["env"];
+    const names = def.env as { server?: string; client?: string; landing?: string };
+    const env: FeatureFlagEnvView[] = [];
+    if (names.server) {
+      env.push({ app: "server", variable: names.server, value: serverEnvValue(key) ?? null });
+    }
+    if (names.client) env.push({ app: "client", variable: names.client, value: null });
+    if (names.landing) env.push({ app: "landing", variable: names.landing, value: null });
     return {
       key,
       label: def.label,
       description: def.description,
       scope: def.scope,
       override: overrides[key] ?? null,
-      serverValue: flagEnv.server ? isFeatureOn(key) : null,
-      env: flagEnv,
+      serverValue: names.server ? isFeatureOn(key) : null,
+      env,
       default: def.default,
     };
   });

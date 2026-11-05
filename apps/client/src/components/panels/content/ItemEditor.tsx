@@ -26,6 +26,8 @@ import { refreshContent } from "./lib/uploads";
 import { useAutosave, type AutosaveStatus } from "./lib/useAutosave";
 import { takeDeferred } from "./lib/deferredSaves";
 import { CaptionsSection, ItemPreview } from "./ItemMedia";
+import { AccessPicker, type EditorAccess, type EditorGating } from "./AccessPicker";
+import { isFeatureOn } from "../../../config/featureFlags";
 import { PublishCard } from "./PublishCard";
 import { RetryProcessing } from "./RetryProcessing";
 import type { ContentUploadKind } from "@repo/constants";
@@ -55,6 +57,9 @@ interface EditorItem {
   pageCount: number | null;
   totalBytes: number;
   assets?: Array<{ role: string; lang: string | null }>;
+  /** Content gating (C8): set while the accessGating flag is on */
+  access?: EditorAccess | null;
+  gating?: EditorGating | null;
 }
 
 const e = CONTENT_COPY.editor;
@@ -102,7 +107,10 @@ function SaveStatus({ status, onRetry }: { status: AutosaveStatus; onRetry: () =
 
 const RULES = ["everyone", "followers", "members", "pool", "stake", "paid", "any"] as const;
 
-/** Who can open this (cs3). PR 5 is Public only; the other rules show Later (spec 3.16). */
+/**
+ * Who can open this (cs3) while the accessGating flag is off: Everyone only, the
+ * other rules show Later. With the flag on, AccessPicker (content gating 4.1).
+ */
 function AccessCard() {
   const headingId = useId();
   return (
@@ -478,7 +486,11 @@ export function ItemEditor({ publicId, onBack }: { publicId: string; onBack: () 
           // The item is gone: leave without flushing edits to it
           onDeleted={onBack}
         />
-        <AccessCard />
+        {isFeatureOn("accessGating") ? (
+          <AccessPicker publicId={publicId} access={data.access} gating={data.gating} />
+        ) : (
+          <AccessCard />
+        )}
         <div className="prism-glass-clear space-y-[13px] !rounded-prism-21 p-[21px]">
           <SaveStatus status={autosave.status} onRetry={() => void autosave.flush()} />
         </div>

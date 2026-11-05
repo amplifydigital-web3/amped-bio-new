@@ -54,6 +54,14 @@ export async function handleStreamWebhook(req: Request, res: Response) {
     res.status(200).end();
     return;
   }
+  // One Cloudflare account serves staging and production. The Stream webhook router
+  // Worker sends each event to the API its meta.env names, and an event with no env
+  // to both. An event tagged for another environment is never ours.
+  const eventEnv = body?.meta?.env;
+  if (typeof eventEnv === "string" && eventEnv !== "" && eventEnv !== env.APP_ENV) {
+    res.status(200).json({ result: "ignored" });
+    return;
+  }
   // A database error answers 500 so Stream retries
   const result = await applyStreamWebhook(body);
   res.status(200).json({ result });

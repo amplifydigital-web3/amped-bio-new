@@ -73,6 +73,19 @@ describe("isFeatureOn", () => {
     expect(db.rows.has("feature_flag.checkout")).toBe(false);
     expect(isFeatureOn("checkout")).toBe(true);
   });
+
+  it("reads the telegram group and Mini App fallbacks from the server environment", () => {
+    env.TELEGRAM_GROUPS = false;
+    env.TELEGRAM_MINIAPP = false;
+    expect(isFeatureOn("telegramGroups")).toBe(false);
+    expect(isFeatureOn("telegramMiniApp")).toBe(false);
+    env.TELEGRAM_GROUPS = true;
+    env.TELEGRAM_MINIAPP = true;
+    expect(isFeatureOn("telegramGroups")).toBe(true);
+    expect(isFeatureOn("telegramMiniApp")).toBe(true);
+    env.TELEGRAM_GROUPS = false;
+    env.TELEGRAM_MINIAPP = false;
+  });
 });
 
 describe("refreshFeatureFlags", () => {
@@ -98,8 +111,16 @@ describe("refreshFeatureFlags", () => {
 describe("what leaves the API", () => {
   it("sends only rows of public flags to the apps", async () => {
     await setFeatureFlag("checkout", true, 1);
+    await setFeatureFlag("rnsPublicIdentity", true, 1);
     await setFeatureFlag("accessGating", true, 1);
-    expect(publicFeatureFlagOverrides()).toEqual({ checkout: true });
+    expect(publicFeatureFlagOverrides()).toMatchObject({ checkout: true, accessGating: true });
+    expect(publicFeatureFlagOverrides()).not.toHaveProperty("rnsPublicIdentity");
+  });
+
+  it("sends the API's value for a public flag with only a server variable", () => {
+    __setFeatureFlagOverridesForTests({});
+    expect(publicFeatureFlagOverrides()).toMatchObject({ accessGating: false });
+    expect(publicFeatureFlagOverrides()).not.toHaveProperty("checkout");
   });
 
   it("lists every flag with its row and the value on the API", async () => {
@@ -109,5 +130,19 @@ describe("what leaves the API", () => {
     expect(checkout).toMatchObject({ override: true, serverValue: true, scope: "public" });
     const rns = flags.find(flag => flag.key === "rns");
     expect(rns).toMatchObject({ override: null, serverValue: null });
+  });
+
+  it("shows the API's environment value and names the app build variables", async () => {
+    env.CHECKOUT_ENABLED = true;
+    const flags = await listFeatureFlags();
+    const checkout = flags.find(flag => flag.key === "checkout");
+    expect(checkout?.env).toEqual([
+      { app: "server", variable: "CHECKOUT_ENABLED", value: true },
+      // The editor inlines VITE_CHECKOUT at build time: the API cannot read it
+      { app: "client", variable: "VITE_CHECKOUT", value: null },
+    ]);
+    const rns = flags.find(flag => flag.key === "rns");
+    expect(rns?.env.map(source => source.app)).toEqual(["client", "landing"]);
+    expect(rns?.env.every(source => source.value === null)).toBe(true);
   });
 });

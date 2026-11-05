@@ -9,7 +9,7 @@
  * 3. `default`.
  *
  * `public` flags are sent to the client, admin and landing apps by
- * publicSettings.getFeatureFlags. Server flags never leave the API. Hiding UI is
+ * public.getFeatureFlags. Server flags never leave the API. Hiding UI is
  * not a guard: every public flag that gates an action is also checked on the
  * server.
  */
@@ -104,6 +104,22 @@ export const FEATURE_FLAGS = {
     default: false,
     env: { client: "VITE_SHOW_THEME_V2", landing: "NEXT_PUBLIC_SHOW_THEME_V2" },
   },
+  homeConversionCopy: {
+    label: "Home conversion copy",
+    description:
+      "The conversion and tradability paragraphs on Home. Turn on only with counsel sign off.",
+    scope: "public",
+    default: false,
+    env: { client: "VITE_HOME_CONVERSION_COPY" },
+  },
+  homeUpdatesFrame: {
+    label: "Home updates frame",
+    description:
+      "The onboarding site as an Updates section on Home. Turn on only after that site drops the conversion and tradability paragraphs.",
+    scope: "public",
+    default: false,
+    env: { client: "VITE_HOME_UPDATES_FRAME" },
+  },
   motion: {
     label: "Landing motion",
     description: "The landing page hero light, headline motion and How it works.",
@@ -195,8 +211,9 @@ export const FEATURE_FLAGS = {
   },
   accessGating: {
     label: "Access gating",
-    description: "The access gating engine (access.* procedures).",
-    scope: "server",
+    description:
+      "The access gating engine (access.* procedures), locked content cards and the item editor's access picker.",
+    scope: "public",
     default: false,
     env: { server: "ACCESS_GATING_ENABLED" },
   },

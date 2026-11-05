@@ -12,6 +12,7 @@
  *   audio, waveform, VTT   public 24 h rounded up to the hour   private duration + 10 min, 4 h max
  *   Stream token           public duration + 30 min, 6 h max    private duration + 10 min, 4 h max
  *   downloads              2 min; R2 files single use
+ *   previews (C8)          1 h for the blur, clip, audio preview and preview pages
  *
  * The rounded public expiry keeps server rendered HTML cacheable for the hour.
  */
@@ -24,6 +25,7 @@ import {
   type ContentDownload,
   type ContentImageSet,
   type ContentPlayback,
+  type ContentPreview,
 } from "@repo/constants";
 import { mediaUrl, newDownloadJti, signMediaToken } from "../cloudflare/mediaToken";
 import { signStreamToken } from "../cloudflare/stream";
@@ -350,6 +352,108 @@ export function buildCard(item: CardItem, assets: Asset[], now: Date = new Date(
     cover,
     blur,
     allowDownload: item.allowDownload,
+  };
+}
+
+/**
+ * A locked card (content gating 3.2): the blur cover and the item's facts, never
+ * a cover, rendition, poster, waveform or token for the media. The gate holds
+ * the rule's kind and summary only, never its amount.
+ */
+export function buildLockedCard(
+  item: CardItem,
+  assets: Asset[],
+  gate: NonNullable<ContentCard["gate"]>,
+  now: Date = new Date()
+): ContentCard {
+  const signer = new Signer(item, "public", now);
+  return {
+    publicId: item.publicId,
+    kind: fromDbKind(item.kind) as ContentCard["kind"],
+    title: item.title,
+    durationMs: item.durationMs,
+    pageCount: item.pageCount,
+    publishedAt: item.publishedAt ? item.publishedAt.toISOString() : null,
+    cover: null,
+    blur: signer.r2(
+      assets.find(asset => asset.role === "BLUR"),
+      "image"
+    ),
+    allowDownload: item.allowDownload,
+    gate,
+  };
+}
+
+/** Preview tokens live 1 hour (content spec 3.6). */
+const PREVIEW_SECONDS = HOUR;
+
+/** Roles a preview may sign. Never STREAM, RENDITION, ORIGINAL, COVER or WAVEFORM. */
+export const PREVIEW_ASSET_ROLES = [
+  "BLUR",
+  "PREVIEW_CLIP",
+  "AUDIO_PREVIEW",
+  "PAGE_PREVIEW",
+] as const;
+
+/**
+ * What a locked fan may see (content gating 3.3): the blur cover, and by kind
+ * the Stream preview clip, the audio preview or the first pages. Every URL
+ * lives 1 hour. Never signs the full video, audio, document or original.
+ */
+export async function buildPreview(
+  item: Item,
+  assets: Asset[],
+  now: Date = new Date()
+): Promise<Omit<ContentPreview, "decision">> {
+  const nowSec = Math.floor(now.getTime() / 1000);
+  const exp = Math.min(nowSec + PREVIEW_SECONDS, nowSec + MEDIA_TOKEN_MAX_LIFETIME_SECONDS);
+  const allowed = assets.filter(asset =>
+    (PREVIEW_ASSET_ROLES as readonly string[]).includes(asset.role)
+  );
+  const r2 = (asset: Asset | undefined): string | null => {
+    if (!asset?.r2Key || asset.storage !== "R2" || !assetServable(asset)) return null;
+    const token = signMediaToken(
+      { k: asset.r2Key, r: asset.role.toLowerCase(), exp, dl: 0 },
+      undefined,
+      now
+    );
+    return mediaUrl(asset.r2Key, token);
+  };
+  const kind = fromDbKind(item.kind) as ContentPreview["kind"];
+  let clip: ContentPreview["clip"] = null;
+  if (kind === "video") {
+    const preview = allowed.find(asset => asset.role === "PREVIEW_CLIP" && asset.streamUid);
+    if (preview?.streamUid) {
+      const host = await streamHost(preview.streamUid);
+      const token = signStreamToken({
+        uid: preview.streamUid,
+        expiresInSeconds: exp - nowSec,
+        downloadable: false,
+        now,
+      });
+      clip = {
+        hls: `https://${host}/${token}/manifest/video.m3u8`,
+        dash: `https://${host}/${token}/manifest/video.mpd`,
+      };
+    }
+  }
+  const audio = kind === "audio" ? r2(allowed.find(asset => asset.role === "AUDIO_PREVIEW")) : null;
+  const pages =
+    kind === "document"
+      ? allowed
+          .filter(asset => asset.role === "PAGE_PREVIEW")
+          .sort((a, b) => (a.variant ?? "").localeCompare(b.variant ?? ""))
+          .map(asset => r2(asset))
+          .filter((url): url is string => url !== null)
+      : [];
+  return {
+    publicId: item.publicId,
+    kind,
+    blur: r2(allowed.find(asset => asset.role === "BLUR")),
+    clip,
+    audio,
+    pages,
+    expiresAt: exp * 1000,
   };
 }
 
