@@ -54,7 +54,13 @@ const quote = (overrides: object = {}) => ({
   status: "open",
   state: "ready",
   provider: "mock",
-  item: { title: "Episode 4", publicId: "abc123", kind: "VIDEO", adult: false },
+  item: {
+    title: "Episode 4",
+    publicId: "abc123",
+    kind: "VIDEO",
+    adult: false,
+    path: "/maya/c/abc123",
+  },
   creator: {
     handle: "maya",
     name: "Maya",

@@ -36,6 +36,33 @@ export interface PlayerItem {
   chapters?: PlayerChapter[] | null;
   /** Where the mini player's expand goes */
   href?: string | null;
+  /**
+   * The creator who owns the item (their handle). Autoplay never leaves the
+   * owner of the item that just ended (Fan Library decision D, FL-1).
+   */
+  ownerId?: string | null;
+  /** The one access label the item shows (a plan name, Purchased, Pool fans) */
+  label?: string | null;
+}
+
+/**
+ * An item the player may play later: in the queue the viewer built, or in the
+ * up next list the page offers. `canOpen` is the server's answer for this
+ * viewer. The player never queues or plays an entry the viewer can not open.
+ */
+export interface QueueEntry {
+  item: PlayerItem;
+  resolve: SourceResolver;
+  canOpen: boolean;
+}
+
+/** Sleep timer choices (spec 3.5, board m7): off, end of this item, or minutes. */
+export type SleepChoice = "off" | "end" | 15 | 30 | 60;
+
+export interface SleepTimer {
+  choice: SleepChoice;
+  /** Unix ms when play pauses, for the minute choices. */
+  endsAt: number | null;
 }
 
 export type PlayerSource =

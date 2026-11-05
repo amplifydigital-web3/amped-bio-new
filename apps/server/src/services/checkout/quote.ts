@@ -5,11 +5,11 @@
  * creator's look, for how much, and whether payment can go ahead. The sheet calls it on
  * every open, so a price or fee that changed shows before Pay.
  *
- * CK-2 runs on the mock provider: the amount is CHECKOUT_MOCK_PRICE_UNITS, or the
- * site_settings row CHECKOUT_MOCK_PRICE_SETTING when one is set (offers arrive with store
- * PR 9), and nothing is charged. The fee, the pause, the pilot list and the
- * daily limits are the real AmpedPay settings, so the error states behave as they will
- * with PAY-2. CK-5 replaces the amount and the provider and changes no screen.
+ * The amount is CHECKOUT_MOCK_PRICE_UNITS, or the site_settings row
+ * CHECKOUT_MOCK_PRICE_SETTING when one is set, until offers arrive with store PR 9. The fee,
+ * the pause, the pilot list and the daily limits are the real AmpedPay settings. The provider
+ * reads ampedpay once PAY-2 is configured in the environment (contract, relayer, split
+ * signer); the client sheet switches to it in CK-5 and changes no screen.
  */
 import { prisma } from "@repo/database";
 import {
@@ -22,15 +22,23 @@ import {
 } from "@repo/constants";
 import { getFileUrl } from "../../utils/fileUrlResolver";
 import { checkIdentity } from "../identity/checks";
-import { paymentSettings } from "../payments/settings";
-import { effectiveStatus, hexToIntentId, intentIdToHex, notFound, resolveTarget } from "./intents";
+import { paymentSettings, type PaymentSettings } from "../payments/settings";
+import { paymentsReady } from "../payments/ready";
+import {
+  effectiveStatus,
+  hexToIntentId,
+  intentIdToHex,
+  notFound,
+  resolveTarget,
+  targetOf,
+} from "./intents";
 
 export type CheckoutQuote = {
   id: string;
   status: string;
   state: CheckoutQuoteState;
   provider: CheckoutProvider;
-  item: { title: string; publicId: string; kind: string; adult: boolean } | null;
+  item: { title: string; publicId: string; kind: string; adult: boolean; path: string } | null;
   creator: {
     handle: string;
     name: string;
@@ -68,10 +76,15 @@ function startOfUtcDay(now: Date) {
 }
 
 /**
- * The mock price: the site_settings row CHECKOUT_MOCK_PRICE_SETTING (USDC units, 6 decimals)
- * when it holds a whole positive number, else 3 USDC. Clamped to the one time price bounds.
+ * The price until offers arrive with store PR 9: the site_settings row
+ * CHECKOUT_MOCK_PRICE_SETTING (USDC units, 6 decimals) when it holds a whole positive number,
+ * else 3 USDC. Clamped to the one time price bounds. PAY-2 charges this amount through
+ * AmpedPay, so the quote and prepare share it.
  */
-async function mockAmount(min: bigint, max: bigint): Promise<bigint> {
+export async function checkoutAmount(
+  settings: Pick<PaymentSettings, "oneTimePriceMin" | "oneTimePriceMax">
+): Promise<bigint> {
+  const { oneTimePriceMin: min, oneTimePriceMax: max } = settings;
   const row = await prisma.siteSettings.findUnique({
     where: { setting_key: CHECKOUT_MOCK_PRICE_SETTING },
   });
@@ -120,14 +133,15 @@ export async function quoteIntent(viewerUserId: number, idHex: string): Promise<
   const base = {
     id: intentIdToHex(row.id),
     status,
-    provider: "mock" as const,
+    // AmpedPay once it is deployed and its accounts are configured (PAY-2); CK-5 switches
+    // the sheet's provider on this
+    provider: paymentsReady() ? ("ampedpay" as const) : ("mock" as const),
     feeBps: settings.platformFeeBps,
     quotedAt: now.toISOString(),
     validUntil: new Date(now.getTime() + settings.quoteWindowSeconds * 1000).toISOString(),
   };
 
-  const resolved =
-    status === "expired" ? null : await resolveTarget({ type: "content", id: row.targetId });
+  const resolved = status === "expired" ? null : await resolveTarget(targetOf(row));
   if (!resolved) {
     if (status === "expired") throw notFound();
     return {
@@ -159,7 +173,8 @@ export async function quoteIntent(viewerUserId: number, idHex: string): Promise<
     }),
   ]);
 
-  const amount = await mockAmount(settings.oneTimePriceMin, settings.oneTimePriceMax);
+  // A product carries its amount (C9); a content target still uses the checkout amount
+  const amount = resolved.extra.amountUnits ?? (await checkoutAmount(settings));
   const fee = (amount * BigInt(settings.platformFeeBps)) / 10_000n;
   const handle = resolved.item.creatorHandle;
 
@@ -178,6 +193,7 @@ export async function quoteIntent(viewerUserId: number, idHex: string): Promise<
       title: resolved.item.title,
       publicId: resolved.extra.publicId,
       kind: resolved.extra.kind,
+      path: resolved.extra.path,
       // 18+ items are refused at start until A1 opens them (identity checks 4.4), so this
       // is false today; the sheet already sends an 18+ item to the Over 18 check (CK-0 6)
       adult: false,

@@ -83,6 +83,20 @@ export async function startFeatureFlagRefresh(): Promise<void> {
   timer.unref?.();
 }
 
+/**
+ * One environment variable a flag falls back to. Only the API can read its own
+ * variables: the editor inlines VITE_* and the landing inlines NEXT_PUBLIC_* at
+ * build time, so their value is unknown here and stays null.
+ */
+export interface FeatureFlagEnvView {
+  /** The app that reads this variable */
+  app: "server" | "client" | "landing";
+  /** The variable name */
+  variable: string;
+  /** The value the API reads, or null for a variable inside an app build */
+  value: boolean | null;
+}
+
 export interface FeatureFlagView {
   key: FeatureFlagKey;
   label: string;
@@ -92,7 +106,8 @@ export interface FeatureFlagView {
   override: boolean | null;
   /** The value on this API, or null for a flag the API does not read */
   serverValue: boolean | null;
-  env: { server?: string; client?: string; landing?: string };
+  /** Every variable the flag falls back to, in the order the admin page shows them */
+  env: FeatureFlagEnvView[];
   default: boolean;
 }
 
@@ -101,15 +116,21 @@ export async function listFeatureFlags(): Promise<FeatureFlagView[]> {
   await refreshFeatureFlags();
   return FEATURE_FLAG_KEYS.map(key => {
     const def = FEATURE_FLAGS[key];
-    const flagEnv = def.env as FeatureFlagView["env"];
+    const names = def.env as { server?: string; client?: string; landing?: string };
+    const env: FeatureFlagEnvView[] = [];
+    if (names.server) {
+      env.push({ app: "server", variable: names.server, value: serverEnvValue(key) ?? null });
+    }
+    if (names.client) env.push({ app: "client", variable: names.client, value: null });
+    if (names.landing) env.push({ app: "landing", variable: names.landing, value: null });
     return {
       key,
       label: def.label,
       description: def.description,
       scope: def.scope,
       override: overrides[key] ?? null,
-      serverValue: flagEnv.server ? isFeatureOn(key) : null,
-      env: flagEnv,
+      serverValue: names.server ? isFeatureOn(key) : null,
+      env,
       default: def.default,
     };
   });

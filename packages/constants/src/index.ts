@@ -41,5 +41,6 @@ export * from "./contentJob";
 export * from "./identity";
 export * from "./access";
 export * from "./checkout";
+export * from "./store";
 export * from "./compliance";
 export * from "./inAppBrowser";
