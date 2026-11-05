@@ -67,7 +67,7 @@ model User {
   oauthAccessTokens  OauthAccessToken[]
   oauthConsents      OauthConsent[]
 
-  broadcastsSent          Broadcast[]               @relation("BroadcastCreator")
+  broadcastsSent          Broadcast[]              @relation("BroadcastCreator")
   broadcastDeliveries     BroadcastDelivery[]
   broadcastReports        BroadcastReport[]
   notificationPreferences NotificationPreference[]
@@ -75,20 +75,22 @@ model User {
   identityChecks          IdentityCheck[]
   identityReviewCases     IdentityReviewCase[]
   accessRules             AccessRule[]
-  checkoutIntents         CheckoutIntent[]          @relation("CheckoutIntentFan")
-  checkoutIntentsSold     CheckoutIntent[]          @relation("CheckoutIntentCreator")
+  checkoutIntents         CheckoutIntent[]         @relation("CheckoutIntentFan")
+  checkoutIntentsSold     CheckoutIntent[]         @relation("CheckoutIntentCreator")
+  purchases               Purchase[]               @relation("PurchaseBuyer")
+  purchasesSold           Purchase[]               @relation("PurchaseCreator")
   telegramAccount         TelegramAccount?
   telegramGroups          TelegramGroup[]
   telegramLinkEvents      TelegramLinkEvent[]
   messagingSettings       MessagingSettings?
   messagingSenderStatus   MessagingSenderStatus?
-  threadsAsCreator        MessageThread[]           @relation("ThreadCreator")
-  threadsAsFan            MessageThread[]           @relation("ThreadFan")
+  threadsAsCreator        MessageThread[]          @relation("ThreadCreator")
+  threadsAsFan            MessageThread[]          @relation("ThreadFan")
   messageReports          MessageReport[]
   // Amped Messages (Build Board #2, revision 4), spec docs/features/messaging.md section 6
   conversationMembers     ConversationMember[]
-  directMessagesSent      DirectMessage[]           @relation("DirectMessageSender")
-  notifications           Notification[]            @relation("NotificationRecipient")
+  directMessagesSent      DirectMessage[]          @relation("DirectMessageSender")
+  notifications           Notification[]           @relation("NotificationRecipient")
   pushSubscriptions       PushSubscription[]
 
   // USDC in the wallet (#29): first time the fan opened USDC on Base. The
@@ -1227,7 +1229,8 @@ model UsdcSend {
 // indexer after the chain confirms it. Same shape as the memberships spec
 // PaymentEvent: payer and payee are set when each side is an Amped.Bio user,
 // so a send between two members is one row both of them see.
-// kind: usdc_transfer now; onramp, purchase and membership kinds arrive later.
+// kind: usdc_transfer; purchase_paid, purchase_share and purchase_refunded for AmpedPay
+// logs (PAY-2, refType purchase); membership kinds arrive later.
 model PaymentEvent {
   id          Bytes    @id @db.Binary(16)
   kind        String   @db.VarChar(24)
@@ -1244,10 +1247,17 @@ model PaymentEvent {
   // usdc_send when the transfer came from a gasless send
   refType     String?  @db.VarChar(16)
   refId       Bytes?   @db.Binary(16)
+  // AmpedPay logs only (PAY-2): the on chain paymentRef, the Share role (0 creator,
+  // 1 platform, 2 promoter, 3 partner), the split hash and the block hash for reorg checks
+  paymentRef  String?  @db.Char(66)
+  role        Int?
+  splitHash   String?  @db.Char(66)
+  blockHash   String?  @db.VarChar(66)
   occurredAt  DateTime
   createdAt   DateTime @default(now())
 
   @@unique([chainId, txHash, logIndex])
+  @@index([paymentRef])
   @@index([payerUserId, occurredAt])
   @@index([payeeUserId, occurredAt])
   @@map("payment_events")
@@ -1775,24 +1785,24 @@ enum MessageReportReason {
 }
 
 model MessageReport {
-  id             Bytes               @id @db.Binary(16)
+  id              Bytes               @id @db.Binary(16)
   // Null on reports filed against conversations (PR M2)
-  threadId       Bytes?              @db.Binary(16)
-  messageId      Bytes?              @db.Binary(16)
-  reporterUserId Int
-  reason         MessageReportReason
-  note           String?             @db.VarChar(500)
+  threadId        Bytes?              @db.Binary(16)
+  messageId       Bytes?              @db.Binary(16)
+  reporterUserId  Int
+  reason          MessageReportReason
+  note            String?             @db.VarChar(500)
   // Amped Messages (#2 r4). Set on reports filed against the new tables; threadId stays
   // for reports filed before the switch. bodySnapshotEnc keeps the reported text after unsend.
-  conversationId  Bytes?             @db.Binary(16)
-  directMessageId Bytes?             @db.Binary(16)
-  bodySnapshotEnc String?            @db.Text
+  conversationId  Bytes?              @db.Binary(16)
+  directMessageId Bytes?              @db.Binary(16)
+  bodySnapshotEnc String?             @db.Text
   // Set when an admin closes the report
-  resolvedAt     DateTime?
-  createdAt      DateTime            @default(now())
+  resolvedAt      DateTime?
+  createdAt       DateTime            @default(now())
 
   thread   MessageThread? @relation(fields: [threadId], references: [id], onDelete: Cascade)
-  reporter User          @relation(fields: [reporterUserId], references: [id], onDelete: Cascade)
+  reporter User           @relation(fields: [reporterUserId], references: [id], onDelete: Cascade)
 
   @@index([threadId])
   @@index([createdAt])
@@ -2123,4 +2133,55 @@ model CheckoutIntent {
   @@index([creatorUserId, createdAt])
   @@index([expiresAt])
   @@map("checkout_intents")
+}
+
+/// One AmpedPay payment (PAY-2, docs/features/ampedpay.md, content spec 3.9). The id is the
+/// on chain paymentRef, left padded to 32 bytes. Offers arrive with store PR 9 (offerId).
+model Purchase {
+  id               Bytes     @id @db.Binary(16)
+  checkoutIntentId Bytes?    @map("checkout_intent_id") @db.Binary(16)
+  buyerUserId      Int?      @map("buyer_user_id")
+  creatorUserId    Int?      @map("creator_user_id")
+  // content (offers replace it with store PR 9)
+  targetType       String    @map("target_type") @db.VarChar(16)
+  targetId         String    @map("target_id") @db.VarChar(64)
+  offerId          Bytes?    @map("offer_id") @db.Binary(16)
+  promoterCodeId   Bytes?    @map("promoter_code_id") @db.Binary(16)
+  chainId          Int       @map("chain_id")
+  payer            String    @db.VarChar(42)
+  creatorAddress   String    @map("creator_address") @db.VarChar(42)
+  // USDC units, 6 decimals. fee is the platform share
+  amount           BigInt
+  fee              BigInt
+  // EIP-712 hash of the signed split table; also the payer's authorization nonce
+  splitHash        String    @map("split_hash") @db.Char(66)
+  // The signed table: { recipients: [{ to, bps, role }], validBefore, signature }
+  split            Json
+  // prepared | submitting | submitted | confirmed_soft | confirmed | refunded | failed | expired
+  status           String    @default("prepared") @db.VarChar(16)
+  failureCode      String?   @map("failure_code") @db.VarChar(64)
+  txHash           String?   @map("tx_hash") @db.VarChar(66)
+  blockNumber      BigInt?   @map("block_number")
+  blockHash        String?   @map("block_hash") @db.VarChar(66)
+  gasUsed          BigInt?   @map("gas_used")
+  gasCostWei       BigInt?   @map("gas_cost_wei")
+  // Null is lifetime access. Memberships set it
+  accessUntil      DateTime? @map("access_until")
+  softConfirmedAt  DateTime? @map("soft_confirmed_at")
+  confirmedAt      DateTime? @map("confirmed_at")
+  refundedAt       DateTime? @map("refunded_at")
+  receiptSentAt    DateTime? @map("receipt_sent_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  buyer   User? @relation("PurchaseBuyer", fields: [buyerUserId], references: [id], onDelete: SetNull)
+  creator User? @relation("PurchaseCreator", fields: [creatorUserId], references: [id], onDelete: SetNull)
+
+  @@unique([chainId, splitHash])
+  @@index([buyerUserId, targetType, targetId, status])
+  @@index([creatorUserId, createdAt])
+  @@index([status, updatedAt])
+  @@index([txHash])
+  @@index([checkoutIntentId])
+  @@map("purchases")
 }
