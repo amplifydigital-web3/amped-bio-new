@@ -139,6 +139,7 @@ export {
   type CreatorPageProps,
   type CreatorPageSize,
 } from "./creator/creator-page";
+export { CreatorFontLinks, bodyFontPick, creatorFontHrefs } from "./creator/fonts";
 export {
   CreatorButton,
   CREATOR_FOCUS,
@@ -157,6 +158,21 @@ export {
 } from "./creator/name-effect";
 // Theme Engine v2 phase 1c: the one particle overlay (tsParticles v4 slim)
 export { ParticlesLayer, type ParticlesLayerProps } from "./creator/particles-layer";
+export {
+  ShaderLayer,
+  shaderSpeed,
+  type EffectDrop,
+  type ShaderLayerProps,
+} from "./creator/shader-layer";
+export {
+  ButtonFx,
+  ContainerFx,
+  PREMIUM_SURFACE_IDS,
+  cycleMs,
+  premiumSurfaceStyle,
+  type SurfaceFxProps,
+} from "./creator/surface-fx";
+export { WeightPulseName, pulseWeight } from "./creator/weight-pulse";
 export { particleLayerOptions } from "./creator/particles-options";
 // Theme Engine v2 phase 2: built gradients, drift and textures (Background row)
 export { gradientScene, textureStyle, type SceneLook } from "./creator/scene";
@@ -208,6 +224,15 @@ export {
   usePausedChoice,
 } from "./motion/motionState";
 export { createFrameWatchdog, lowPower, type FrameWatchdog } from "./motion/watchdog";
+export {
+  FULLSCREEN_VERTEX,
+  dprCapFor,
+  hexToVec3,
+  startShader,
+  type ShaderHandle,
+  type ShaderOptions,
+  type UniformValue,
+} from "./motion/webgl";
 export { ExternalRedirect } from "./external-redirect";
 export { NewVersionDialog } from "./new-version";
 

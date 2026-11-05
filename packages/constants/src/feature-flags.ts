@@ -104,6 +104,30 @@ export const FEATURE_FLAGS = {
     default: false,
     env: { client: "VITE_SHOW_THEME_V2", landing: "NEXT_PUBLIC_SHOW_THEME_V2" },
   },
+  themeShowcase: {
+    label: "Theme showcase",
+    description:
+      "Theme Engine v2 phase 3: WebGL scenes and the other showcase engines run on creator pages and in the editor. Off, a WebGL scene shows its still poster.",
+    scope: "public",
+    default: false,
+    env: {},
+  },
+  fontCatalog: {
+    label: "Font catalog",
+    description:
+      "The Text row font catalog: about 1,900 Google Fonts families, a Name font and a Body font, weight, italics and width and optical size sliders. Needs Theme v2. Staging only until font delivery ships, because catalog fonts still load from Google.",
+    scope: "public",
+    default: false,
+    env: {},
+  },
+  fontDelivery: {
+    label: "Font delivery",
+    description:
+      "Fonts load from Amped's own media host (decision 2): the API mirrors each stylesheet from Google Fonts to R2, and no visitor's browser contacts Google. Off keeps the Google Fonts link. Needs MEDIA_GATEWAY_ORIGIN and R2 on the API and the media gateway's fonts route.",
+    scope: "public",
+    default: false,
+    env: {},
+  },
   homeConversionCopy: {
     label: "Home conversion copy",
     description:

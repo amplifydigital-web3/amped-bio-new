@@ -95,9 +95,15 @@ export function ButtonSpecimen({
 export function CardMiniature({
   config,
   containerStyle,
+  className,
+  children,
 }: {
   config: Partial<ThemeConfig>;
   containerStyle: number;
+  /** A v2 surface's classes (phase 3d), drawn in place of the v1 style. */
+  className?: string;
+  /** The surface's still layer (phase 3d premium surfaces). */
+  children?: ReactNode;
 }) {
   const alpha = Math.round(((config.transparency ?? 0) / 100) * 255)
     .toString(16)
@@ -110,9 +116,11 @@ export function CardMiniature({
       }}
       className={cn(
         "flex w-[55%] flex-col items-center gap-1.5 !rounded-prism-8 p-2.5",
-        getContainerStyle(containerStyle)
+        getContainerStyle(containerStyle),
+        className
       )}
     >
+      {children}
       <span
         className="h-2 w-3/4 rounded-prism-5"
         style={{ backgroundColor: config.fontColor, opacity: 0.9 }}

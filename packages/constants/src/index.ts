@@ -8,6 +8,8 @@ export * from "./reservedHandles";
 export * from "./platforms";
 export * from "./theme";
 export * from "./effects";
+export * from "./fonts";
+export * from "./fonts/delivery";
 export * from "./collections";
 export * from "./errors";
 export * from "./blocks";
