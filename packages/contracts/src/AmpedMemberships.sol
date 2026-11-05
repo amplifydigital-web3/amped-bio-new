@@ -282,8 +282,10 @@ contract AmpedMemberships is
         if (block.timestamp > uint256(s.nextDue) + renewGrace) revert Lapsed(s.nextDue);
 
         // On time keeps the schedule. Late, inside the grace, starts a full period now: the
-        // member is never charged for the grace days.
-        uint64 nextDue = block.timestamp <= uint256(s.nextDue) + ON_TIME_WINDOW
+        // member is never charged for the grace days. Strictly inside the window: with a 1 day
+        // period, `<=` would set nextDue to now at the window's edge and allow a second charge
+        // in the same block.
+        uint64 nextDue = block.timestamp < uint256(s.nextDue) + ON_TIME_WINDOW
             ? s.nextDue + s.periodSeconds
             : uint64(block.timestamp) + s.periodSeconds;
         s.nextDue = nextDue;
