@@ -10,7 +10,6 @@ import {
   checkBroadcastContent,
 } from "@repo/constants";
 import { privateProcedure, router } from "../trpc";
-import { env } from "../../env";
 import { countSentBroadcasts, enqueueBroadcast, getQuota } from "../../services/broadcast";
 import { audienceCounts, resolveAudience } from "../../services/broadcast/audience";
 import { verificationGate } from "../../utils/verificationGrace";
