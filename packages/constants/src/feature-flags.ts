@@ -9,7 +9,7 @@
  * 3. `default`.
  *
  * `public` flags are sent to the client, admin and landing apps by
- * publicSettings.getFeatureFlags. Server flags never leave the API. Hiding UI is
+ * public.getFeatureFlags. Server flags never leave the API. Hiding UI is
  * not a guard: every public flag that gates an action is also checked on the
  * server.
  */
@@ -104,6 +104,46 @@ export const FEATURE_FLAGS = {
     default: false,
     env: { client: "VITE_SHOW_THEME_V2", landing: "NEXT_PUBLIC_SHOW_THEME_V2" },
   },
+  themeShowcase: {
+    label: "Theme showcase",
+    description:
+      "Theme Engine v2 phase 3: WebGL scenes and the other showcase engines run on creator pages and in the editor. Off, a WebGL scene shows its still poster.",
+    scope: "public",
+    default: false,
+    env: {},
+  },
+  fontCatalog: {
+    label: "Font catalog",
+    description:
+      "The Text row font catalog: about 1,900 Google Fonts families, a Name font and a Body font, weight, italics and width and optical size sliders. Needs Theme v2. Staging only until font delivery ships, because catalog fonts still load from Google.",
+    scope: "public",
+    default: false,
+    env: {},
+  },
+  fontDelivery: {
+    label: "Font delivery",
+    description:
+      "Fonts load from Amped's own media host (decision 2): the API mirrors each stylesheet from Google Fonts to R2, and no visitor's browser contacts Google. Off keeps the Google Fonts link. Needs MEDIA_GATEWAY_ORIGIN and R2 on the API and the media gateway's fonts route.",
+    scope: "public",
+    default: false,
+    env: {},
+  },
+  homeConversionCopy: {
+    label: "Home conversion copy",
+    description:
+      "The conversion and tradability paragraphs on Home. Turn on only with counsel sign off.",
+    scope: "public",
+    default: false,
+    env: { client: "VITE_HOME_CONVERSION_COPY" },
+  },
+  homeUpdatesFrame: {
+    label: "Home updates frame",
+    description:
+      "The onboarding site as an Updates section on Home. Turn on only after that site drops the conversion and tradability paragraphs.",
+    scope: "public",
+    default: false,
+    env: { client: "VITE_HOME_UPDATES_FRAME" },
+  },
   motion: {
     label: "Landing motion",
     description: "The landing page hero light, headline motion and How it works.",
@@ -118,6 +158,22 @@ export const FEATURE_FLAGS = {
     scope: "public",
     default: false,
     env: { client: "VITE_SHOW_TELEGRAM", landing: "NEXT_PUBLIC_SHOW_TELEGRAM" },
+  },
+  telegramGroups: {
+    label: "Telegram groups",
+    description:
+      "Gated creator groups (phase 2): group connect, join checks, the Telegram group block and the hourly group checks. Needs Telegram.",
+    scope: "server",
+    default: false,
+    env: { server: "TELEGRAM_GROUPS" },
+  },
+  telegramMiniApp: {
+    label: "Telegram Mini App",
+    description:
+      "The Mini App page endpoint, follow and share (phase 3). Needs Telegram and the TON safe mode review.",
+    scope: "server",
+    default: false,
+    env: { server: "TELEGRAM_MINIAPP" },
   },
   broadcast: {
     label: "Broadcasts",
@@ -164,6 +220,22 @@ export const FEATURE_FLAGS = {
     default: false,
     env: { client: "VITE_CONTENT" },
   },
+  fanLibrary: {
+    label: "Fan Library",
+    description:
+      "Fan Library (Build Board #26): up next and the queue on public item pages, and the Library pages as they ship (FL-1 to FL-7).",
+    scope: "public",
+    default: false,
+    env: {},
+  },
+  libraryDigest: {
+    label: "Fan Library daily email",
+    description:
+      "Fan Library (FL-6): one email a day per creator with their new items, to followers who chose Email me updates. Needs BULK_FOOTER_ADDRESS (CAN-SPAM postal address) and counsel sign off on the digest as commercial email.",
+    scope: "server",
+    default: false,
+    env: {},
+  },
   contentUploads: {
     label: "Content uploads",
     description:
@@ -200,6 +272,14 @@ export const FEATURE_FLAGS = {
     scope: "server",
     default: false,
     env: { server: "PAYMENTS_ENABLED" },
+  },
+  storeSales: {
+    label: "Store sales",
+    description:
+      "Creator stores and product pages are public and take payments. Off: a store renders for its owner in preview only (store catalog 2).",
+    scope: "public",
+    default: false,
+    env: {},
   },
   accessGating: {
     label: "Access gating",

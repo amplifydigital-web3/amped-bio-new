@@ -19,7 +19,13 @@ import { privateProcedure, publicProcedure, router } from "./trpc";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { s3Service } from "../services/S3Service";
-import { pageCost, themeConfigSchema, upgradeTheme, type ThemeConfig } from "@repo/constants";
+import {
+  pageCost,
+  themeConfigSchema,
+  upgradeTheme,
+  type AnyThemeConfig,
+  type ThemeConfig,
+} from "@repo/constants";
 import { enforceRateLimits } from "../utils/rateLimit";
 import { getVisitorIp } from "../services/analytics/visitorIp";
 import {
@@ -31,6 +37,9 @@ import {
   newShareSlug,
   sharePath,
 } from "../services/theme/share";
+import { guardThemeShowcase } from "../services/themeShowcase";
+import { guardThemeFonts } from "../services/themeFonts";
+import { prewarmUserFonts } from "../services/fonts/fontMirror";
 import { getFileUrl } from "../utils/fileUrlResolver";
 import { prisma } from "@repo/database";
 import { isFeatureOn } from "../services/featureFlags";
@@ -158,7 +167,8 @@ const themeObjectSchema = z.object({
   description: z.string().optional(),
   share_level: z.string(),
   share_config: z.any(),
-  config: themeConfigSchema.optional(),
+  // Phase 3b: shader scenes are stored only while themeShowcase is on
+  config: themeConfigSchema.optional().transform(config => guardThemeShowcase(config)),
 });
 
 // Schema for applying theme to user. lookId (TE-4a): the look a themeId 0
@@ -187,7 +197,8 @@ export const themeRouter = router({
       const user_id = ctx.user!.sub;
 
       // The theme object is now properly validated using the shared schema
-      const { name, description, share_level, share_config, config } = theme;
+      const { name, description, share_level, share_config } = theme;
+      const config = guardThemeFonts(theme.config);
 
       try {
         // If id is 0, create a new theme
@@ -206,6 +217,8 @@ export const themeRouter = router({
           });
           await recordVersion(result.id, config, { force: true });
 
+          // 2b PR 2: mirror the fonts now, so the page's first visitor gets them
+          prewarmUserFonts(Number(user_id), config);
           return result;
         }
 
@@ -293,6 +306,8 @@ export const themeRouter = router({
         // TE-4a: autosave builds the look's history, one version per session
         await recordVersion(result.id, config);
 
+        // 2b PR 2: mirror the fonts now, so the page's first visitor gets them
+        prewarmUserFonts(Number(user_id), config);
         return result;
       } catch (error) {
         console.error("error", error);
@@ -427,7 +442,7 @@ export const themeRouter = router({
               name: theme.name,
               description: theme.description,
               // share_level and share_config stay as share and unshare set them
-              config: theme.config as any,
+              config: guardThemeFonts(theme.config) as any,
               config_version: configVersion(theme.config),
               updated_at: new Date(),
             },
@@ -446,7 +461,7 @@ export const themeRouter = router({
               description: theme.description,
               share_level: theme.share_level,
               share_config: theme.share_config as any,
-              config: theme.config as any,
+              config: guardThemeFonts(theme.config) as any,
               kind: "look",
               config_version: configVersion(theme.config),
             },
@@ -509,6 +524,7 @@ export const themeRouter = router({
         },
       });
 
+      prewarmUserFonts(Number(userId), themeToApply.config as AnyThemeConfig | null);
       return {
         success: true,
         message: "Theme applied successfully",
