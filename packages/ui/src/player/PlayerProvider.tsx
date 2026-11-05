@@ -483,12 +483,13 @@ export function PlayerProvider({
             setState({ error: "ended", playing: false });
             return;
           }
-          // Another failure: the current signed URL plays until it lapses
-          setState({ error: "expired" });
+          // Access ended, or the item was removed or hidden (takedown tk1): stop here
+          active()?.pause();
+          setState({ error: "expired", playing: false });
         }
       }, refreshDelayMs(expiresAt));
     },
-    [clearRefresh, setState]
+    [active, clearRefresh, setState]
   );
 
   const placeVideo = React.useCallback(() => {
