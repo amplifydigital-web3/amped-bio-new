@@ -26,8 +26,8 @@ import { isFeatureOn } from "../../../config/featureFlags";
 const FAN_GRAPH = isFeatureOn("fanGraph");
 
 // Screen Review 044 (D07): NFTs is not rendered. It returns as a tab of this
-// container behind VITE_SHOW_NFTS (default off) once NFT data exists; until
-// then old ?t=nfts and ?tab=nfts links open Users and the URL is rewritten.
+// container behind an nfts feature flag (default off) once NFT data exists;
+// until then old ?t=nfts and ?tab=nfts links open Users and the URL is rewritten.
 
 // Screen Review 045 (D07, D08, D14). One control stack under the top bar:
 // tabs (Users, Pools), a search well with the result count and Sort, then the
@@ -150,7 +150,7 @@ function countText(tab: Exclude<Tab, "following">, count: number) {
   return `${count.toLocaleString("en-US")} ${count === 1 ? "pool" : "pools"}`;
 }
 
-// 044 I04: nfts is not a tab while VITE_SHOW_NFTS is off
+// 044 I04: nfts is not a tab until an nfts feature flag exists
 interface ExplorePageProps {
   initialTab?: "users" | "pools";
   onTabChange?: (tab: "users" | "pools") => void;
