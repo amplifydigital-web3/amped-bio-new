@@ -25,6 +25,7 @@ export const contentResolver: Resolver = {
         publishState: true,
         moderationState: true,
         deletedAt: true,
+        hiddenAt: true,
       },
     });
     if (!item) return null;
