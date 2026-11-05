@@ -42,3 +42,4 @@ export * from "./access";
 export * from "./checkout";
 export * from "./compliance";
 export * from "./inAppBrowser";
+export * from "./safety";

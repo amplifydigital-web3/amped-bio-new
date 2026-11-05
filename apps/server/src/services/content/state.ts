@@ -18,6 +18,8 @@ import { publishContentJob } from "../cloudflare/queue";
 import { createStreamClip, enableStreamDownloads } from "../cloudflare/stream";
 import { env } from "../../env";
 import { purgeDeletedItems } from "./purge";
+import { blockHash, findBlockedHash } from "../safety/blocklist";
+import { onCsamMatch, onReviewHold } from "../safety/intake";
 import { edgeDirty } from "./edge";
 
 /** Items left in UPLOADING longer than this are failed and their bytes released. */
@@ -222,14 +224,16 @@ export async function applyProcessorCallback(
         from: ["PROCESSING"],
         blocked: true,
       });
-      // Malware positives join the hash blocklist (spec 3.5 step 3). CSAM matches never
-      // touch these tables: they go to the restricted evidence path (spec 3.11, PR 7).
+      // Malware positives join the hash blocklist (spec 3.5 step 3)
       if (callback.step === "malware" && callback.sha256) {
-        await prisma.blockedContentHash.upsert({
-          where: { sha256: callback.sha256 },
-          update: {},
-          create: { id: uuidv7(), sha256: callback.sha256, reason: "malware" },
-        });
+        await blockHash({ sha256: callback.sha256, reason: "malware" });
+      }
+      // A CSAM match (#28 R1, adult content review 8.5): a Critical child safety case,
+      // the evidence copy and the alert, and the hash is blocked for good (8.7)
+      if (callback.step === "csam") {
+        const sha256 = callback.sha256 ?? item.sha256;
+        if (sha256) await blockHash({ sha256, reason: "csam" });
+        await onCsamMatch(item, callback.reason ?? null);
       }
       return "applied";
 
@@ -244,14 +248,15 @@ export async function applyProcessorCallback(
           ...edgeDirty(),
         },
       });
+      // A held item reaches the Safety queue as a Classifier hold case (#28 R1)
+      await onReviewHold(item, "classifier_hold");
       return "applied";
 
     case "ok":
       // Spec 3.5 step 3.1: a file removed before (copyright, malware) cannot come back
       if (callback.step === "hash" && callback.sha256) {
-        const listed = await prisma.blockedContentHash.findUnique({
-          where: { sha256: callback.sha256 },
-        });
+        // An unblocked row (removedAt set) no longer refuses the file (R1)
+        const listed = await findBlockedHash(callback.sha256);
         if (listed) {
           await prisma.contentItem.update({ where: { id: item.id }, data: metadata });
           await failItem(item, `blocklist:${listed.reason}`, {

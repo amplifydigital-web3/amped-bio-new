@@ -71,11 +71,25 @@ const db = vi.hoisted(() => {
       upsert: vi.fn(async ({ create }: any) => {
         if (!hashes.some(hash => hash.sha256 === create.sha256)) hashes.push(create);
       }),
+      create: vi.fn(async ({ data }: any) => {
+        hashes.push({ ...data });
+        return data;
+      }),
+      update: vi.fn(async ({ where, data }: any) =>
+        Object.assign(hashes.find(hash => hash.sha256 === where.sha256)!, data)
+      ),
     },
+    safetyEvent: { create: vi.fn(async ({ data }: any) => data) },
     $transaction: vi.fn(async (fn: any) => fn(prisma)),
   };
   return { prisma, items, assets, hashes };
 });
+
+const safety = vi.hoisted(() => ({
+  onCsamMatch: vi.fn(async () => {}),
+  onReviewHold: vi.fn(async () => {}),
+}));
+vi.mock("../services/safety/intake", () => safety);
 
 const quota = vi.hoisted(() => ({
   releaseBytes: vi.fn(async () => {}),
@@ -209,15 +223,30 @@ describe("processor callback", () => {
     expect(quota.releaseBytes).toHaveBeenCalledTimes(1);
   });
 
-  it("never stores a CSAM match hash in the blocklist table", async () => {
-    seed();
+  it("opens a child safety case for a CSAM match and blocks its hash for good (#28 R1)", async () => {
+    const item = seed();
     await applyProcessorCallback({
       ...base,
       step: "csam",
       outcome: "blocked",
+      reason: "csam_match",
       sha256: "c".repeat(64),
     });
-    expect(db.hashes).toHaveLength(0);
+    expect(item).toMatchObject({ status: "BLOCKED", moderationReason: "csam_match" });
+    expect(db.hashes).toMatchObject([{ sha256: "c".repeat(64), reason: "csam" }]);
+    expect(safety.onCsamMatch).toHaveBeenCalledWith(
+      expect.objectContaining({ publicId: "abcdefghijklmnop" }),
+      "csam_match"
+    );
+  });
+
+  it("opens a Classifier hold case when the classifier holds an item (#28 R1)", async () => {
+    seed();
+    await applyProcessorCallback({ ...base, step: "classifier", outcome: "held", reason: "x" });
+    expect(safety.onReviewHold).toHaveBeenCalledWith(
+      expect.objectContaining({ publicId: "abcdefghijklmnop" }),
+      "classifier_hold"
+    );
   });
 
   it("upserts assets by role, variant and language", async () => {
