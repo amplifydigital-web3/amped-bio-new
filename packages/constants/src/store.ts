@@ -324,6 +324,19 @@ export type StorePublic = {
   preview: boolean;
 };
 
+/** Store block (st10): products shown on the bio, featured first. */
+export const STORE_BLOCK_PRODUCTS_MAX = 6;
+
+/** What the store block renders. Null from the server means the block hides. */
+export type StoreBioBlock = {
+  handle: string;
+  /** The store's name, used when the block's heading is empty */
+  name: string;
+  /** Every active product, for the row label ("3 products") */
+  productCount: number;
+  products: StoreProductCard[];
+};
+
 export type StoreProductPublic = StoreProductCard & {
   handle: string;
   sellerName: string;
@@ -447,5 +460,16 @@ export const STORE_COPY = {
     pastVersion: (version: number, from: string, to: string) =>
       `Version ${version}, in force ${from} to ${to}.`,
     seeCurrent: "See the current policy.",
+  },
+  block: {
+    name: "Store",
+    description: "Up to 6 of your products and a link to your store.",
+    heading: "Heading",
+    headingHelp: "Leave empty to show your store name.",
+    count: (n: number) => (n === 1 ? "1 product" : `${n} products`),
+    visitStore: "Visit store",
+    notLive: "Shows on your page once your store is live.",
+    noProducts: "Shows on your page once you have an active product.",
+    goToStore: "Open Store",
   },
 } as const;

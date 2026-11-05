@@ -11,6 +11,7 @@ import { RnsIdBlockFields } from "./RnsIdBlockFields";
 import { ContentBlockFields } from "./ContentBlockFields";
 import { TelegramBlockFields } from "./TelegramBlockFields";
 import { MessageBlockFields } from "./MessageBlockFields";
+import { StoreBlockFields } from "./StoreBlockFields";
 import { isFeatureOn } from "../../../../config/featureFlags";
 
 // Amped Messages (M6): a telegram_message row not yet migrated edits as Message me
@@ -239,6 +240,8 @@ export function BlockFields({ block, onValid }: { block: BlockType; onValid: Con
       return <ContentBlockFields key={key} config={block.config} onValid={onValid} />;
     case "message":
       return <MessageBlockFields key={key} config={block.config} onValid={onValid} />;
+    case "store":
+      return <StoreBlockFields key={key} config={block.config} onValid={onValid} />;
     case "telegram_message":
       if (MESSAGES_ON) {
         return <MessageBlockFields key={key} config={block.config} onValid={onValid} />;
