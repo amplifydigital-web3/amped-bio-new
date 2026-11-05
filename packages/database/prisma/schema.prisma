@@ -2524,3 +2524,23 @@ model Membership {
   @@index([status, currentPeriodEnd])
   @@map("memberships")
 }
+
+// Seller tier override (Build Board #66, AB-6; docs/features/authbase-storefront.md 3.2b, M10).
+// Creators need an Enhanced check to sell; an admin can allow a named creator to sell with
+// Standard until a date. Ends at endsAt or when the Authbase verification ends, whichever is first.
+model SellerOverride {
+  id               Bytes     @id @db.Binary(16) // UUIDv7
+  userId           Int       @map("user_id")
+  reason           String    @db.VarChar(500)
+  endsAt           DateTime  @map("ends_at")
+  createdById      Int       @map("created_by_id")
+  revokedAt        DateTime? @map("revoked_at")
+  revokedById      Int?      @map("revoked_by_id")
+  reminderSentAt   DateTime? @map("reminder_sent_at")
+  endedNoticeAt    DateTime? @map("ended_notice_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+
+  @@index([userId, endsAt])
+  @@index([endsAt])
+  @@map("seller_overrides")
+}

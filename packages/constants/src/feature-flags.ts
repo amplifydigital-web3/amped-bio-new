@@ -298,6 +298,16 @@ export const FEATURE_FLAGS = {
     // A new flag: no environment fallback (AGENTS.md, feature flags)
     env: {},
   },
+  // Authbase storefront (Build Board #66, AB-6, M10): turn on after Rob sets the overrides for
+  // creators selling today with Standard (open question 8)
+  sellerRequiresEnhanced: {
+    label: "Sellers need Enhanced",
+    description:
+      "Creators need an Enhanced Authbase check to sell and get paid. An admin can allow a named creator to sell with Standard until a date (Users, Seller check).",
+    scope: "server",
+    default: false,
+    env: {},
+  },
 } as const satisfies Record<string, FeatureFlagDefinition>;
 
 export type FeatureFlagKey = keyof typeof FEATURE_FLAGS;
