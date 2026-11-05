@@ -1,4 +1,5 @@
 import { prisma } from "@repo/database";
+import { paymentChain } from "../../usdc/chain";
 import type { PaidOffer, PaymentVerifier, PurchaseState } from "../types";
 
 /** In flight: the fan signed and the relayer is sending or has sent. Not on chain yet. */
@@ -11,7 +12,8 @@ const PENDING_STATUSES = ["submitting", "submitted"] as const;
  *
  * A purchase gives access while it is confirmed_soft or confirmed and, for a product
  * with an access period, until its accessUntil. Refunded, failed and expired rows
- * never give access.
+ * never give access. Only rows on the chain that sells here count: a payment made on
+ * another chain (the testnet before a move to Base mainnet) is not a payment here.
  */
 export const usdcPaymentVerifier: PaymentVerifier = {
   async offer(offerIdHex: string): Promise<PaidOffer | null> {
@@ -33,6 +35,9 @@ export const usdcPaymentVerifier: PaymentVerifier = {
     const rows = await prisma.purchase.findMany({
       where: {
         buyerUserId: userId,
+        // Same rule as a refund (store sales): a payment on another chain holds no
+        // AmpedPay money here, so it must not open the item either
+        chainId: paymentChain.id,
         targetType: "offer",
         targetId: offerIdHex,
         status: { in: ["confirmed", "confirmed_soft", ...PENDING_STATUSES] },

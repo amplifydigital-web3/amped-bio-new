@@ -52,6 +52,11 @@ const state = vi.hoisted(() => ({
   allowlistRow: null as string | null,
   allowlistReads: 0,
   allowlistError: false,
+  redis: null as null | {
+    get: () => Promise<string | null>;
+    set: (...args: unknown[]) => Promise<unknown>;
+    incr: (key: string) => Promise<number>;
+  },
   events: [] as unknown[],
   memberRows: [] as Array<{ fanUserId: number | null }>,
   memberWhere: null as unknown,
@@ -67,7 +72,7 @@ vi.mock("../env", () => ({
   },
 }));
 vi.mock("../utils/cache", () => ({
-  getRedisClient: () => null,
+  getRedisClient: () => state.redis,
   cache: {
     get: vi.fn(async () => null),
     set: vi.fn(async () => undefined),
@@ -195,6 +200,7 @@ beforeEach(() => {
   state.allowlistRow = null;
   state.allowlistReads = 0;
   state.allowlistError = false;
+  state.redis = null;
   __resetStakeKindsAllowlistCacheForTests();
   state.events = [];
   clearEventDedupe();
@@ -698,6 +704,32 @@ describe("paid (G4, spec 3.3 and decision 5)", () => {
     expect((await check(fan, resource)).allowed).toBe(false);
     pay.purchase = "purchased";
     expect(await check(fan, resource)).toMatchObject({ allowed: true, reason: "ok" });
+  });
+
+  it("never caches a paid decision, so a refund closes access on the next check", async () => {
+    const redis = {
+      get: vi.fn(async (): Promise<string | null> => null),
+      set: vi.fn(async (..._args: unknown[]) => "OK"),
+      incr: vi.fn(async (_key: string) => 1),
+    };
+    state.redis = redis;
+
+    // Control: a follower render is cached, so the fake reaches the decision cache
+    gateWith(addRule("follower", {}));
+    state.follow = "active";
+    await check(fan, resource);
+    const decisionKeys = () =>
+      redis.set.mock.calls.map(call => String(call[0])).filter(key => key.startsWith("access:d:"));
+    expect(decisionKeys()).toHaveLength(1);
+
+    redis.set.mockClear();
+    gateWith(addRule("paid", { offerId: OFFER }));
+    pay.purchase = "purchased";
+    expect((await check(fan, resource)).allowed).toBe(true);
+    pay.purchase = "none";
+    expect((await check(fan, resource)).allowed).toBe(false);
+    // No decision was stored, so a refund is seen by the very next check (spec 3.8)
+    expect(decisionKeys()).toHaveLength(0);
   });
 
   it("open reveals on a soft unlock and never before", async () => {
