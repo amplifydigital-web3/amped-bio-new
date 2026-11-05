@@ -9,6 +9,7 @@ const listSelect = {
   title: true,
   body: true,
   status: true,
+  audienceKind: true,
   reviewReason: true,
   reviewNote: true,
   flaggedTerms: true,

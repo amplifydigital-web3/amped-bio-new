@@ -1,7 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { prisma, type Prisma } from "@repo/database";
-import { broadcastPlainText } from "@repo/constants";
+import { audienceHasPool, broadcastMentionsPool, broadcastPlainText } from "@repo/constants";
 import { privateProcedure, router } from "../trpc";
 import { checkReportThreshold } from "../../services/broadcast";
 import { avatarUrl, creatorSelect } from "./shared";
@@ -18,8 +18,9 @@ async function mutedCreatorIds(userId: number) {
 }
 
 /**
- * broadcast.inbox: the fan Inbox. Scoped to ctx.user.sub. Every member gets
- * the inbox copy; email arrives in phase 2.
+ * broadcast.inbox: the fan side of the Broadcast tab. Scoped to ctx.user.sub. Every
+ * recipient (pool staker, follower, or both, once) gets the inbox copy; email arrives
+ * in phase 2.
  */
 export const broadcastInboxRouter = router({
   list: privateProcedure
@@ -52,6 +53,7 @@ export const broadcastInboxRouter = router({
               id: true,
               title: true,
               body: true,
+              audienceKind: true,
               creator: { select: creatorSelect },
               pool: { select: { name: true } },
             },
@@ -67,6 +69,8 @@ export const broadcastInboxRouter = router({
         unread: !d.readAt,
         deliveredAt: d.createdAt,
         poolName: d.broadcast.pool?.name ?? null,
+        // M9: the audience line ("To followers"); the list shows no Testnet line (MS-Q28)
+        audience: d.broadcast.audienceKind,
         muted: muted.has(d.broadcast.creator.id),
         creator: {
           id: d.broadcast.creator.id,
@@ -105,6 +109,7 @@ export const broadcastInboxRouter = router({
               id: true,
               title: true,
               body: true,
+              audienceKind: true,
               creator: { select: creatorSelect },
               pool: { select: { name: true } },
               reports: { where: { reporterUserId: userId }, select: { id: true } },
@@ -131,6 +136,12 @@ export const broadcastInboxRouter = router({
         body: d.broadcast.body,
         deliveredAt: d.createdAt,
         poolName: d.broadcast.pool?.name ?? null,
+        audience: d.broadcast.audienceKind,
+        // bc-pool-terms: the Testnet notice shows on a broadcast to pool stakers or one
+        // that mentions the pool, staking or tREVO, for every recipient
+        testnet:
+          audienceHasPool(d.broadcast.audienceKind) ||
+          broadcastMentionsPool(d.broadcast.title, d.broadcast.body),
         reported: d.broadcast.reports.length > 0,
         mutedUntil,
         creator: {

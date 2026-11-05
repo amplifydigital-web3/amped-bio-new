@@ -54,8 +54,7 @@ export function emailDedupeKey(userId: number, conversationId: string): string {
   return `email:${userId}:${conversationId}`;
 }
 
-const isUniqueViolation = (error: unknown) =>
-  (error as { code?: string } | null)?.code === "P2002";
+const isUniqueViolation = (error: unknown) => (error as { code?: string } | null)?.code === "P2002";
 
 // ------------------------------------------------------------------ scheduling
 
@@ -232,7 +231,8 @@ async function broadcastPushPayload(payload: BroadcastJobPayload): Promise<PushP
   return {
     title: `@${creator.handle ?? "creator"}`,
     body: `New broadcast: ${broadcast.title}`.slice(0, 100),
-    url: `/inbox?tab=broadcast&id=${payload.broadcastId}`,
+    // M9: the spec route; the client turns it into /inbox?tab=broadcast&b={id}
+    url: `/inbox/broadcast/${payload.broadcastId}`,
     tag: `bc-${payload.broadcastId}`,
   };
 }

@@ -94,6 +94,13 @@ vi.mock("@repo/database", () => ({
     followBlock: {
       findUnique: vi.fn(async () => (state.followBlocked ? { user_id: FAN } : null)),
     },
+    // eligibleUserIds for stake kinds (broadcast audiences, M9)
+    stakedPool: {
+      findMany: vi.fn(async () => [
+        { stakeAmount: "5", userWallet: { userId: FAN } },
+        { stakeAmount: "0", userWallet: { userId: FAN + 1 } },
+      ]),
+    },
     accessRule: {
       findUnique: vi.fn(
         async ({ where }: { where: { id: Buffer } }) =>
@@ -379,6 +386,20 @@ describe("stake kinds (acceptance 1, 2, 7, 8)", () => {
         nextCursor: null,
       });
     }
+  });
+
+  it("eligibleUserIds with stakeAllowlist false reads stakers outside the pilot (M9 broadcasts)", async () => {
+    state.allowlist = "";
+    expect(
+      await eligibleUserIds(
+        { kind: "pool_member", params: { poolId: POOL } },
+        OWNER,
+        {},
+        {
+          stakeAllowlist: false,
+        }
+      )
+    ).toEqual({ userIds: [FAN], nextCursor: null });
   });
 
   it("only the owner's own pool counts", async () => {

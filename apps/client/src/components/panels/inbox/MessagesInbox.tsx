@@ -4,7 +4,7 @@ import { MessageCircle, SquarePen } from "lucide-react";
 import { MESSAGE_UI } from "@repo/constants";
 import { CountBadge, Tabs, TabsContent, TabsList, TabsTrigger, cn } from "@repo/ui";
 import { BROADCAST_ON } from "../broadcast/utils";
-import { UpdatesTab } from "../broadcast/InboxPanel";
+import { BroadcastTab } from "../broadcast/InboxPanel";
 import { ConversationList } from "./ConversationList";
 import { ConversationView } from "./ConversationView";
 import { NewMessageSheet } from "./NewMessageSheet";
@@ -110,7 +110,7 @@ export function MessagesInbox() {
       </div>
 
       {tab === "broadcast" ? (
-        <UpdatesTab />
+        <BroadcastTab />
       ) : (
         <div
           className={cn(

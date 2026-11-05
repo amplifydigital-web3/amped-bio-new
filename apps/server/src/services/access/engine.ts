@@ -468,13 +468,18 @@ export async function open<T>(
 
 /**
  * Users who pass a leaf rule for the owner, a page at a time, for broadcast
- * audiences and the Telegram group sweep (G2). Reads the mirror and Follow
+ * audiences (messaging M9), the Telegram group sweep and Library fan out. Reads the mirror and Follow
  * tables; it never grants. Combinators are not supported here yet.
+ *
+ * `stakeAllowlist: false` is for broadcast audiences only. The counsel pilot
+ * allowlist governs access to gated items. A broadcast to pool stakers opens
+ * nothing, and pool broadcasts were open to every pool owner before M9.
  */
 export async function eligibleUserIds(
   rule: { kind: AccessRuleKind; params: Record<string, unknown> },
   ownerUserId: number,
-  page: { cursor?: number | null; limit?: number } = {}
+  page: { cursor?: number | null; limit?: number } = {},
+  options: { stakeAllowlist?: boolean } = {}
 ): Promise<{ userIds: number[]; nextCursor: number | null }> {
   const limit = Math.min(Math.max(page.limit ?? 500, 1), 1000);
   const after = page.cursor ?? 0;
@@ -493,7 +498,9 @@ export async function eligibleUserIds(
     userIds = rows.map(row => row.follower_id);
   } else if ((STAKE_ACCESS_RULE_KINDS as readonly string[]).includes(rule.kind)) {
     // Same pilot allowlist as check(): a stake audience is empty outside it
-    if (!(await stakeKindsAllowed(ownerUserId))) return { userIds: [], nextCursor: null };
+    if (options.stakeAllowlist !== false && !(await stakeKindsAllowed(ownerUserId))) {
+      return { userIds: [], nextCursor: null };
+    }
     const poolId = rule.params.poolId as number;
     const pool = await loadPool(poolId);
     if (!pool || pool.ownerUserId !== ownerUserId) return { userIds: [], nextCursor: null };
