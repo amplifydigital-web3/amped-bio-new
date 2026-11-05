@@ -11,8 +11,16 @@ import { EffectVideo, effectVideoSrc } from "./EffectVideo";
 const PUBLIC = path.resolve(__dirname, "../../../../../public");
 
 describe("tile videos", () => {
-  it("has a committed video for every entry that asks for one, and only those", () => {
-    const wanted = ALL_EFFECTS.filter(e => e.preview.video && !e.retired).map(e => e.id);
+  it("has a committed video for every renderable entry that asks for one, and only those", () => {
+    // The generator records WebGL and canvas entries. Particle tiles (Particle
+    // text, Comet trails) keep preview.video but fall back to their live or
+    // still frame until the renderer can record them.
+    const wanted = ALL_EFFECTS.filter(
+      e =>
+        e.preview.video &&
+        !e.retired &&
+        (e.render.kind === "webgl" || e.render.kind === "canvas")
+    ).map(e => e.id);
     expect(Object.keys(videos).sort()).toEqual([...wanted].sort());
   });
 

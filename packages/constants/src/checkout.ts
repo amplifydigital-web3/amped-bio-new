@@ -24,8 +24,8 @@ export type CheckoutStatus = (typeof CHECKOUT_STATUSES)[number];
 /** Statuses the resume bar offers to finish. */
 export const RESUMABLE_CHECKOUT_STATUSES = ["open", "awaiting_funds"] as const;
 
-/** What an intent is for. Offers and plans replace content targets with store PR 9. */
-export const CHECKOUT_TARGET_TYPES = ["content"] as const;
+/** What an intent is for: a content item (until every sale is an offer) or a store product (C9). */
+export const CHECKOUT_TARGET_TYPES = ["content", "offer"] as const;
 export type CheckoutTargetType = (typeof CHECKOUT_TARGET_TYPES)[number];
 
 /** Where the fan tapped Buy or Join, for the phone funnel (review section 7). */
@@ -81,9 +81,17 @@ export function checkoutResumeLabel(title: string): string {
 
 /**
  * What the pay sheet can do with an intent right now (docs/features/mobile-checkout.md
- * 5 and 10). Anything but ready shows its error state and keeps the intent open.
+ * 5 and 10). Paid is terminal and shows the paid screen. Anything else but ready shows its
+ * error state and keeps the intent open.
  */
-export const CHECKOUT_QUOTE_STATES = ["ready", "paused", "limit", "seller", "removed"] as const;
+export const CHECKOUT_QUOTE_STATES = [
+  "ready",
+  "paid",
+  "paused",
+  "limit",
+  "seller",
+  "removed",
+] as const;
 export type CheckoutQuoteState = (typeof CHECKOUT_QUOTE_STATES)[number];
 
 /**
@@ -176,8 +184,22 @@ export const CHECKOUT_COPY = {
   seller: (handle: string) =>
     `@${handle} cannot take payments right now. Nothing was taken from your wallet.`,
   removed: "This item is no longer for sale. Nothing was taken from your wallet.",
+  over18: "This item is for over 18s. It cannot be bought here yet.",
   failed: "The payment did not go through. Nothing was taken from your wallet.",
   ended: "This checkout has ended. Start again from the page.",
+  // CK-5: AmpedPay live (mobile checkout 5, 9 and 10)
+  storePolicy: "Store policy",
+  policyChanged: (seller: string) => `${seller} updated their store policy.`,
+  readPolicy: "Read the store policy",
+  networkFee: "Network fee",
+  networkFeePaid: "Paid by Amped.Bio",
+  verified: "Verified",
+  rejected: "You cancelled in your wallet. Nothing was taken from your wallet.",
+  walletMismatch: "Your wallet changed. Sign in again and try once more.",
+  noWallet: "Set up your wallet first. Nothing was taken from your wallet.",
+  screening: "This payment can not go through. Nothing was taken from your wallet.",
+  stillChecking:
+    "Your payment is still on its way. You can close this page. The item opens in your Library when it lands.",
 } as const;
 
 /** The intent a return path points at, or null for any other path. */
@@ -199,3 +221,76 @@ export function checkoutFundingCents(
     ? { cents: minCents, raisedToMinimum: true }
     : { cents: need, raisedToMinimum: false };
 }
+
+// ---------------------------------------------------------------- PAY-2: AmpedPay purchases
+
+/**
+ * A Purchase through AmpedPay (docs/features/ampedpay.md, mobile checkout D4). Access opens at
+ * confirmed_soft (the relayer's receipt) and is final at confirmed (final_confirmations). A
+ * reorg moves confirmed_soft back to submitted and access closes again.
+ */
+export const PURCHASE_STATUSES = [
+  "prepared",
+  "submitting",
+  "submitted",
+  "confirmed_soft",
+  "confirmed",
+  "refunded",
+  "failed",
+  "expired",
+] as const;
+export type PurchaseStatus = (typeof PURCHASE_STATUSES)[number];
+
+/** Statuses that pass the paid check. */
+export const PURCHASE_ACCESS_STATUSES = ["confirmed_soft", "confirmed"] as const;
+
+/** Statuses that count against the daily purchase limits. */
+export const PURCHASE_COUNTED_STATUSES = [
+  "submitting",
+  "submitted",
+  "confirmed_soft",
+  "confirmed",
+] as const;
+
+/** Why prepare or submit refused. Each one maps to a pay sheet state (CK-5). */
+export const PURCHASE_REFUSALS = [
+  "paused",
+  "seller",
+  "limit",
+  "removed",
+  "owned",
+  "in_progress",
+  "price",
+  "no_wallet",
+  "wallet_mismatch",
+  "insufficient_balance",
+  "screening",
+  "policy_changed",
+] as const;
+export type PurchaseRefusal = (typeof PURCHASE_REFUSALS)[number];
+
+/** Purchase ids are UUID v7, 32 lowercase hex characters. */
+export const purchaseIdSchema = z.string().regex(/^[0-9a-f]{32}$/);
+
+export const purchasePrepareInputSchema = z.object({
+  intentId: checkoutIntentIdSchema,
+  /** The amount the sheet showed, in USDC units. A different price refuses with `price`. */
+  amount: z.string().regex(/^\d{1,15}$/),
+  /** The wallet the browser will sign with; refused when it is not the account's wallet. */
+  signer: z
+    .string()
+    .regex(/^0x[0-9a-fA-F]{40}$/)
+    .optional(),
+  /**
+   * The live store policy version the fan accepted after "{seller} updated their store
+   * policy." (CK-5). Without it a changed policy refuses with `policy_changed`.
+   */
+  policyVersion: z.number().int().positive().optional(),
+});
+export type PurchasePrepareInput = z.infer<typeof purchasePrepareInputSchema>;
+
+export const purchaseSubmitInputSchema = z.object({
+  purchaseId: purchaseIdSchema,
+  signature: z.string().regex(/^0x[0-9a-fA-F]{128,130}$/),
+});
+export type PurchaseSubmitInput = z.infer<typeof purchaseSubmitInputSchema>;

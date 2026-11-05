@@ -151,17 +151,20 @@ describe("OAuth CORS headers (auth subdomain)", () => {
     { path: "/oauth2/revoke", method: "POST" },
     { path: "/oauth2/register", method: "POST" },
     { path: "/device/code", method: "POST" },
-  ])("OPTIONS $path returns CORS headers with wildcard for unknown origins", async ({ path, method }) => {
-    const res = await fetch(`${AUTH_URL}${path}`, {
-      method: "OPTIONS",
-      headers: {
-        origin: "https://unknown-origin.example.com",
-        "access-control-request-method": method,
-      },
-    });
-    expect(res.status).toBe(204);
-    expect(res.headers.get("access-control-allow-origin")).toBe("*");
-  });
+  ])(
+    "OPTIONS $path returns CORS headers with wildcard for unknown origins",
+    async ({ path, method }) => {
+      const res = await fetch(`${AUTH_URL}${path}`, {
+        method: "OPTIONS",
+        headers: {
+          origin: "https://unknown-origin.example.com",
+          "access-control-request-method": method,
+        },
+      });
+      expect(res.status).toBe(204);
+      expect(res.headers.get("access-control-allow-origin")).toBe("*");
+    }
+  );
 
   it("OPTIONS /oauth2/authorize does NOT expose CORS to unknown origins", async () => {
     const res = await fetch(`${AUTH_URL}/oauth2/authorize`, {

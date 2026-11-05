@@ -151,6 +151,57 @@ describe("takedown", () => {
     await env.TAKEDOWN.put(`blocked:${publicId}`, "copyright");
     expect((await call(await urlFor(key))).status).toBe(403);
   });
+
+  it("refuses every token class on a blocked item", async () => {
+    const publicId = newPublicId();
+    const key = `audio/${publicId}/full.m4a`;
+    await put(key, "bytes");
+    await env.TAKEDOWN.put(
+      `blocked:${publicId}`,
+      JSON.stringify({ r: "moderation", at: new Date().toISOString() })
+    );
+    expect((await call(await urlFor(key))).status).toBe(403);
+    expect((await call(await urlFor(key, { p: 1 }))).status).toBe(403);
+    expect((await call(await urlFor(key, { r: "blur", p: 1 }))).status).toBe(403);
+  });
+
+  it("lets a Safety reveal token open a hidden item, never a child safety one", async () => {
+    const hidden = newPublicId();
+    const hiddenKey = `audio/${hidden}/full.m4a`;
+    await put(hiddenKey, "bytes");
+    await env.TAKEDOWN.put(`blocked:${hidden}`, JSON.stringify({ r: "safety", at: "" }));
+    expect((await call(await urlFor(hiddenKey, { a: "safety" }))).status).toBe(200);
+
+    const csam = newPublicId();
+    const csamKey = `audio/${csam}/full.m4a`;
+    await put(csamKey, "bytes");
+    await env.TAKEDOWN.put(`blocked:${csam}`, JSON.stringify({ r: "child_safety", at: "" }));
+    expect((await call(await urlFor(csamKey, { a: "safety" }))).status).toBe(403);
+
+    // A value written before C7a carries no reason and is treated as child safety
+    const legacy = newPublicId();
+    const legacyKey = `audio/${legacy}/full.m4a`;
+    await put(legacyKey, "bytes");
+    await env.TAKEDOWN.put(`blocked:${legacy}`, "copyright");
+    expect((await call(await urlFor(legacyKey, { a: "safety" }))).status).toBe(403);
+  });
+
+  it("refuses old public links once the item is private, and keeps private tokens and the blur", async () => {
+    const publicId = newPublicId();
+    const audio = `audio/${publicId}/full.m4a`;
+    const blur = `derived/${publicId}/blur.webp`;
+    await put(audio, "audio");
+    await put(blur, "blur");
+    expect((await call(await urlFor(audio, { p: 1 }))).status).toBe(200);
+
+    await env.TAKEDOWN.put(`private:${publicId}`, JSON.stringify({ at: "" }));
+    expect((await call(await urlFor(audio, { p: 1 }))).status).toBe(403);
+    expect((await call(await urlFor(audio))).status).toBe(200);
+    expect((await call(await urlFor(blur, { r: "blur", p: 1 }))).status).toBe(200);
+
+    await env.TAKEDOWN.delete(`private:${publicId}`);
+    expect((await call(await urlFor(audio, { p: 1 }))).status).toBe(200);
+  });
 });
 
 describe("ranges and conditional requests", () => {

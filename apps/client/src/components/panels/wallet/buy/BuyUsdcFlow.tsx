@@ -37,6 +37,7 @@ import {
 import CoinbaseIcon from "@/assets/icons/coinbase.png";
 import { useWalletContext } from "@/contexts/WalletContext";
 import { paymentChain } from "@/utils/paymentChain";
+import { CHECKOUT_ON } from "@/components/shell/CheckoutResumeBar";
 import { Slab, SlabRow } from "../../explore/pool-panel/sections";
 import ReceiveDialog from "../dialogs/ReceiveDialog";
 import { countryName, regionLabel, stateName } from "./regions";
@@ -176,10 +177,12 @@ export default function BuyUsdcFlow() {
   const sessionParam = params.get("session");
   // From a short balance on the pay sheet (mobile checkout 8): ?ci={intent}&need={units}
   const checkoutIntent = checkoutIntentFromPath(`/pay/${params.get("ci") ?? ""}`);
-  const checkoutNeed = checkoutIntent ? needUnits(params.get("need")) : null;
-  const returnTo = checkoutIntent
-    ? checkoutPayPath(checkoutIntent)
-    : safeReturn(params.get("return"));
+  const plainReturn = safeReturn(params.get("return") ?? params.get("returnTo"));
+  // MB-1 (CK-Q74): a renewal reminder opens here with the charge as ?need= and returns to
+  // Library, Memberships. Only that return path takes a need without a checkout intent.
+  const renewalSource = !checkoutIntent && !!plainReturn?.startsWith("/library/memberships");
+  const checkoutNeed = checkoutIntent || renewalSource ? needUnits(params.get("need")) : null;
+  const returnTo = checkoutIntent ? checkoutPayPath(checkoutIntent) : plainReturn;
 
   const [phase, setPhase] = useState<Phase>(sessionParam ? "handoff" : "amount");
   const [amount, setAmount] = useState("25");
@@ -241,13 +244,15 @@ export default function BuyUsdcFlow() {
     };
   }, [accountPath, walletPath]);
 
-  // The checkout's intent waits for funds while the fan buys USDC (mobile checkout 8)
+  // The checkout's intent waits for funds while the fan buys USDC (mobile checkout 8). Only
+  // with checkout on: the server refuses the call otherwise
   const awaitFunds = useMutation(trpc.checkout.awaitFunds.mutationOptions());
   const awaitFundsFor = useRef<string | null>(null);
   const markAwaiting = useRef(awaitFunds.mutate);
   markAwaiting.current = awaitFunds.mutate;
   useEffect(() => {
-    if (!open || !checkoutIntent || awaitFundsFor.current === checkoutIntent) return;
+    if (!CHECKOUT_ON || !open || !checkoutIntent || awaitFundsFor.current === checkoutIntent)
+      return;
     awaitFundsFor.current = checkoutIntent;
     markAwaiting.current({ id: checkoutIntent });
   }, [open, checkoutIntent]);
@@ -255,14 +260,15 @@ export default function BuyUsdcFlow() {
   // Prefill the shortfall, or Coinbase's minimum when the shortfall is smaller. USDC is
   // dollars, so the prefill applies to a USD purchase only
   useEffect(() => {
-    if (!open || !checkoutIntent || !checkoutNeed || !path || phase !== "amount") return;
-    if (currency !== "USD" || prefilledFor.current === checkoutIntent) return;
-    prefilledFor.current = checkoutIntent;
+    const prefillKey = checkoutIntent ?? (renewalSource ? "renewal" : null);
+    if (!open || !prefillKey || !checkoutNeed || !path || phase !== "amount") return;
+    if (currency !== "USD" || prefilledFor.current === prefillKey) return;
+    prefilledFor.current = prefillKey;
     const funding = checkoutFundingCents(checkoutNeed, path.minCents);
     const value = dollarsFromCents(funding.cents);
     setAmount(value);
     setPrefill({ amount: value, raisedToMinimum: funding.raisedToMinimum });
-  }, [open, checkoutIntent, checkoutNeed, path, phase, currency]);
+  }, [open, checkoutIntent, renewalSource, checkoutNeed, path, phase, currency]);
   const showMinimumLine = !!prefill?.raisedToMinimum && prefill.amount === amount.trim() && !!path;
 
   // 064 I06: one amount error, named by the fix
