@@ -4,3 +4,4 @@ export * from "./ReferralRewardsCard";
 export * from "./AnnouncementCard";
 export * from "./ContentRow";
 export * from "./NewestUsers";
+export * from "./TakedownSyncCard";

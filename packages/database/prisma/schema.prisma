@@ -1452,6 +1452,13 @@ enum ContentStatus {
   DELETED
 }
 
+/// What the edge holds for an item (C7a, content-takedown.md 4.1)
+enum ContentEdgeState {
+  OPEN
+  PRIVATE
+  BLOCKED
+}
+
 enum ContentPublishState {
   DRAFT
   PUBLISHED
@@ -1526,6 +1533,16 @@ model ContentItem {
   publishedAt      DateTime?           @map("published_at")
   deletedAt        DateTime?           @map("deleted_at")
   purgeAfter       DateTime?           @map("purge_after")
+  // Takedown (C7a, content-takedown.md 4.3): what the edge (KV, Stream origins)
+  // holds for this item now, and when it may need to change
+  edgeState        ContentEdgeState    @default(OPEN) @map("edge_state")
+  edgeDirtyAt      DateTime?           @map("edge_dirty_at")
+  edgeAttempts     Int                 @default(0) @map("edge_attempts")
+  edgeError        String?             @map("edge_error") @db.VarChar(160)
+  // Safety hide (R1 sets and clears it through hideItems and restoreItems)
+  hiddenAt         DateTime?           @map("hidden_at")
+  // safety | child_safety | take_it_down | withdrawn
+  hiddenReason     String?             @map("hidden_reason") @db.VarChar(24)
   createdAt        DateTime            @default(now()) @map("created_at")
   updatedAt        DateTime            @updatedAt @map("updated_at")
 
@@ -1542,6 +1559,7 @@ model ContentItem {
   @@index([userId, status])
   @@index([userId, publishState, publishedAt])
   @@index([accessRuleId])
+  @@index([edgeDirtyAt])
   @@map("content_items")
 }
 

@@ -610,12 +610,12 @@ describe("owner and moderation BLOCKED (ownerCanOpen)", () => {
       available: false,
       ownerCanOpen: false,
     });
-    await expect(
-      content(OWNER).getReadUrl({ publicId: blocked.publicId })
-    ).rejects.toMatchObject({ code: "NOT_FOUND" });
-    await expect(
-      content(OWNER).getPreview({ publicId: blocked.publicId })
-    ).rejects.toMatchObject({ code: "NOT_FOUND" });
+    await expect(content(OWNER).getReadUrl({ publicId: blocked.publicId })).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
+    await expect(content(OWNER).getPreview({ publicId: blocked.publicId })).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
     expect(await progress(OWNER).set({ publicId: blocked.publicId, positionMs: 5000 })).toEqual({
       saved: false,
     });
@@ -624,8 +624,7 @@ describe("owner and moderation BLOCKED (ownerCanOpen)", () => {
 
   it("keeps the owner out when a served asset failed its scan", async () => {
     const item = addItem();
-    db.assets.find(a => a.contentItemId === item.id && a.role === "COVER")!.scanStatus =
-      "INFECTED";
+    db.assets.find(a => a.contentItemId === item.id && a.role === "COVER")!.scanStatus = "INFECTED";
     expect((await contentResolver.get(item.publicId))!.ownerCanOpen).toBe(false);
     expect(await progress(OWNER).set({ publicId: item.publicId, positionMs: 5000 })).toEqual({
       saved: false,
