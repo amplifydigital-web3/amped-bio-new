@@ -32,10 +32,16 @@ import {
   MenuItem,
   MenuTrigger,
   Skeleton,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
   trpc,
   trpcClient,
   type RouterOutputs,
 } from "@repo/ui";
+import { isFeatureOn } from "@/config/featureFlags";
+import { MembersView } from "./MembersView";
 import { useDebounce } from "@/hooks/useDebounce";
 import { useAuth } from "@repo/ui";
 import { toast } from "@/components/ui/toast";
@@ -142,7 +148,7 @@ function Tile({ label, value, note }: { label: string; value: React.ReactNode; n
  * Fan Graph (#22): the People destination, Followers (boards fg5, fg7, fg10,
  * fg11). Names, handles, dates and sources only. Never email or wallet.
  */
-export function PeoplePanel() {
+function FollowersView() {
   const { authUser } = useAuth();
   const queryClient = useQueryClient();
   const [range, setRange] = useState<Range>("30d");
@@ -695,3 +701,36 @@ export function PeoplePanel() {
 }
 
 export default PeoplePanel;
+
+/**
+ * People (Fan Graph #22, Memberships MB-1). Tabs Followers and Members (amendment 1 3.1).
+ * Members shows once the creator has a membership plan and checkout is on; until then People
+ * is the Followers view alone, as shipped.
+ */
+export function PeoplePanel() {
+  const plan = useQuery({
+    ...trpc.memberships.plan.get.queryOptions(),
+    enabled: isFeatureOn("checkout"),
+    staleTime: 60_000,
+  });
+  const [tab, setTab] = useState<"followers" | "members">("followers");
+  if (!plan.data) return <FollowersView />;
+  return (
+    <Tabs
+      value={tab}
+      onValueChange={v => setTab(v as "followers" | "members")}
+      className="flex flex-col gap-[21px]"
+    >
+      <TabsList aria-label="People">
+        <TabsTrigger value="followers">Followers</TabsTrigger>
+        <TabsTrigger value="members">Members</TabsTrigger>
+      </TabsList>
+      <TabsContent value="followers" className="mt-0">
+        <FollowersView />
+      </TabsContent>
+      <TabsContent value="members" className="mt-0">
+        <MembersView plan={plan.data} />
+      </TabsContent>
+    </Tabs>
+  );
+}

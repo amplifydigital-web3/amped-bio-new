@@ -189,6 +189,9 @@ const envSchema = z.object({
   // Identity checks (Build Board #47): where an under 18 review case alert goes
   // until the Safety queue ships (identity checks spec 4.5). Empty logs a warning.
   SAFETY_ALERT_EMAIL: z.string().default(""),
+  // The company postal address for commercial email footers (CAN-SPAM; bulk email AC-Q11).
+  // The Fan Library daily email (FL-6) sends nothing while it is empty.
+  BULK_FOOTER_ADDRESS: z.string().default(""),
   // Mobile checkout (Build Board #49, CK-1): the checkout router answers only when true
   CHECKOUT_ENABLED: boolSchema(false),
 
@@ -242,8 +245,10 @@ const envSchema = z.object({
   // Fallback of the `messages` feature flag (admin Feature flags) when it has no row.
   // Off makes every Inbox read only (spec 7.1).
   MESSAGING_ENABLED: boolSchema(true),
-  // Gated creator groups (phase 2)
+  // Fallback of the `telegramGroups` feature flag (admin Feature flags) when it has no row.
+  // Gated creator groups (phase 2).
   TELEGRAM_GROUPS: boolSchema(false),
+  // Fallback of the `telegramMiniApp` feature flag (admin Feature flags) when it has no row.
   // The Mini App page endpoint, follow and share (phase 3). Counsel confirms TON safe mode first.
   TELEGRAM_MINIAPP: boolSchema(false),
 
@@ -305,6 +310,9 @@ const envSchema = z.object({
   // contract is deployed (PAY-1 on Base Sepolia). The admin shows "Not deployed" until then.
   AMPEDPAY_ADDRESS: z.string().default(""),
   AMPEDPAY_SAFE: z.string().default(""),
+  // AmpedMemberships proxy (PAY-3 deploy output, MB-1). Empty until deployed: joins refuse
+  // with paused and the renewal job does nothing.
+  AMPEDMEMBERSHIPS_ADDRESS: z.string().default(""),
   // PAY-A2: Coinbase Server Wallet accounts by name (Build Board #53, B3). The pauser may only
   // call pause() on AmpedPay; the Safe proposer is a Safe delegate that signs proposals and
   // nothing else; the split signer is shown on Overview and used by PAY-2.
@@ -348,6 +356,15 @@ const envSchema = z.object({
   // Stream customer code for thumbnail URLs (customer-{code}.cloudflarestream.com). Optional:
   // read from the video when empty
   CF_STREAM_CUSTOMER_CODE: z.string().default(""),
+  // Content takedown (C7a, content-takedown.md 4.9). The TAKEDOWN KV namespace id the
+  // media gateway reads (takedown, takedown-staging) and a token with Workers KV
+  // Storage Edit on that account. Without both, edge sync logs an alert and waits.
+  CF_TAKEDOWN_NAMESPACE_ID: z.string().default(""),
+  CF_KV_API_TOKEN: z.string().default(""),
+  // Zone id of amped.bio (holds both media hosts) and a token with Zone Cache Purge.
+  // Optional: purge is cleanup only; the KV key already stops delivery.
+  CF_MEDIA_ZONE_ID: z.string().default(""),
+  CF_CACHE_PURGE_TOKEN: z.string().default(""),
   // Per kind upload limits in MB (spec 3.2)
   UPLOAD_LIMIT_CONTENT_VIDEO_MB: numSchema(2048),
   UPLOAD_LIMIT_CONTENT_AUDIO_MB: numSchema(500),

@@ -3,6 +3,7 @@ import { nameSettle, isNameEntrance, NAME_SETTLES, NAME_TARGETS } from "@repo/co
 import {
   ChipGroup,
   NameText,
+  WeightPulseName,
   cn,
   effectClassName,
   themeCssVars,
@@ -14,8 +15,20 @@ import { CreatorBackdrop } from "../kit/CreatorArt";
 import { ContrastNotice } from "../kit/Notices";
 import { cardFill, formatRatio, useDesign } from "../kit/useDesign";
 import { ParamPanel } from "../kit/ParamStrip";
+import { isFeatureOn } from "../../../../config/featureFlags";
+import { loadFontCatalog } from "./fonts/fontCatalog";
+import type { FontCatalogEntry } from "@repo/constants";
+import { currentNameFont } from "../kit/fontLook";
+import {
+  WEIGHT_PULSE_ID,
+  canPulse,
+  clampPulseParams,
+  nameFontEntry,
+  weightPulsePatch,
+} from "../kit/weightPulse";
 import {
   NAME_TILES,
+  nameRowTiles,
   nameIndex,
   namePaintedColors,
   namePatch,
@@ -27,6 +40,27 @@ import {
 // VITE_SHOW_THEME_V2; the v1 row stays in MotionRows.tsx.
 
 const SETTLE_LABELS = { once: "Play once", always: "Loop" } as const;
+
+// TE-3e2: Weight pulse needs the font catalog
+const fontCatalogOn = isFeatureOn("themeV2") && isFeatureOn("fontCatalog");
+const NAME_ROW_TILES = nameRowTiles(fontCatalogOn);
+
+/** The catalog families, loaded only while fontCatalog is on (for Weight pulse). */
+function usePulseFamilies(): readonly FontCatalogEntry[] | null {
+  const [families, setFamilies] = useState<readonly FontCatalogEntry[] | null>(null);
+  useEffect(() => {
+    if (!fontCatalogOn) return;
+    let cancelled = false;
+    loadFontCatalog().then(
+      catalog => !cancelled && setFamilies(catalog.families),
+      () => {}
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  return families;
+}
 const TARGET_LABELS = { name: "Name", nameAndBio: "Name and bio" } as const;
 
 /** Plays for a moment after a tap or selection. */
@@ -46,16 +80,23 @@ function NameTileView({
   tile,
   selected,
   focusable,
+  families,
 }: {
   tile: NameTile;
   selected: boolean;
   focusable: boolean;
+  families: readonly FontCatalogEntry[] | null;
 }) {
   const { config, values, profile, locked, update, preview, endPreview } = useDesign();
   const reducedMotion = usePrefersReducedMotion();
   const { playing, setPlaying, playFor } = usePlay();
   const look = { ...config, ...values };
   const { entry } = tile;
+  // TE-3e2: Weight pulse fits its range to the name face, and needs a weight axis
+  const pulse = tile.effectId === WEIGHT_PULSE_ID;
+  const pulseEntry = pulse ? nameFontEntry(families, config, values.fontFamily) : undefined;
+  const pulseReady = !pulse || canPulse(pulseEntry);
+  const patch = () => (pulse ? weightPulsePatch(pulseEntry) : namePatch(tile));
   // Animated effects play only on hover, focus or tap in tiles (030 I02)
   const animated = entry.loop === true || isNameEntrance(entry);
   const still = animated && (!playing || reducedMotion);
@@ -68,18 +109,23 @@ function NameTileView({
   return (
     <OptionTile
       label={entry.label}
-      accessibleDescription={entry.description}
+      accessibleDescription={
+        pulseReady ? entry.description : "Needs a name font with a weight axis. Pick one in Text."
+      }
       tier={entry.tier}
       cost={entry.cost}
       selected={selected}
       focusable={focusable}
-      disabled={locked}
+      disabled={locked || !pulseReady}
       onSelect={() => {
-        update(namePatch(tile));
+        const next = patch();
+        if (!next) return;
+        update(next);
         playFor(2000);
       }}
       onPreview={() => {
-        preview(namePatch(tile));
+        const next = patch();
+        if (next) preview(next);
         setPlaying(true);
       }}
       onPreviewEnd={() => {
@@ -108,12 +154,22 @@ function NameTileView({
                 } as CSSProperties
               }
             >
-              <NameText
-                entry={entry}
-                text={profile.name || "Your name"}
-                colors={colors}
-                paused={still}
-              />
+              {pulse ? (
+                <span style={{ fontFamily: currentNameFont(config, values.fontFamily).family }}>
+                  <WeightPulseName
+                    text={profile.name || "Your name"}
+                    params={weightPulsePatch(pulseEntry)?.heroEffectParams}
+                    paused={!pulseReady}
+                  />
+                </span>
+              ) : (
+                <NameText
+                  entry={entry}
+                  text={profile.name || "Your name"}
+                  colors={colors}
+                  paused={still}
+                />
+              )}
             </span>
           </span>
         </CreatorBackdrop>
@@ -129,7 +185,9 @@ export function NameRow() {
   const { entry } = tile;
   const settle = nameSettle(entry, config.heroEffectLoop);
   const target = config.heroAppliesTo ?? "name";
-  const entrance = isNameEntrance(entry);
+  // Weight pulse, like the entrances, plays on the name only
+  const entrance = isNameEntrance(entry) || entry.id === WEIGHT_PULSE_ID;
+  const families = usePulseFamilies();
   const guard = nameContrast(namePaintedColors(entry, values));
   return (
     <DisclosureRow
@@ -140,10 +198,11 @@ export function NameRow() {
     >
       <div className="space-y-[21px]">
         <OptionGrid label="Name effect">
-          {NAME_TILES.map((t, index) => (
+          {NAME_ROW_TILES.map((t, index) => (
             <NameTileView
               key={t.effectId ?? t.id}
               tile={t}
+              families={families}
               selected={index === selectedIndex}
               focusable={selectedIndex === -1 ? index === 0 : index === selectedIndex}
             />
@@ -155,7 +214,14 @@ export function NameRow() {
           stored={config.heroEffectParams}
           disabled={locked}
           yourColors={yourColors}
-          onChange={params => update({ heroEffectParams: params })}
+          onChange={params =>
+            update({
+              heroEffectParams:
+                entry.id === WEIGHT_PULSE_ID
+                  ? clampPulseParams(nameFontEntry(families, config, values.fontFamily), params)
+                  : params,
+            })
+          }
         />
 
         {entry.loop && (
@@ -198,7 +264,9 @@ export function NameRow() {
             />
             {entrance && (
               <p className="text-prism-meta text-prism-ink-2">
-                Letter effects play on the name only, once per visit.
+                {entry.id === WEIGHT_PULSE_ID
+                  ? "Weight pulse plays on the name only."
+                  : "Letter effects play on the name only, once per visit."}
               </p>
             )}
           </div>
