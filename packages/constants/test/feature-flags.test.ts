@@ -37,7 +37,7 @@ describe("feature flag registry", () => {
     expect(isFeatureFlagKey("nope")).toBe(false);
   });
 
-  it("gives every public flag an app or server fallback and every server flag a server fallback", () => {
+  it("gives every migrated public flag an app or server fallback and every migrated server flag a server fallback", () => {
     for (const key of FEATURE_FLAG_KEYS) {
       const env = FEATURE_FLAGS[key].env as { server?: string; client?: string; landing?: string };
       // A brand new flag has no variable to migrate (AGENTS.md, feature flags step 1):
@@ -51,6 +51,12 @@ describe("feature flag registry", () => {
         expect(env.client || env.landing || env.server).toBeTruthy();
       else expect(env.server).toBeTruthy();
     }
+  });
+
+  it("registers the theme showcase flag as a brand new public flag, off by default", () => {
+    expect(FEATURE_FLAGS.themeShowcase.scope).toBe("public");
+    expect(FEATURE_FLAGS.themeShowcase.default).toBe(false);
+    expect(FEATURE_FLAGS.themeShowcase.env).toEqual({});
   });
 
   it("registers the font catalog flag as a brand new public flag, off by default", () => {

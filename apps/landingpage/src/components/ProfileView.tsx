@@ -228,6 +228,8 @@ export function ProfileView({
   const messagesOn = useFeatureFlag("messages");
   // Theme Engine v2 (#28): the shared CreatorPage shell, staging first
   const themeV2 = useFeatureFlag("themeV2");
+  // Theme Engine v2 phase 3 (TE-3a): showcase engines, staging first
+  const themeShowcase = useFeatureFlag("themeShowcase");
   // Theme Engine v2 fonts (2b): catalog faces load only while fontCatalog is on
   const fontCatalogOn = useFeatureFlag("fontCatalog");
 
@@ -714,6 +716,7 @@ export function ProfileView({
       bottomPadding={`calc(89px + env(safe-area-inset-bottom, 0px) + ${cardShowing ? cardHeight + 13 : 0}px)`}
       entranceKey={normalizedHandle}
       device={weakDevice ? "weak" : undefined}
+      showcase={themeShowcase}
       loadFonts={fontCatalogOn}
       fontLinks={fontCatalogOn ? fontLinks : null}
     />

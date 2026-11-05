@@ -19,6 +19,7 @@ import { CreatorFontLinks } from "./fonts";
 import { NameText } from "./name-effect";
 import { WeightPulseName } from "./weight-pulse";
 import { ParticlesLayer } from "./particles-layer";
+import { ShaderLayer, type EffectDrop } from "./shader-layer";
 import { gradientScene, textureStyle } from "./scene";
 import { containerSurfaceClass } from "./surface";
 import { ContainerFx, premiumSurfaceStyle } from "./surface-fx";
@@ -123,6 +124,13 @@ export interface CreatorPageProps {
    */
   device?: "strong" | "typical" | "weak";
   /**
+   * themeShowcase flag (phase 3, TE-3a): showcase engines run. Off, a WebGL
+   * scene paints its poster only.
+   */
+  showcase?: boolean;
+  /** A layer dropped to its still version (spec 3.7, theme_effect_dropped). */
+  onEffectDropped?: (drop: EffectDrop) => void;
+  /**
    * Phase 2b fonts (spec 3.8): load the stylesheets for catalog faces. The
    * apps pass the fontCatalog flag; off, the page draws only the base fonts.
    */
@@ -150,6 +158,8 @@ export function CreatorPage({
   bottomPadding = DEFAULT_BOTTOM,
   entranceKey,
   device,
+  showcase = false,
+  onEffectDropped,
   loadFonts = false,
   fontLinks,
 }: CreatorPageProps) {
@@ -209,6 +219,16 @@ export function CreatorPage({
           style={{ backgroundImage: `url(${background.value})` }}
         />
       ) : null}
+      {/* Phase 3: a WebGL scene base paints its poster, then the shader */}
+      <ShaderLayer
+        entry={look.shader}
+        params={look.shaderParams}
+        colors={look.colors}
+        paused={paused}
+        device={device}
+        showcase={showcase}
+        onDrop={onEffectDropped}
+      />
       {texture && <div className="pointer-events-none absolute inset-0" style={texture} />}
       {renderOverlay ? (
         renderOverlay(particlesEffect, paused)

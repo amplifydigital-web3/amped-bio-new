@@ -104,6 +104,14 @@ export const FEATURE_FLAGS = {
     default: false,
     env: { client: "VITE_SHOW_THEME_V2", landing: "NEXT_PUBLIC_SHOW_THEME_V2" },
   },
+  themeShowcase: {
+    label: "Theme showcase",
+    description:
+      "Theme Engine v2 phase 3: WebGL scenes and the other showcase engines run on creator pages and in the editor. Off, a WebGL scene shows its still poster.",
+    scope: "public",
+    default: false,
+    env: {},
+  },
   fontCatalog: {
     label: "Font catalog",
     description:
