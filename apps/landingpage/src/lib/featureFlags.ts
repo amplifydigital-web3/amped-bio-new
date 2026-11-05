@@ -52,7 +52,7 @@ export function parseFeatureFlagOverrides(value: unknown): FeatureFlagOverrides 
 export async function getFeatureFlagOverrides(): Promise<FeatureFlagOverrides> {
   try {
     const response = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL ?? ""}/trpc/publicSettings.getFeatureFlags`,
+      `${process.env.NEXT_PUBLIC_API_URL ?? ""}/trpc/public.getFeatureFlags`,
       {
         next: { revalidate: REVALIDATE_SECONDS },
         signal: AbortSignal.timeout(LOAD_TIMEOUT_MS),

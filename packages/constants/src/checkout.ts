@@ -24,8 +24,8 @@ export type CheckoutStatus = (typeof CHECKOUT_STATUSES)[number];
 /** Statuses the resume bar offers to finish. */
 export const RESUMABLE_CHECKOUT_STATUSES = ["open", "awaiting_funds"] as const;
 
-/** What an intent is for. Offers and plans replace content targets with store PR 9. */
-export const CHECKOUT_TARGET_TYPES = ["content"] as const;
+/** What an intent is for: a content item (until every sale is an offer) or a store product (C9). */
+export const CHECKOUT_TARGET_TYPES = ["content", "offer"] as const;
 export type CheckoutTargetType = (typeof CHECKOUT_TARGET_TYPES)[number];
 
 /** Where the fan tapped Buy or Join, for the phone funnel (review section 7). */
@@ -199,3 +199,70 @@ export function checkoutFundingCents(
     ? { cents: minCents, raisedToMinimum: true }
     : { cents: need, raisedToMinimum: false };
 }
+
+// ---------------------------------------------------------------- PAY-2: AmpedPay purchases
+
+/**
+ * A Purchase through AmpedPay (docs/features/ampedpay.md, mobile checkout D4). Access opens at
+ * confirmed_soft (the relayer's receipt) and is final at confirmed (final_confirmations). A
+ * reorg moves confirmed_soft back to submitted and access closes again.
+ */
+export const PURCHASE_STATUSES = [
+  "prepared",
+  "submitting",
+  "submitted",
+  "confirmed_soft",
+  "confirmed",
+  "refunded",
+  "failed",
+  "expired",
+] as const;
+export type PurchaseStatus = (typeof PURCHASE_STATUSES)[number];
+
+/** Statuses that pass the paid check. */
+export const PURCHASE_ACCESS_STATUSES = ["confirmed_soft", "confirmed"] as const;
+
+/** Statuses that count against the daily purchase limits. */
+export const PURCHASE_COUNTED_STATUSES = [
+  "submitting",
+  "submitted",
+  "confirmed_soft",
+  "confirmed",
+] as const;
+
+/** Why prepare or submit refused. Each one maps to a pay sheet state (CK-5). */
+export const PURCHASE_REFUSALS = [
+  "paused",
+  "seller",
+  "limit",
+  "removed",
+  "owned",
+  "in_progress",
+  "price",
+  "no_wallet",
+  "wallet_mismatch",
+  "insufficient_balance",
+  "screening",
+] as const;
+export type PurchaseRefusal = (typeof PURCHASE_REFUSALS)[number];
+
+/** Purchase ids are UUID v7, 32 lowercase hex characters. */
+export const purchaseIdSchema = z.string().regex(/^[0-9a-f]{32}$/);
+
+export const purchasePrepareInputSchema = z.object({
+  intentId: checkoutIntentIdSchema,
+  /** The amount the sheet showed, in USDC units. A different price refuses with `price`. */
+  amount: z.string().regex(/^\d{1,15}$/),
+  /** The wallet the browser will sign with; refused when it is not the account's wallet. */
+  signer: z
+    .string()
+    .regex(/^0x[0-9a-fA-F]{40}$/)
+    .optional(),
+});
+export type PurchasePrepareInput = z.infer<typeof purchasePrepareInputSchema>;
+
+export const purchaseSubmitInputSchema = z.object({
+  purchaseId: purchaseIdSchema,
+  signature: z.string().regex(/^0x[0-9a-fA-F]{128,130}$/),
+});
+export type PurchaseSubmitInput = z.infer<typeof purchaseSubmitInputSchema>;
