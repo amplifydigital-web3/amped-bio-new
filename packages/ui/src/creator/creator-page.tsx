@@ -11,12 +11,14 @@ import {
   lookFontColor,
   lookFor,
   nameLoopStyle,
+  nameLoops,
   nameOnBio,
   overlayParticlesId,
   playingOverlay,
 } from "./look";
 import { CreatorFontLinks } from "./fonts";
 import { NameText } from "./name-effect";
+import { CircularName } from "./plus-names";
 import { ParticleName } from "./particle-name";
 import { WeightPulseName } from "./weight-pulse";
 import { ParticlesLayer } from "./particles-layer";
@@ -189,6 +191,8 @@ export function CreatorPage({
   };
   const bioEffect = nameOnBio(look) ? effectClassName(look.name, paused) : undefined;
   const bioStyle = bioEffect ? nameStyle : textStyle;
+  // Phase 3e Circular: with the showcase flag and a photo, the name rings the photo
+  const circular = showcase && look.name.id === "name.circular" && Boolean(profile.photo);
 
   const backgroundLayer = (
     <div
@@ -293,22 +297,57 @@ export function CreatorPage({
         )}
         <header className="flex flex-col items-center text-center">
           {/* 039 I08: one photo, compressed source first */}
-          {profile.photo && (
-            <img
-              src={profile.photo}
-              alt={profile.name}
-              loading="eager"
-              fetchPriority="high"
-              className={sizes.photo}
-              style={surface ? undefined : { boxShadow: "5px 13px 34px rgba(48,47,93,0.14)" }}
-            />
-          )}
+          {profile.photo &&
+            (circular ? (
+              // Phase 3e Circular: the name on a ring around the photo
+              <div className="relative">
+                <img
+                  src={profile.photo}
+                  alt={profile.name}
+                  loading="eager"
+                  fetchPriority="high"
+                  className={sizes.photo}
+                  style={surface ? undefined : { boxShadow: "5px 13px 34px rgba(48,47,93,0.14)" }}
+                />
+                {size !== "phone" && (
+                  <CircularName
+                    text={profile.name}
+                    size={144}
+                    className={cn(
+                      "pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2",
+                      size === "responsive" && "hidden sm:block"
+                    )}
+                    style={nameStyle}
+                  />
+                )}
+                {size !== "desktop" && (
+                  <CircularName
+                    text={profile.name}
+                    size={89}
+                    className={cn(
+                      "pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2",
+                      size === "responsive" && "sm:hidden"
+                    )}
+                    style={nameStyle}
+                  />
+                )}
+              </div>
+            ) : (
+              <img
+                src={profile.photo}
+                alt={profile.name}
+                loading="eager"
+                fetchPriority="high"
+                className={sizes.photo}
+                style={surface ? undefined : { boxShadow: "5px 13px 34px rgba(48,47,93,0.14)" }}
+              />
+            ))}
           {/* 039 I07, 041 I05: name 26/33 700; only the name carries the effect */}
           <h1
             title={profile.name}
             className={cn(
               "line-clamp-3 break-words text-[26px] font-bold leading-[33px] tracking-normal",
-              profile.photo && "mt-[21px]",
+              profile.photo && (circular ? "mt-[34px]" : "mt-[21px]"),
               effectClassName(look.name, paused)
             )}
             style={nameStyle}
@@ -345,6 +384,8 @@ export function CreatorPage({
                 colors={look.colors}
                 paused={paused}
                 entranceKey={entranceKey}
+                loop={nameLoops(look) && !weak}
+                onCircle={circular}
                 fontFamily={look.values.fontFamily}
               />
             )}

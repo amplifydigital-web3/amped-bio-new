@@ -49,11 +49,31 @@ export const NAME_TILES: NameTile[] = [
   { id: 0, effectId: "name.weight-pulse", entry: getEffect("name", "name.weight-pulse") },
   // Phase 3c: Fuzzy text on the canvas engine; a renderer without it draws the plain name
   { id: 0, effectId: "name.fuzzy", entry: getEffect("name", "name.fuzzy") },
+  // Phase 3e: Rotating words, Circular and Depth parallax; without the flag, the plain name
+  ...["name.rotating-words", "name.circular", "name.depth-parallax"].map(effectId => ({
+    id: 0,
+    effectId,
+    entry: getEffect("name", effectId),
+  })),
 ];
 
-/** Canvas name effects show only with themeShowcase (TE-3c). They sit last, so indexes hold. */
+/** Name effects that need themeShowcase beyond their tier (TE-3c, TE-3e). */
+const SHOWCASE_ONLY_NAMES = new Set([
+  "name.fuzzy",
+  "name.rotating-words",
+  "name.circular",
+  "name.depth-parallax",
+]);
+
+/**
+ * Showcase name effects show only with themeShowcase (TE-3c, TE-3e). Weight
+ * pulse keeps its own fontCatalog gate and stays available here.
+ */
 export function nameTilesFor(showcase: boolean): NameTile[] {
-  return showcase ? NAME_TILES : NAME_TILES.filter(tile => tile.entry.engine !== "canvas");
+  if (showcase) return NAME_TILES;
+  return NAME_TILES.filter(
+    tile => tile.entry.tier !== "showcase" && !SHOWCASE_ONLY_NAMES.has(tile.effectId ?? "")
+  );
 }
 
 /** The tiles the row offers: Weight pulse only with fontCatalog. It sits last, so indexes hold. */

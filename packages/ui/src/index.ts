@@ -166,6 +166,8 @@ export {
 } from "./creator/shader-layer";
 export { CursorLayer, type CursorLayerProps } from "./creator/cursor-layer";
 export { ShowcaseProvider, useShowcase, type ShowcaseState } from "./creator/showcase-context";
+export { CircularName, DepthName, RotatingWords } from "./creator/plus-names";
+export { hoverHandlers, magnetTransform, playSelfPress } from "./creator/hover-motion";
 export {
   ButtonFx,
   ContainerFx,

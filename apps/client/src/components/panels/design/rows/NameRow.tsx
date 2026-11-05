@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { nameSettle, isNameEntrance, NAME_SETTLES, NAME_TARGETS } from "@repo/constants";
 import {
   ChipGroup,
+  CircularName,
   NameText,
   ShowcaseProvider,
   WeightPulseName,
@@ -56,13 +57,17 @@ const DOTTED_NAME: CSSProperties = {
 };
 
 const SETTLE_LABELS = { once: "Play once", always: "Loop" } as const;
-
 // Phase 3c: Fuzzy text needs the canvas engine, so it shows with themeShowcase.
 // TE-3e2: Weight pulse needs the font catalog.
 const fontCatalogOn = isFeatureOn("themeV2") && isFeatureOn("fontCatalog");
 const NAME_ROW_TILES = nameTilesFor(themeShowcaseOn).filter(
   t => fontCatalogOn || t.effectId !== WEIGHT_PULSE_ID
 );
+
+/** Phase 3e: sample params so a tile shows the effect before the creator sets it up. */
+const TILE_PARAMS: Record<string, Record<string, string>> = {
+  "name.rotating-words": { words: "creator, artist" },
+};
 
 /** The catalog families, loaded only while fontCatalog is on (for Weight pulse). */
 function usePulseFamilies(): readonly FontCatalogEntry[] | null {
@@ -160,7 +165,10 @@ function NameTileView({
           >
             <span
               className={cn(
-                "truncate text-[26px] font-bold leading-[33px]",
+                // The Circular ring draws past the line box, so it is not clipped
+                entry.id === "name.circular"
+                  ? "text-[26px]"
+                  : "truncate text-[26px] font-bold leading-[33px]",
                 effectClassName(entry, still)
               )}
               style={
@@ -174,27 +182,38 @@ function NameTileView({
                 } as CSSProperties
               }
             >
-              {pulse ? (
-                <span style={{ fontFamily: currentNameFont(config, values.fontFamily).family }}>
-                  <WeightPulseName
-                    text={profile.name || "Your name"}
-                    params={weightPulsePatch(pulseEntry)?.heroEffectParams}
-                    paused={!pulseReady}
-                  />
-                </span>
-              ) : (
-                <ShowcaseProvider
-                  value={{ showcase: themeShowcaseOn, paused: still, device: "typical" }}
-                >
+              <ShowcaseProvider
+                value={{ showcase: themeShowcaseOn, paused: still, device: "typical" }}
+              >
+                {pulse ? (
+                  <span style={{ fontFamily: currentNameFont(config, values.fontFamily).family }}>
+                    <WeightPulseName
+                      text={profile.name || "Your name"}
+                      params={weightPulsePatch(pulseEntry)?.heroEffectParams}
+                      paused={!pulseReady}
+                    />
+                  </span>
+                ) : entry.id === "name.circular" ? (
+                  // Phase 3e: the ring around a stand in for the photo
+                  <span className="relative inline-flex h-[28px] w-[28px] items-center justify-center rounded-full bg-[color-mix(in_srgb,currentColor_18%,transparent)]">
+                    <CircularName
+                      text={profile.name || "Your name"}
+                      size={28}
+                      className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
+                    />
+                  </span>
+                ) : (
                   <NameText
                     entry={entry}
                     text={profile.name || "Your name"}
                     colors={colors}
                     paused={still}
+                    params={TILE_PARAMS[entry.id]}
+                    loop
                     fontFamily={values.fontFamily}
                   />
-                </ShowcaseProvider>
-              )}
+                )}
+              </ShowcaseProvider>
             </span>
           </span>
         </CreatorBackdrop>

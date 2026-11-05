@@ -20,8 +20,20 @@ export {
 export * from "./surfaces";
 export { CURSOR_COLOR_PARAMS, CURSOR_EFFECTS, CURSOR_TRAIL_PARAMS } from "./cursors";
 export { nameSettle, isNameEntrance } from "./names";
-export { NAME_SPEED_FACTOR, NAME_SPEED_PARAM } from "./names";
-export { HOVER_SPEED_MS, HOVER_SPEED_PARAM } from "./buttonHovers";
+export {
+  NAME_SPEED_FACTOR,
+  NAME_SPEED_PARAM,
+  ROTATING_WORDS_MAX,
+  ROTATING_WORDS_MS,
+  rotatingWords,
+} from "./names";
+export {
+  HOVER_SPEED_MS,
+  HOVER_SPEED_PARAM,
+  HOVER_STRENGTH_PARAM,
+  hoverStrengthFactor,
+  hoverStrengthVars,
+} from "./buttonHovers";
 export { PAGE_BUDGET, pageCost, type CostPart, type PageCost } from "./cost";
 export {
   COMET_PARAMS,

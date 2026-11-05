@@ -13,6 +13,7 @@ import {
   currentPress,
   pressIdsFor,
   hoverIndex,
+  hoverParamEntry,
   hoverPatch,
   hoverTiles,
   pressPatch,
@@ -27,7 +28,9 @@ const REDUCED_MOTION_LINE = "Your visitors with reduced motion see a still versi
 
 // Theme Engine v2 (#28, phase 2): five core hovers and the Button press row (board 09)
 const themeV2On = isFeatureOn("themeV2");
-const BUTTON_EFFECTS = hoverTiles(themeV2On);
+// Phase 3e: the Plus hovers, Jelly press and Strength, with themeShowcase
+const showcaseOn = isFeatureOn("themeShowcase");
+const BUTTON_EFFECTS = hoverTiles(themeV2On, showcaseOn);
 
 // The hover effect as a playing state, for specimens (028 I02). Matches the
 // renderer's hover classes in utils/styles.ts.
@@ -53,6 +56,12 @@ const PLAYING_V2: Record<string, string> = {
     "ring-2 ring-inset ring-[color:color-mix(in_srgb,currentColor_60%,transparent)]",
   "buttonHover.icon-slide": "motion-safe:translate-x-1 transition-transform",
   "buttonHover.arrow-nudge": "motion-safe:translate-x-1 transition-transform",
+  // Phase 3e Plus hovers, as one held frame
+  "buttonHover.magnet":
+    "motion-safe:translate-x-[5px] motion-safe:-translate-y-[2px] motion-safe:rotate-1",
+  "buttonHover.lift-tilt":
+    "motion-safe:[transform:perspective(377px)_rotateX(8deg)_translateY(-3px)] transition-transform",
+  "buttonHover.jelly": "motion-safe:scale-x-[1.08] motion-safe:scale-y-[0.93] transition-transform",
 };
 
 // Press tiles as a playing state
@@ -64,8 +73,10 @@ const PRESS_PLAYING: Record<PressId, string> = {
   // The tile shows the burst as a still ring of short lines (the page draws it on a canvas)
   "buttonPress.click-spark":
     "relative after:pointer-events-none after:absolute after:left-1/2 after:top-1/2 after:h-[44px] after:w-[44px] after:-translate-x-1/2 after:-translate-y-1/2 after:rounded-full after:border-2 after:border-dashed after:border-current after:opacity-60",
+  "buttonPress.jelly-press":
+    "motion-safe:scale-x-[1.05] motion-safe:scale-y-[0.9] transition-transform",
 };
-const PRESS_TILE_IDS = pressIdsFor(isFeatureOn("themeShowcase"));
+const PRESS_TILE_IDS = pressIdsFor(showcaseOn);
 
 const PARTICLE_EFFECTS = [
   { id: 0, name: "None", description: "No particles" },
@@ -190,7 +201,7 @@ export function ButtonHoverRow() {
         </OptionGrid>
         {selectedEntry && (
           <ParamPanel
-            entry={selectedEntry}
+            entry={hoverParamEntry(selectedEntry, showcaseOn)}
             stored={config.buttonEffectParams}
             disabled={locked}
             onChange={params => update({ buttonEffectParams: params })}
@@ -224,6 +235,7 @@ function ButtonPressTile({
   return (
     <OptionTile
       label={entry.label}
+      tier={entry.tier}
       selected={selected}
       focusable={focusable}
       disabled={locked}

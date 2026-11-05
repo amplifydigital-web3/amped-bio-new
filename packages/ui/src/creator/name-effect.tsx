@@ -4,6 +4,7 @@ import { useRef } from "react";
 import type { EffectEntry, ParamValues, ThemeColors } from "@repo/constants";
 import { motionAllowed, useIsomorphicLayoutEffect } from "../prism/motion";
 import { FuzzyName } from "./fuzzy-name";
+import { DepthName, RotatingWords } from "./plus-names";
 
 /**
  * Theme Engine v2 phase 2, Name row (board 08, spec 3.5): the text entrances
@@ -71,6 +72,10 @@ export interface NameTextProps {
   colors: ThemeColors;
   paused?: boolean;
   entranceKey?: string;
+  /** Phase 3e: a looping name effect keeps looping (Settle: Loop). */
+  loop?: boolean;
+  /** Phase 3e Circular: the page draws the name on the ring, so the heading reads it only. */
+  onCircle?: boolean;
   /** The creator's font family (phase 3c: Fuzzy text rasterizes it on a canvas). */
   fontFamily?: string;
 }
@@ -83,6 +88,8 @@ export function NameText({
   paused = false,
   entranceKey,
   params,
+  loop = false,
+  onCircle = false,
   fontFamily,
 }: NameTextProps) {
   const ref = useRef<HTMLSpanElement>(null);
@@ -131,6 +138,12 @@ export function NameText({
   if (render.kind === "canvas" && render.module === "fuzzy") {
     return <FuzzyName entry={entry} text={text} params={params} fontFamily={fontFamily} />;
   }
+  // Phase 3e: the Plus and Showcase name effects
+  if (entry.id === "name.rotating-words") {
+    return <RotatingWords text={text} params={params} paused={paused} loop={loop} />;
+  }
+  if (entry.id === "name.depth-parallax") return <DepthName entry={entry} text={text} />;
+  if (entry.id === "name.circular" && onCircle) return <span className="sr-only">{text}</span>;
   if (!mode) return <>{text}</>;
 
   if (mode === "letters") {

@@ -40,7 +40,8 @@ export type ParamSpec =
   | { kind: "choice"; options: readonly string[]; default: string; label: string }
   /** "theme" reads the creator's colors. */
   | { kind: "color"; default: "theme" | `#${string}`; label: string }
-  | { kind: "text"; maxLength: number; default: string; label: string };
+  /** hint: the line under the field (the Emoji field's line when unset). */
+  | { kind: "text"; maxLength: number; default: string; label: string; hint?: string };
 
 export type ParamValues = Readonly<Record<string, number | string>>;
 
@@ -75,6 +76,11 @@ export type EffectRender =
        */
       text?: "whole" | "letters" | "scramble";
       stagger?: number;
+      /**
+       * Press effects (phase 3e): "self" animates the button itself (Jelly
+       * press); unset draws one circle from the press point (Ripple).
+       */
+      target?: "self";
     }
   /** tsParticles options; phase 1c makes these color aware factories on v4 slim. */
   | {

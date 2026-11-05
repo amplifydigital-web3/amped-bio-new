@@ -67,7 +67,8 @@ describe("params on the v1 config", () => {
       buttonEffectParams: { speed: "fast" },
     });
     expect(v2.name.params).toEqual({ speed: "medium", palette: "custom", color: "#FF00AA" });
-    expect(v2.buttonHover.params).toEqual({ speed: "fast" });
+    // TE-3e: Scale has Strength now; its default 50 draws Scale as shipped
+    expect(v2.buttonHover.params).toEqual({ speed: "fast", strength: 50 });
   });
 
   it("leaves pages without params as they are", () => {
