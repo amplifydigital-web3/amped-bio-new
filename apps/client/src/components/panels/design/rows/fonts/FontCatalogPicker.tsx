@@ -37,6 +37,7 @@ import { CreatorBackdrop } from "../../kit/CreatorArt";
 import { RangeField } from "../../kit/RangeField";
 import { cardFill, useDesign } from "../../kit/useDesign";
 import { currentBodyFont, currentNameFont, fontPatch, type FontRole } from "../../kit/fontLook";
+import { pulseRefit } from "../../kit/weightPulse";
 import { ensureFontStylesheet, useFontCatalog, useNearViewport } from "./fontCatalog";
 
 // Theme Engine v2 fonts, phase 2b PR 1 (spec 3.8, boards 02 and 02m): the font
@@ -485,7 +486,11 @@ export function FontCatalogPicker() {
   const catalog = state.catalog;
   const entry = findFont(catalog.families, current.family);
 
-  const write = (next: FontPick) => update(fontPatch(role, next));
+  // TE-3e2: a new name face refits Weight pulse to its weight axis, or drops it
+  const refit = (nameFamily: string) => pulseRefit(config, findFont(catalog.families, nameFamily));
+  const namesFace = role === "name" || config.nameFont === undefined;
+  const write = (next: FontPick) =>
+    update({ ...fontPatch(role, next), ...(namesFace ? refit(next.family) : {}) });
   const pickEntry = (target: FontCatalogEntry) =>
     write(
       clampFontPick(target, {
@@ -510,6 +515,7 @@ export function FontCatalogPicker() {
     return {
       ...fontPatch("name", clampFontPick(nameEntry, { weight: 700 })),
       ...fontPatch("body", clampFontPick(bodyEntry, { weight: 400 })),
+      ...refit(nameEntry.f),
     };
   };
 
