@@ -1,6 +1,6 @@
 # M9: Broadcast in Messages, to pool stakers, followers or both
 
-Branch `feat/broadcast-in-messages` into `development`. Amped Messages PR plan M9, Build Board #2 (Amped Messages) and #1 (Broadcast). Spec: `docs/features/messaging.md` sections 6, 7.5, 8.6 and 9, and decisions msg-broadcast, bc-audience, bc-rules, bc-email and bc-pool-terms. Drafted by Claude for Rob Frasca, reviewer Gustavo, 2026-11-05.
+Branch `feat/broadcast-audiences` into `development` (the planned name `feat/broadcast-in-messages` holds the closed #491). Amped Messages PR plan M9, Build Board #2 (Amped Messages) and #1 (Broadcast). Spec: `docs/features/messaging.md` sections 6, 7.5, 8.6 and 9, and decisions msg-broadcast, bc-audience, bc-rules, bc-email and bc-pool-terms. Drafted by Claude for Rob Frasca, reviewer Gustavo, 2026-11-05.
 
 ## 0. Base: `development`, without M8
 
