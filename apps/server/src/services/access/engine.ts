@@ -13,6 +13,7 @@ import {
   ACCESS_RULE_SUMMARIES,
   LIVE_ACCESS_RULE_KINDS,
   formatUsdcUnits,
+  MEMBERSHIP_LIMITS,
   STAKE_ACCESS_RULE_KINDS,
   type AccessDecision,
   type AccessReason,
@@ -30,7 +31,7 @@ import { trustedEmailWhere } from "../../utils/verificationGrace";
 import { chainStakeWei, followState, loadPool, mirrorStakeWei } from "./facts";
 import { stakeKindsAllowed } from "./allowlist";
 import { hexToId, idToHex, loadRule, type LoadedRule } from "./rules";
-import type { Gate, PaymentVerifier, Resolver, Viewer } from "./types";
+import type { Gate, MembershipReader, PaymentVerifier, Resolver, Viewer } from "./types";
 
 type Intent = "render" | "open";
 export type CheckOptions = {
@@ -58,6 +59,14 @@ let paymentVerifier: PaymentVerifier | null = null;
 
 export function registerPaymentVerifier(verifier: PaymentVerifier | null) {
   paymentVerifier = verifier;
+}
+
+// ── Membership reader (spec 3.7, G5) ────────────────────────────
+// Without one, `member` refuses with kind_unavailable (default deny).
+let membershipReader: MembershipReader | null = null;
+
+export function registerMembershipReader(reader: MembershipReader | null) {
+  membershipReader = reader;
 }
 
 // ── Decisions ────────────────────────────────────────────────────
@@ -168,6 +177,49 @@ async function evaluatePaid(
   );
 }
 
+/**
+ * `member` (spec 3.3, G5; memberships amendment, mobile checkout D7). A member through
+ * the paid period passes, and a canceled member keeps access to the period end. A past
+ * due member keeps access for the 7 day grace, with reason membership_past_due so the
+ * sheet can say why. After that, or after an end, the fan sees Rejoin
+ * (membership_ended); a fan who never joined sees Join (not_member).
+ *
+ * Members keep access when the seller check lapses or the plan pauses (spec 3.4). A new
+ * join needs an active plan and a seller who passes now. Never cached: the renewal job
+ * and the payments indexer change the row, and the reader reads it every time.
+ */
+async function evaluateMember(
+  rule: LoadedRule,
+  owner: Owner,
+  viewer: Viewer & { userId: number },
+  intent: Intent
+): Promise<AccessDecision> {
+  if (!membershipReader) return refuse("kind_unavailable", { action: "unavailable" }, rule);
+  const planId = rule.params.planId as string;
+  const plan = await membershipReader.plan(planId);
+  // Only the owner's own plan counts
+  if (!plan || plan.ownerUserId !== owner.id) {
+    return refuse("kind_unavailable", { action: "unavailable" }, rule);
+  }
+  const state = await membershipReader.membership(viewer.userId, owner.id);
+  if (state === "active") return allow("ok", rule);
+  if (state === "grace") return allow("membership_past_due", rule);
+  const reason = state === "ended" ? "membership_ended" : "not_member";
+  if (plan.status !== "active") return refuse(reason, { action: "unavailable" }, rule);
+  const seller = await checkIdentity(owner.id, "seller", { fresh: intent === "open" });
+  if (!seller.pass) return refuse("kind_unavailable", { action: "unavailable" }, rule);
+  return refuse(
+    reason,
+    {
+      action: "join_membership",
+      planId,
+      priceMonthlyDisplay: formatUsdcUnits(plan.amountEvery30Days),
+      pastDue: false,
+    },
+    rule
+  );
+}
+
 /** One leaf rule. Combinators call this for each leaf (depth 1). */
 async function evaluateLeaf(
   rule: LoadedRule,
@@ -186,6 +238,7 @@ async function evaluateLeaf(
   const signedIn = viewer as Viewer & { userId: number };
 
   if (rule.kind === "paid") return evaluatePaid(rule, owner, signedIn, intent);
+  if (rule.kind === "member") return evaluateMember(rule, owner, signedIn, intent);
 
   if (rule.kind === "follower") {
     const state = await followState(owner.id, signedIn.userId);
@@ -558,6 +611,30 @@ export async function eligibleUserIds(
       .map(row => row.userWallet.userId);
     const last = rows.at(-1)?.userWallet.userId ?? null;
     return { userIds, nextCursor: rows.length === limit ? last : null };
+  } else if (rule.kind === "member") {
+    // G5: members with access now (active, canceled inside the period, past due in grace)
+    if (!membershipReader) return { userIds: [], nextCursor: null };
+    const plan = await membershipReader.plan(rule.params.planId as string);
+    if (!plan || plan.ownerUserId !== ownerUserId) return { userIds: [], nextCursor: null };
+    const now = new Date();
+    const graceStart = new Date(now.getTime() - MEMBERSHIP_LIMITS.graceDays * 86_400_000);
+    const rows = await prisma.membership.findMany({
+      where: {
+        creatorUserId: ownerUserId,
+        fanUserId: { gt: after },
+        fan: { block: "no" },
+        OR: [
+          { status: "active" },
+          { status: "canceled", currentPeriodEnd: { gt: now } },
+          { status: "past_due", pastDueSince: { gt: graceStart } },
+        ],
+      },
+      orderBy: { fanUserId: "asc" },
+      distinct: ["fanUserId"],
+      take: limit,
+      select: { fanUserId: true },
+    });
+    userIds = rows.map(row => row.fanUserId).filter((id): id is number => id !== null);
   } else {
     throw new Error(`eligibleUserIds does not support ${rule.kind}`);
   }

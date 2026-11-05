@@ -8,6 +8,7 @@ import { __resetStakeKindsAllowlistCacheForTests } from "../services/access/allo
 const state = vi.hoisted(() => ({
   poolOwner: 10 as number | null,
   offer: null as null | { creatorUserId: number; status: string },
+  plan: null as null | { creatorUserId: number },
   created: [] as Array<Record<string, unknown>>,
   rule: { ownerUserId: 10, kind: "follower" } as null | { ownerUserId: number; kind: string },
   blocks: 0,
@@ -61,6 +62,7 @@ vi.mock("@repo/database", () => ({
       }),
     },
     offer: { findUnique: vi.fn(async () => state.offer) },
+    membershipPlan: { findUnique: vi.fn(async () => state.plan) },
     block: { count: vi.fn(async () => state.blocks) },
     contentItem: { count: vi.fn(async () => state.items) },
   },
@@ -72,6 +74,7 @@ beforeEach(() => {
   __resetStakeKindsAllowlistCacheForTests();
   state.poolOwner = 10;
   state.offer = null;
+  state.plan = null;
   state.created = [];
   state.rule = { ownerUserId: 10, kind: "follower" };
   state.blocks = 0;
@@ -233,6 +236,26 @@ describe("paid rules (G4)", () => {
       state.offer = offer;
       await expect(createRule(10, { kind: "paid", params: { offerId } })).rejects.toThrow(
         "Pick one of your own products."
+      );
+    }
+    expect(state.created).toHaveLength(0);
+  });
+});
+
+describe("member rules (G5)", () => {
+  const planId = "ef".repeat(16);
+
+  it("stores the creator's own plan, draft or paused included", async () => {
+    state.plan = { creatorUserId: 10 };
+    await createRule(10, { kind: "member", params: { planId } });
+    expect(state.created[0]).toMatchObject({ kind: "member", params: { planId } });
+  });
+
+  it("refuses another creator's plan or a missing plan", async () => {
+    for (const plan of [{ creatorUserId: 11 }, null]) {
+      state.plan = plan;
+      await expect(createRule(10, { kind: "member", params: { planId } })).rejects.toThrow(
+        "Set up your membership first."
       );
     }
     expect(state.created).toHaveLength(0);

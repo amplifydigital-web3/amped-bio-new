@@ -558,12 +558,13 @@ describe("content.update access (3.5)", () => {
     await expect(
       content(OWNER).update({
         publicId: item.publicId,
-        access: { kind: "member", params: { planId: 1 } } as never,
+        access: { kind: "reward_points", params: { programId: 1, minPoints: 5 } } as never,
       })
     ).rejects.toMatchObject({ code: "BAD_REQUEST" });
-    const member = addRule("member", { planId: 1 }, "Members");
+    // member is live from G5; reward points is still later
+    const points = addRule("reward_points", { programId: 1, minPoints: 5 }, "Points");
     await expect(
-      content(OWNER).update({ publicId: item.publicId, access: { ruleId: db.hex(member) } })
+      content(OWNER).update({ publicId: item.publicId, access: { ruleId: db.hex(points) } })
     ).rejects.toMatchObject({ code: "BAD_REQUEST" });
     const other = addRule("follower", {}, "Theirs");
     db.rules.get(db.hex(other))!.ownerUserId = 99;
