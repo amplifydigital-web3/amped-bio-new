@@ -11,6 +11,7 @@ import {
 import { Button, TESTNET_NOTICE, cn, trpc, trpcClient } from "@repo/ui";
 import { isFeatureOn } from "@/config/featureFlags";
 import { IdEyebrow } from "./parts";
+import { authbaseVerifyUrl } from "./catalog";
 
 /**
  * Authbase storefront on the Identity tab (Build Board #66, AB-2; boards s1 to s4; spec 3.4).
@@ -100,8 +101,9 @@ function OrderStatus({
   order,
 }: {
   merchant: string;
-  order: { status: string; fulfillmentState: string | null };
+  order: { purchaseId: string; status: string; fulfillmentState: string | null };
 }) {
+  const verifyHref = authbaseVerifyUrl(order.purchaseId);
   const inFlight = order.status === "submitting" || order.status === "submitted";
   const state = inFlight ? "checking" : (order.fulfillmentState ?? "paid");
   const line =
@@ -135,6 +137,16 @@ function OrderStatus({
         <p className="text-prism-meta text-prism-ink-2">
           {IDENTITY_STOREFRONT_COPY.status.paidSub}
         </p>
+      )}
+      {/* AB-3: same tab, through Authbase's Amped.Bio sign in, with the order */}
+      {(state === "paid" || state === "started" || state === "not_passed") && verifyHref && (
+        <Button asChild size="lg" className="w-full">
+          <a href={verifyHref}>
+            {state === "not_passed"
+              ? IDENTITY_STOREFRONT_COPY.startAgain
+              : IDENTITY_STOREFRONT_COPY.continueTo(merchant)}
+          </a>
+        </Button>
       )}
     </section>
   );

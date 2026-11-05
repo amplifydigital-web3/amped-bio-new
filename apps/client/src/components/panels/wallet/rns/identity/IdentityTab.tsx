@@ -1,4 +1,6 @@
-import { ShieldCheck } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Clock, ShieldCheck } from "lucide-react";
+import { IDENTITY_STOREFRONT_COPY } from "@repo/constants";
 import { ErrorCard, Notice, Skeleton } from "@repo/ui";
 import { formatRnsName } from "@repo/web3";
 import { RNS_COPY } from "@/config/rns/copy";
@@ -15,6 +17,36 @@ import { IdentityVerified } from "./IdentityVerified";
 import { IdentityStorefront, STOREFRONT_ON } from "./IdentityStorefront";
 import { IdEyebrow } from "./parts";
 import { SharedAttributes } from "./SharedAttributes";
+
+const RETURN_POLL_LIMIT_MS = 10 * 60 * 1000;
+
+/** ?order= on the Identity tab means the owner just came back from Authbase (AB-3). */
+function useReturnFromAuthbase() {
+  const order = useMemo(() => {
+    try {
+      const value = new URLSearchParams(window.location.search).get("order");
+      return value && /^[0-9a-f]{32}$/.test(value) ? value : null;
+    } catch {
+      return null;
+    }
+  }, []);
+  const [startedAt] = useState(() => Date.now());
+  const [active, setActive] = useState(Boolean(order));
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!active) return;
+    const timer = setInterval(() => setNow(Date.now()), 5_000);
+    return () => clearInterval(timer);
+  }, [active]);
+  return useMemo(
+    () => ({
+      active,
+      polling: active && now - startedAt < RETURN_POLL_LIMIT_MS,
+      stop: () => setActive(false),
+    }),
+    [active, now, startedAt]
+  );
+}
 
 function IdentitySkeleton() {
   return (
@@ -143,8 +175,16 @@ function OwnerIdentity({
   chainId: number;
   explorer?: string;
 }) {
-  const mine = useMyAuthbaseStatus(true);
+  // AB-3 (spec 3.6): back from Authbase with ?order=. Poll the status API every 5 seconds for
+  // up to 10 minutes; the badge comes only from Authbase, never from the order
+  const returning = useReturnFromAuthbase();
+  const mine = useMyAuthbaseStatus(true, returning.polling ? 5_000 : false);
   const fullName = formatRnsName(name.label, chainId);
+  useEffect(() => {
+    const status = mine.data?.status;
+    if (returning.active && (status === "VERIFIED" || status === "VERIFIED_WITH_BADGE"))
+      returning.stop();
+  }, [mine.data?.status, returning]);
   if (mine.isPending) return <IdentitySkeleton />;
   if (mine.isError) return <Unavailable onRetry={() => void mine.refetch()} />;
 
@@ -184,6 +224,19 @@ function OwnerIdentity({
   return (
     <div className="space-y-[21px]">
       <BindingNotice name={name} />
+      {returning.active && (
+        <section className="prism-glass-clear space-y-2 p-[21px]" aria-live="polite">
+          <p className="flex items-center gap-2 font-bold text-prism-ink">
+            <Clock aria-hidden className="h-[18px] w-[18px] shrink-0 text-prism-nav" />
+            {IDENTITY_STOREFRONT_COPY.returning("Authbase")}
+          </p>
+          <p className="text-prism-meta text-prism-ink-2">
+            {returning.polling
+              ? IDENTITY_STOREFRONT_COPY.returningSub
+              : IDENTITY_STOREFRONT_COPY.returningSlow}
+          </p>
+        </section>
+      )}
       <IdentityPromo
         label={name.label}
         chainId={chainId}

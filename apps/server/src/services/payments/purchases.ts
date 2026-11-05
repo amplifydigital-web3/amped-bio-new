@@ -62,6 +62,7 @@ import { liveVersion } from "../store/policy";
 import { countFinalSale } from "../store/sales";
 import { resolvePromoter } from "../store/promoters";
 import { checkMerchant } from "../merchants/check";
+import { notifyMerchantOrder } from "../partners/orderEvents";
 import { ampedPayAddress, readContractState } from "./onchain";
 import { paymentsReady } from "./ready";
 import { limitsFromState, paymentSettings } from "./settings";
@@ -947,6 +948,11 @@ export async function settlePurchase(
       },
     });
     if (!moved.count) return status;
+    // AB-3: a merchant order that skipped the soft step is paid and final at once
+    await notifyMerchantOrder(
+      row.id,
+      status === "confirmed_soft" ? ["order.finalized"] : ["order.paid", "order.finalized"]
+    );
     // C10: a product counts a sale once, when it is final
     await countFinalSale(row.id);
     const block = await client.getBlock({ blockNumber: receipt.blockNumber });
@@ -975,6 +981,8 @@ export async function settlePurchase(
     });
     if (!moved.count) return status;
     await setIntentStatus(row.checkoutIntentId, ["open", "signing", "submitted"], "paid");
+    // AB-3 (M5): the merchant hears at the first confirmation, so the check can start
+    await notifyMerchantOrder(row.id, ["order.paid"]);
     return "confirmed_soft";
   }
 

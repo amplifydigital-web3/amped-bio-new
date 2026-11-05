@@ -116,6 +116,11 @@ export const IDENTITY_STOREFRONT_COPY = {
   notTaking: (merchant: string) => `${merchant} is not taking payments right now.`,
   notTakingSub: "Nothing was taken from your wallet. Try again later.",
   buyFailed: "Checkout did not open. Try again.",
+  continueTo: (merchant: string) => `Continue to ${merchant}`,
+  startAgain: "Start again",
+  returning: (merchant: string) => `${merchant} is creating your ID on chain.`,
+  returningSub: "It appears here when it lands. This page updates on its own.",
+  returningSlow: "This is taking longer than usual. Check again in a few minutes.",
   footer: (merchant: string, percent: string) =>
     `You pay in USDC from your wallet. ${merchant} runs the check. The price includes the Amped.Bio fee (${percent}).`,
   status: {
