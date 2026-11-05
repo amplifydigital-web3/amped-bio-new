@@ -168,6 +168,11 @@ The rule applies to the creator, the account that owns the product, plan, ticket
 
 It does not cover the wallet's own Send. Sending USDC to an address is the user's wallet, not a sale through Amped. The Send review already shows the recipient's verification through `rnsTrust`.
 
+### 5.1b Merchants and the seller tier (Authbase storefront, 5 Nov)
+
+- A business seller (a `Merchant`, first Authbase) does not pass this check. It passes `checkMerchant` instead: admin approved after a business check, an effective payout wallet, and the USDC screen. See `docs/features/authbase-storefront.md` 3.2.
+- Creators need tier ENHANCED to pass `seller`, unless an Amped.Bio admin sets a `SellerOverride` (reason, end date, two factor, logged). New reason `needs_enhanced`. See `docs/features/authbase-storefront.md` 3.2b (M10). This replaces "either tier (S2)" from that PR on.
+
 ### 5.2 The seller checklist
 
 One card, "Get paid", on the Store page and the Memberships setup, phone first and at 1440 inside the editor shell. It is item 5 of the store go live checklist (`store-catalog.md`, go live). It shows two rows with their own state. It does not turn payments on: the card ends with Back to checklist, and the store live switch stays on the checklist (QA 3 Nov, VS-Q6).
