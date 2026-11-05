@@ -15,11 +15,28 @@
  * duplicate, rename, history, restore) run behind the themeSharing flag.
  */
 
-import { privateProcedure, router } from "./trpc";
+import { privateProcedure, publicProcedure, router } from "./trpc";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { s3Service } from "../services/S3Service";
-import { themeConfigSchema, type AnyThemeConfig } from "@repo/constants";
+import {
+  pageCost,
+  themeConfigSchema,
+  upgradeTheme,
+  type AnyThemeConfig,
+  type ThemeConfig,
+} from "@repo/constants";
+import { enforceRateLimits } from "../utils/rateLimit";
+import { getVisitorIp } from "../services/analytics/visitorIp";
+import {
+  APPLY_SHARED_RATE,
+  BY_SLUG_RATE,
+  SHARE_RATE,
+  SHARE_SLUG_PATTERN,
+  configForApply,
+  newShareSlug,
+  sharePath,
+} from "../services/theme/share";
 import { guardThemeShowcase } from "../services/themeShowcase";
 import { guardThemeFonts } from "../services/themeFonts";
 import { prewarmUserFonts } from "../services/fonts/fontMirror";
@@ -48,6 +65,39 @@ function requireSharing(): void {
   if (!isFeatureOn("themeSharing")) {
     throw new TRPCError({ code: "FORBIDDEN", message: "Looks are not available yet" });
   }
+}
+
+const slugSchema = z.string().trim().toLowerCase().regex(SHARE_SLUG_PATTERN);
+
+/** A shared look by its slug, or NOT_FOUND (unknown, revoked, or sharing off). */
+async function sharedLook(slug: string) {
+  if (!isFeatureOn("themeSharing")) {
+    throw new TRPCError({ code: "NOT_FOUND", message: "Look not found" });
+  }
+  const look = await prisma.theme.findUnique({
+    where: { share_slug: slug },
+    include: { user: { select: { handle: true } } },
+  });
+  if (!look || look.kind !== "look" || look.share_level !== "link") {
+    throw new TRPCError({ code: "NOT_FOUND", message: "Look not found" });
+  }
+  return look;
+}
+
+/** The dialog's view of a look's link (board 12). */
+function shareState(look: {
+  share_slug: string | null;
+  share_credit: boolean;
+  share_download: boolean;
+  share_uses: number;
+}) {
+  return {
+    slug: look.share_slug,
+    path: look.share_slug ? sharePath(look.share_slug) : null,
+    credit: look.share_credit,
+    download: look.share_download,
+    uses: look.share_uses,
+  };
 }
 
 const lookNameSchema = z
@@ -192,11 +242,12 @@ export const themeRouter = router({
 
         const result = await prisma.theme.update({
           where: { id: Number(id) },
+          // TE-4b: share_level and share_config are owned by share and
+          // unshare. The editor sends the values it loaded, so writing them
+          // here would let an autosave after Create link turn the link off.
           data: {
             name,
             description,
-            share_level,
-            share_config: share_config as any,
             config: config as any,
             config_version: configVersion(config),
           },
@@ -339,8 +390,7 @@ export const themeRouter = router({
             data: {
               name: theme.name,
               description: theme.description,
-              share_level: theme.share_level,
-              share_config: theme.share_config as any,
+              // share_level and share_config stay as share and unshare set them
               config: guardThemeFonts(theme.config) as any,
               config_version: configVersion(theme.config),
               updated_at: new Date(),
@@ -445,6 +495,10 @@ export const themeRouter = router({
           config_version: true,
           created_at: true,
           updated_at: true,
+          share_slug: true,
+          share_credit: true,
+          share_download: true,
+          share_uses: true,
           _count: { select: { versions: true } },
         },
       }),
@@ -454,7 +508,13 @@ export const themeRouter = router({
       limit: LOOK_LIMIT,
       count: rows.length,
       appliedId: user?.theme ?? null,
-      looks: rows.map(({ _count, ...row }) => ({ ...row, versions: _count.versions })),
+      // Config typed as the theme config: Prisma's recursive JSON type is too
+      // deep for the client's query types
+      looks: rows.map(({ _count, config, ...row }) => ({
+        ...row,
+        config: (config ?? null) as ThemeConfig | null,
+        versions: _count.versions,
+      })),
     };
   }),
 
@@ -533,7 +593,11 @@ export const themeRouter = router({
     });
     return {
       themeId: input.id,
-      versions: versions.map(v => ({ ...v, id: versionIdToHex(v.id) })),
+      versions: versions.map(v => ({
+        ...v,
+        id: versionIdToHex(v.id),
+        config: v.config as ThemeConfig,
+      })),
     };
   }),
 
@@ -560,5 +624,168 @@ export const themeRouter = router({
       await recordVersion(input.id, version.config, { force: true });
       await prisma.user.update({ where: { id: userId }, data: { theme: input.id } });
       return { id: input.id, versionId: input.versionId };
+    }),
+
+  // ===========================================================================
+  // SHARE LINKS (TE-4b, spec 3.9, decision 8). Behind themeSharing.
+  // ===========================================================================
+
+  /**
+   * Create link (board 12) or change its switches. Returns the existing slug
+   * when the look is already shared. 10 an hour per creator.
+   */
+  share: privateProcedure
+    .input(
+      z.object({ id: z.number(), credit: z.boolean().optional(), download: z.boolean().optional() })
+    )
+    .mutation(async ({ ctx, input }) => {
+      requireSharing();
+      const userId = ctx.user!.sub;
+      const look = await ownLook(userId, input.id);
+      await enforceRateLimits(
+        [{ key: `theme-share:${userId}`, ...SHARE_RATE }],
+        "Too many share changes. Try again in an hour."
+      );
+      const credit = input.credit ?? look.share_credit;
+      const download = input.download ?? look.share_download;
+      for (let attempt = 0; attempt < 4; attempt += 1) {
+        const slug = look.share_slug ?? newShareSlug();
+        try {
+          const updated = await prisma.theme.update({
+            where: { id: look.id },
+            data: {
+              share_slug: slug,
+              share_level: "link",
+              share_credit: credit,
+              share_download: download,
+              // Mirrored for one release, until the columns are the source of truth
+              share_config: { credit, download },
+            },
+          });
+          return shareState(updated);
+        } catch (error) {
+          // A slug collision (40 random bits): draw another
+          if ((error as { code?: string }).code === "P2002" && !look.share_slug) continue;
+          throw error;
+        }
+      }
+      throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Could not make a link" });
+    }),
+
+  /** Stop sharing: the slug is cleared and the link page returns 404. */
+  unshare: privateProcedure.input(themeIdSchema).mutation(async ({ ctx, input }) => {
+    requireSharing();
+    const userId = ctx.user!.sub;
+    await ownLook(userId, input.id);
+    await enforceRateLimits(
+      [{ key: `theme-share:${userId}`, ...SHARE_RATE }],
+      "Too many share changes. Try again in an hour."
+    );
+    const updated = await prisma.theme.update({
+      where: { id: input.id },
+      data: { share_slug: null, share_level: "private" },
+    });
+    return shareState(updated);
+  }),
+
+  /**
+   * The link page's data (board 06). The author's handle only with credit on;
+   * never their profile, email or wallet. 60 a minute per IP. A view counts
+   * nothing.
+   */
+  bySlug: publicProcedure.input(z.object({ slug: slugSchema })).query(async ({ ctx, input }) => {
+    const ip = getVisitorIp(ctx.req).ip || "unknown";
+    await enforceRateLimits(
+      [{ key: `theme-by-slug:${ip}`, ...BY_SLUG_RATE }],
+      "Too many requests. Try again in a minute."
+    );
+    const look = await sharedLook(input.slug);
+    const config = (look.config ?? {}) as ThemeConfig;
+    if (config.background?.fileId) {
+      config.background.value = await getFileUrl({
+        legacyImageField: null,
+        imageFileId: config.background.fileId,
+      }).catch(() => config.background?.value ?? null);
+    }
+    const cost = pageCost(upgradeTheme(config));
+    return {
+      slug: look.share_slug!,
+      name: look.name ?? "Shared look",
+      author: look.share_credit ? (look.user?.handle ?? null) : null,
+      config,
+      cost: { level: cost.level, count: cost.parts.length, parts: cost.parts },
+      uses: look.share_uses,
+      createdAt: look.created_at,
+      download: look.share_download,
+    };
+  }),
+
+  /**
+   * Use this look (mode apply): the shared config replaces the current look's,
+   * as a new version, and the look is applied; undoVersionId restores the look
+   * as it was. Save to My looks (mode save): a new look, not applied. Either
+   * way counts one use. An uploaded background is never carried over.
+   */
+  applyShared: privateProcedure
+    .input(z.object({ slug: slugSchema, mode: z.enum(["apply", "save"]) }))
+    .mutation(async ({ ctx, input }) => {
+      requireSharing();
+      const userId = ctx.user!.sub;
+      await enforceRateLimits(
+        [{ key: `theme-apply-shared:${userId}`, ...APPLY_SHARED_RATE }],
+        "Too many looks applied. Try again in an hour."
+      );
+      const shared = await sharedLook(input.slug);
+      const currentId = await currentLookId(userId);
+      const current = currentId
+        ? await prisma.theme.findUnique({ where: { id: currentId } })
+        : null;
+      const { config, backgroundKept } = configForApply(shared.config, current?.config);
+
+      let themeId: number;
+      let undoVersionId: string | null = null;
+      if (input.mode === "save" || !current) {
+        await assertLookRoom(userId);
+        const taken = await prisma.theme.findMany({
+          where: { user_id: userId, kind: "look" },
+          select: { name: true },
+        });
+        const name = taken.some(t => t.name === shared.name)
+          ? copyName(
+              shared.name ?? "Shared look",
+              taken.map(t => t.name ?? "")
+            )
+          : cleanLookName(shared.name ?? "Shared look") || "Shared look";
+        const look = await prisma.theme.create({
+          data: {
+            user_id: userId,
+            name,
+            share_level: "private",
+            share_config: {},
+            config: config as any,
+            kind: "look",
+            config_version: configVersion(config),
+          },
+        });
+        await recordVersion(look.id, config, { force: true });
+        themeId = look.id;
+      } else {
+        // The look as it is now, so Undo can put it back
+        undoVersionId = await recordVersion(current.id, current.config, { force: true });
+        await prisma.theme.update({
+          where: { id: current.id },
+          data: { config: config as any, config_version: configVersion(config) },
+        });
+        await recordVersion(current.id, config, { force: true });
+        themeId = current.id;
+      }
+      if (input.mode === "apply") {
+        await prisma.user.update({ where: { id: userId }, data: { theme: themeId } });
+      }
+      await prisma.theme.update({
+        where: { id: shared.id },
+        data: { share_uses: { increment: 1 } },
+      });
+      return { themeId, mode: input.mode, undoVersionId, backgroundKept };
     }),
 });
