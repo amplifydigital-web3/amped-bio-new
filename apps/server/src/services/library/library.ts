@@ -534,3 +534,51 @@ export async function libraryUnsave(viewerId: number, publicId: string): Promise
   }
   return { saved: false };
 }
+
+/**
+ * Mark as watched (item menu, board m10). Ends the item's progress, so it
+ * leaves Continue and plays from the start next time. Only items the fan can
+ * open; unknown items are not found.
+ */
+export async function libraryMarkWatched(
+  viewerId: number,
+  publicId: string,
+  now: Date = new Date()
+): Promise<{ ok: true }> {
+  const item = await prisma.contentItem.findUnique({
+    where: { publicId },
+    include: { user: { select: ITEM_CREATOR_SELECT } },
+  });
+  if (!item || !libraryAccess(item, item.user, viewerId)) throw new LibraryNotFound();
+  const durationMs = item.durationMs ?? null;
+  await prisma.viewerProgress.upsert({
+    where: { userId_contentItemId: { userId: viewerId, contentItemId: item.id } },
+    create: {
+      id: uuidv7(),
+      userId: viewerId,
+      contentItemId: item.id,
+      positionMs: durationMs ?? 0,
+      durationMs,
+      completed: true,
+      lastPlayedAt: now,
+    },
+    update: { completed: true, positionMs: durationMs ?? undefined, lastPlayedAt: now },
+  });
+  return { ok: true };
+}
+
+/**
+ * Remove from Continue (item menu, board m10). Forgets where the fan stopped:
+ * the progress row is deleted, so the item plays from the start. Nothing else
+ * changes. Unknown items and items with no progress are fine.
+ */
+export async function libraryRemoveFromContinue(
+  viewerId: number,
+  publicId: string
+): Promise<{ ok: true }> {
+  const item = await prisma.contentItem.findUnique({ where: { publicId }, select: { id: true } });
+  if (item) {
+    await prisma.viewerProgress.deleteMany({ where: { userId: viewerId, contentItemId: item.id } });
+  }
+  return { ok: true };
+}

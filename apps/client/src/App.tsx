@@ -95,6 +95,17 @@ function AppRouter() {
         {/* Amped Messages (#2 r4, M5): push and email links open /inbox/{conversationId} */}
         <Route path="/inbox/:conversationId" element={<InboxDeepLink />} />
 
+        {/* Fan Library (#26, FL-3): /library/search, /library/@handle and the item view.
+          The Editor keeps these sub paths; /library itself is the /:panel route */}
+        <Route
+          path="/library/*"
+          element={
+            <ProtectedRoute>
+              <Editor />
+            </ProtectedRoute>
+          }
+        />
+
         {/* The client only serves the dashboard of the logged-in user; the panel
           (home, gallery, wallet, ...) is the route */}
         <Route

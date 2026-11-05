@@ -28,7 +28,9 @@ import {
   libraryCreator,
   libraryCreatorItems,
   libraryCreators,
+  libraryMarkWatched,
   libraryNewest,
+  libraryRemoveFromContinue,
   librarySave,
   librarySaved,
   librarySearch,
@@ -117,5 +119,24 @@ export const libraryRouter = router({
   unsave: privateProcedure.input(librarySaveSchema).mutation(async ({ ctx, input }) => {
     const viewerId = await begin(ctx, "save");
     return libraryUnsave(viewerId, input.publicId);
+  }),
+
+  /** Mark as watched (item menu, board m10, FL-3). */
+  markWatched: privateProcedure.input(librarySaveSchema).mutation(async ({ ctx, input }) => {
+    const viewerId = await begin(ctx, "save");
+    try {
+      return await libraryMarkWatched(viewerId, input.publicId);
+    } catch (error) {
+      if (error instanceof LibraryNotFound) {
+        throw new TRPCError({ code: "NOT_FOUND", message: LIBRARY_MESSAGES.notFound });
+      }
+      throw error;
+    }
+  }),
+
+  /** Remove from Continue (item menu, board m10, FL-3). Forgets the position. */
+  removeFromContinue: privateProcedure.input(librarySaveSchema).mutation(async ({ ctx, input }) => {
+    const viewerId = await begin(ctx, "save");
+    return libraryRemoveFromContinue(viewerId, input.publicId);
   }),
 });
