@@ -124,6 +124,9 @@ import { UPLOAD_VERIFICATION_MESSAGES } from "../services/uploadVerification";
 /** Upload starts per creator per minute (spec 3.10 rate limits) */
 const CREATE_UPLOADS_PER_MINUTE = 30;
 
+/** Moderation reason when the owner takes the 18+ label off a READY item (#28 F1). */
+export const ADULT_LABEL_REMOVED = "adult_label_removed";
+
 const MESSAGES = {
   closed: "Uploads are not open yet.",
   type: "This file type is not supported for this kind of item.",
@@ -150,6 +153,7 @@ const MESSAGES = {
   publishHeld: "This item is in review. You can publish it once a reviewer clears it.",
   publishNotClear: "This item is not cleared yet. A reviewer clears it before it can be published.",
   publishAdult: "18+ items can not be published yet.",
+  adultLocked: "A reviewer marked this 18+. Ask for a review if this is wrong.",
   publishBlocked: "This item can not be published.",
   deleteBusy: "Wait until processing finishes, or cancel the upload.",
   restoreGone: "This item can no longer be restored.",
@@ -200,6 +204,8 @@ function ownerView(item: ContentItem) {
     moderationState: item.moderationState.toLowerCase() as "pending" | "clear" | "held" | "blocked",
     allowDownload: item.allowDownload,
     adult: item.adult,
+    // The classifier or a reviewer marked the item explicit: the 18+ switch is locked on (#28 F1)
+    adultLocked: item.explicitAt !== null,
     gated: item.accessRuleId !== null,
     previewConfig: item.previewConfig,
     chapters: item.chapters,
@@ -680,7 +686,24 @@ export const contentRouter = router({
         throw new TRPCError({ code: "FORBIDDEN", message: MESSAGES.ruleKind });
       }
     }
+    // #28 F1: the 18+ label can not come off an item found explicit. On an item with
+    // no explicitAt (processed before the column, or labeled before processing ran),
+    // taking the label off a READY item holds it for a reviewer, so an unlabeled item
+    // never reaches the public pages without a review.
+    const unlabel = input.adult === false && item.adult;
+    if (unlabel && item.explicitAt) {
+      throw new TRPCError({ code: "FORBIDDEN", message: MESSAGES.adultLocked });
+    }
+    const holdForReview =
+      unlabel && item.status === "READY" && item.moderationState !== "BLOCKED"
+        ? {
+            moderationState: "HELD" as const,
+            moderationReason: ADULT_LABEL_REMOVED,
+            publishState: "DRAFT" as const,
+          }
+        : {};
     const fields = {
+      ...holdForReview,
       ...(input.title !== undefined ? { title: input.title } : {}),
       ...(input.description !== undefined ? { description: input.description } : {}),
       ...(input.allowDownload !== undefined ? { allowDownload: input.allowDownload } : {}),

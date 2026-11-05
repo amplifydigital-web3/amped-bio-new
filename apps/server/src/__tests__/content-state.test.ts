@@ -178,6 +178,29 @@ describe("processor callback", () => {
     expect(item).toMatchObject({ status: "READY", moderationState: "HELD" });
   });
 
+  it("stores explicitAt when the classifier finds a held or labeled item explicit (#28 F1)", async () => {
+    const held = seed();
+    await applyProcessorCallback({
+      ...base,
+      step: "classifier",
+      outcome: "held",
+      reason: "mock:explicit",
+      explicit: true,
+    });
+    expect(held.explicitAt).toBeInstanceOf(Date);
+
+    db.items.length = 0;
+    const labeled = seed({ adult: true });
+    await applyProcessorCallback({ ...base, step: "classifier", outcome: "ok", explicit: true });
+    expect(labeled.explicitAt).toBeInstanceOf(Date);
+    expect(labeled.moderationState).toBe("PENDING");
+
+    db.items.length = 0;
+    const clean = seed();
+    await applyProcessorCallback({ ...base, step: "classifier", outcome: "ok" });
+    expect(clean.explicitAt ?? null).toBeNull();
+  });
+
   it("fails an item and releases its bytes", async () => {
     const item = seed();
     await applyProcessorCallback({

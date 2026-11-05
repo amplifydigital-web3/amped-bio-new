@@ -200,6 +200,10 @@ export async function applyProcessorCallback(
   }
 
   const metadata = {
+    // The classifier found the file explicit (#28 F1): the 18+ label locks on
+    ...(callback.step === "classifier" && callback.explicit === true && !item.explicitAt
+      ? { explicitAt: new Date() }
+      : {}),
     ...(callback.sha256 ? { sha256: callback.sha256 } : {}),
     ...(callback.durationMs !== undefined ? { durationMs: callback.durationMs } : {}),
     ...(callback.pageCount !== undefined ? { pageCount: callback.pageCount } : {}),
