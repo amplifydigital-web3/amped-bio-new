@@ -220,7 +220,7 @@ function StatusCard({ data }: { data: Overview }) {
               ? "Sends are on"
               : state === "paused"
                 ? "Sends are paused"
-                : "Off in this environment (USDC_ENABLED is false)"}
+                : "Off by the usdc feature flag (admin › Feature flags)"}
           </p>
         </div>
         {data.enabled &&
@@ -753,7 +753,7 @@ function OnrampStatusCard({ data }: { data: OnrampOverview }) {
               ? "Buy USDC is on"
               : state === "paused"
                 ? "Buy USDC is paused"
-                : "Off in this environment (ONRAMP_ENABLED or the CDP key is missing)"}
+                : "Off by the onramp feature flag, or the CDP key is missing"}
             {data.sandbox && <WordBadge tone="warning">Coinbase sandbox</WordBadge>}
           </p>
         </div>

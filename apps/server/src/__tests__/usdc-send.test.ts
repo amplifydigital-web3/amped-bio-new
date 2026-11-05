@@ -80,6 +80,7 @@ const relayer = {
   address: vi.fn(async () => getAddress("0x9999999999999999999999999999999999999999")),
   gas: vi.fn(),
   submit: vi.fn(),
+  call: vi.fn(),
 } satisfies Relayer;
 
 function readContractDefault({ functionName }: { functionName: string }) {

@@ -26,3 +26,27 @@ export type Gate = {
 export type Resolver = { get(id: string): Promise<Gate | null> };
 
 export type ResolverRegistry = Map<AccessResourceType, Resolver>;
+
+/**
+ * What the engine needs from payments for the `paid` kind (spec 3.3 and 3.7). The engine
+ * never reads Purchase rows itself; the registered verifier does (G4, UsdcPaymentVerifier).
+ */
+export type PaidOffer = {
+  ownerUserId: number;
+  /** draft | active | paused | archived */
+  status: string;
+  /** USDC units, 6 decimals */
+  amountUnits: bigint;
+};
+
+/**
+ * purchased: final and inside its access window. confirming: first chain confirmation,
+ * not final yet (soft unlock, decision 5). pending: sent, not on chain yet. none: nothing
+ * that gives access (never bought, failed, expired, refunded or past its window).
+ */
+export type PurchaseState = "purchased" | "confirming" | "pending" | "none";
+
+export type PaymentVerifier = {
+  offer(offerIdHex: string): Promise<PaidOffer | null>;
+  verifyPurchase(userId: number, offerIdHex: string, now?: Date): Promise<PurchaseState>;
+};
