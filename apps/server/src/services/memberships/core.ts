@@ -60,8 +60,11 @@ import { liveVersion, versionSummary } from "../store/policy";
 const BPS = 10_000;
 const hex = (id: Uint8Array) => Buffer.from(id).toString("hex");
 const IN_FLIGHT = ["prepared", "joining"] as const;
-/** Statuses where charges may still happen, so their allowance counts in a new permit. */
-const CHARGING = ["active", "past_due"] as const;
+/**
+ * Statuses whose remaining periods must fit in a new permit: the ones that charge now, plus
+ * a join already sent, because it becomes a charging membership before this permit is used.
+ */
+const CHARGING = ["active", "past_due", "joining"] as const;
 
 export type JoinRecipient = { to: Address; bps: number; role: number };
 export type JoinTable = {
@@ -248,12 +251,15 @@ export async function prepareJoin(
   const price = input.interval === "yearly" ? plan.amountYearly : plan.amountEvery30Days;
   if (!price) return { refused: true, reason: "not_found" };
 
+  // "joining" counts: a join that is already on its way to the chain is a membership in
+  // flight, and a second join would be a second subscription and a second charge. "prepared"
+  // does not count: a second prepare replaces an unsigned first one (below).
   const current = await prisma.membership.findFirst({
     where: {
       fanUserId,
       creatorUserId: creator.id,
       OR: [
-        { status: { in: ["active", "past_due"] } },
+        { status: { in: ["joining", "active", "past_due"] } },
         { status: "canceled", currentPeriodEnd: { gt: now } },
       ],
     },
@@ -533,8 +539,20 @@ export async function submitJoin(
     );
   } catch (error) {
     const code = error instanceof RelayerError ? error.code : "unavailable";
-    await prisma.membership.update({
-      where: { id: row.id },
+    if (code === "unavailable") {
+      // CDP may have accepted the transaction and only the response was lost, so the join can
+      // still land. Keep it in flight: the worker settles it from the chain, or drops it after
+      // 30 minutes. Marking it failed here would let the fan join again and pay twice.
+      await prisma.membership.updateMany({
+        where: { id: row.id, status: "joining" },
+        data: { failureCode: "unconfirmed" },
+      });
+      return { refused: false, membershipId: input.membershipId, status: "joining", txHash: null };
+    }
+    // Every other relayer failure happens before the transaction leaves (gas stop, estimate,
+    // policy), so nothing was sent.
+    await prisma.membership.updateMany({
+      where: { id: row.id, status: "joining" },
       data: { status: "failed", failureCode: code },
     });
     return { refused: true, reason: "relayer" };
@@ -894,19 +912,54 @@ export async function joinStatus(fanUserId: number, membershipId: string) {
     : null;
 }
 
-/** Joins whose submit response was lost: the payments worker settles them from receipts. */
+/**
+ * The chain's view of a join that may have landed without a recorded hash. The contract keeps
+ * the subscription under the membership's ref, and an unknown ref has no charges.
+ */
+async function chainJoin(
+  contract: Address,
+  id: Uint8Array
+): Promise<{ charge: number; nextDue: bigint } | null> {
+  try {
+    const s = (await paymentClient().readContract({
+      address: contract,
+      abi: AMPEDMEMBERSHIPS_ABI,
+      functionName: "getSubscription",
+      args: [membershipRef(id)],
+    })) as { charges: number; nextDue: bigint };
+    const charge = Number(s.charges);
+    if (charge < 1) return null;
+    return { charge, nextDue: BigInt(s.nextDue) };
+  } catch {
+    return null;
+  }
+}
+
+/** Joins whose submit response was lost: the payments worker settles them from the receipt, or
+ * from the chain when the lost response carried no hash. */
 export async function settlePendingJoinsOnce(now = new Date()): Promise<number> {
   const rows = await prisma.membership.findMany({
-    where: { status: "joining", joinTxHash: { not: null } },
+    where: { status: "joining" },
     orderBy: { updatedAt: "asc" },
     take: 50,
     select: { id: true, updatedAt: true },
   });
+  const contract = ampedMembershipsAddress();
   let moved = 0;
   for (const row of rows) {
     const status = await settleJoin(row.id);
-    if (status !== "joining") moved += 1;
-    else if (now.getTime() - row.updatedAt.getTime() > 30 * 60 * 1000) {
+    if (status !== "joining") {
+      moved += 1;
+      continue;
+    }
+    // No hash to read a receipt from: ask the chain whether the join landed anyway
+    const landed = contract ? await chainJoin(contract, row.id) : null;
+    if (landed) {
+      await applyCharge(row.id, { ...landed, txHash: null }, now);
+      moved += 1;
+      continue;
+    }
+    if (now.getTime() - row.updatedAt.getTime() > 30 * 60 * 1000) {
       // Never seen on chain after 30 minutes: the join was dropped
       await prisma.membership.updateMany({
         where: { id: row.id, status: "joining" },
