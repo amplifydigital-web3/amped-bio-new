@@ -118,7 +118,8 @@ export async function upsertOffer(userId: number, input: OfferUpsertInput) {
   const existing = input.id
     ? await prisma.offer.findUnique({ where: { id: hexToId(input.id) } })
     : null;
-  if (input.id && (!existing || existing.creatorUserId !== userId)) {
+  // A merchant's service offer (AB-2) is never edited from a creator store
+  if (input.id && (!existing || existing.creatorUserId !== userId || existing.merchantId)) {
     throw new OfferError("item_not_ready");
   }
   if (existing?.status === "archived") throw new OfferError("archived");
@@ -162,7 +163,7 @@ export async function upsertOffer(userId: number, input: OfferUpsertInput) {
       ]);
     } else {
       const last = await prisma.offer.findFirst({
-        where: { creatorUserId: userId },
+        where: { creatorUserId: userId, merchantId: null },
         orderBy: { sortOrder: "desc" },
         select: { sortOrder: true },
       });
@@ -188,7 +189,8 @@ export async function upsertOffer(userId: number, input: OfferUpsertInput) {
 /** Activate needs the seller check (fresh) and a published policy; archive is final. */
 export async function setOfferStatus(userId: number, idHex: string, status: OfferStatus) {
   const offer = await prisma.offer.findUnique({ where: { id: hexToId(idHex) } });
-  if (!offer || offer.creatorUserId !== userId) throw new OfferError("item_not_ready");
+  if (!offer || offer.creatorUserId !== userId || offer.merchantId)
+    throw new OfferError("item_not_ready");
   if (offer.status === "archived" && status !== "archived") throw new OfferError("archived");
   if (status === "active" && offer.status !== "active") {
     if (offer.adult) throw new OfferError("item_adult");
@@ -243,7 +245,7 @@ async function unfeature(userId: number, idHex: string) {
 
 export async function reorderOffers(userId: number, ids: string[]) {
   const offers = await prisma.offer.findMany({
-    where: { creatorUserId: userId, id: { in: ids.map(hexToId) } },
+    where: { creatorUserId: userId, merchantId: null, id: { in: ids.map(hexToId) } },
     select: { id: true },
   });
   if (offers.length !== new Set(ids).size) throw new OfferError("item_not_ready");
@@ -331,7 +333,8 @@ function cardOf(offer: OfferWithItems, cover: ReturnType<typeof buildProductCove
 
 /** The creator's Products tab, every status, with the facts each row needs. */
 export async function listOffers(userId: number, now = new Date()) {
-  const offers = await loadOffers({ creatorUserId: userId });
+  // Merchant service offers (AB-2) never show in a creator's own store
+  const offers = await loadOffers({ creatorUserId: userId, merchantId: null });
   const covers = await coversFor(offers, now);
   return offers.map(offer => ({
     ...cardOf(offer, covers.get(offerIdToHex(offer.id))),
@@ -376,6 +379,7 @@ export async function publicOffers(creatorUserId: number, now = new Date(), slug
   const offers = (
     await loadOffers({
       creatorUserId,
+      merchantId: null,
       status: "active",
       adult: false,
       ...(slug ? { slug } : {}),

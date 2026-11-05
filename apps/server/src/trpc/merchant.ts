@@ -1,7 +1,9 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { prisma } from "@repo/database";
-import { privateProcedure, router } from "./trpc";
+import { OFFER_PLACEMENTS } from "@repo/constants";
+import { privateProcedure, publicProcedure, router } from "./trpc";
+import { storefront } from "../services/merchants/offers";
 import { assertTwoFactorCode } from "../services/payments/twoFactor";
 import {
   PayoutWalletError,
@@ -41,6 +43,11 @@ async function requireMember(merchantId: Buffer, userId: number) {
 }
 
 export const merchantRouter = router({
+  // AB-2: the Identity tab storefront (boards s1 to s4). Null while the flag is off
+  storefront: publicProcedure
+    .input(z.object({ placement: z.enum(OFFER_PLACEMENTS) }))
+    .query(({ ctx, input }) => storefront(input.placement, ctx.user?.sub ?? null)),
+
   mine: privateProcedure.query(async ({ ctx }) => {
     const rows = await prisma.merchantMember.findMany({
       where: { userId: ctx.user!.sub },

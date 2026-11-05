@@ -55,7 +55,7 @@ export async function ensureStore(userId: number) {
  */
 export async function adultSetupStep(creatorUserId: number): Promise<GoLiveState> {
   const adult = await prisma.offer.count({
-    where: { creatorUserId, adult: true, status: "active" },
+    where: { creatorUserId, merchantId: null, adult: true, status: "active" },
   });
   return adult ? "todo" : "not_required";
 }
@@ -73,7 +73,7 @@ export async function goLiveChecklist(
     }),
     // MB-2: an active membership plan counts as the store's first thing to sell
     Promise.all([
-      prisma.offer.count({ where: { creatorUserId: userId, status: "active" } }),
+      prisma.offer.count({ where: { creatorUserId: userId, merchantId: null, status: "active" } }),
       prisma.membershipPlan.count({ where: { creatorUserId: userId, status: "active" } }),
     ]).then(([offers, plans]) => offers + plans),
     checkIdentity(userId, "seller", { fresh: opts.fresh }),
@@ -131,6 +131,7 @@ export async function updateStore(userId: number, input: StoreSettingsUpdate) {
     const owned = await prisma.offer.count({
       where: {
         creatorUserId: userId,
+        merchantId: null,
         id: { in: ids.map(id => Buffer.from(id, "hex")) },
         status: { not: "archived" },
       },

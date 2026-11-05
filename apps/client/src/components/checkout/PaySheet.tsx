@@ -24,6 +24,7 @@ export function SheetFrame({
   notes,
   children,
   footer,
+  payingLabel,
 }: {
   creator: SheetCreator | null;
   /** The creator passes the seller rule (identity checks 5.1): the Verified chip (CK-5) */
@@ -33,6 +34,8 @@ export function SheetFrame({
   notes?: ReactNode;
   children: ReactNode;
   footer?: ReactNode;
+  /** AB-2 service sheet: "Paying" over the merchant name instead of Paying @handle */
+  payingLabel?: string;
 }) {
   const colors = moneySheetColors(creator?.theme);
   return (
@@ -76,7 +79,7 @@ export function SheetFrame({
               </p>
               {creator && (
                 <p id="pay-sheet-title" className="truncate text-[14px] leading-5 opacity-80">
-                  {CHECKOUT_COPY.paying(creator.handle)}
+                  {payingLabel ?? CHECKOUT_COPY.paying(creator.handle)}
                 </p>
               )}
             </div>

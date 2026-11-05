@@ -246,6 +246,7 @@ export async function preparePurchase(
       expiresAt: true,
       via: true,
       storePolicyVersionId: true,
+      rnsName: true,
     },
   });
   // Only the fan who claimed the intent; anyone else gets the same not found
@@ -292,7 +293,10 @@ export async function preparePurchase(
 
   // The store policy the sheet showed (CK-5, store policy 3.6). A newer live version refuses
   // until the fan has seen it and accepts it by sending its version.
-  const policy = await policyForPurchase(intent, resolved.creatorUserId, input.policyVersion);
+  // A merchant's store policy is its own published URL, shown on the sheet (AB-2)
+  const policy = resolved.extra.merchantId
+    ? { versionId: null, refused: null }
+    : await policyForPurchase(intent, resolved.creatorUserId, input.policyVersion);
   if (policy.refused) return policy.refused;
 
   // AB-1 (authbase-storefront 3.1, M1, M11): a merchant offer pays the merchant's effective
@@ -456,6 +460,9 @@ export async function preparePurchase(
       // The store policy the buyer was shown (store policy 3.6); null before one is published
       storePolicyVersionId: policy.versionId,
       merchantId,
+      // AB-2: a service order starts unfulfilled; the merchant reports progress (AB-4)
+      fulfillmentState: merchantId ? "paid" : null,
+      rnsName: merchantId ? intent.rnsName : null,
       chainId: paymentChain.id,
       payer,
       creatorAddress: creator,

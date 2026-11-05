@@ -298,6 +298,15 @@ export const FEATURE_FLAGS = {
     // A new flag: no environment fallback (AGENTS.md, feature flags)
     env: {},
   },
+  // Authbase storefront (Build Board #66, AB-2): the Identity tab sells Authbase checks for USDC
+  authbaseStorefront: {
+    label: "Authbase storefront",
+    description:
+      "The RNS Identity tab sells Authbase checks for USDC with Buy now, and checkout accepts merchant service offers. Off keeps the Verify with Authbase link.",
+    scope: "public",
+    default: false,
+    env: {},
+  },
 } as const satisfies Record<string, FeatureFlagDefinition>;
 
 export type FeatureFlagKey = keyof typeof FEATURE_FLAGS;
