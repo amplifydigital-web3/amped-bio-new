@@ -77,6 +77,9 @@ model User {
   accessRules             AccessRule[]
   checkoutIntents         CheckoutIntent[]         @relation("CheckoutIntentFan")
   checkoutIntentsSold     CheckoutIntent[]         @relation("CheckoutIntentCreator")
+  storeSettings           StoreSettings?
+  offers                  Offer[]
+  storePolicyVersions     StorePolicyVersion[]
   purchases               Purchase[]               @relation("PurchaseBuyer")
   purchasesSold           Purchase[]               @relation("PurchaseCreator")
   telegramAccount         TelegramAccount?
@@ -1530,11 +1533,111 @@ model ContentItem {
   // gated item never turns public. Never SetNull.
   accessRule     AccessRule?      @relation(fields: [accessRuleId], references: [id], onDelete: Restrict)
   viewerProgress ViewerProgress[]
+  offerItems     OfferItem[]
 
   @@index([userId, status])
   @@index([userId, publishState, publishedAt])
   @@index([accessRuleId])
   @@map("content_items")
+}
+
+/// A creator's store (content PR 9, content spec 3.8, store-catalog.md). Created on first open.
+model StoreSettings {
+  id                  Bytes     @id @db.Binary(16)
+  userId              Int       @unique @map("user_id")
+  // draft | live | paused
+  status              String    @default("draft") @db.VarChar(12)
+  // null = the display name
+  name                String?   @db.VarChar(40)
+  tagline             String?   @db.VarChar(80)
+  // grid | list | feature
+  layout              String    @default("grid") @db.VarChar(12)
+  // STORE_SECTIONS in order, hidden sections omitted
+  sectionOrder        Json      @map("section_order")
+  // up to 3 Offer ids as hex
+  featuredOfferIds    Json      @map("featured_offer_ids")
+  about               String?   @db.VarChar(600)
+  thankYouNote        String?   @map("thank_you_note") @db.VarChar(280)
+  // { standard, custom } drafts and the shared seller name (store policy 3.1)
+  policyDraft         Json?     @map("policy_draft")
+  livePolicyVersionId Bytes?    @map("live_policy_version_id") @db.Binary(16)
+  // Go live step 1. Kept here until memberships add User.payment_terms_accepted_at (#25)
+  sellerTermsAcceptedAt DateTime? @map("seller_terms_accepted_at")
+  wentLiveAt          DateTime? @map("went_live_at")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("store_settings")
+}
+
+/// A product in a creator's store. kind single | bundle (ticket, tip and link arrive later).
+model Offer {
+  id               Bytes     @id @db.Binary(16)
+  creatorUserId    Int       @map("creator_user_id")
+  kind             String    @db.VarChar(12)
+  // draft | active | paused | archived
+  status           String    @default("draft") @db.VarChar(12)
+  slug             String    @db.VarChar(60)
+  title            String    @db.VarChar(80)
+  description      String?   @db.VarChar(2000)
+  // The item whose cover the product shows; null = the first item
+  coverItemId      Bytes?    @map("cover_item_id") @db.Binary(16)
+  amountUnits      BigInt    @map("amount_units")
+  // null = forever
+  accessPeriodDays Int?      @map("access_period_days")
+  alsoInMembership Boolean   @default(false) @map("also_in_membership")
+  // true when any item is 18+
+  adult            Boolean   @default(false)
+  sortOrder        Int       @default(0) @map("sort_order")
+  // confirmed purchases, kept by the payments indexer (C10)
+  salesCount       Int       @default(0) @map("sales_count")
+  activatedAt      DateTime? @map("activated_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  creator User        @relation(fields: [creatorUserId], references: [id], onDelete: Cascade)
+  items   OfferItem[]
+
+  @@unique([creatorUserId, slug])
+  @@index([creatorUserId, status, sortOrder])
+  @@map("offers")
+}
+
+model OfferItem {
+  id            Bytes @id @db.Binary(16)
+  offerId       Bytes @map("offer_id") @db.Binary(16)
+  contentItemId Bytes @map("content_item_id") @db.Binary(16)
+  position      Int
+
+  offer       Offer       @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  contentItem ContentItem @relation(fields: [contentItemId], references: [id], onDelete: Cascade)
+
+  @@unique([offerId, contentItemId])
+  @@index([contentItemId])
+  @@map("offer_items")
+}
+
+/// A published store policy (store policy 3.3 and 3.6). Never edited; a publish adds a version.
+model StorePolicyVersion {
+  id              Bytes    @id @db.Binary(16)
+  creatorUserId   Int      @map("creator_user_id")
+  version         Int
+  // standard | custom
+  mode            String   @db.VarChar(8)
+  templateVersion Int?     @map("template_version")
+  // seller name source and value, refund option and days, contact
+  settings        Json
+  // custom only: the confirmations ticked and the time
+  confirmations   Json?
+  renderedText    String   @map("rendered_text") @db.Text
+  publishedAt     DateTime @default(now()) @map("published_at")
+
+  creator User @relation(fields: [creatorUserId], references: [id], onDelete: Cascade)
+
+  @@unique([creatorUserId, version])
+  @@map("store_policy_versions")
 }
 
 model ContentAsset {

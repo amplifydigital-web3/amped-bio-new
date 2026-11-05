@@ -24,8 +24,8 @@ export type CheckoutStatus = (typeof CHECKOUT_STATUSES)[number];
 /** Statuses the resume bar offers to finish. */
 export const RESUMABLE_CHECKOUT_STATUSES = ["open", "awaiting_funds"] as const;
 
-/** What an intent is for. Offers and plans replace content targets with store PR 9. */
-export const CHECKOUT_TARGET_TYPES = ["content"] as const;
+/** What an intent is for: a content item (until every sale is an offer) or a store product (C9). */
+export const CHECKOUT_TARGET_TYPES = ["content", "offer"] as const;
 export type CheckoutTargetType = (typeof CHECKOUT_TARGET_TYPES)[number];
 
 /** Where the fan tapped Buy or Join, for the phone funnel (review section 7). */

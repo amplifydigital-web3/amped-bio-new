@@ -24,14 +24,21 @@ import { getFileUrl } from "../../utils/fileUrlResolver";
 import { checkIdentity } from "../identity/checks";
 import { paymentSettings, type PaymentSettings } from "../payments/settings";
 import { paymentsReady } from "../payments/ready";
-import { effectiveStatus, hexToIntentId, intentIdToHex, notFound, resolveTarget } from "./intents";
+import {
+  effectiveStatus,
+  hexToIntentId,
+  intentIdToHex,
+  notFound,
+  resolveTarget,
+  targetOf,
+} from "./intents";
 
 export type CheckoutQuote = {
   id: string;
   status: string;
   state: CheckoutQuoteState;
   provider: CheckoutProvider;
-  item: { title: string; publicId: string; kind: string; adult: boolean } | null;
+  item: { title: string; publicId: string; kind: string; adult: boolean; path: string } | null;
   creator: {
     handle: string;
     name: string;
@@ -134,8 +141,7 @@ export async function quoteIntent(viewerUserId: number, idHex: string): Promise<
     validUntil: new Date(now.getTime() + settings.quoteWindowSeconds * 1000).toISOString(),
   };
 
-  const resolved =
-    status === "expired" ? null : await resolveTarget({ type: "content", id: row.targetId });
+  const resolved = status === "expired" ? null : await resolveTarget(targetOf(row));
   if (!resolved) {
     if (status === "expired") throw notFound();
     return {
@@ -167,7 +173,8 @@ export async function quoteIntent(viewerUserId: number, idHex: string): Promise<
     }),
   ]);
 
-  const amount = await checkoutAmount(settings);
+  // A product carries its amount (C9); a content target still uses the checkout amount
+  const amount = resolved.extra.amountUnits ?? (await checkoutAmount(settings));
   const fee = (amount * BigInt(settings.platformFeeBps)) / 10_000n;
   const handle = resolved.item.creatorHandle;
 
@@ -186,6 +193,7 @@ export async function quoteIntent(viewerUserId: number, idHex: string): Promise<
       title: resolved.item.title,
       publicId: resolved.extra.publicId,
       kind: resolved.extra.kind,
+      path: resolved.extra.path,
       // 18+ items are refused at start until A1 opens them (identity checks 4.4), so this
       // is false today; the sheet already sends an 18+ item to the Over 18 check (CK-0 6)
       adult: false,

@@ -137,6 +137,7 @@ describe("quoteIntent", () => {
       publicId: "abc123",
       kind: "VIDEO",
       adult: false,
+      path: "/maya/c/abc123",
     });
     expect(quote.creator?.handle).toBe("maya");
     expect(quote.creator?.image).toBe("https://example.com/maya.png");
