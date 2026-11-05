@@ -131,7 +131,7 @@ describe("font picks", () => {
   it("writes a quoted family with its fallback and variation settings", () => {
     expect(fontFaceStyle({ family: "Fraunces", weight: 700, axes: { opsz: 72 } }, "serif")).toEqual(
       {
-        fontFamily: '"Fraunces", Georgia, serif',
+        fontFamily: '"Fraunces", "Fraunces Fallback", Georgia, serif',
         fontWeight: 700,
         fontVariationSettings: '"opsz" 72',
       }

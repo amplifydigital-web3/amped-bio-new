@@ -1,61 +1,49 @@
 "use client";
 
-import { fontStylesheetHref, type AnyThemeConfig, type FontPick } from "@repo/constants";
-import { lookFor, nameOnBio, type CreatorLook } from "./look";
+import { creatorFontRequests, type AnyThemeConfig, type FontPick } from "@repo/constants";
+import type { CreatorLook } from "./look";
 
 /**
- * Theme Engine v2 fonts, phase 2b PR 1 (docs/features/theme-engine-v2.md,
- * 3.8): the stylesheets a creator page needs for catalog faces the base font
- * link does not draw. The name face asks for only the letters it shows: the
- * display name, plus the bio's first 120 characters when the name effect
- * also applies to the bio (that is when the bio wears the name face).
+ * Theme Engine v2 fonts, phase 2b (docs/features/theme-engine-v2.md, 3.8): the
+ * stylesheet links a creator page needs for catalog faces the base fonts do
+ * not draw. The requests come from @repo/constants (creatorFontRequests), so
+ * the API and this page name the same faces.
  *
- * Callers mount this only while the fontCatalog flag is on. PR 2 (delivery)
- * moves these files to Amped's own font host (decision 2).
+ * PR 2 (delivery): on the public page the API passes the mirrored links on the
+ * media host (getHandle fonts), and no visitor's browser contacts Google
+ * (decision 2). Without them, the Google requests are used: the editor (the
+ * creator's own browser) and staging before the mirror is configured.
  */
-
-const BIO_LETTERS = 120;
-
-function plainText(html: string): string {
-  return html.replace(/<[^>]*>/g, " ").replace(/&[a-z#0-9]+;/gi, " ");
-}
 
 /** The body face: the theme's family with its weight, italic and axes. */
 export function bodyFontPick(look: CreatorLook): FontPick {
   return { family: look.values.fontFamily || "Inter", ...look.values.bodyFontStyle };
 }
 
-/** Stylesheet URLs for the page's faces, name first. Empty when the base link covers them. */
+/** Google stylesheet URLs for the page's faces, name first. Empty when the base fonts cover them. */
 export function creatorFontHrefs(
   theme: AnyThemeConfig | null | undefined,
   profile: { name: string; bio?: string | null }
 ): string[] {
-  const look = lookFor(theme);
-  const hrefs: string[] = [];
-  if (look.nameFont) {
-    const bio = nameOnBio(look) && profile.bio ? plainText(profile.bio).slice(0, BIO_LETTERS) : "";
-    const text = `${profile.name || "Your name"}${bio}`;
-    const href = fontStylesheetHref([look.nameFont], { text });
-    if (href) hrefs.push(href);
-  }
-  const body = fontStylesheetHref([bodyFontPick(look)]);
-  if (body) hrefs.push(body);
-  return hrefs;
+  return creatorFontRequests(theme, profile).map(request => request.url);
 }
 
 /** One stylesheet link per face. Links in the body are allowed for stylesheets. */
 export function CreatorFontLinks({
   theme,
   profile,
+  hrefs,
 }: {
   theme: AnyThemeConfig | null | undefined;
   profile: { name: string; bio?: string | null };
+  /** Mirrored links from the API (delivery). When set, these replace the Google requests. */
+  hrefs?: readonly string[] | null;
 }) {
-  const hrefs = creatorFontHrefs(theme, profile);
-  if (hrefs.length === 0) return null;
+  const links = hrefs ?? creatorFontHrefs(theme, profile);
+  if (links.length === 0) return null;
   return (
     <>
-      {hrefs.map(href => (
+      {links.map(href => (
         <link key={href} rel="stylesheet" href={href} data-creator-font="" />
       ))}
     </>
