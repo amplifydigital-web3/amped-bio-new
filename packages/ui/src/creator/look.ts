@@ -285,7 +285,12 @@ export function nameOnBio(look: CreatorLook): boolean {
 
 /** True when the page has motion that loops, so it gets the Pause motion control (041 I02). */
 export function hasLoopingMotion(look: CreatorLook): boolean {
-  return playingOverlay(look) !== null || nameLoops(look);
+  return (
+    playingOverlay(look) !== null ||
+    nameLoops(look) ||
+    // TE-3f: Particle text twinkles while it shows
+    look.name.render.kind === "particles"
+  );
 }
 
 /** True when a container surface is on. */

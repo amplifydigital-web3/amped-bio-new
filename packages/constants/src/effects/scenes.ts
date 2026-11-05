@@ -1,4 +1,5 @@
 import { PARTICLE_PARAMS, particleOptions, presetOptions } from "./scenes.particles";
+import { COMET_TRAILS_EFFECT, EMITTER_SCENE_EFFECTS } from "./scenes.plugins";
 import { EMOJI_SET_PARAM, SCENE_PRESETS, emojiGlyphs } from "./scenes.presets";
 import type { ParticlePreset } from "./particlePresets";
 import type { EffectEntry } from "./types";
@@ -74,6 +75,9 @@ export const SCENE_EFFECTS: readonly EffectEntry[] = [
   overlay("stars", "Stars", "Twinkling stars", 8),
   overlay("geometric", "Geometric", "Connected geometric shapes", 9),
   ...Object.keys(SCENE_PRESETS).map(sceneEntry),
+  // TE-3f: the emitter scenes and Comet trails (scenes.plugins.ts)
+  ...EMITTER_SCENE_EFFECTS,
+  COMET_TRAILS_EFFECT,
 ];
 
 /**

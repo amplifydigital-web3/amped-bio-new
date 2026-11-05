@@ -5,11 +5,13 @@ import { OptionGrid, OptionTile } from "../kit/OptionTile";
 import { CreatorBackdrop } from "../kit/CreatorArt";
 import { useDesign } from "../kit/useDesign";
 import { ParamPanel } from "../kit/ParamStrip";
+import { isFeatureOn } from "../../../../config/featureFlags";
 import {
   SCENE_FILTERS,
   SCENE_FILTER_LABELS,
   SCENE_TILES,
   filterScenes,
+  offeredScenes,
   sceneIndex,
   scenePatch,
   type SceneFilter,
@@ -20,6 +22,9 @@ import {
 // VITE_SHOW_THEME_V2; the v1 Particles row stays in MotionRows.tsx. Tiles draw
 // with the page's own particle layer (tsParticles v4), still until hovered,
 // focused or tapped, one live tile at a time (029 I02, decision 12).
+
+// TE-3f: Showcase scenes (Comet trails) join the grid with the showcase flag
+const themeShowcaseOn = isFeatureOn("themeShowcase");
 
 function SceneTileView({
   tile,
@@ -86,7 +91,7 @@ export function SceneRow() {
   const [live, setLive] = useState<string | null>(null);
   const selectedIndex = sceneIndex(values.particlesEffect, config.particlesEffectId);
   const selected = SCENE_TILES[selectedIndex];
-  const shown = filterScenes(SCENE_TILES, filter);
+  const shown = filterScenes(offeredScenes(SCENE_TILES, themeShowcaseOn), filter);
   const firstFocusable = shown.some(t => t === selected) ? selected : shown[0];
   return (
     <DisclosureRow id="particles" label="Scene" value={selected?.entry.label ?? "None"}>

@@ -1,4 +1,10 @@
-import { SCENE_PRESETS, getEffect, type EffectEntry, type ThemeConfig } from "@repo/constants";
+import {
+  EMITTER_SCENES,
+  SCENE_PRESETS,
+  getEffect,
+  type EffectEntry,
+  type ThemeConfig,
+} from "@repo/constants";
 
 // Scene row (Theme Engine v2 phase 2, board 01). Decision 4: Scene replaces
 // Particles; the row edits the overlay slot. Shader scenes join in phase 3.
@@ -31,7 +37,23 @@ export const SCENE_TILES: SceneTile[] = [
     effectId: `scene.${key}`,
     entry: getEffect("scene", `scene.${key}`),
   })),
+  // TE-3f: the emitter scenes (Plus) and Comet trails (Showcase)
+  ...Object.entries(EMITTER_SCENES).map(([key, scene]) => ({
+    id: scene.fallback,
+    effectId: `scene.${key}`,
+    entry: getEffect("scene", `scene.${key}`),
+  })),
+  { id: 8, effectId: "scene.trail", entry: getEffect("scene", "scene.trail") },
 ];
+
+/**
+ * The tiles the row shows. Showcase tiles need SHOW_THEME_SHOWCASE; with it
+ * off they stay out of the grid, and a page that already stores one shows its
+ * still frame (CreatorPage).
+ */
+export function offeredScenes(tiles: SceneTile[], showcase: boolean): SceneTile[] {
+  return showcase ? tiles : tiles.filter(t => t.entry.tier !== "showcase");
+}
 
 export const SCENE_FILTERS = ["all", "light", "particles", "shaders"] as const;
 export type SceneFilter = (typeof SCENE_FILTERS)[number];

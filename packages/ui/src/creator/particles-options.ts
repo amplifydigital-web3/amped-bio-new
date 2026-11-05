@@ -1,4 +1,4 @@
-import type { ParticlePreset } from "@repo/constants";
+import { STILL_COUNT_KEY, type ParticlePreset } from "@repo/constants";
 
 /**
  * The page rules every particle overlay runs under (Screen Review 029 I03,
@@ -10,13 +10,22 @@ import type { ParticlePreset } from "@repo/constants";
  * - Taps never spawn or remove particles; hover reacts only on fine pointers.
  * - Pointer position is read from the window, so the canvas never takes taps.
  * - 60 fps cap, retina aware, paused while the tab is hidden or off screen.
+ * - TE-3f: an emitter scene held still drops its emitters and scatters its
+ *   still count instead, so the frame shows the scene rather than nothing.
  */
 export function particleLayerOptions(
   base: ParticlePreset,
   { still, finePointer }: { still: boolean; finePointer: boolean }
 ): Record<string, unknown> {
-  const config = base as Record<string, any>;
-  const particles = config.particles ?? {};
+  const { [STILL_COUNT_KEY]: stillCount, ...config } = base as Record<string, any>;
+  const particles = { ...(config.particles ?? {}) };
+  if (still && config.emitters && typeof stillCount === "number") {
+    delete config.emitters;
+    particles.number = { ...particles.number, value: stillCount };
+    // Spawned particles carry a short life; a held frame keeps them
+    delete particles.life;
+    delete particles.destroy;
+  }
   const interactivity = config.interactivity ?? {};
   const events = interactivity.events ?? {};
   return {
