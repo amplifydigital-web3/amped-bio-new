@@ -273,6 +273,10 @@ export async function applyProcessorCallback(
         });
         return "applied";
       }
+      // #28 R7 (defect F2): nothing reads inside a `file`, so a creator with 18+ on
+      // gets every file reviewed before it can be published (decision D10)
+      const fileReview =
+        item.kind === "FILE" && item.moderationState === "PENDING" && (await adultCreator(item.userId));
       await prisma.$transaction(async tx => {
         if (callback.assets?.length) {
           await upsertAssets(item.id, item.publicId, callback.assets, tx);
@@ -285,16 +289,31 @@ export async function applyProcessorCallback(
             status: "READY",
             processingStep: null,
             // A held item stays held until a reviewer clears it (spec 3.5 step 6)
-            ...(item.moderationState === "PENDING" ? { moderationState: "CLEAR" as const } : {}),
+            ...(fileReview
+              ? { moderationState: "HELD" as const, moderationReason: FILE_REVIEW_REASON }
+              : item.moderationState === "PENDING"
+                ? { moderationState: "CLEAR" as const }
+                : {}),
           },
         });
         if (ready.count !== 1) return;
         const minutes = item.kind === "VIDEO" ? minutesForDuration(durationMs) : 0;
         await commitBytes(item.userId, item.totalBytes, minutes, tx);
       });
+      if (fileReview) await onReviewHold(item, FILE_REVIEW_REASON);
       if (item.kind === "VIDEO") await finishVideo(item);
       return "applied";
   }
+}
+
+/** Moderation reason for a file of an 18+ creator waiting for review (R7). */
+export const FILE_REVIEW_REASON = "adult_file_review";
+
+async function adultCreator(userId: number): Promise<boolean> {
+  const profile = await prisma.creatorAdultProfile
+    .findUnique({ where: { userId }, select: { enabledAt: true, disabledAt: true } })
+    .catch(() => null);
+  return Boolean(profile?.enabledAt && !profile.disabledAt);
 }
 
 /**

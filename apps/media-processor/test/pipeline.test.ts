@@ -286,6 +286,27 @@ describe("image", () => {
 });
 
 describe("documents and files", () => {
+  it("holds an explicit PDF that is not labeled 18+ (qa-explicit mock, F2)", async () => {
+    const { id, api, toolbox, deps } = await setup({
+      kind: "document",
+      ext: "pdf",
+      mimeType: "application/pdf",
+      title: "qa-explicit pages",
+      adult: false,
+    });
+    toolbox.results["/scan"] = { ok: true, verdict: "clean" };
+    toolbox.results["/document"] = {
+      ok: true,
+      pageCount: 1,
+      assets: [r2Asset("PAGE_PREVIEW", `derived/${id}/page/1.webp`, { variant: "p1" })],
+      blur: null,
+      original: { role: "ORIGINAL", storage: "R2", r2Key: `originals/${id}/original.pdf`, size: 9 },
+      frames: [`derived/${id}/page/1.webp`],
+    };
+    expect(await processMessage({ type: "r2", publicId: id }, deps)).toBe("ready");
+    expect(api.step("classifier")).toMatchObject({ outcome: "held", reason: "mock:explicit" });
+  });
+
   it("scans a PDF, keeps the cleaned file and reports pages", async () => {
     const { id, api, toolbox, deps, frames } = await setup({
       kind: "document",
@@ -314,6 +335,8 @@ describe("documents and files", () => {
       "normalize:ok",
       "csam:ok",
       "blur:ok",
+      // Page renders go through the classifier too (#28 R7, defect F2)
+      "classifier:ok",
       "done:ok",
     ]);
     expect(api.step("normalize")?.pageCount).toBe(4);

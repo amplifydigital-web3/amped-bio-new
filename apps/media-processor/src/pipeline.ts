@@ -273,8 +273,10 @@ async function runFile(run: Run): Promise<Outcome> {
   // 5. Blur cover for locked cards
   if (blur) await run.ok("blur", { assets: [blur] });
 
-  // 6. Adult classifier
+  // 6. Adult classifier: images, and document page renders (#28 R7, defect F2).
+  // `file` items are never opened here; the API sends them to review for 18+ creators.
   if (job.kind === "image") await run.classify(frames);
+  if (job.kind === "document" && frames.length) await run.classify(spread(frames, CLASSIFIER_FRAMES));
 
   // 7. Ready. The ORIGINAL row moves off incoming/ with this report.
   await run.ok("done", { assets: [original] });
