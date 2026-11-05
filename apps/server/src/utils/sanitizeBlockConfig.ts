@@ -3,6 +3,8 @@ import {
   DEFAULT_MESSAGE_BLOCK_CONFIG,
   contentBlockConfigSchema,
   messageBlockConfigSchema,
+  DEFAULT_STORE_BLOCK_CONFIG,
+  storeBlockConfigSchema,
   DEFAULT_TELEGRAM_GROUP_CONFIG,
   DEFAULT_TELEGRAM_MESSAGE_CONFIG,
   followConfigSchema,
@@ -60,6 +62,13 @@ export function sanitizeBlockConfig<T>(type: string, config: T): T {
       type === "telegram_message" ? DEFAULT_TELEGRAM_MESSAGE_CONFIG : DEFAULT_TELEGRAM_GROUP_CONFIG;
     const hidden = (config as { hidden?: unknown }).hidden === true;
     return { ...fallback, ...(hidden ? { hidden } : {}) } as T;
+  }
+  if (type === "store") {
+    // Store block (st10): the heading and the hidden flag only. Products come from the server.
+    const parsed = storeBlockConfigSchema.safeParse(config);
+    if (parsed.success) return parsed.data as T;
+    const hidden = (config as { hidden?: unknown }).hidden === true;
+    return { ...DEFAULT_STORE_BLOCK_CONFIG, ...(hidden ? { hidden } : {}) } as T;
   }
   if (type === "message") {
     // Amped Messages (M6): the label and the hidden flag only, like the Telegram blocks

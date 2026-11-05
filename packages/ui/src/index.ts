@@ -190,6 +190,16 @@ export {
 } from "./creator/look";
 // Mobile checkout CK-2: the money sheet look (shared with FL-4) and the $N USDC amount
 export { CreatorThemeScope, moneySheetColors, type MoneySheetColors } from "./creator/theme-scope";
+// Fan Library FL-4: the creator section's look from the Library theme summary
+export {
+  CreatorSectionScope,
+  GRAPHITE,
+  creatorSectionColors,
+  creatorSectionVars,
+  headingReads,
+  type CreatorSectionColors,
+  type SectionFallback,
+} from "./creator/section-scope";
 export { UsdcAmount } from "./creator/usdc-amount";
 // Motion shared by the landing page and the creator page (spec 3.7)
 export {

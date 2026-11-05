@@ -10,6 +10,7 @@ import {
   MessageCircle,
   Plus,
   Send,
+  ShoppingBag,
   UserPlus,
   UsersRound,
   type LucideIcon,
@@ -19,6 +20,7 @@ import type { IconType } from "react-icons/lib";
 import {
   MESSAGE_UI,
   SINGLETON_BLOCK_TYPES,
+  STORE_COPY,
   TELEGRAM_APP_STRINGS,
   TELEGRAM_LINK,
   type BlockType,
@@ -53,6 +55,7 @@ export type NewBlockKind =
   | { type: "followers" }
   | { type: "rnsid" }
   | { type: "content" }
+  | { type: "store" }
   | { type: "telegram_message" }
   | { type: "message" };
 
@@ -90,6 +93,12 @@ const SECTIONS: { eyebrow: string; tiles: Tile[] }[] = [
               icon: Library,
               kind: { type: "content" as const },
               description: "Videos, tracks and files from your library",
+            },
+            {
+              label: STORE_COPY.block.name,
+              icon: ShoppingBag,
+              kind: { type: "store" as const },
+              description: STORE_COPY.block.description,
             },
           ],
         },
