@@ -136,4 +136,6 @@ export interface EffectEntry {
   addedIn: 1 | 2;
   /** Hidden from pickers. Kept so v1 rows that still hold the id render. */
   retired?: boolean;
+  /** Counts as this many heavy effects in the page cost (cursor.splash is 2, spec 3.7). */
+  costWeight?: 2;
 }

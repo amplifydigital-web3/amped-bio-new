@@ -10,8 +10,8 @@ import { cardFill, formatRatio, useDesign, useSpecimenLabel } from "../kit/useDe
 import { getEffect, legacyEffectId } from "@repo/constants";
 import { ParamPanel } from "../kit/ParamStrip";
 import {
-  PRESS_IDS,
   currentPress,
+  pressIdsFor,
   hoverIndex,
   hoverPatch,
   hoverTiles,
@@ -61,7 +61,11 @@ const PRESS_PLAYING: Record<PressId, string> = {
   "buttonPress.ripple":
     "relative overflow-hidden after:absolute after:left-1/2 after:top-1/2 after:h-[55px] after:w-[55px] after:-translate-x-1/2 after:-translate-y-1/2 after:rounded-full after:bg-current after:opacity-25",
   "buttonPress.dip": "motion-safe:scale-[0.97] transition-transform",
+  // The tile shows the burst as a still ring of short lines (the page draws it on a canvas)
+  "buttonPress.click-spark":
+    "relative after:pointer-events-none after:absolute after:left-1/2 after:top-1/2 after:h-[44px] after:w-[44px] after:-translate-x-1/2 after:-translate-y-1/2 after:rounded-full after:border-2 after:border-dashed after:border-current after:opacity-60",
 };
+const PRESS_TILE_IDS = pressIdsFor(isFeatureOn("themeShowcase"));
 
 const PARTICLE_EFFECTS = [
   { id: 0, name: "None", description: "No particles" },
@@ -255,7 +259,7 @@ export function ButtonPressRow() {
   const { config } = useDesign();
   if (!themeV2On) return null;
   const current = currentPress(config.buttonPressId);
-  const selectedIndex = PRESS_IDS.indexOf(current);
+  const selectedIndex = PRESS_TILE_IDS.indexOf(current);
   return (
     <DisclosureRow
       id="button-press"
@@ -264,7 +268,7 @@ export function ButtonPressRow() {
     >
       <div className="space-y-3">
         <OptionGrid label="Button press">
-          {PRESS_IDS.map((id, index) => (
+          {PRESS_TILE_IDS.map((id, index) => (
             <ButtonPressTile
               key={id}
               id={id}

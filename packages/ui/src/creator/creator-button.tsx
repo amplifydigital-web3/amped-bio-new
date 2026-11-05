@@ -8,6 +8,9 @@ import { cn } from "../utils";
 import { effectClassName, hoverSpeedMs, lookFor } from "./look";
 import { buttonSurfaceClass } from "./surface";
 import { ButtonFx } from "./surface-fx";
+import { useShowcase } from "./showcase-context";
+import { playSpark } from "./spark-overlay";
+import { usePrefersReducedMotion } from "../use-reduced-motion";
 
 // Screen Review 040: shared pieces of the creator page block renderer. Blocks
 // wear only the creator's theme (section 17). Amped contributes rhythm, sizes
@@ -113,6 +116,15 @@ export function CreatorButton({
   // Phase 2 Button press row: a class press (Dip) or a ripple from the press point
   const press = look.buttonPress;
   const ripple = effects && press.render.kind === "waapi";
+  // Phase 3c: Click spark on the shared spark canvas, with the showcase flag
+  const showcaseState = useShowcase();
+  const reducedMotion = usePrefersReducedMotion();
+  const spark =
+    effects &&
+    press.render.kind === "canvas" &&
+    showcaseState.showcase &&
+    !showcaseState.paused &&
+    !reducedMotion;
   const className = cn(
     "flex min-h-commit w-full items-center gap-[13px] px-[21px] py-2",
     effects ? effectClassName(look.button) : stillClasses(effectClassName(look.button)),
@@ -124,7 +136,9 @@ export function CreatorButton({
   );
   const onPointerDown = ripple
     ? (event: PointerEvent<HTMLElement>) => playPress(press, look.colors, event)
-    : undefined;
+    : spark
+      ? (event: PointerEvent<HTMLElement>) => playSpark(event.clientX, event.clientY, look.colors)
+      : undefined;
   // Editor chrome: the hover's Speed sets the transition; Default keeps its own
   const speed = effects ? hoverSpeedMs(look) : undefined;
   const style: CSSProperties = {

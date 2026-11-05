@@ -56,8 +56,19 @@ export function hoverIndex(tiles: HoverTile[], buttonEffect: number, storedId?: 
   );
 }
 
-export const PRESS_IDS = ["buttonPress.none", "buttonPress.ripple", "buttonPress.dip"] as const;
+export const PRESS_IDS = [
+  "buttonPress.none",
+  "buttonPress.ripple",
+  "buttonPress.dip",
+  // Phase 3c, with the showcase flag
+  "buttonPress.click-spark",
+] as const;
 export type PressId = (typeof PRESS_IDS)[number];
+
+/** Click spark runs on the canvas engine, so it shows only with themeShowcase (TE-3c). */
+export function pressIdsFor(showcase: boolean): readonly PressId[] {
+  return showcase ? PRESS_IDS : PRESS_IDS.filter(id => id !== "buttonPress.click-spark");
+}
 
 /** The press a config carries; unknown ids read as none. */
 export function currentPress(stored?: string): PressId {

@@ -47,7 +47,14 @@ export const NAME_TILES: NameTile[] = [
   ...V2_NAMES.map(([effectId, id]) => ({ id, effectId, entry: getEffect("name", effectId) })),
   // TE-3e2: Weight pulse, with the fontCatalog flag; a renderer without it draws the plain name
   { id: 0, effectId: "name.weight-pulse", entry: getEffect("name", "name.weight-pulse") },
+  // Phase 3c: Fuzzy text on the canvas engine; a renderer without it draws the plain name
+  { id: 0, effectId: "name.fuzzy", entry: getEffect("name", "name.fuzzy") },
 ];
+
+/** Canvas name effects show only with themeShowcase (TE-3c). They sit last, so indexes hold. */
+export function nameTilesFor(showcase: boolean): NameTile[] {
+  return showcase ? NAME_TILES : NAME_TILES.filter(tile => tile.entry.engine !== "canvas");
+}
 
 /** The tiles the row offers: Weight pulse only with fontCatalog. It sits last, so indexes hold. */
 export function nameRowTiles(fontCatalog: boolean): NameTile[] {

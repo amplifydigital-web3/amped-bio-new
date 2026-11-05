@@ -156,9 +156,9 @@ describe("registry lookups", () => {
         .filter(e => e.addedIn === 1)
         .map(e => e.legacyId)
     ).toEqual([0, 2, 6, 7, 8, 9]);
-    // The six v1 name effects, nine core effects (phase 2, board 08), Particle text (TE-3f)
-    // and Weight pulse (TE-3e2)
-    expect(listEffects("name").length).toBe(17);
+    // The six v1 name effects, nine core effects (phase 2, board 08), Particle text (TE-3f),
+    // Fuzzy text (TE-3c) and Weight pulse (TE-3e2)
+    expect(listEffects("name").length).toBe(18);
     // The ten v1 styles plus Hard shadow (phase 2, board 07) and Specular (phase 3d)
     expect(listEffects("button").length).toBe(12);
     // The ten v1 hovers plus five core hovers (phase 2, board 09)
@@ -167,6 +167,7 @@ describe("registry lookups", () => {
       "buttonPress.none",
       "buttonPress.ripple",
       "buttonPress.dip",
+      "buttonPress.click-spark",
     ]);
   });
 

@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { SHADER_SCENES } from "@repo/constants";
+import { SHADER_SCENES, findEffect } from "@repo/constants";
 import { SHADER_PROGRAM_KEYS, loadShaderProgram } from "../src/motion/shaders";
 
 // Theme Engine v2 phase 3b (spec 3.6): one GLSL chunk per scene.
 
 describe("shader programs", () => {
-  it("has a program for every shader scene in the registry, and nothing else", () => {
-    const keys = SHADER_SCENES.map(entry =>
+  it("has a program for every WebGL entry in the registry, and nothing else", () => {
+    const keys = [...SHADER_SCENES, findEffect("cursor.blob")!].map(entry =>
       entry.render.kind === "webgl" ? entry.render.program : ""
     );
     expect([...SHADER_PROGRAM_KEYS].sort()).toEqual([...keys].sort());

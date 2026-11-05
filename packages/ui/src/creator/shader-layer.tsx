@@ -21,7 +21,7 @@ import { lowPower } from "../motion/watchdog";
  */
 
 export interface EffectDrop {
-  layer: "scene";
+  layer: "scene" | "cursor" | "name";
   id: string;
   reason: "weak" | "slow" | "unavailable";
 }
@@ -37,6 +37,8 @@ export interface ShaderLayerProps {
   showcase?: boolean;
   onDrop?: (drop: EffectDrop) => void;
   className?: string;
+  /** The layer a drop reports (phase 3c: the Blob cursor runs here too). */
+  layer?: "scene" | "cursor";
 }
 
 function afterFirstPaint(run: () => void): () => void {
@@ -68,6 +70,7 @@ export function ShaderLayer({
   showcase = false,
   onDrop,
   className = "absolute inset-0",
+  layer = "scene",
 }: ShaderLayerProps) {
   const reducedMotion = usePrefersReducedMotion();
   const host = useRef<HTMLDivElement>(null);
@@ -88,7 +91,7 @@ export function ShaderLayer({
   const drop = (reason: EffectDrop["reason"]) => {
     if (!entry || reported.current) return;
     reported.current = true;
-    onDrop?.({ layer: "scene", id: entry.id, reason });
+    onDrop?.({ layer, id: entry.id, reason });
   };
 
   // A weak device keeps the poster; the drop is reported once

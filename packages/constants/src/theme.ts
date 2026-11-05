@@ -122,6 +122,10 @@ export const themeConfigSchema = z.object({
   // effect and the button hover, clamped against the picked entry on read.
   heroEffectParams: effectParamsSchema.optional(),
   buttonEffectParams: effectParamsSchema.optional(),
+  // Theme Engine v2 Cursor row (spec 3.5, phase 3c), additive and optional:
+  // the cursor effect by id and its params, clamped against the entry on read.
+  cursorEffectId: z.enum(EFFECT_IDS.cursor as unknown as [string, ...string[]]).optional(),
+  cursorParams: effectParamsSchema.optional(),
   // Theme Engine v2 fonts (spec 3.8, board 02), additive and optional. The
   // name gets its own face; the body keeps fontFamily (which v1 renderers
   // read) and adds weight, italic and axes. upgradeTheme carries both into

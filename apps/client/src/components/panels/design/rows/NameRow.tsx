@@ -3,19 +3,20 @@ import { nameSettle, isNameEntrance, NAME_SETTLES, NAME_TARGETS } from "@repo/co
 import {
   ChipGroup,
   NameText,
+  ShowcaseProvider,
   WeightPulseName,
   cn,
   effectClassName,
   themeCssVars,
   usePrefersReducedMotion,
 } from "@repo/ui";
+import { isFeatureOn } from "../../../../config/featureFlags";
 import { DisclosureRow } from "../kit/DisclosureRow";
 import { OptionGrid, OptionTile } from "../kit/OptionTile";
 import { CreatorBackdrop } from "../kit/CreatorArt";
 import { ContrastNotice } from "../kit/Notices";
 import { cardFill, formatRatio, useDesign } from "../kit/useDesign";
 import { ParamPanel } from "../kit/ParamStrip";
-import { isFeatureOn } from "../../../../config/featureFlags";
 import { loadFontCatalog } from "./fonts/fontCatalog";
 import type { FontCatalogEntry } from "@repo/constants";
 import { currentNameFont } from "../kit/fontLook";
@@ -28,7 +29,7 @@ import {
 } from "../kit/weightPulse";
 import {
   NAME_TILES,
-  nameRowTiles,
+  nameTilesFor,
   nameIndex,
   namePaintedColors,
   namePatch,
@@ -56,9 +57,12 @@ const DOTTED_NAME: CSSProperties = {
 
 const SETTLE_LABELS = { once: "Play once", always: "Loop" } as const;
 
-// TE-3e2: Weight pulse needs the font catalog
+// Phase 3c: Fuzzy text needs the canvas engine, so it shows with themeShowcase.
+// TE-3e2: Weight pulse needs the font catalog.
 const fontCatalogOn = isFeatureOn("themeV2") && isFeatureOn("fontCatalog");
-const NAME_ROW_TILES = nameRowTiles(fontCatalogOn);
+const NAME_ROW_TILES = nameTilesFor(themeShowcaseOn).filter(
+  t => fontCatalogOn || t.effectId !== WEIGHT_PULSE_ID
+);
 
 /** The catalog families, loaded only while fontCatalog is on (for Weight pulse). */
 function usePulseFamilies(): readonly FontCatalogEntry[] | null {
@@ -179,12 +183,17 @@ function NameTileView({
                   />
                 </span>
               ) : (
-                <NameText
-                  entry={entry}
-                  text={profile.name || "Your name"}
-                  colors={colors}
-                  paused={still}
-                />
+                <ShowcaseProvider
+                  value={{ showcase: themeShowcaseOn, paused: still, device: "typical" }}
+                >
+                  <NameText
+                    entry={entry}
+                    text={profile.name || "Your name"}
+                    colors={colors}
+                    paused={still}
+                    fontFamily={values.fontFamily}
+                  />
+                </ShowcaseProvider>
               )}
             </span>
           </span>
@@ -199,12 +208,10 @@ export function NameRow() {
   const selectedIndex = nameIndex(values.heroEffect, config.heroEffectId);
   const tile = NAME_TILES[selectedIndex] ?? NAME_TILES[0]!;
   // Roving focus lands on the selected tile when it is in the grid, else the first
-  const focusIndex =
-    selectedIndex >= 0 &&
-    Boolean(NAME_ROW_TILES[selectedIndex]) &&
-    (tile.entry.tier !== "showcase" || themeShowcaseOn)
-      ? selectedIndex
-      : 0;
+  const focusTile =
+    NAME_ROW_TILES.includes(tile) && (tile.entry.tier !== "showcase" || themeShowcaseOn)
+      ? tile
+      : NAME_ROW_TILES[0];
   const { entry } = tile;
   const settle = nameSettle(entry, config.heroEffectLoop);
   const target = config.heroAppliesTo ?? "name";
@@ -221,14 +228,14 @@ export function NameRow() {
     >
       <div className="space-y-[21px]">
         <OptionGrid label="Name effect">
-          {NAME_ROW_TILES.map((t, index) =>
+          {NAME_ROW_TILES.map(t =>
             t.entry.tier === "showcase" && !themeShowcaseOn ? null : (
               <NameTileView
                 key={t.effectId ?? t.id}
                 tile={t}
                 families={families}
-                selected={index === selectedIndex}
-                focusable={focusIndex === index}
+                selected={t === tile}
+                focusable={t === focusTile}
               />
             )
           )}

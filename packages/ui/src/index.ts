@@ -164,6 +164,8 @@ export {
   type EffectDrop,
   type ShaderLayerProps,
 } from "./creator/shader-layer";
+export { CursorLayer, type CursorLayerProps } from "./creator/cursor-layer";
+export { ShowcaseProvider, useShowcase, type ShowcaseState } from "./creator/showcase-context";
 export {
   ButtonFx,
   ContainerFx,

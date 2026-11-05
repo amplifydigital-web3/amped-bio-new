@@ -26,6 +26,8 @@ const PROGRAMS: Readonly<Record<string, () => Promise<{ default: string }>>> = {
   "faulty-terminal": () => import("./faulty-terminal"),
   "letter-glitch": () => import("./letter-glitch"),
   "galaxy-field": () => import("./galaxy-field"),
+  // Phase 3c: the Blob cursor
+  "cursor-blob": () => import("./cursor-blob"),
 };
 
 export const SHADER_PROGRAM_KEYS = Object.keys(PROGRAMS);

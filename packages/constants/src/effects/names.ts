@@ -140,6 +140,27 @@ export const NAME_EFFECTS: readonly EffectEntry[] = [
     render: { kind: "class", className: "motion-safe:animate-glitch", settledClassName: "" },
   }),
   ...NEW_NAME_EFFECTS(),
+  // Phase 3c: Fuzzy text on the 2D canvas engine. The heading text stays for
+  // screen readers and selection; without the showcase flag the name is plain.
+  {
+    id: "name.fuzzy",
+    layer: "name",
+    label: "Fuzzy text",
+    description: "The edges of your name shimmer",
+    tier: "plus",
+    engine: "canvas",
+    cost: "light",
+    source: "amped",
+    colorMode: "theme",
+    params: {
+      strength: { kind: "range", min: 0, max: 100, step: 1, default: 40, label: "Strength" },
+      speed: { kind: "range", min: 0, max: 100, step: 1, default: 50, label: "Speed" },
+    },
+    // A steady shimmer, not a cycle: Pause motion stops it, so it has no Settle
+    render: { kind: "canvas", module: "fuzzy" },
+    preview: { sample: "name" },
+    addedIn: 2,
+  },
   // TE-3e2 (spec 3.5): Weight pulse. The name's weight follows the pointer,
   // boldest when it is close. Needs a variable name font with a wght axis
   // (the font catalog, fontCatalog flag); the editor sets Lightest and

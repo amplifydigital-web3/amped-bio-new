@@ -29,6 +29,21 @@ const press = (
   addedIn: 2,
 });
 
+/** Phase 3c: Click spark on the 2D canvas engine, 8 lines in 233 ms. */
+const CLICK_SPARK: EffectEntry = {
+  ...press(
+    "click-spark",
+    "Click spark",
+    "Sparks burst from where you tap",
+    {
+      kind: "canvas",
+      module: "click-spark",
+    },
+    "canvas"
+  ),
+  tier: "plus",
+};
+
 export const BUTTON_PRESS_EFFECTS: readonly EffectEntry[] = [
   newLayerNone("buttonPress", "No press effect", "button"),
   // One circle from the press point grows to 2.5 times the button width in
@@ -59,4 +74,5 @@ export const BUTTON_PRESS_EFFECTS: readonly EffectEntry[] = [
     },
     "css"
   ),
+  CLICK_SPARK,
 ];
