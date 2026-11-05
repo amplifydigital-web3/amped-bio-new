@@ -35,6 +35,7 @@ export * from "./payments";
 export * from "./content";
 export * from "./contentPlayer";
 export * from "./contentPublic";
+export * from "./library";
 export * from "./mediaToken";
 export * from "./contentJob";
 export * from "./identity";

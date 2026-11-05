@@ -107,9 +107,12 @@ model User {
   onrampAuth          OnrampUserAuth?
 
   // Content system (Build Board #20), PR 2
-  contentItems   ContentItem[]
-  storageQuota   UserStorageQuota?
-  viewerProgress ViewerProgress[]
+  contentItems          ContentItem[]
+  storageQuota          UserStorageQuota?
+  viewerProgress        ViewerProgress[]
+  savedItems            SavedItem[]
+  libraryVisits         LibraryCreatorVisit[] @relation("LibraryVisitsMade")
+  libraryVisitsReceived LibraryCreatorVisit[] @relation("LibraryVisitsReceived")
 
   @@unique([email])
   @@map("users")
@@ -1533,6 +1536,7 @@ model ContentItem {
   // gated item never turns public. Never SetNull.
   accessRule     AccessRule?      @relation(fields: [accessRuleId], references: [id], onDelete: Restrict)
   viewerProgress ViewerProgress[]
+  savedItems     SavedItem[]
   offerItems     OfferItem[]
 
   @@index([userId, status])
@@ -1751,6 +1755,41 @@ model ViewerProgress {
   @@index([userId, lastPlayedAt])
   @@index([contentItemId])
   @@map("viewer_progress")
+}
+
+// Fan Library (#26) FL-2: items a fan saved to their Library. Access is
+// rechecked on every read; a saved item the fan can no longer open is hidden,
+// not deleted, and shows again if access returns.
+model SavedItem {
+  id            Bytes    @id @db.Binary(16)
+  userId        Int      @map("user_id")
+  contentItemId Bytes    @map("content_item_id") @db.Binary(16)
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contentItem ContentItem @relation(fields: [contentItemId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, contentItemId])
+  @@index([userId, createdAt])
+  @@index([contentItemId])
+  @@map("saved_items")
+}
+
+// Fan Library (#26) FL-2: when a fan last opened a creator's section, for the
+// new count on Your creators. The creator is a user: there is no Bio table, so
+// the spec's bioId is creatorId here.
+model LibraryCreatorVisit {
+  id            Bytes    @id @db.Binary(16)
+  userId        Int      @map("user_id")
+  creatorId     Int      @map("creator_id")
+  lastVisitedAt DateTime @map("last_visited_at")
+
+  user    User @relation("LibraryVisitsMade", fields: [userId], references: [id], onDelete: Cascade)
+  creator User @relation("LibraryVisitsReceived", fields: [creatorId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, creatorId])
+  @@index([creatorId])
+  @@map("library_creator_visits")
 }
 
 // ===== Messaging on Telegram, phase 1: fan to creator messages (PR 3) =====
