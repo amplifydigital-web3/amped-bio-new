@@ -87,6 +87,15 @@ export const PREPARED_TTL_MS = 24 * 60 * 60 * 1000;
 
 const IN_FLIGHT = ["submitting", "submitted"] as const;
 
+/**
+ * A purchase that still gives access right now (G4): confirmed or soft confirmed and,
+ * for a product with an access period, before its end. An ended period leaves the fan
+ * free to buy the product again.
+ */
+export const accessStillOpen = (now: Date) => ({
+  OR: [{ accessUntil: null }, { accessUntil: { gt: now } }],
+});
+
 export class PurchaseInputError extends Error {
   constructor(message: string) {
     super(message);
@@ -246,6 +255,8 @@ export async function preparePurchase(
         targetType: intent.targetType,
         targetId: intent.targetId,
         status: { in: [...PURCHASE_ACCESS_STATUSES] },
+        // A product whose access period ended can be bought again (G4)
+        ...accessStillOpen(now),
       },
       select: { id: true },
     }),
@@ -580,7 +591,13 @@ export async function submitPurchase(
       buyerUserId: userId,
       targetType: row.targetType,
       targetId: row.targetId,
-      status: { in: [...IN_FLIGHT, ...PURCHASE_ACCESS_STATUSES] },
+      OR: [
+        // A payment already on its way, whatever its age
+        { status: { in: [...IN_FLIGHT] } },
+        // Access already owned, so a second payment adds nothing. An ended access
+        // period (G4) does not block the fan from buying again
+        { status: { in: [...PURCHASE_ACCESS_STATUSES] }, ...accessStillOpen(now) },
+      ],
     },
     select: { id: true, status: true },
   });
@@ -758,6 +775,23 @@ export async function recordPaymentLogs(
   return written;
 }
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * The end of a product's access period (G4, ST-Q44 "Access for N days"), counted from the
+ * first chain confirmation. Lifetime products, content and rows that already carry an end
+ * are left as they are.
+ */
+async function accessWindow(row: PurchaseRow, from: Date): Promise<{ accessUntil?: Date }> {
+  if (!row.offerId || row.accessUntil) return {};
+  const offer = await prisma.offer.findUnique({
+    where: { id: Buffer.from(row.offerId) },
+    select: { accessPeriodDays: true },
+  });
+  if (!offer?.accessPeriodDays) return {};
+  return { accessUntil: new Date(from.getTime() + offer.accessPeriodDays * DAY_MS) };
+}
+
 /**
  * Moves one in flight Purchase forward from its receipt. Safe to call from submit, the status
  * poll, the worker and the indexer: every write names the statuses it moves from.
@@ -791,7 +825,14 @@ export async function settlePurchase(
       // The block that held it is gone (reorg): access closes until it lands again
       const moved = await prisma.purchase.updateMany({
         where: { id: row.id, status: "confirmed_soft" },
-        data: { status: "submitted", blockNumber: null, blockHash: null, softConfirmedAt: null },
+        data: {
+          status: "submitted",
+          blockNumber: null,
+          blockHash: null,
+          softConfirmedAt: null,
+          // A product period restarts when the payment lands again
+          ...(row.offerId ? { accessUntil: null } : {}),
+        },
       });
       if (moved.count) {
         console.warn("[payments] purchase receipt vanished after soft confirm", hash);
@@ -852,6 +893,7 @@ export async function settlePurchase(
         failureCode: null,
         confirmedAt: now,
         softConfirmedAt: row.softConfirmedAt ?? now,
+        ...(await accessWindow(row, row.softConfirmedAt ?? now)),
         ...gas,
       },
     });
@@ -874,7 +916,13 @@ export async function settlePurchase(
     }
     const moved = await prisma.purchase.updateMany({
       where: { id: row.id, status: { in: ["submitted", "failed"] } },
-      data: { status: "confirmed_soft", failureCode: null, softConfirmedAt: now, ...gas },
+      data: {
+        status: "confirmed_soft",
+        failureCode: null,
+        softConfirmedAt: now,
+        ...(await accessWindow(row, now)),
+        ...gas,
+      },
     });
     if (!moved.count) return status;
     await setIntentStatus(row.checkoutIntentId, ["open", "signing", "submitted"], "paid");

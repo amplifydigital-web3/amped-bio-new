@@ -33,6 +33,7 @@ const signerAccount = privateKeyToAccount(signerKey);
 const fan = privateKeyToAccount(fanKey);
 
 const state = vi.hoisted(() => ({
+  offerPeriodDays: null as number | null,
   purchases: [] as Record<string, any>[],
   intents: [] as Record<string, any>[],
   events: [] as Record<string, any>[],
@@ -155,7 +156,11 @@ vi.mock("@repo/database", () => {
       storeSettings: {
         findUnique: vi.fn(async () => (state.live ? { livePolicyVersionId: state.live.id } : null)),
       },
-      offer: { updateMany: vi.fn(async () => ({ count: 0 })) },
+      offer: {
+        updateMany: vi.fn(async () => ({ count: 0 })),
+        // G4: the product's access period at the first confirmation
+        findUnique: vi.fn(async () => ({ accessPeriodDays: state.offerPeriodDays })),
+      },
       siteSettings: {
         findUnique: vi.fn(async ({ where }: Row) => state.settings.get(where.setting_key) ?? null),
         upsert: vi.fn(async ({ where, create, update }: Row) => {
@@ -552,6 +557,7 @@ const localSigner = {
 
 beforeEach(() => {
   Object.assign(settings, SETTINGS);
+  state.offerPeriodDays = null;
   state.purchases = [];
   state.events = [];
   state.settings = new Map();
@@ -700,6 +706,7 @@ describe("preparePurchase", () => {
       targetType: "content",
       targetId: "abc123",
       status: "confirmed_soft",
+      accessUntil: null,
       checkoutIntentId: null,
     });
     expect(await prepare()).toEqual({
@@ -714,6 +721,27 @@ describe("preparePurchase", () => {
       reason: "in_progress",
       purchaseId: "03".repeat(16),
     });
+  });
+
+  it("lets a fan buy again once a product's access period has ended (G4)", async () => {
+    state.purchases.push({
+      id: hexToPurchaseId("05".repeat(16)),
+      buyerUserId: 20,
+      targetType: "content",
+      targetId: "abc123",
+      status: "confirmed",
+      accessUntil: new Date(NOW.getTime() + 60_000),
+      checkoutIntentId: null,
+    });
+    // Still inside its period: owned, the same as a lifetime purchase
+    expect(await prepare()).toMatchObject({ refused: true, reason: "owned" });
+    state.purchases[0]!.accessUntil = new Date(NOW.getTime() - 60_000);
+    const prepared = await prepare();
+    if (prepared.refused) throw new Error(prepared.reason);
+    const signature = await signAuthorization(prepared);
+    const result = await submitPurchase(20, { purchaseId: prepared.purchaseId, signature }, NOW, 0);
+    expect(result).toMatchObject({ refused: false });
+    expect(relayerCall).toHaveBeenCalledTimes(1);
   });
 
   it("is not found for another fan or an expired intent", async () => {
@@ -899,7 +927,12 @@ describe("submitPurchase", () => {
     const second = await prepare({ intentId: OTHER_INTENT });
     const firstSig = await signAuthorization(first);
     const secondSig = await signAuthorization(second);
-    await submitPurchase(20, { purchaseId: (first as any).purchaseId, signature: firstSig }, NOW, 0);
+    await submitPurchase(
+      20,
+      { purchaseId: (first as any).purchaseId, signature: firstSig },
+      NOW,
+      0
+    );
     expect(
       await submitPurchase(
         20,
@@ -1034,6 +1067,42 @@ describe("settlePurchase", () => {
     state.receipt = receiptFor(row, "success", 105n);
     state.head = 105n;
     expect(await settlePurchase(row.id, { now: NOW })).toBe("confirmed_soft");
+  });
+
+  it("a product with an access period ends N days after the first confirmation (G4)", async () => {
+    const row = await submitted();
+    row.offerId = Buffer.alloc(16, 7);
+    state.offerPeriodDays = 30;
+    state.receipt = receiptFor(row);
+    state.head = 100n;
+    expect(await settlePurchase(row.id, { now: NOW })).toBe("confirmed_soft");
+    const end = new Date(NOW.getTime() + 30 * 86_400_000);
+    expect(row.accessUntil).toEqual(end);
+    // Final keeps the end the soft confirmation set
+    state.head = 111n;
+    expect(await settlePurchase(row.id, { now: new Date(NOW.getTime() + 60_000) })).toBe(
+      "confirmed"
+    );
+    expect(row.accessUntil).toEqual(end);
+  });
+
+  it("a reorg clears a product's access end, so it restarts when the payment lands again", async () => {
+    const row = await submitted();
+    row.offerId = Buffer.alloc(16, 7);
+    state.offerPeriodDays = 7;
+    state.receipt = receiptFor(row);
+    await settlePurchase(row.id, { now: NOW });
+    expect(row.accessUntil).toBeInstanceOf(Date);
+    state.receipt = null;
+    expect(await settlePurchase(row.id, { now: NOW })).toBe("submitted");
+    expect(row.accessUntil).toBeNull();
+  });
+
+  it("lifetime products and content leave accessUntil empty", async () => {
+    const row = await submitted();
+    state.receipt = receiptFor(row);
+    await settlePurchase(row.id, { now: NOW });
+    expect(row.accessUntil).toBeNull();
   });
 
   it("a reverted receipt fails it, and a long silence marks it dropped", async () => {
