@@ -115,7 +115,14 @@ export function safeAppUrl(chainId: number, safe: string, safeTxHash?: string | 
 // ---------------------------------------------------------------- payments (PAY-2)
 
 /** Recipient roles in a split table (spec 3.2). */
-export const SPLIT_ROLES = { creator: 0, platform: 1, promoter: 2, partner: 3 } as const;
+/** Recipient roles. merchant (M11) takes the creator's place on a business seller's sale. */
+export const SPLIT_ROLES = {
+  creator: 0,
+  platform: 1,
+  promoter: 2,
+  partner: 3,
+  merchant: 4,
+} as const;
 export type SplitRole = (typeof SPLIT_ROLES)[keyof typeof SPLIT_ROLES];
 
 /** The contract's EIP-712 domain: name AmpedPay, version 1 (constants, part of the audit). */

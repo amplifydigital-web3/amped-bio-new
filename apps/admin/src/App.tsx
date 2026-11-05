@@ -18,6 +18,7 @@ import {
   PaymentsOverview,
   PaymentsSettings,
   PaymentsLog,
+  AdminMerchants,
 } from "./pages";
 
 function AppRouter() {
@@ -54,6 +55,7 @@ function AppRouter() {
           <Route path="payments" element={<PaymentsOverview />} />
           <Route path="payments/settings" element={<PaymentsSettings />} />
           <Route path="payments/log" element={<PaymentsLog />} />
+          <Route path="merchants" element={<AdminMerchants />} />
           {/* ndau conversions moved to the support portal; old links land on the dashboard */}
           <Route path="ndau-conversions" element={<Navigate to="/" replace />} />
         </Route>

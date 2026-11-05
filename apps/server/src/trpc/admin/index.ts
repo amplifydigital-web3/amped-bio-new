@@ -15,6 +15,7 @@ import { telegramAdminRouter } from "./telegram";
 import { messagingAdminRouter } from "./messaging";
 import { moneyAdminRouter } from "./money";
 import { paymentsAdminRouter } from "./payments";
+import { merchantsAdminRouter } from "./merchants";
 
 export const adminRouter = router({
   // User Management
@@ -63,4 +64,6 @@ export const adminRouter = router({
 
   // AmpedPay settings, two person changes and the change log (Build Board #50)
   payments: paymentsAdminRouter,
+  // Business sellers on AmpedPay: Authbase first (Build Board #66, AB-1)
+  merchants: merchantsAdminRouter,
 });

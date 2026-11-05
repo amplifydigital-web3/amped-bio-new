@@ -28,6 +28,7 @@ import {
 import { getFileUrl } from "../../utils/fileUrlResolver";
 import { liveVersion, versionSummary } from "../store/policy";
 import { checkIdentity } from "../identity/checks";
+import { checkMerchant } from "../merchants/check";
 import { paymentSettings, type PaymentSettings } from "../payments/settings";
 import { resolvePromoter } from "../store/promoters";
 import { checkoutProvider } from "./provider";
@@ -224,35 +225,47 @@ export async function quoteIntent(viewerUserId: number, idHex: string): Promise<
   ]);
   const policy = live ? await quotePolicy(row, live) : null;
 
+  // AB-1: a merchant offer runs the business seller gate and carries the merchant's fee
+  const merchant = resolved.extra.merchantId
+    ? await checkMerchant(Buffer.from(resolved.extra.merchantId, "hex"), { screen: false })
+    : null;
+  const feeBps = merchant?.pass ? merchant.feeBps : settings.platformFeeBps;
+
   // A product carries its amount (C9); a content target still uses the checkout amount
   const amount = resolved.extra.amountUnits ?? (await checkoutAmount(settings));
-  const fee = (amount * BigInt(settings.platformFeeBps)) / 10_000n;
+  const fee = (amount * BigInt(feeBps)) / 10_000n;
   const handle = resolved.item.creatorHandle;
 
   // The same rule prepare applies, without the screening call; prepare has the last word
-  const promoter = await resolvePromoter({
-    via: row.via,
-    creatorUserId: resolved.creatorUserId,
-    targetId: row.targetType === "offer" ? row.targetId : null,
-    buyerUserId: viewerUserId,
-    payer: null,
-    platformFeeBps: settings.platformFeeBps,
-    minCreatorBps: AMPEDPAY_CONTRACT.defaults.minCreatorBps,
-    now,
-  }).catch(() => null);
+  // Merchant sales carry no promoter row (spec 3.1)
+  const promoter = merchant
+    ? null
+    : await resolvePromoter({
+        via: row.via,
+        creatorUserId: resolved.creatorUserId,
+        targetId: row.targetType === "offer" ? row.targetId : null,
+        buyerUserId: viewerUserId,
+        payer: null,
+        platformFeeBps: settings.platformFeeBps,
+        minCreatorBps: AMPEDPAY_CONTRACT.defaults.minCreatorBps,
+        now,
+      }).catch(() => null);
 
   // Order matters: one state per sheet, the most specific cause first
   let state: CheckoutQuoteState = "ready";
   // Paid is terminal: it never reads ready again, so the sheet cannot offer Pay twice
   if (status === "paid") state = "paid";
   else if (settings.paymentsPaused) state = "paused";
-  else if (!wallet || (settings.pilotOnly && !settings.pilotCreators.includes(handle)))
+  else if (merchant) {
+    if (!merchant.pass) state = "seller";
+  } else if (!wallet || (settings.pilotOnly && !settings.pilotCreators.includes(handle)))
     state = "seller";
   else if (!(await sellerPasses(resolved.creatorUserId))) state = "seller";
   else if (countedToday >= settings.purchasesPerDayPerAccount) state = "limit";
 
   return {
     ...base,
+    feeBps,
     state,
     item: {
       title: resolved.item.title,

@@ -1658,10 +1658,16 @@ model Offer {
   createdAt        DateTime  @default(now()) @map("created_at")
   updatedAt        DateTime  @updatedAt @map("updated_at")
 
-  creator User        @relation(fields: [creatorUserId], references: [id], onDelete: Cascade)
-  items   OfferItem[]
+  // Authbase storefront (AB-1): set when a business seller sells this offer. creatorUserId is then
+  // the merchant's first Owner account; checkMerchant replaces the creator's seller check
+  merchantId       Bytes?    @map("merchant_id") @db.Binary(16)
+
+  creator  User        @relation(fields: [creatorUserId], references: [id], onDelete: Cascade)
+  merchant Merchant?   @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+  items    OfferItem[]
 
   @@unique([creatorUserId, slug])
+  @@index([merchantId, status])
   @@index([creatorUserId, status, sortOrder])
   @@map("offers")
 }
@@ -2416,6 +2422,8 @@ model Purchase {
   refundTxHash     String?   @map("refund_tx_hash") @db.VarChar(66)
   // C10: the creator's live store policy when the sale was prepared (store policy 3.6)
   storePolicyVersionId Bytes? @map("store_policy_version_id") @db.Binary(16)
+  // AB-1: the business seller of a merchant offer; the Console and Partner API read by it
+  merchantId       Bytes?    @map("merchant_id") @db.Binary(16)
   receiptSentAt    DateTime? @map("receipt_sent_at")
   createdAt        DateTime  @default(now()) @map("created_at")
   updatedAt        DateTime  @updatedAt @map("updated_at")
@@ -2429,6 +2437,7 @@ model Purchase {
   @@index([status, updatedAt])
   @@index([txHash])
   @@index([refundTxHash])
+  @@index([merchantId, createdAt])
   @@index([promoterCodeId])
   @@index([checkoutIntentId])
   @@map("purchases")
@@ -2523,4 +2532,95 @@ model Membership {
   @@index([planId, status])
   @@index([status, currentPeriodEnd])
   @@map("memberships")
+}
+
+// ---------------------------------------------------------------------------------------------
+// Authbase storefront (Build Board #66, AB-1; docs/features/authbase-storefront.md 3.2, 3.8, 3.10)
+// A business seller on AmpedPay. Authbase is the first. Approved by two admins after a business
+// check (M1). Its payout wallet changes only through propose, second Owner approval and a 24 hour
+// wait (M2). Its fee is set through the two person rule (M3: Authbase 2,000 bps).
+// ---------------------------------------------------------------------------------------------
+
+model Merchant {
+  id               Bytes     @id @db.Binary(16) // UUIDv7
+  slug             String    @unique @db.VarChar(40)
+  name             String    @db.VarChar(80)
+  // pending | active | suspended
+  status           String    @default("pending") @db.VarChar(12)
+  // Platform share on this merchant's sales, inside the contract's MAX_MERCHANT_FEE_BPS
+  feeBps           Int       @default(2000) @map("fee_bps")
+  // { registration, beneficialOwners, sanctionsScreen, notes } as recorded by the admin
+  businessCheck    Json?     @map("business_check")
+  storePolicyUrl   String?   @map("store_policy_url") @db.VarChar(500)
+  returnUrl        String?   @map("return_url") @db.VarChar(500)
+  approvedAt       DateTime? @map("approved_at")
+  suspendedAt      DateTime? @map("suspended_at")
+  createdById      Int       @map("created_by_id")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  members       MerchantMember[]
+  payoutWallets MerchantPayoutWallet[]
+  auditLog      MerchantAuditLog[]
+  offers        Offer[]
+
+  @@index([status])
+  @@map("merchants")
+}
+
+model MerchantMember {
+  id         Bytes    @id @db.Binary(16) // UUIDv7
+  merchantId Bytes    @map("merchant_id") @db.Binary(16)
+  userId     Int      @map("user_id")
+  // owner | finance | developer | viewer
+  role       String   @db.VarChar(12)
+  addedById  Int      @map("added_by_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  merchant Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+
+  @@unique([merchantId, userId])
+  @@index([userId])
+  @@map("merchant_members")
+}
+
+model MerchantPayoutWallet {
+  id               Bytes     @id @db.Binary(16) // UUIDv7
+  merchantId       Bytes     @map("merchant_id") @db.Binary(16)
+  address          String    @db.VarChar(42)
+  // proposed | approved | effective | replaced | rejected | cancelled
+  status           String    @db.VarChar(12)
+  // The signed proof of control: EOA or ERC-1271 signature over the proof message
+  proofMessage     String    @map("proof_message") @db.VarChar(500)
+  proofSignature   String    @map("proof_signature") @db.Text
+  proposedById     Int       @map("proposed_by_id")
+  approvedById     Int?      @map("approved_by_id")
+  rejectedById     Int?      @map("rejected_by_id")
+  // approvedAt + 24 hours; the payments worker makes it effective then
+  effectiveAt      DateTime? @map("effective_at")
+  approvedAt       DateTime? @map("approved_at")
+  replacedAt       DateTime? @map("replaced_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  merchant Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+
+  @@index([merchantId, status])
+  @@index([status, effectiveAt])
+  @@map("merchant_payout_wallets")
+}
+
+model MerchantAuditLog {
+  id         Bytes    @id @db.Binary(16) // UUIDv7
+  merchantId Bytes    @map("merchant_id") @db.Binary(16)
+  // Amped.Bio user id; 0 for the system (the worker)
+  actorId    Int      @map("actor_id")
+  action     String   @db.VarChar(48)
+  detail     Json?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  merchant Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+
+  @@index([merchantId, createdAt])
+  @@map("merchant_audit_log")
 }

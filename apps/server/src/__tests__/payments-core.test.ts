@@ -498,6 +498,73 @@ describe("split table", () => {
     expect(BPS).toBe(10_000);
   });
 
+  it("allows a merchant row at 20% and keeps a creator row capped at 10% (M11)", () => {
+    const ok = split();
+    const broken = (table: SplitTable) => {
+      try {
+        assertSplitRules(table, limits, TREASURY, NOW_S);
+        return null;
+      } catch (error) {
+        return (error as SplitRuleError).rule;
+      }
+    };
+    const merchant = (platformBps: number): SplitTable => ({
+      ...ok,
+      recipients: [
+        { ...ok.recipients[0]!, bps: 10_000 - platformBps, role: SPLIT_ROLES.merchant },
+        { ...ok.recipients[1]!, bps: platformBps },
+      ],
+    });
+    expect(broken(merchant(2_000))).toBeNull();
+    expect(broken(merchant(2_001))).toBe("platform_bps");
+    expect(broken(merchant(499))).toBe("platform_bps");
+    expect(
+      broken({
+        ...ok,
+        recipients: [
+          { ...ok.recipients[0]!, bps: 8_000 },
+          { ...ok.recipients[1]!, bps: 2_000 },
+        ],
+      })
+    ).toBe("platform_bps");
+    expect(
+      broken({
+        ...ok,
+        recipients: [
+          { ...ok.recipients[0]!, bps: 5_000 },
+          { to: getAddress("0x" + "e".repeat(40)), bps: 5_000, role: SPLIT_ROLES.merchant },
+        ],
+      })
+    ).toBe("creator_count");
+    expect(
+      broken({
+        ...ok,
+        recipients: [
+          { ...ok.recipients[0]!, bps: 5_000, role: SPLIT_ROLES.merchant },
+          { to: getAddress("0x" + "e".repeat(40)), bps: 5_000, role: SPLIT_ROLES.merchant },
+        ],
+      })
+    ).toBe("merchant_count");
+
+    const built = buildSplit({
+      paymentRef: ok.paymentRef,
+      payer: ok.payer,
+      amount: 10_000_000n,
+      creator: CREATOR,
+      treasury: TREASURY,
+      platformFeeBps: 2_000,
+      validBefore: ok.validBefore,
+      sellerRole: SPLIT_ROLES.merchant,
+    });
+    expect(built.recipients.map(r => [r.role, r.bps])).toEqual([
+      [SPLIT_ROLES.merchant, 8_000],
+      [SPLIT_ROLES.platform, 2_000],
+    ]);
+    const shares = splitShares(built);
+    expect(shares.find(r => r.role === SPLIT_ROLES.merchant)!.amount).toBe(8_000_000n);
+    expect(shares.find(r => r.role === SPLIT_ROLES.platform)!.amount).toBe(2_000_000n);
+  });
+
   it("checks the split signer against the contract's signer", async () => {
     const table = split();
     const signature = await signerAccount.signTypedData({

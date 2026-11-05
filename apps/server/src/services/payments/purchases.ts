@@ -61,6 +61,7 @@ import { checkoutAmount } from "../checkout/quote";
 import { liveVersion } from "../store/policy";
 import { countFinalSale } from "../store/sales";
 import { resolvePromoter } from "../store/promoters";
+import { checkMerchant } from "../merchants/check";
 import { ampedPayAddress, readContractState } from "./onchain";
 import { paymentsReady } from "./ready";
 import { limitsFromState, paymentSettings } from "./settings";
@@ -294,18 +295,33 @@ export async function preparePurchase(
   const policy = await policyForPurchase(intent, resolved.creatorUserId, input.policyVersion);
   if (policy.refused) return policy.refused;
 
-  const creatorWallet = await prisma.userWallet.findUnique({
-    where: { userId: resolved.creatorUserId },
-    select: { address: true },
-  });
-  if (
-    !creatorWallet?.address ||
-    !isAddress(creatorWallet.address, { strict: false }) ||
-    (settings.pilotOnly && !settings.pilotCreators.includes(handle))
-  ) {
-    return { refused: true, reason: "seller" };
+  // AB-1 (authbase-storefront 3.1, M1, M11): a merchant offer pays the merchant's effective
+  // payout wallet as the merchant row, at the merchant's fee, after checkMerchant passes. The
+  // payout wallet is screened in the screening step below like a creator's wallet.
+  const merchantId = resolved.extra.merchantId
+    ? Buffer.from(resolved.extra.merchantId, "hex")
+    : null;
+  let creator: Address;
+  let platformFeeBps = settings.platformFeeBps;
+  if (merchantId) {
+    const merchant = await checkMerchant(merchantId, { screen: false });
+    if (!merchant.pass) return { refused: true, reason: "seller" };
+    creator = merchant.payoutWallet;
+    platformFeeBps = merchant.feeBps;
+  } else {
+    const creatorWallet = await prisma.userWallet.findUnique({
+      where: { userId: resolved.creatorUserId },
+      select: { address: true },
+    });
+    if (
+      !creatorWallet?.address ||
+      !isAddress(creatorWallet.address, { strict: false }) ||
+      (settings.pilotOnly && !settings.pilotCreators.includes(handle))
+    ) {
+      return { refused: true, reason: "seller" };
+    }
+    creator = getAddress(creatorWallet.address);
   }
-  const creator = getAddress(creatorWallet.address);
 
   const chainState = await readContractState(now.getTime());
   if (!chainState?.ok) return { refused: true, reason: "paused" };
@@ -358,17 +374,20 @@ export async function preparePurchase(
 
   // C12: a promoter row when the intent carries an active, in scope code. A bad code sells
   // without one; it never stops the sale
-  const promoter = await resolvePromoter({
-    via: intent.via,
-    creatorUserId: resolved.creatorUserId,
-    targetId: intent.targetType === "offer" ? intent.targetId : null,
-    buyerUserId: userId,
-    payer,
-    platformFeeBps: settings.platformFeeBps,
-    minCreatorBps: limits.minCreatorBps,
-    now,
-    screen: true,
-  });
+  // Merchant sales carry no promoter row (spec 3.1)
+  const promoter = merchantId
+    ? null
+    : await resolvePromoter({
+        via: intent.via,
+        creatorUserId: resolved.creatorUserId,
+        targetId: intent.targetType === "offer" ? intent.targetId : null,
+        buyerUserId: userId,
+        payer,
+        platformFeeBps: settings.platformFeeBps,
+        minCreatorBps: limits.minCreatorBps,
+        now,
+        screen: true,
+      });
 
   const id = uuidv7();
   const nowSeconds = BigInt(Math.floor(now.getTime() / 1000));
@@ -379,9 +398,10 @@ export async function preparePurchase(
     amount,
     creator,
     treasury: chainState.value.treasury,
-    platformFeeBps: settings.platformFeeBps,
+    platformFeeBps,
     promoter: promoter ? { to: promoter.to, bps: promoter.bps } : null,
     validBefore: nowSeconds + BigInt(validity),
+    sellerRole: merchantId ? SPLIT_ROLES.merchant : SPLIT_ROLES.creator,
   });
   try {
     assertSplitRules(split, limits, chainState.value.treasury, nowSeconds);
@@ -435,6 +455,7 @@ export async function preparePurchase(
       promoterCodeId: promoter?.codeId ?? null,
       // The store policy the buyer was shown (store policy 3.6); null before one is published
       storePolicyVersionId: policy.versionId,
+      merchantId,
       chainId: paymentChain.id,
       payer,
       creatorAddress: creator,
@@ -467,7 +488,7 @@ export async function preparePurchase(
     review: {
       amount: amount.toString(),
       fee: fee.toString(),
-      feeBps: settings.platformFeeBps,
+      feeBps: platformFeeBps,
       payer,
       creatorHandle: handle,
       chainId: paymentChain.id,
