@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { findEffect, EFFECT_IDS } from "./effects/registry";
 import type { EffectLayer } from "./effects/types";
+import { FONT_FAMILY_PATTERN } from "./fonts";
 
 // Theme Engine v2 surface sub controls (spec 3.5, decision 5). Declared before
 // the v1 schema because the Container row stores them on v1 configs too.
@@ -40,6 +41,28 @@ const backgroundSchema = z.object({
   mesh: z.boolean().optional(),
   drift: z.boolean().optional(),
   texture: z.enum(BACKGROUND_TEXTURES).optional(),
+});
+
+/**
+ * A face from the font catalog (spec 3.8, phase 2b). Width and optical size
+ * are stored only for families that expose the axis; the editor clamps every
+ * pick against the catalog before it writes.
+ */
+const fontPickAxesSchema = z
+  .object({
+    wdth: z.number().min(25).max(200).optional(),
+    opsz: z.number().min(5).max(1200).optional(),
+  })
+  .strict();
+
+const fontStyleSchema = z.object({
+  weight: z.number().int().min(100).max(900).optional(),
+  italic: z.boolean().optional(),
+  axes: fontPickAxesSchema.optional(),
+});
+
+export const fontPickSchema = fontStyleSchema.extend({
+  family: z.string().regex(FONT_FAMILY_PATTERN, "Pick a family from the font catalog"),
 });
 
 /** Effect params stored on a v1 config: small, flat, clamped against the entry on read. */
@@ -97,6 +120,12 @@ export const themeConfigSchema = z.object({
   // effect and the button hover, clamped against the picked entry on read.
   heroEffectParams: effectParamsSchema.optional(),
   buttonEffectParams: effectParamsSchema.optional(),
+  // Theme Engine v2 fonts (spec 3.8, board 02), additive and optional. The
+  // name gets its own face; the body keeps fontFamily (which v1 renderers
+  // read) and adds weight, italic and axes. upgradeTheme carries both into
+  // v2 fonts.name and fonts.body.
+  nameFont: fontPickSchema.optional(),
+  bodyFontStyle: fontStyleSchema.optional(),
 });
 
 // Schema for the theme object in editTheme endpoint

@@ -5,6 +5,7 @@ import { ParticlesProvider } from "@/components/ParticlesProvider";
 import { AppProviders } from "@/components/providers/AppProviders";
 import { FeatureFlagsProvider } from "@/components/providers/FeatureFlagsProvider";
 import { getFeatureFlagOverrides } from "@/lib/featureFlags";
+import { getBaseFontLink } from "@/lib/fontDelivery";
 import Script from "next/script";
 import { AmpedAnalytics } from "@/components/AmpedAnalytics";
 import { CONSENT_DEFAULT_SNIPPET } from "@/lib/ampedAnalytics";
@@ -38,7 +39,10 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   // Feature flags from site_settings, read on the server (lib/featureFlags.ts)
-  const featureFlags = await getFeatureFlagOverrides();
+  const [featureFlags, baseFont] = await Promise.all([
+    getFeatureFlagOverrides(),
+    getBaseFontLink(),
+  ]);
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
@@ -53,12 +57,16 @@ export default async function RootLayout({
         <Script id="amped-consent-default" strategy="beforeInteractive">
           {CONSENT_DEFAULT_SNIPPET}
         </Script>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@400;500;600;700&family=Open+Sans:wght@400;500;600;700&family=Poppins:wght@400;500;600;700&family=Roboto:wght@400;500;700&family=Figtree:wght@400;500;600;700&family=Bebas+Neue&family=Playfair+Display:wght@400;600;700&family=Lora:wght@400;600;700&family=Space+Grotesk:wght@400;600;700&display=swap"
-          rel="stylesheet"
-        />
+        {/* The ten base families: Amped's media host while fontDelivery is on (lib/fontDelivery.ts) */}
+        {baseFont.preconnect.map(origin => (
+          <link
+            key={origin.href}
+            rel="preconnect"
+            href={origin.href}
+            crossOrigin={origin.crossOrigin}
+          />
+        ))}
+        <link href={baseFont.href} rel="stylesheet" />
         <ThemeProvider
           attribute="class"
           defaultTheme="light"

@@ -3,6 +3,7 @@ import { autoRetry } from "@grammyjs/auto-retry";
 import { apiThrottler } from "@grammyjs/transformer-throttler";
 import { TELEGRAM_LIMITS } from "@repo/constants";
 import { env } from "../../env";
+import { isFeatureOn } from "../featureFlags";
 import { installBotHandlers } from "./bot";
 
 /**
@@ -73,7 +74,7 @@ export async function getBotUsername(): Promise<string | null> {
 /** Update kinds the handlers in ./bot.ts read. Telegram does not send the others. */
 export const TELEGRAM_ALLOWED_UPDATES = ["message", "callback_query", "my_chat_member"] as const;
 
-/** Phase 2 update kinds (./groups.ts, ./inline.ts), requested only with TELEGRAM_GROUPS on. */
+/** Phase 2 update kinds (./groups.ts, ./inline.ts), requested only with the telegramGroups flag on. */
 export const TELEGRAM_GROUP_UPDATES = [
   "chat_join_request",
   "chat_member",
@@ -85,7 +86,7 @@ export const TELEGRAM_GROUP_UPDATES = [
 export function telegramAllowedUpdates(): Array<
   (typeof TELEGRAM_ALLOWED_UPDATES)[number] | (typeof TELEGRAM_GROUP_UPDATES)[number]
 > {
-  return env.TELEGRAM_GROUPS
+  return isFeatureOn("telegramGroups")
     ? [...TELEGRAM_ALLOWED_UPDATES, ...TELEGRAM_GROUP_UPDATES]
     : [...TELEGRAM_ALLOWED_UPDATES];
 }

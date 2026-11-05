@@ -134,6 +134,17 @@ async function toStoredParams(
       if (!minWei) throw new TRPCError({ code: "BAD_REQUEST", message: "A whole number of tREVO" });
       return { poolId: input.params.poolId, minWei };
     }
+    case "paid": {
+      // G4: only the owner's own product, and never an archived one
+      const offer = await db.offer.findUnique({
+        where: { id: hexToId(input.params.offerId) },
+        select: { creatorUserId: true, status: true },
+      });
+      if (!offer || offer.creatorUserId !== ownerUserId || offer.status === "archived") {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Pick one of your own products." });
+      }
+      return { offerId: input.params.offerId };
+    }
     case "any":
     case "all": {
       // 2 to 4 leaves, depth 1, all the owner's own

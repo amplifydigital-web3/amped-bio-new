@@ -1,5 +1,6 @@
 import type { DmRuleKind } from "@repo/constants";
 import { env } from "../../env";
+import { isFeatureOn } from "../featureFlags";
 import { getBotUsername } from "../telegram/client";
 import { getOrCreateLinkCode } from "../telegram/linkCodes";
 import { getCreatorSettings, settingsOpen } from "./access";
@@ -49,7 +50,7 @@ export async function telegramGroupDoor(creatorUserId: number): Promise<Telegram
     botUsername: null,
     linkCode: null,
   };
-  if (!env.TELEGRAM_ENABLED || !env.TELEGRAM_GROUPS) return closed;
+  if (!env.TELEGRAM_ENABLED || !isFeatureOn("telegramGroups")) return closed;
   const [group, botUsername] = await Promise.all([primaryGroup(creatorUserId), getBotUsername()]);
   if (!group?.inviteLink || !botUsername) return closed;
   return {
