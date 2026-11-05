@@ -52,7 +52,7 @@ async function run<T>(fn: () => Promise<T>): Promise<T> {
  * telegram.miniapp (Build Board #2, phase 3, spec r3 3.7). Public procedures: the caller
  * is whoever signed the launch data, checked against the bot token on every call. The
  * creator comes from the signed start_param (p_{code}), never from the request.
- * Behind TELEGRAM_MINIAPP.
+ * Behind the telegramMiniApp feature flag.
  */
 export const telegramMiniAppRouter = router({
   page: publicProcedure.input(input).query(({ input }) =>

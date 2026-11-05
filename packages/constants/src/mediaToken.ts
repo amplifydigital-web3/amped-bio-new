@@ -53,6 +53,61 @@ export interface MediaTokenPayload {
   fn?: string;
   /** Single use id for downloads; the gateway's Durable Object refuses a second use */
   j?: string;
+  /**
+   * 1 on tokens the API signed with access "public" (content takedown TD2). The
+   * gateway refuses these once the item's `private:` key exists, so links handed
+   * out before an unpublish or a new rule stop within a minute.
+   */
+  p?: 1;
+  /** "safety" on a Safety reviewer reveal token (R2): passes `blocked:` unless child safety */
+  a?: "safety";
+}
+
+// ----------------------------------------------------------------------------
+// Takedown KV keys (content takedown, docs/features/content-takedown.md 4.2).
+// The API writes them; the gateway reads them before the cache on every request.
+// ----------------------------------------------------------------------------
+
+/** Why an item is blocked at the edge. Stored in the `blocked:` value. */
+export const TAKEDOWN_REASONS = [
+  "deleted",
+  "moderation",
+  "suspended",
+  "safety",
+  "child_safety",
+] as const;
+export type TakedownReason = (typeof TAKEDOWN_REASONS)[number];
+
+/** Refuses every token, except a Safety reveal token when the reason is not child_safety. */
+export function takedownBlockedKey(publicId: string): string {
+  return `blocked:${publicId}`;
+}
+
+/** Refuses tokens with `p: 1` (old public links). Private tokens and the blur still pass. */
+export function takedownPrivateKey(publicId: string): string {
+  return `private:${publicId}`;
+}
+
+export interface TakedownBlockedValue {
+  r: TakedownReason;
+  /** ISO time the API wrote the key */
+  at: string;
+}
+
+/**
+ * Reads a `blocked:` value. Keys written before C7a (tests, manual writes) hold a
+ * bare reason string; anything unreadable counts as a block with no reveal.
+ */
+export function parseTakedownBlockedValue(value: string): TakedownBlockedValue {
+  try {
+    const parsed = JSON.parse(value) as Partial<TakedownBlockedValue>;
+    if (parsed && TAKEDOWN_REASONS.includes(parsed.r as TakedownReason)) {
+      return { r: parsed.r as TakedownReason, at: typeof parsed.at === "string" ? parsed.at : "" };
+    }
+  } catch {
+    // fall through
+  }
+  return { r: "child_safety", at: "" };
 }
 
 export interface MediaTokenKey {
@@ -162,7 +217,9 @@ export function decodeMediaTokenPayload(encoded: string): MediaTokenPayload | nu
       !Number.isInteger(value.exp) ||
       (value.dl !== 0 && value.dl !== 1) ||
       (value.fn !== undefined && typeof value.fn !== "string") ||
-      (value.j !== undefined && typeof value.j !== "string")
+      (value.j !== undefined && typeof value.j !== "string") ||
+      (value.p !== undefined && value.p !== 1) ||
+      (value.a !== undefined && value.a !== "safety")
     ) {
       return null;
     }

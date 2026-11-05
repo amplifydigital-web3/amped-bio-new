@@ -42,10 +42,17 @@ export function EditorMiniPlayer() {
   if (!visible) return null;
   return (
     <>
-      <div aria-hidden className="h-[63px] md:hidden" />
+      <div aria-hidden className="h-[72px] md:hidden" />
       <div className="fixed inset-x-[13px] bottom-[calc(109px+env(safe-area-inset-bottom,0px))] z-40 md:sticky md:inset-x-auto md:bottom-[21px]">
         <MiniPlayer
-          onExpand={item => navigate(`/content?tab=library&item=${encodeURIComponent(item.id)}`)}
+          onExpand={item =>
+            // A Library item expands into its Library view (FL-3); a creator's own preview into Content
+            navigate(
+              item.href?.startsWith("/library/")
+                ? item.href
+                : `/content?tab=library&item=${encodeURIComponent(item.id)}`
+            )
+          }
         />
       </div>
     </>

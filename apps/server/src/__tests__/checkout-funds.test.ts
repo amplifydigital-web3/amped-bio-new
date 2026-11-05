@@ -15,9 +15,23 @@ vi.mock("@repo/database", () => ({
         async ({ where }: { where: { id: Buffer } }) =>
           state.rows.find(r => r.id.equals(where.id)) ?? null
       ),
-      update: vi.fn(async (args: unknown) => {
-        state.updates.push(args);
-      }),
+      updateMany: vi.fn(
+        async (args: {
+          where: { id: Buffer; status: string; expiresAt: { gt: Date } };
+          data: { status: string };
+        }) => {
+          state.updates.push(args);
+          const row = state.rows.find(
+            r =>
+              r.id.equals(args.where.id) &&
+              r.status === args.where.status &&
+              r.expiresAt > args.where.expiresAt.gt
+          );
+          if (!row) return { count: 0 };
+          row.status = args.data.status;
+          return { count: 1 };
+        }
+      ),
     },
   },
 }));
@@ -40,10 +54,27 @@ beforeEach(() => {
 
 describe("awaitFunds", () => {
   it("moves an open intent to awaiting_funds", async () => {
-    expect(await awaitFunds(20, ID)).toEqual({ id: ID, status: "awaiting_funds" });
+    const now = new Date();
+    expect(await awaitFunds(20, ID, now)).toEqual({ id: ID, status: "awaiting_funds" });
     expect(state.updates).toEqual([
-      { where: { id: Buffer.from(ID, "hex") }, data: { status: "awaiting_funds" } },
+      {
+        where: { id: Buffer.from(ID, "hex"), status: "open", expiresAt: { gt: now } },
+        data: { status: "awaiting_funds" },
+      },
     ]);
+  });
+
+  it("never overwrites a status another request set between the read and the write", async () => {
+    const { prisma } = await import("@repo/database");
+    const findUnique = vi.mocked(prisma.checkoutIntent.findUnique);
+    // The first read sees open; a concurrent request (CK-5) then moves it to submitted
+    findUnique.mockImplementationOnce((async () => {
+      const row = { ...state.rows[0] };
+      state.rows[0].status = "submitted";
+      return row;
+    }) as never);
+    expect(await awaitFunds(20, ID)).toEqual({ id: ID, status: "submitted" });
+    expect(state.rows[0].status).toBe("submitted");
   });
 
   it("only the fan who claimed the intent can move it", async () => {

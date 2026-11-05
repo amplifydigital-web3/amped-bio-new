@@ -2,7 +2,6 @@
 
 interface ImportMetaEnv {
   readonly VITE_LANDINGPAGE_URL: string;
-  readonly VITE_SHOW_REWARD: string;
   readonly VITE_SHOW_CREATOR_POOL: string;
   readonly VITE_SHOW_RNS: string;
   /** RNS phase flags under VITE_SHOW_RNS (Screen Review 100 I06) */
@@ -13,7 +12,6 @@ interface ImportMetaEnv {
   readonly VITE_SHOW_FACET_REQUEST?: string;
   /** USD by card through Authbase checkout (078 D1, 080 D1). Off until wired. */
   readonly VITE_RNS_CARD_CHECKOUT?: string;
-  readonly VITE_SHOW_GALLERY: string;
   readonly VITE_API_URL: string;
   readonly VITE_AUTH_URL: string;
   readonly VITE_DEMO_MODE: string;
@@ -27,8 +25,6 @@ interface ImportMetaEnv {
   readonly VITE_CONTENT?: string;
   /** Mobile checkout (Build Board #49): the resume bar and, from CK-2, the pay page */
   readonly VITE_CHECKOUT?: string;
-  /** Explore NFTs tab (Screen Review 044, D07). Off until NFT data exists. */
-  readonly VITE_SHOW_NFTS?: string;
   /** Creator Pool Broadcast (Build Board #1): My Pool Broadcasts tab and the Inbox */
   readonly VITE_SHOW_BROADCAST: string;
   /** Messaging on Telegram (Build Board #2): Account, Telegram link and the composer's Telegram channel */
