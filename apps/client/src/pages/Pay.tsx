@@ -100,12 +100,20 @@ export function PayPage() {
     setSeen(value);
   }, [quote.data, intentId, provider, seen]);
 
-  // An 18+ item passes the Over 18 check first (spec 6, identity checks 4.2)
+  // An 18+ item passes the Over 18 check first (spec 6, identity checks 4.2). The
+  // stored result is read first, so a fan back from a pass is not sent round again.
+  const adultItem = quote.data?.item?.adult === true;
+  const ageCheck = useQuery({
+    ...trpc.identity.myChecks.queryOptions(),
+    enabled: adultItem,
+    retry: false,
+  });
+  const agePassed = ageCheck.data?.ageOver18.pass === true;
   useEffect(() => {
-    if (quote.data?.item?.adult) {
+    if (adultItem && (ageCheck.isError || (ageCheck.data && !agePassed))) {
       window.location.assign(`/age-check?returnTo=${encodeURIComponent(`/pay/${intentId}`)}`);
     }
-  }, [quote.data?.item?.adult, intentId]);
+  }, [adultItem, ageCheck.isError, ageCheck.data, agePassed, intentId]);
 
   const creator = quote.data?.creator ?? null;
   const theme = creator?.theme ?? null;

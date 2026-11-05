@@ -264,7 +264,9 @@ export const CONTENT_COPY = {
       "This item is not cleared yet. A reviewer clears it before it can be published.",
     publishBlocked: "This item can not be published.",
     publishAdult:
-      "18+ items show only to fans who confirmed their age. That check comes later, so this item stays off your public pages for now.",
+      "18+ items show only to fans who passed the Over 18 check. That check is not open yet, so this item stays off your public pages for now.",
+    publishAdultOpen:
+      "18+ items never show on your public page. Fans who passed the Over 18 check open them from Adult items on your page.",
     publishFailed: "Could not change publishing",
     deleteItem: "Delete",
     deleting: "Deleting",

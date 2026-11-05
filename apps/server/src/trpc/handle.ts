@@ -28,6 +28,7 @@ import { matchReserved } from "../services/reservedHandles";
 import { enforceRateLimits } from "../utils/rateLimit";
 import { getVisitorIp } from "../services/analytics/visitorIp";
 import { publicCardsFor } from "../services/content/publicView";
+import { hasAdultItems } from "../services/content/adult";
 import { publicBlocksFor } from "../services/access/blocks";
 import type { ContentBlockConfig, ContentCard } from "@repo/constants";
 
@@ -238,6 +239,7 @@ const appRouter = router({
         groupDoorResult,
         contentResult,
         messageDoorResult,
+        adultResult,
       ] = await Promise.allSettled([
         getPublicTheme(Number(theme_id)),
         getFileUrl({
@@ -265,6 +267,10 @@ const appRouter = router({
           ? publicCardsFor(user_id, contentIds)
           : Promise.resolve({} as Record<string, ContentCard>),
         hasMessageBlock ? messageDoor(user_id) : Promise.resolve(null),
+        // Identity checks 4.4: one "Adult items" card, no title, cover or count
+        user.page_status === "PUBLISHED" && user.block === "no"
+          ? hasAdultItems(user_id)
+          : Promise.resolve(false),
       ]);
 
       // The theme is the profile itself, so its failure is fatal
@@ -328,6 +334,8 @@ const appRouter = router({
           "content cards"
         ),
         indexable: isUserIndexable(user, publicBlocks.length),
+        // True when the page has a listed 18+ item and the adultContent flag is on. Fails closed.
+        hasAdult: adultResult.status === "fulfilled" && adultResult.value,
       };
 
       return result;

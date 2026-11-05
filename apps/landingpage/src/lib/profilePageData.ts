@@ -47,6 +47,8 @@ export interface ProfilePageData {
   indexable: boolean;
   /** Content blocks (#20): cards for public items only, keyed by publicId */
   contentCards: Record<string, ContentCard>;
+  /** Identity checks 4.4: the page has 18+ items (no title, cover or count) */
+  hasAdult: boolean;
 }
 
 export const DEFAULT_HANDLE = "landingpage";
@@ -93,6 +95,7 @@ export const DEFAULT_PROFILE_DATA: ProfilePageData = {
   trackingPixels: null,
   indexable: false,
   contentCards: {},
+  hasAdult: false,
 };
 
 /**
@@ -110,6 +113,7 @@ export function mapGetHandleData(result: HandleOutput, handle: string): ProfileP
     trackingPixels,
     indexable,
     contentCards,
+    hasAdult,
   } = result;
   return {
     profile: {
@@ -134,5 +138,6 @@ export function mapGetHandleData(result: HandleOutput, handle: string): ProfileP
     trackingPixels: trackingPixels ?? null,
     indexable,
     contentCards: contentCards ?? {},
+    hasAdult: hasAdult === true,
   };
 }
