@@ -173,7 +173,7 @@ function StatusCard({
           </h2>
           <p className="max-w-[72ch] text-prism-body text-prism-ink-2">
             {state === "off"
-              ? "PAYMENTS_ENABLED is false, so fans see no checkout. Settings can still be changed so they are ready at launch."
+              ? "The payments feature flag is off, so fans see no checkout. Settings can still be changed so they are ready at launch."
               : "Pause stops new payments at once. Resume needs a second payments admin; the contract resume also needs the Safe owners."}
           </p>
           <dl className="flex flex-wrap gap-x-5 gap-y-1 pt-1 text-prism-meta">

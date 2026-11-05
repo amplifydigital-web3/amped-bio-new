@@ -47,7 +47,7 @@ export function ReportContentButton({
   );
 }
 
-function ReportDialog({
+export function ReportDialog({
   items,
   onClose,
 }: {

@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { AlertCircle, Check, Loader2, X } from "lucide-react";
+import { AlertCircle, BadgeCheck, Check, Loader2, X } from "lucide-react";
 import { CHECKOUT_COPY, usdcDollars, type AnyThemeConfig } from "@repo/constants";
 import { CreatorThemeScope, UsdcAmount, cn, moneySheetColors } from "@repo/ui";
 
@@ -19,12 +19,15 @@ export type SheetCreator = {
 
 export function SheetFrame({
   creator,
+  verified = false,
   closeHref,
   notes,
   children,
   footer,
 }: {
   creator: SheetCreator | null;
+  /** The creator passes the seller rule (identity checks 5.1): the Verified chip (CK-5) */
+  verified?: boolean;
   closeHref: string;
   /** Staging and mock lines, above the footer */
   notes?: ReactNode;
@@ -62,7 +65,15 @@ export function SheetFrame({
               </span>
             )}
             <div className="min-w-0 flex-1">
-              <p className="truncate text-[16px] font-semibold leading-6">{creator?.name}</p>
+              <p className="flex min-w-0 items-center gap-[6px] text-[16px] font-semibold leading-6">
+                <span className="truncate">{creator?.name}</span>
+                {verified && creator && (
+                  <span className="inline-flex h-6 shrink-0 items-center gap-1 rounded-full border border-current px-2 text-[13px] font-semibold leading-none">
+                    <BadgeCheck aria-hidden className="h-[14px] w-[14px]" />
+                    {CHECKOUT_COPY.verified}
+                  </span>
+                )}
+              </p>
               {creator && (
                 <p id="pay-sheet-title" className="truncate text-[14px] leading-5 opacity-80">
                   {CHECKOUT_COPY.paying(creator.handle)}

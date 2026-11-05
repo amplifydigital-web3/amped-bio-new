@@ -12,6 +12,10 @@ export interface ItemStatusInput {
   moderationState: "pending" | "clear" | "held" | "blocked";
   processingStep: string | null;
   failureReason: string | null;
+  /** Content takedown tk1: Safety hid the item; no playback, the owner included */
+  hiddenBySafety?: boolean;
+  /** A removal the media edge has not confirmed yet */
+  stoppingDelivery?: boolean;
 }
 
 export type StatusTone = "public" | "draft" | "progress" | "review" | "danger";
@@ -25,7 +29,8 @@ export interface ItemStatus {
     | "blocked"
     | "draft"
     | "public"
-    | "removed";
+    | "removed"
+    | "hidden";
   label: string;
   tone: StatusTone;
   /** The line under the title on the card */
@@ -75,7 +80,16 @@ export function itemStatus(
       key: "removed",
       label: c.removedLabel,
       tone: "draft",
-      line: until ? c.removedLine(until) : "",
+      line: item.stoppingDelivery ? c.stoppingDelivery : until ? c.removedLine(until) : "",
+    };
+  }
+  // Takedown tk1: a Safety hide wins over every state but removed
+  if (item.hiddenBySafety) {
+    return {
+      key: "hidden",
+      label: c.hiddenLabel,
+      tone: "danger",
+      line: item.stoppingDelivery ? c.stoppingDelivery : c.hiddenLine,
     };
   }
   if (item.status === "blocked" || item.moderationState === "blocked") {

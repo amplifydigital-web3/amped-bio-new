@@ -71,4 +71,18 @@ describe("failureLine", () => {
       line: "Restore until Nov 22",
     });
   });
+
+  it("shows a Safety hide and a removal the edge has not confirmed (takedown tk1)", () => {
+    expect(itemStatus({ ...base, publishState: "published", hiddenBySafety: true })).toMatchObject({
+      key: "hidden",
+      label: "Hidden by Safety",
+      tone: "danger",
+    });
+    expect(itemStatus({ ...base, hiddenBySafety: true, stoppingDelivery: true }).line).toBe(
+      "Stopping delivery"
+    );
+    expect(
+      itemStatus({ ...base, status: "deleted", restorableUntil: null, stoppingDelivery: true })
+    ).toMatchObject({ key: "removed", line: "Stopping delivery" });
+  });
 });

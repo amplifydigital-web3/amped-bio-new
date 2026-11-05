@@ -23,9 +23,18 @@ export async function awaitFunds(
   const status = effectiveStatus(row, now);
   if (status === "expired") throw notFound();
   if (status !== "open") return { id: intentIdToHex(row.id), status };
-  await prisma.checkoutIntent.update({
-    where: { id: row.id },
+  // Conditional on the status: a concurrent request that moved the intent on first (CK-5
+  // signing or submitted, or paid) is never overwritten
+  const { count } = await prisma.checkoutIntent.updateMany({
+    where: { id: row.id, status: "open", expiresAt: { gt: now } },
     data: { status: "awaiting_funds" },
   });
-  return { id: intentIdToHex(row.id), status: "awaiting_funds" };
+  if (count === 1) return { id: intentIdToHex(row.id), status: "awaiting_funds" };
+  const current = await prisma.checkoutIntent.findUnique({
+    where: { id: row.id },
+    select: { status: true, expiresAt: true },
+  });
+  const latest = current ? effectiveStatus(current, now) : "expired";
+  if (latest === "expired") throw notFound();
+  return { id: intentIdToHex(row.id), status: latest };
 }
