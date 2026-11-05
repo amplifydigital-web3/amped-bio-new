@@ -724,6 +724,7 @@ Drafted for counsel. Nothing here is on a board as final text.
 
 ## Revision log
 
+- 2026-11-05: R2 built (`feat/safety-queue`, on R1). Queue, case view with blur and 60 second reveal, decisions with keys, Block this file, strikes by safety lead, escalate (child safety and trafficking), delivery line Retry, Blocked files. Handoff `docs/fixes/safety-queue.md`.
 - 2026-11-05: R1 built (`feat/safety-foundation`, on C7a). Section 10 tables, roles and the admin gate, SafetyEvent writer, Settings defaults, hash blocklist service, `preserveEvidence`, child safety alert (email and Twilio SMS), CSAM match and classifier hold intake. Handoff `docs/fixes/safety-foundation.md`.
 - 2026-11-03: Q8 answered by Rob: Twilio sends child safety SMS alerts (8.5). Secrets and the privacy processor entry added.
 

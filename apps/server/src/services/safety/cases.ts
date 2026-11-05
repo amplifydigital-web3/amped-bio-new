@@ -19,6 +19,8 @@ import { caseDueAt } from "./time";
 
 export type OpenCaseInput = {
   type: SafetyCaseType;
+  /** Overrides the type's default (a trafficking escalation is Critical) */
+  severity?: 0 | 1 | 2;
   contentItemId?: Uint8Array | null;
   offerId?: Uint8Array | null;
   storePolicyVersionId?: Uint8Array | null;
@@ -89,7 +91,7 @@ export async function openCase(
           id: uuidv7(),
           number,
           type: input.type,
-          severity: defaults.severity,
+          severity: input.severity ?? defaults.severity,
           dueAt: caseDueAt(input.type, now),
           contentItemId: bytes(input.contentItemId),
           offerId: bytes(input.offerId),
