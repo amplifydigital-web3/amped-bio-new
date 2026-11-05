@@ -79,7 +79,7 @@ export type CheckoutQuote = {
 const COUNTED_STATUSES = ["submitted", "paid"];
 
 /** The creator's page theme, with an uploaded background resolved to a URL. */
-async function creatorTheme(themeId: string | null): Promise<AnyThemeConfig | null> {
+async function creatorTheme(themeId: number | null): Promise<AnyThemeConfig | null> {
   const id = Number(themeId);
   if (!themeId || !Number.isInteger(id) || id <= 0) return null;
   const theme = await prisma.theme.findUnique({ where: { id }, select: { config: true } });

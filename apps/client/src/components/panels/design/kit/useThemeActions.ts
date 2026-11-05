@@ -5,6 +5,17 @@ import { useEditor } from "@/contexts/EditorContext";
 import type { Theme } from "@/types/editor";
 
 /**
+ * The look an editor apply writes to (TE-4a): the creator's own look the
+ * editor holds, or none for a marketplace theme or a page with no look yet
+ * (the server then uses the applied look, or creates the first one).
+ */
+export function ownLookId(theme: Pick<Theme, "id" | "user_id">): number | undefined {
+  return theme.user_id !== null && theme.user_id !== undefined && theme.id > 0
+    ? theme.id
+    : undefined;
+}
+
+/**
  * Theme level actions for Design (Screen Review 027 I09, 031 I03, 033 I03).
  * Every action goes through the server first, then refetches the editor, so
  * the editor never shows a theme the server did not store.
@@ -33,9 +44,18 @@ export function useThemeActions() {
     }
   }, [flushSave]);
 
-  /** Store a config as the creator's own editable theme (themeId 0 path). */
+  // The look the editor holds, read at call time like the profile above
+  const themeRef = useRef(theme);
+  themeRef.current = theme;
+
+  /**
+   * Store a config as the creator's own editable theme (themeId 0 path). TE-4a:
+   * it writes to the look the editor holds, never to whichever row the server
+   * found first.
+   */
   const storeOwnTheme = useCallback(
     async (name: string, config: ThemeConfig, description?: string) => {
+      const lookId = ownLookId(themeRef.current);
       await trpcClient.theme.applyTheme.mutate({
         themeId: 0,
         theme: {
@@ -45,6 +65,7 @@ export function useThemeActions() {
           share_config: {},
           config,
         },
+        ...(lookId ? { lookId } : {}),
       });
     },
     []
