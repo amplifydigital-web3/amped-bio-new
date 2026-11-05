@@ -1,13 +1,17 @@
 import {
   EMITTER_SCENES,
   SCENE_PRESETS,
+  SHADER_SCENES,
   getEffect,
   type EffectEntry,
   type ThemeConfig,
 } from "@repo/constants";
 
 // Scene row (Theme Engine v2 phase 2, board 01). Decision 4: Scene replaces
-// Particles; the row edits the overlay slot. Shader scenes join in phase 3.
+// Particles; the row edits the overlay slot. Phase 3b adds the shader scenes:
+// one pick per row, so a shader clears the overlay and an overlay clears the
+// shader. A shader is stored by id with particlesEffect 0, so v1 renderers
+// draw the background alone.
 
 export interface SceneTile {
   /** The v1 particlesEffect; for a v2 only scene, the nearest v1 overlay. */
@@ -37,6 +41,8 @@ export const SCENE_TILES: SceneTile[] = [
     effectId: `scene.${key}`,
     entry: getEffect("scene", `scene.${key}`),
   })),
+  // Phase 3b: the shader scenes (scenes.shaders.ts)
+  ...SHADER_SCENES.map(entry => ({ id: 0, effectId: entry.id, entry })),
   // TE-3f: the emitter scenes (Plus) and Comet trails (Showcase)
   ...Object.entries(EMITTER_SCENES).map(([key, scene]) => ({
     id: scene.fallback,
@@ -47,12 +53,22 @@ export const SCENE_TILES: SceneTile[] = [
 ];
 
 /**
- * The tiles the row shows. Showcase tiles need SHOW_THEME_SHOWCASE; with it
- * off they stay out of the grid, and a page that already stores one shows its
- * still frame (CreatorPage).
+ * The tiles the row shows. Showcase tiles (shader scenes, Comet trails) need
+ * SHOW_THEME_SHOWCASE; with it off they stay out of the grid, and a page that
+ * already stores one shows its still frame (CreatorPage).
  */
 export function offeredScenes(tiles: SceneTile[], showcase: boolean): SceneTile[] {
   return showcase ? tiles : tiles.filter(t => t.entry.tier !== "showcase");
+}
+
+/** Shader tiles show only with the showcase flag (TE-3b); the API drops them without it. */
+export function sceneTilesFor(showcase: boolean): SceneTile[] {
+  return offeredScenes(SCENE_TILES, showcase);
+}
+
+/** True when the tile is a shader scene (it sets the scene base, not the overlay). */
+export function isShaderTile(tile: SceneTile | undefined): boolean {
+  return tile?.entry.engine === "webgl";
 }
 
 export const SCENE_FILTERS = ["all", "light", "particles", "shaders"] as const;

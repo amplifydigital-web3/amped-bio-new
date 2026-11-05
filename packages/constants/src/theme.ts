@@ -114,6 +114,8 @@ export const themeConfigSchema = z.object({
   // Theme Engine v2 Scene row (spec 3.5, board 01), additive and optional. A
   // scene with no v1 integer is stored by id; the editor keeps particlesEffect
   // on the nearest v1 overlay. Params are clamped against the entry on read.
+  // Phase 3b: a shader scene id here becomes the v2 scene base, and
+  // particlesEffect stays 0 so v1 renderers draw the background alone.
   particlesEffectId: z.enum(EFFECT_IDS.scene as unknown as [string, ...string[]]).optional(),
   particlesParams: effectParamsSchema.optional(),
   // Editor chrome (spec 3.10): the parameter strip's values for the name

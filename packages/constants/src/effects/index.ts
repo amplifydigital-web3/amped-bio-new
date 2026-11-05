@@ -10,6 +10,13 @@ export { PARTICLE_PRESETS, type ParticlePreset } from "./particlePresets";
 export { PARTICLE_PARAMS, particleOptions, presetOptions, toV4Options } from "./scenes.particles";
 export { EMOJI_SET_PARAM, SCENE_PRESETS, emojiGlyphs, type ScenePreset } from "./scenes.presets";
 export * from "./scenes.gradients";
+export {
+  GALAXY_FIELD_PARAMS,
+  SHADER_GALLERY_PARAMS,
+  SHADER_REACTIVE_PARAMS,
+  SHADER_SCENES,
+  shaderPalette,
+} from "./scenes.shaders";
 export * from "./surfaces";
 export { nameSettle, isNameEntrance } from "./names";
 export { NAME_SPEED_FACTOR, NAME_SPEED_PARAM } from "./names";

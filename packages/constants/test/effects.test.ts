@@ -149,8 +149,8 @@ describe("registry lookups", () => {
         .map(e => e.legacyId)
     ).toEqual([0, 1, 2, 3, 4, 5, 7, 8, 9]);
     // The nine v1 overlays, eight Plus scenes on the slim bundle (phase 2, board 01),
-    // five emitter scenes and Comet trails (TE-3f)
-    expect(listEffects("scene").length).toBe(23);
+    // the twenty shader scenes (TE-3b), five emitter scenes and Comet trails (TE-3f)
+    expect(listEffects("scene").length).toBe(43);
     expect(
       listEffects("name")
         .filter(e => e.addedIn === 1)

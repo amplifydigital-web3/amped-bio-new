@@ -81,7 +81,7 @@ export function ShaderLayer({
     () => (render ? render.uniforms(values, colors) : {}),
     [render, values, colors]
   );
-  const poster = render ? render.poster(colors) : undefined;
+  const poster = render ? render.poster(colors, values) : undefined;
   const weak = device === "weak" || (device === undefined && lowPower());
   const still = !showcase || paused || reducedMotion || dropped;
 
@@ -109,9 +109,16 @@ export function ShaderLayer({
     let stop: (() => void) | undefined;
     let surface: HTMLCanvasElement | undefined;
     const cancelStart = afterFirstPaint(() => {
-      void import("../motion/webgl")
-        .then(engine => {
+      // The engine and the scene's own GLSL load together, each in its own chunk
+      void Promise.all([import("../motion/webgl"), import("../motion/shaders")])
+        .then(async ([engine, programs]) => {
+          const fragment = await programs.loadShaderProgram(render.program);
           if (cancelled) return;
+          if (!fragment) {
+            setDropped(true);
+            drop("unavailable");
+            return;
+          }
           // A fresh canvas per start: stop() loses its context for good, so a
           // restart (Speed, device or flag change) cannot reuse the old one
           surface = document.createElement("canvas");
@@ -124,7 +131,7 @@ export function ShaderLayer({
             host: element,
             // The scene sits behind the page, so pointer moves are read on the document
             pointerArea: entry?.pointer === "fine" ? document.body : null,
-            fragment: render.shader,
+            fragment,
             uniforms,
             speed: shaderSpeed(values),
             dprCap: engine.dprCapFor(device),

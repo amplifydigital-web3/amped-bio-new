@@ -330,6 +330,17 @@ export function upgradeTheme(
   const overlayEntry = findEffect(overlay);
   const overlayParams =
     v1.particlesParams && overlayEntry ? clampParams(overlayEntry, v1.particlesParams) : {};
+  // Phase 3b: a shader scene the Scene row stored by id becomes the scene base
+  // (decision 4: it replaces the base while it runs). The v1 background stays
+  // on the config for renderers without the shader engine.
+  const shaderBase =
+    storedScene?.layer === "scene" && storedScene.engine === "webgl" && !storedScene.retired
+      ? {
+          type: "shader" as const,
+          id: storedScene.id,
+          params: v1.particlesParams ? clampParams(storedScene, v1.particlesParams) : {},
+        }
+      : null;
   // A v2 style the Buttons row stored by id wins over the v1 integer (phase 2)
   const storedButton = v1.buttonStyleId ? findEffect(v1.buttonStyleId) : undefined;
   const buttonId =
@@ -386,7 +397,7 @@ export function upgradeTheme(
       size: FONT_SIZE_BY_PX[v1.fontSize ?? V1_DEFAULTS.fontSize] ?? "m",
     },
     scene: {
-      base: upgradeBackground(v1.background),
+      base: shaderBase ?? upgradeBackground(v1.background),
       ...(overlay === "scene.none" ? {} : { overlay: { id: overlay, params: overlayParams } }),
     },
     container: {
