@@ -2,6 +2,8 @@ import { useCallback } from "react";
 import { useSearchParams } from "react-router";
 import { Radio, Store } from "lucide-react";
 import { EmptyState, Tabs, TabsContent, TabsList, TabsTrigger } from "@repo/ui";
+import { isFeatureOn } from "../../../config/featureFlags";
+import { AdultSetup } from "./adult/AdultSetup";
 import { useDestinationTab } from "@/hooks/useDestinationTab";
 import { CONTENT_COPY } from "./copy";
 import { LaterPill } from "./parts";
@@ -53,6 +55,8 @@ export function ContentPanel() {
           <TabsTrigger value="live" aria-label={t.laterLabel(t.live)}>
             {t.live} <LaterPill className="ml-1.5" />
           </TabsTrigger>
+          {/* Adult content (#28 R4, 5.1): shown once 18+ can open (adultContent flag) */}
+          {isFeatureOn("adultContent") && <TabsTrigger value="adult">Adult content</TabsTrigger>}
         </TabsList>
       </div>
 
@@ -71,6 +75,9 @@ export function ContentPanel() {
             description={CONTENT_COPY.later.storeBody}
           />
         </div>
+      </TabsContent>
+      <TabsContent value="adult" className="mt-0 px-4 pb-6 pt-[21px] md:px-6">
+        <AdultSetup />
       </TabsContent>
       <TabsContent value="live" className="mt-0 px-4 pb-6 pt-[21px] md:px-6">
         <div className="prism-glass-clear flex min-h-[377px] items-center justify-center !rounded-prism-21">

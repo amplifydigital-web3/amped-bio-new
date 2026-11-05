@@ -1082,7 +1082,11 @@ export const contentRouter = router({
     const line = JSON.stringify({ publicId: item.publicId, reason: input.reason });
     if (input.reason === "csam") console.error("[content] ALERT csam report", line);
     else console.info("[content] report", line);
-    return { received: true, hidden: intake.hidden, form: CONTENT_REPORT_FORM[input.reason] ?? null };
+    return {
+      received: true,
+      hidden: intake.hidden,
+      form: intake.withdrawn ? null : (CONTENT_REPORT_FORM[input.reason] ?? null),
+    };
   }),
 
   /** Public items for the sitemap (decision 23). */
