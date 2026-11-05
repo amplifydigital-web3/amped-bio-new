@@ -88,6 +88,11 @@ export const themeConfigSchema = z.object({
   // v1 renderers ignore them; upgradeTheme carries them into the v2 container.
   containerShape: z.enum(CONTAINER_SHAPES).optional(),
   containerBorder: z.enum(BORDER_STYLES).optional(),
+  // Theme Engine v2 phase 3d premium surfaces (spec 3.5, board 03), additive
+  // and optional. A surface with no v1 integer is stored by id; the editor
+  // keeps containerStyle on the nearest v1 look. Params are clamped on read.
+  containerStyleId: z.enum(EFFECT_IDS.container as unknown as [string, ...string[]]).optional(),
+  containerParams: effectParamsSchema.optional(),
   // Theme Engine v2 Buttons row (spec 3.5, board 07), additive and optional.
   // buttonStyleId names a v2 style that has no v1 integer (Hard shadow); the
   // editor keeps buttonStyle on the nearest v1 look for renderers without it.
