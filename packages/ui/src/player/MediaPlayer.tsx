@@ -524,21 +524,29 @@ function VideoPlayer(props: MediaPlayerProps) {
             role="alert"
           >
             <p className="text-[17px] font-semibold">
-              {state.error === "expired" ? copy.goneTitle : copy.errorTitle}
+              {state.error === "ended"
+                ? copy.endedTitle
+                : state.error === "expired"
+                  ? copy.goneTitle
+                  : copy.errorTitle}
             </p>
-            {state.error !== "expired" && (
+            {state.error === "ended" ? (
+              <p className="text-[14px] text-white/80">{copy.endedBody}</p>
+            ) : state.error !== "expired" ? (
               <p className="text-[14px] text-white/80">{copy.errorBody}</p>
+            ) : null}
+            {state.error !== "ended" && (
+              <button
+                type="button"
+                onClick={event => {
+                  event.stopPropagation();
+                  player.retry();
+                }}
+                className="min-h-[44px] rounded-full bg-white px-[21px] font-semibold text-[#16152B] outline-none focus-visible:ring-2 focus-visible:ring-white"
+              >
+                {copy.retry}
+              </button>
             )}
-            <button
-              type="button"
-              onClick={event => {
-                event.stopPropagation();
-                player.retry();
-              }}
-              className="min-h-[44px] rounded-full bg-white px-[21px] font-semibold text-[#16152B] outline-none focus-visible:ring-2 focus-visible:ring-white"
-            >
-              {copy.retry}
-            </button>
           </div>
         )}
 
@@ -956,15 +964,21 @@ function AudioPlayer(props: MediaPlayerProps) {
             role="alert"
           >
             <span className="text-[14px]">
-              {state.error === "expired" ? copy.goneTitle : copy.errorTitle}
+              {state.error === "ended"
+                ? copy.endedTitle
+                : state.error === "expired"
+                  ? copy.goneTitle
+                  : copy.errorTitle}
             </span>
-            <button
-              type="button"
-              onClick={player.retry}
-              className="min-h-[44px] rounded-full bg-white px-[21px] font-semibold text-[#16152B]"
-            >
-              {copy.retry}
-            </button>
+            {state.error !== "ended" && (
+              <button
+                type="button"
+                onClick={player.retry}
+                className="min-h-[44px] rounded-full bg-white px-[21px] font-semibold text-[#16152B]"
+              >
+                {copy.retry}
+              </button>
+            )}
           </div>
         )}
       </div>

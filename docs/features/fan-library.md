@@ -308,6 +308,8 @@ Every PR from a fresh `development`, into `development`, reviewer Gustavo, featu
 | FL-7 | feat/library-money | Memberships and Manage (m9), status sheet membership and purchases, Wallet change, Purchased labels, Join, Buy, Renew and Rejoin through the creator payment sheet (m5) | 125, 182 | Content PR 10 (checkout), PR 11 and AmpedMemberships (#25 phase C) |
 | later | with #27 | Live in the Library | 135 | Live streaming |
 
+**FL-6 as built (4 Nov 2026, `docs/fixes/library-gated.md`).** The engine's `checkBatch` decides gated rows with intent render and `record: false`. The Shop shows only refusals with a Library step: stake refusals go to the pool, `not_follower` to the creator's page, `follow_pending` to confirm the email; unavailable kinds are left out. Join and Buy read Coming soon until FL-7. Stake cards carry `TESTNET_NOTICE` and `ACCESS_STAKE_DISCLOSURE`. A pool fan who does not follow is connected. The bell fan out uses the rule's audience (`any` union, `all` intersection), skips fans who turned alerts off or blocked the creator, and folds per creator. The daily email is a `digest` job at 14:00 UTC behind the `libraryDigest` server flag and needs `BULK_FOOTER_ADDRESS`; its footer turns `Follow.email_updates` off for that creator. `newContentEnabled` is set per creator in the status sheet and for everyone in Account, Messages.
+
 Order: #346 and #348 merge; FL-0, FL-1 and FL-2 in parallel; FL-3 and FL-4 in parallel (first fan release: free and follower content, branded creator sections, the phone player); FL-5; FL-6 when the gating engine lands; FL-7 when checkout and memberships land.
 
 ### 3.11 Acceptance criteria

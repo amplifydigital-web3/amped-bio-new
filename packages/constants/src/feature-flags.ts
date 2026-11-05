@@ -228,6 +228,14 @@ export const FEATURE_FLAGS = {
     default: false,
     env: {},
   },
+  libraryDigest: {
+    label: "Fan Library daily email",
+    description:
+      "Fan Library (FL-6): one email a day per creator with their new items, to followers who chose Email me updates. Needs BULK_FOOTER_ADDRESS (CAN-SPAM postal address) and counsel sign off on the digest as commercial email.",
+    scope: "server",
+    default: false,
+    env: {},
+  },
   contentUploads: {
     label: "Content uploads",
     description:

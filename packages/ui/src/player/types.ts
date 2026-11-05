@@ -105,7 +105,11 @@ export interface PlayerState {
   /** Playback has started at least once for the current item */
   started: boolean;
   loading: boolean;
-  error: "load" | "expired" | null;
+  /**
+   * load: the item did not load; expired: a refresh failed for another reason;
+   * ended: the server refused the fan (Fan Library FL-6, Access ended)
+   */
+  error: "load" | "expired" | "ended" | null;
   currentMs: number;
   durationMs: number | null;
   bufferedMs: number;

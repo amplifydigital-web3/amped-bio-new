@@ -54,6 +54,13 @@ export const LIBRARY_LIMITS = {
   creatorsMax: 500,
   readsPerMinute: 120,
   savesPerMinute: 60,
+  /** Items a section reads to count Yours and Shop once gating decides each one (FL-6) */
+  sectionCountScan: 200,
+  /** New content alerts (FL-6, spec 3.4): accounts written per chunk */
+  fanOutChunk: 1000,
+  /** The daily digest email (FL-6): the UTC hour it sends, and the most items it lists */
+  digestHourUtc: 14,
+  digestItemsMax: 6,
 } as const;
 
 // ---------------------------------------------------------------- inputs
@@ -106,6 +113,12 @@ export const librarySearchSchema = z
     path: ["handle"],
   });
 
+/** New content alerts (fl-q5): every creator, or one creator by handle. */
+export const libraryNewContentSchema = z.object({
+  handle: contentHandleSchema.optional(),
+  enabled: z.boolean(),
+});
+
 export const librarySavedSchema = z.object({ cursor: cursorSchema }).optional();
 export const librarySaveSchema = z.object({ publicId: contentPublicIdSchema });
 
@@ -153,7 +166,11 @@ export interface LibraryItem extends ContentCard {
 export type LibraryUnlockHint =
   | { kind: "join" | "rejoin"; planName: string | null }
   | { kind: "buy"; amount: string }
-  | { kind: "pool" };
+  | { kind: "pool" }
+  /** FL-6: a follower rule and the fan reached the section through the pool, not a follow */
+  | { kind: "follow" }
+  /** FL-6: the fan follows, but the follow counts once their email is confirmed */
+  | { kind: "confirm_email" };
 
 export interface LibraryShopItem extends ContentCard {
   owner: LibraryOwner;

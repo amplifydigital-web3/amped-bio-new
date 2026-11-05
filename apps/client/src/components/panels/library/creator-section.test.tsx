@@ -3,13 +3,16 @@
  * a fan with no connection goes to the public page; the section shows only
  * this creator's items in the creator's look, with the ownership line; the
  * status sheet opens with "{Creator} and you", toggles read On or Off, and
- * change Follow settings through follow.update; Unfollow offers Undo.
+ * change Follow settings through follow.update; Unfollow offers Undo. Shop
+ * (FL-6) shows locked cards with one next step, and the testnet line and the
+ * stake disclosure under a stake card; alerts for new items save per creator.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { QueryClient } from "@tanstack/react-query";
 import { renderWithProviders } from "@/test/utils";
+import { ACCESS_STAKE_DISCLOSURE, TESTNET_NOTICE } from "@repo/constants";
 import { LIBRARY_COPY } from "./copy";
 
 const mocks = vi.hoisted(() => ({
@@ -22,6 +25,8 @@ const mocks = vi.hoisted(() => ({
   toast: vi.fn(),
   replace: vi.fn(),
   ga: vi.fn(),
+  newContent: vi.fn(),
+  setNewContent: vi.fn(),
 }));
 
 vi.mock("@repo/ui", async () => {
@@ -70,6 +75,16 @@ vi.mock("@repo/ui", async () => {
         unsave: { mutationOptions: () => ({ mutationFn: vi.fn() }) },
         markWatched: { mutationOptions: () => ({ mutationFn: vi.fn() }) },
         removeFromContinue: { mutationOptions: () => ({ mutationFn: vi.fn() }) },
+      },
+      notifications: {
+        newContent: {
+          queryKey: (input: unknown) => ["notifications.newContent", input],
+          queryOptions: (input: unknown) => ({
+            queryKey: ["notifications.newContent", input],
+            queryFn: mocks.newContent,
+          }),
+        },
+        setNewContent: { mutationOptions: () => ({ mutationFn: mocks.setNewContent }) },
       },
       follow: {
         update: { mutationOptions: () => ({ mutationFn: mocks.update }) },
@@ -144,6 +159,8 @@ beforeEach(() => {
   mocks.continue.mockResolvedValue({ items: [] });
   mocks.creatorItems.mockResolvedValue({ items: [item], nextCursor: null });
   mocks.update.mockResolvedValue({});
+  mocks.newContent.mockResolvedValue({ enabled: true });
+  mocks.setNewContent.mockResolvedValue({ enabled: false });
   mocks.unfollow.mockResolvedValue({ following: false, restoreToken: "token-1234567890" });
   Object.defineProperty(window, "location", {
     configurable: true,
@@ -194,10 +211,71 @@ describe("creator section (row 181, board m4)", () => {
     );
   });
 
-  it("shows Shop empty until FL-6", async () => {
+  it("shows an empty Shop when nothing is locked", async () => {
+    mocks.creatorItems.mockImplementation(async (input: { seg: string }) =>
+      input.seg === "shop" ? { items: [], nextCursor: null } : { items: [item], nextCursor: null }
+    );
     renderSection();
     fireEvent.click(await screen.findByRole("tab", { name: /Shop/ }));
     expect(await screen.findByText(LIBRARY_COPY.section.shopEmptyTitle)).toBeTruthy();
+  });
+
+  it("shows a locked stake card with Go to the pool, the testnet line and the disclosure", async () => {
+    const locked = {
+      ...item,
+      publicId: "lockedabcd123456",
+      title: "Members cut",
+      accessSource: undefined,
+      blur: "https://cdn/blur.jpg",
+      gate: { kind: "pool_member", summary: "Pool fans", stake: true, poolAddress: "0xpool" },
+      unlockHint: { kind: "pool" },
+    };
+    mocks.creatorItems.mockImplementation(async (input: { seg: string }) =>
+      input.seg === "shop"
+        ? { items: [locked], nextCursor: null }
+        : { items: [item], nextCursor: null }
+    );
+    renderSection();
+    fireEvent.click(await screen.findByRole("tab", { name: /Shop/ }));
+    const card = await screen.findByRole("article", { name: "Members cut, locked" });
+    expect(within(card).getByText(/For Pool fans/)).toBeTruthy();
+    const pool = within(card).getByRole("link", { name: /Go to the pool/ });
+    expect(pool.getAttribute("href")).toMatch(/\/i\/pools\/0xpool$/);
+    expect(within(card).getByText(TESTNET_NOTICE)).toBeTruthy();
+    expect(within(card).getByText(ACCESS_STAKE_DISCLOSURE)).toBeTruthy();
+    expect(card.querySelector("img")).toBeNull();
+  });
+
+  it("says Join is coming soon until FL-7, and asks to confirm the email for a pending follow", async () => {
+    const join = {
+      ...item,
+      publicId: "joinabcdefgh1234",
+      title: "Plan only",
+      gate: { kind: "member", summary: "Members", stake: false },
+      unlockHint: { kind: "join", planName: null },
+    };
+    const pending = {
+      ...item,
+      publicId: "pendabcdefgh1234",
+      title: "Followers only",
+      gate: { kind: "follower", summary: "Followers", stake: false },
+      unlockHint: { kind: "confirm_email" },
+    };
+    mocks.creatorItems.mockImplementation(async (input: { seg: string }) =>
+      input.seg === "shop"
+        ? { items: [join, pending], nextCursor: null }
+        : { items: [item], nextCursor: null }
+    );
+    renderSection();
+    fireEvent.click(await screen.findByRole("tab", { name: /Shop/ }));
+    const joinCard = await screen.findByRole("article", { name: "Plan only, locked" });
+    expect(
+      (within(joinCard).getByRole("button", { name: /Join/ }) as HTMLButtonElement).disabled
+    ).toBe(true);
+    expect(within(joinCard).getByText(LIBRARY_COPY.section.shopLaterHelp)).toBeTruthy();
+    const pendingCard = screen.getByRole("article", { name: "Followers only, locked" });
+    expect(within(pendingCard).getByText(LIBRARY_COPY.section.shopConfirmEmail)).toBeTruthy();
+    expect(screen.queryByText(TESTNET_NOTICE)).toBeNull();
   });
 });
 
@@ -209,12 +287,22 @@ describe("status sheet (board fl-q2)", () => {
     expect(within(sheet).getByText("Maya Lin and you")).toBeTruthy();
     expect(within(sheet).getByText("Maya Lin owns this content.")).toBeTruthy();
     expect(within(sheet).getByText("Off")).toBeTruthy();
-    expect(within(sheet).getByText("On")).toBeTruthy();
+    await waitFor(() => expect(within(sheet).getAllByText("On")).toHaveLength(2));
     fireEvent.click(
       within(sheet).getByRole("switch", { name: "Show me on Maya Lin's public list" })
     );
     await waitFor(() =>
       expect(mocks.update.mock.calls[0]?.[0]).toEqual({ handle: "maya", showPublicly: true })
+    );
+  });
+
+  it("turns alerts for new items off for this creator", async () => {
+    renderSection();
+    fireEvent.click(await screen.findByRole("button", { name: /Your status with this creator/ }));
+    const sheet = await screen.findByRole("dialog");
+    fireEvent.click(await within(sheet).findByRole("switch", { name: "Alerts for new items" }));
+    await waitFor(() =>
+      expect(mocks.setNewContent.mock.calls[0]?.[0]).toEqual({ handle: "maya", enabled: false })
     );
   });
 

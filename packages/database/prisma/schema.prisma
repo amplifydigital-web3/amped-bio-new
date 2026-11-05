@@ -1015,6 +1015,9 @@ model NotificationPreference {
   pushEnabled         Boolean   @default(true)
   // Email reminder for a message unread after 30 minutes. On by default, one tap off.
   messageEmailEnabled Boolean   @default(true)
+  // Fan Library new content alerts (FL-6, fl-q5). Global row and per creator rows.
+  // null means on; false on either row turns the bell alert off for that creator.
+  newContentEnabled   Boolean?
   mutedUntil          DateTime?
   updatedAt           DateTime  @updatedAt
 
@@ -2076,6 +2079,8 @@ enum NotificationKind {
   MEMBERSHIP_RENEWAL
   // C12: a creator gave this account a promoter code, groupKey promoter:{codeId}
   PROMOTER_CODE
+  // FL-6: new gated content from a creator, groupKey content:{creatorUserId}, refId = ContentItem.id
+  CONTENT
 }
 
 // One bell row per thing to see. Repeats collapse into the unseen row for the same
@@ -2126,7 +2131,7 @@ enum NotificationJobStatus {
 // Push and email reminder jobs, claimed by the notification loop (Redis lock, one instance).
 model NotificationJob {
   id        Bytes                 @id @db.Binary(16)
-  // push | email
+  // push | email | digest (Fan Library daily email, FL-6)
   channel   String                @db.VarChar(8)
   userId    Int
   payload   Json

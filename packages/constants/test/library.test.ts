@@ -3,6 +3,8 @@
 import { describe, expect, it } from "vitest";
 import {
   LIBRARY_ACCESS_SOURCES,
+  MESSAGE_UI,
+  libraryNewContentSchema,
   libraryCreatorItemsSchema,
   libraryNewestSchema,
   librarySearchSchema,
@@ -55,5 +57,24 @@ describe("theme summary (spec 3.2)", () => {
   it("gives null for no config and for a malformed v2 config", () => {
     expect(libraryThemeSummary(null)).toBeNull();
     expect(libraryThemeSummary({ version: 2 } as never)).toBeNull();
+  });
+});
+
+describe("new content alerts (FL-6)", () => {
+  it("takes every creator, or one creator by handle", () => {
+    expect(libraryNewContentSchema.parse({ enabled: false })).toEqual({ enabled: false });
+    expect(libraryNewContentSchema.parse({ handle: "maya", enabled: true })).toEqual({
+      handle: "maya",
+      enabled: true,
+    });
+    expect(libraryNewContentSchema.safeParse({ handle: "maya" }).success).toBe(false);
+  });
+
+  it("names the title for one item, a count for several, and nothing for a hidden title", () => {
+    expect(MESSAGE_UI.bell.content("maya", 1, "Studio session")).toBe(
+      "@maya posted Studio session"
+    );
+    expect(MESSAGE_UI.bell.content("maya", 3, "Studio session")).toBe("@maya posted 3 new items");
+    expect(MESSAGE_UI.bell.content("maya", 1, null)).toBe("@maya posted something new");
   });
 });

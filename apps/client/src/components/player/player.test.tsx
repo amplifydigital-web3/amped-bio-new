@@ -13,6 +13,7 @@ import {
   normalizeWebVtt,
 } from "@repo/constants";
 import {
+  AccessEndedError,
   MediaPlayer,
   MiniPlayer,
   PLAYER_COPY,
@@ -418,6 +419,46 @@ describe("PlayerProvider", () => {
     });
     expect(resolve).toHaveBeenCalledTimes(2);
     expect(api.state.error).toBe("expired");
+  });
+
+  it("stops with Access ended when a refresh is refused (Fan Library FL-6)", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
+    const resolve = vi
+      .fn()
+      .mockResolvedValueOnce({ kind: "audio", src: "https://m/1", expiresAt: Date.now() + 120_000 })
+      .mockRejectedValueOnce(new AccessEndedError());
+    let api!: PlayerApi;
+    render(
+      <PlayerProvider>
+        <Probe onApi={value => (api = value)} />
+        <MediaPlayer item={audioItem} resolve={resolve} />
+      </PlayerProvider>
+    );
+    await act(async () => {
+      await api.load(audioItem, resolve, { autoplay: true });
+    });
+    expect(api.state.playing).toBe(true);
+    await act(async () => {
+      vi.advanceTimersByTime(60_000);
+    });
+    expect(api.state.error).toBe("ended");
+    expect(api.state.playing).toBe(false);
+    expect(screen.getByText(PLAYER_COPY.endedTitle)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: PLAYER_COPY.retry })).toBeNull();
+  });
+
+  it("shows Access ended, not a retry, when the first load is refused", async () => {
+    const resolve = vi.fn().mockRejectedValue(new AccessEndedError());
+    let api!: PlayerApi;
+    render(
+      <PlayerProvider>
+        <Probe onApi={value => (api = value)} />
+      </PlayerProvider>
+    );
+    await act(async () => {
+      await api.load(audioItem, resolve, { autoplay: true });
+    });
+    expect(api.state.error).toBe("ended");
   });
 
   it("drops the pending URL refresh when the provider goes away", async () => {
