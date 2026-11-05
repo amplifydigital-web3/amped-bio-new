@@ -12,6 +12,7 @@ import {
   isWalletMismatch,
   sameAddress,
 } from "../utils/walletSession";
+import { clearDevice } from "@/components/panels/library/downloads/store";
 
 const THROTTLE_DURATION = 3_000; // 3 seconds in milliseconds
 const TOKEN_REFRESH_CHECK_INTERVAL = 30_000; // Check every 30 seconds if token needs refresh
@@ -351,6 +352,8 @@ export const Web3AuthWalletProvider = ({ children }: { children: ReactNode }) =>
     }
     // The page leaves for the sign in or landing page next; nothing reconnects
     clearWalletBrowserState();
+    // Fan Library FL-5: offline copies belong to the account that signed out
+    await clearDevice().catch(() => {});
     queryClient.clear();
   }, [resetWalletSession, signOut]);
 

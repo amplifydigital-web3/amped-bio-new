@@ -178,11 +178,19 @@ describe("Library paths", () => {
   });
 
   it("refuses anything else, so the Editor falls back to /library", () => {
-    expect(isLibraryPath("/library/downloads")).toBe(false);
+    expect(isLibraryPath("/library/downloads/NOT-AN-ID")).toBe(false);
     expect(isLibraryPath("/library/@maya/c/NOT-AN-ID")).toBe(false);
     expect(isLibraryPath("/library/maya")).toBe(false);
     expect(isLibraryPath("/libraryx")).toBe(false);
     expect(isLibraryPath("/library/@bad handle")).toBe(false);
+  });
+
+  it("serves Downloads and a downloaded item (FL-5)", () => {
+    expect(parseLibraryPath("/library/downloads")).toEqual({ view: "downloads" });
+    expect(parseLibraryPath("/library/downloads/abcd1234efgh5678")).toEqual({
+      view: "download",
+      publicId: "abcd1234efgh5678",
+    });
   });
 
   it("does not throw on a broken escape in a hand written link", () => {
@@ -225,14 +233,22 @@ describe("labels and the player item", () => {
 
 describe("the filter", () => {
   it("lives in the URL and ignores values it does not know", () => {
-    const params = writeFilter(new URLSearchParams("q=1"), { type: "audio", source: "member" });
+    const params = writeFilter(new URLSearchParams("q=1"), {
+      type: "audio",
+      source: "member",
+      where: null,
+    });
     expect(params.toString()).toBe("q=1&type=audio&source=member");
-    expect(readFilter(params)).toEqual({ type: "audio", source: "member" });
-    expect(readFilter(new URLSearchParams("type=movie&source=staked"))).toEqual({
+    expect(readFilter(params)).toEqual({ type: "audio", source: "member", where: null });
+    expect(readFilter(new URLSearchParams("type=movie&source=staked&where=moon"))).toEqual({
       type: null,
       source: null,
+      where: null,
     });
-    expect(filterLabel({ type: "audio", source: "public" })).toBe("Audio, Free");
+    expect(filterLabel({ type: "audio", source: "public", where: null })).toBe("Audio, Free");
+    // FL-5: On this device
+    expect(readFilter(new URLSearchParams("where=device")).where).toBe("device");
+    expect(filterLabel({ type: null, source: null, where: "device" })).toBe("On this device");
   });
 });
 

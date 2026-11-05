@@ -2,7 +2,7 @@
  * The Library, one page with no tabs (Build Board #26, FL-3, row 124; boards
  * m1, d1, m12, fl-q1). Order: Continue, Saved, Your creators, Newest. Header:
  * Search, Filter and Inbox. Desktop puts Your creators and Saved in a side
- * column. Memberships (FL-7) and Downloads (FL-5) join later.
+ * column. Downloads (FL-5) sits beside Saved; Memberships (FL-7) joins later.
  */
 import { useMemo, useState } from "react";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
@@ -17,7 +17,18 @@ import {
   WifiOff,
 } from "lucide-react";
 import type { LibraryCreatorRow, LibraryItem } from "@repo/constants";
-import { Button, EmptyState, ErrorCard, Skeleton, cn, trpc, useOptionalPlayer } from "@repo/ui";
+import {
+  Button,
+  EmptyState,
+  ErrorCard,
+  Skeleton,
+  cn,
+  trpc,
+  useAuth,
+  useOptionalPlayer,
+} from "@repo/ui";
+import { DownloadsTile } from "./downloads/DownloadsPage";
+import { readIndex, useDownloadsVersion } from "./downloads/store";
 import { useDelayed } from "@/hooks/useDelayed";
 import { isFeatureOn } from "@/config/featureFlags";
 import { LIBRARY_COPY } from "./copy";
@@ -48,12 +59,21 @@ import { CreatorRow, CreatorsFooter } from "./YourCreators";
 
 const C = LIBRARY_COPY;
 const SIDE_CREATORS = 5;
+/** FL-5: Downloads needs Cache Storage */
+const downloadsOn = typeof caches !== "undefined";
 
 export function LibraryHome() {
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const filter = readFilter(params);
-  const filtered = !!(filter.type || filter.source);
+  const filtered = !!(filter.type || filter.source || filter.where);
+  const { authUser } = useAuth();
+  useDownloadsVersion();
+  // On this device: the ids of this account's downloads (FL-5)
+  const deviceIds =
+    authUser && filter.where === "device"
+      ? readIndex(authUser.id).items.map(item => item.publicId)
+      : undefined;
   const [filterOpen, setFilterOpen] = useState(false);
 
   const continueQuery = useQuery({
@@ -64,7 +84,11 @@ export function LibraryHome() {
   const creators = useQuery({ ...trpc.library.creators.queryOptions({}), enabled: !filtered });
   const newest = useInfiniteQuery(
     trpc.library.newest.infiniteQueryOptions(
-      { type: filter.type ?? undefined, source: filter.source ?? undefined },
+      {
+        type: filter.type ?? undefined,
+        source: filter.source ?? undefined,
+        ...(filter.where === "device" ? { where: "device" as const, deviceIds } : {}),
+      },
       { getNextPageParam: last => last.nextCursor ?? undefined }
     )
   );
@@ -93,7 +117,10 @@ export function LibraryHome() {
           {C.inbox}
         </Button>
       )}
-      <ActiveFilterChip filter={filter} onClear={() => applyFilter({ type: null, source: null })} />
+      <ActiveFilterChip
+        filter={filter}
+        onClear={() => applyFilter({ type: null, source: null, where: null })}
+      />
     </div>
   );
 
@@ -113,7 +140,14 @@ export function LibraryHome() {
   let body: React.ReactNode;
   if (failed) {
     body = offline ? (
-      <EmptyState icon={WifiOff} title={C.error.offlineTitle} description={C.error.offline} />
+      <EmptyState
+        icon={WifiOff}
+        title={C.error.offlineTitle}
+        description={C.error.offline}
+        action={
+          <Button onClick={() => navigate(LIBRARY_PATHS.downloads)}>{C.error.openDownloads}</Button>
+        }
+      />
     ) : (
       <ErrorCard
         title={C.error.title}
@@ -138,11 +172,14 @@ export function LibraryHome() {
           {/* Phones: Saved and Your creators sit between Continue and Newest */}
           {!filtered && (
             <div className="space-y-[34px] lg:hidden">
-              <SavedTile
-                items={saved.data?.items ?? []}
-                more={!!saved.data?.nextCursor}
-                loading={saved.isLoading}
-              />
+              <div className="space-y-2">
+                <SavedTile
+                  items={saved.data?.items ?? []}
+                  more={!!saved.data?.nextCursor}
+                  loading={saved.isLoading}
+                />
+                {downloadsOn && <DownloadsTile account={authUser?.id ?? null} />}
+              </div>
               <CreatorsSection rows={creatorRows} loading={creators.isLoading} />
             </div>
           )}
@@ -161,7 +198,7 @@ export function LibraryHome() {
                   action={
                     <Button
                       variant="secondary"
-                      onClick={() => applyFilter({ type: null, source: null })}
+                      onClick={() => applyFilter({ type: null, source: null, where: null })}
                     >
                       {C.filterSheet.clear}
                     </Button>
@@ -199,11 +236,14 @@ export function LibraryHome() {
         {!filtered && (
           <aside className="hidden space-y-[34px] lg:block">
             <CreatorsSection rows={creatorRows} loading={creators.isLoading} />
-            <SavedTile
-              items={saved.data?.items ?? []}
-              more={!!saved.data?.nextCursor}
-              loading={saved.isLoading}
-            />
+            <div className="space-y-2">
+              <SavedTile
+                items={saved.data?.items ?? []}
+                more={!!saved.data?.nextCursor}
+                loading={saved.isLoading}
+              />
+              {downloadsOn && <DownloadsTile account={authUser?.id ?? null} />}
+            </div>
           </aside>
         )}
       </div>

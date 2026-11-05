@@ -14,10 +14,16 @@ import { LibrarySearch } from "./LibrarySearch";
 import { YourCreatorsPage } from "./YourCreators";
 import { SavedPage } from "./SavedPage";
 import { ItemView } from "./ItemView";
+import { useAuth } from "@repo/ui";
+import { DownloadItemView, DownloadsPage } from "./downloads/DownloadsPage";
+import { downloadsApi } from "./downloads/api";
+import { useOnline } from "./downloads/OfflineDownloads";
 
 export function LibraryPanel() {
   const { pathname } = useLocation();
   const route = parseLibraryPath(pathname) ?? { view: "home" as const };
+  const { authUser } = useAuth();
+  const online = useOnline();
 
   useEffect(() => {
     document.getElementById("editor-content")?.scrollTo?.({ top: 0 });
@@ -30,6 +36,12 @@ export function LibraryPanel() {
       {route.view === "search" && <LibrarySearch />}
       {route.view === "creators" && <YourCreatorsPage />}
       {route.view === "saved" && <SavedPage />}
+      {route.view === "downloads" && authUser && (
+        <DownloadsPage account={authUser.id} online={online} api={downloadsApi} />
+      )}
+      {route.view === "download" && authUser && (
+        <DownloadItemView account={authUser.id} publicId={route.publicId} online={online} />
+      )}
       {route.view === "creator" && <CreatorPublicRedirect handle={route.handle} />}
       {route.view === "item" && <ItemView handle={route.handle} publicId={route.publicId} />}
     </div>

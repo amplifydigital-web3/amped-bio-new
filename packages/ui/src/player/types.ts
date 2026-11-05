@@ -70,6 +70,11 @@ export type PlayerSource =
       kind: "video";
       /** Signed HLS manifest */
       hls: string;
+      /**
+       * Fan Library FL-5: a progressive MP4 to play instead of HLS, such as an
+       * offline copy the service worker serves at /downloads/{publicId}
+       */
+      mp4?: string;
       poster?: string | null;
       captions?: PlayerCaption[];
       /** Unix ms when the URLs stop working. Refreshed a minute before. */

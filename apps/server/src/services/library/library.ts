@@ -30,9 +30,9 @@ import { toDbKind } from "../content/ids";
 import { batchPoolFanCreatorIds } from "../follow/poolFans";
 import { LIBRARY_CREATOR_WHERE, LIBRARY_ITEM_WHERE, libraryAccess } from "./access";
 
-type ItemWithCreator = ContentItem & { user: { page_status: string; block: string } };
+export type ItemWithCreator = ContentItem & { user: { page_status: string; block: string } };
 
-const ITEM_CREATOR_SELECT = { page_status: true, block: true } as const;
+export const ITEM_CREATOR_SELECT = { page_status: true, block: true } as const;
 
 const hex = (id: Uint8Array) => Buffer.from(id).toString("hex");
 
@@ -165,7 +165,7 @@ async function extrasFor(viewerId: number, items: ContentItem[]): Promise<Requir
  * Library items for rows already read, in the given order. Rows the viewer may
  * not list, and rows whose assets have not passed the scan, are dropped.
  */
-async function toLibraryItems(
+export async function toLibraryItems(
   viewerId: number,
   rows: ItemWithCreator[],
   extras?: ItemExtras,

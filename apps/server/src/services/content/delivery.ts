@@ -472,7 +472,9 @@ export const CARD_ASSET_ROLES = ["COVER", "RENDITION", "BLUR"] as const;
 export async function buildDownload(
   item: Item,
   assets: Asset[],
-  now: Date = new Date()
+  now: Date = new Date(),
+  /** Fan Library FL-5: the grant id the download record keeps */
+  jti: string = newDownloadJti()
 ): Promise<ContentDownload> {
   if (!item.allowDownload) throw new DeliveryError("no_download");
   const signer = new Signer(item, "private", now);
@@ -497,7 +499,7 @@ export async function buildDownload(
   const ext = original.r2Key.split(".").pop() ?? "";
   const fileName = downloadFileName(item.title, ext);
   const token = signMediaToken(
-    { k: original.r2Key, r: "original", exp, dl: 1, fn: fileName, j: newDownloadJti() },
+    { k: original.r2Key, r: "original", exp, dl: 1, fn: fileName, j: jti },
     undefined,
     now
   );

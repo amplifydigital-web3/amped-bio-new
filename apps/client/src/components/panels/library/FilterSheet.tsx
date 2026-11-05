@@ -1,6 +1,6 @@
 /**
  * The Filter sheet (Build Board #26, FL-3, spec 2.2 item 2, board m1). Type and
- * How you have it. Where (On this device) joins with Downloads in FL-5. The
+ * How you have it, and Where: On this device, the downloads here (FL-5). The
  * sheet stays Prism (spec 3.2). The filter lives in the URL, so Back keeps it.
  */
 import { useEffect, useState } from "react";
@@ -19,6 +19,8 @@ export type FilterSource = (typeof FILTER_SOURCES)[number] & LibraryAccessSource
 export interface LibraryFilter {
   type: FilterType | null;
   source: FilterSource | null;
+  /** FL-5: only the items downloaded to this device */
+  where: "device" | null;
 }
 
 export function readFilter(params: URLSearchParams): LibraryFilter {
@@ -29,6 +31,7 @@ export function readFilter(params: URLSearchParams): LibraryFilter {
     source: (FILTER_SOURCES as readonly string[]).includes(source ?? "")
       ? (source as FilterSource)
       : null,
+    where: params.get("where") === "device" ? "device" : null,
   };
 }
 
@@ -38,11 +41,17 @@ export function writeFilter(params: URLSearchParams, filter: LibraryFilter) {
   else next.delete("type");
   if (filter.source) next.set("source", filter.source);
   else next.delete("source");
+  if (filter.where) next.set("where", filter.where);
+  else next.delete("where");
   return next;
 }
 
 export function filterLabel(filter: LibraryFilter) {
-  return [filter.type && F.types[filter.type], filter.source && F.sources[filter.source]]
+  return [
+    filter.type && F.types[filter.type],
+    filter.source && F.sources[filter.source],
+    filter.where && F.wheres[filter.where],
+  ]
     .filter(Boolean)
     .join(", ");
 }
@@ -119,6 +128,21 @@ export function FilterSheet({
               ))}
             </div>
           </fieldset>
+          <fieldset>
+            <legend className="mb-2 text-[13px] font-semibold uppercase tracking-[0.08em] text-prism-ink-2">
+              {F.where}
+            </legend>
+            <div className="flex flex-wrap gap-2">
+              <Chip
+                selected={draft.where === "device"}
+                onClick={() =>
+                  setDraft(d => ({ ...d, where: d.where === "device" ? null : "device" }))
+                }
+              >
+                {F.wheres.device}
+              </Chip>
+            </div>
+          </fieldset>
           <div className="flex flex-col gap-2 sm:flex-row-reverse">
             <Button
               size="lg"
@@ -133,8 +157,8 @@ export function FilterSheet({
             <Button
               variant="ghost"
               className="w-full sm:w-auto"
-              disabled={!draft.type && !draft.source}
-              onClick={() => setDraft({ type: null, source: null })}
+              disabled={!draft.type && !draft.source && !draft.where}
+              onClick={() => setDraft({ type: null, source: null, where: null })}
             >
               {F.clear}
             </Button>
