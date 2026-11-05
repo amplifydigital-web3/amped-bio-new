@@ -1,6 +1,6 @@
 "use client";
 
-import type { CSSProperties, ReactNode, Ref } from "react";
+import { useState, type CSSProperties, type ReactNode, type Ref } from "react";
 import { sanitizeRichHtml, type AnyThemeConfig } from "@repo/constants";
 import { cn } from "../utils";
 import {
@@ -16,14 +16,18 @@ import {
   overlayParticlesId,
   playingOverlay,
 } from "./look";
+import { CreatorFontLinks } from "./fonts";
 import { NameText } from "./name-effect";
 import { CircularName } from "./plus-names";
+import { ParticleName } from "./particle-name";
+import { WeightPulseName } from "./weight-pulse";
 import { ParticlesLayer } from "./particles-layer";
 import { ShaderLayer, type EffectDrop } from "./shader-layer";
 import { CursorLayer } from "./cursor-layer";
 import { ShowcaseProvider } from "./showcase-context";
 import { gradientScene, textureStyle } from "./scene";
 import { containerSurfaceClass } from "./surface";
+import { ContainerFx, premiumSurfaceStyle } from "./surface-fx";
 
 /**
  * Theme Engine v2, phase 1b (docs/features/theme-engine-v2.md, 3.4): the one
@@ -83,7 +87,8 @@ function isHtml(text: string) {
 /** The creator's font and text color, for slots that set their own text (footer). */
 export function creatorTextStyle(theme: AnyThemeConfig | null | undefined): CSSProperties {
   const look = lookFor(theme);
-  return { fontFamily: look.values.fontFamily, color: lookFontColor(look) };
+  // Phase 2b: the body's weight, italic and axes (empty for the v1 look)
+  return { fontFamily: look.values.fontFamily, color: lookFontColor(look), ...look.bodyFace };
 }
 
 export interface CreatorPageProps {
@@ -130,6 +135,16 @@ export interface CreatorPageProps {
   showcase?: boolean;
   /** A layer dropped to its still version (spec 3.7, theme_effect_dropped). */
   onEffectDropped?: (drop: EffectDrop) => void;
+  /**
+   * Phase 2b fonts (spec 3.8): load the stylesheets for catalog faces. The
+   * apps pass the fontCatalog flag; off, the page draws only the base fonts.
+   */
+  loadFonts?: boolean;
+  /**
+   * Phase 2b PR 2: the mirrored font links the API returned (getHandle fonts).
+   * When set they replace the Google requests, so visitors never contact Google.
+   */
+  fontLinks?: readonly string[] | null;
 }
 
 export function CreatorPage({
@@ -150,6 +165,8 @@ export function CreatorPage({
   device,
   showcase = false,
   onEffectDropped,
+  loadFonts = false,
+  fontLinks,
 }: CreatorPageProps) {
   const look = lookFor(theme);
   const sizes = SIZE[size];
@@ -163,7 +180,15 @@ export function CreatorPage({
   const texture = textureStyle(background);
   // Phase 2 Name row: Settle, Applies to and the text entrances
   const weak = device === "weak";
-  const nameStyle = { ...textStyle, ...nameLoopStyle(look, paused, weak) };
+  // TE-3f: Particle text hides the heading's ink only once its dots are drawn
+  const [dotsDrawn, setDotsDrawn] = useState(false);
+  const particleName = look.name.render.kind === "particles";
+  // Phase 2b: the name's own face over the body font, when the theme has one
+  const nameStyle = {
+    ...textStyle,
+    ...(look.nameFace ?? {}),
+    ...nameLoopStyle(look, paused, weak),
+  };
   const bioEffect = nameOnBio(look) ? effectClassName(look.name, paused) : undefined;
   const bioStyle = bioEffect ? nameStyle : textStyle;
   // Phase 3e Circular: with the showcase flag and a photo, the name rings the photo
@@ -222,7 +247,8 @@ export function CreatorPage({
           entry={playingOverlay(look)}
           params={look.overlayParams}
           colors={look.colors}
-          paused={paused || weak}
+          // A Showcase overlay (Comet trails) holds its still frame while the flag is off
+          paused={paused || weak || (playingOverlay(look)?.tier === "showcase" && !showcase)}
         />
       )}
       {/* Phase 3c: the cursor effect, above the scene and below the container */}
@@ -251,8 +277,24 @@ export function CreatorPage({
           // Phase 2 Container row: shape and border over the surface
           containerSurfaceClass(look)
         )}
-        style={surface ? { backgroundColor: containerBackground(look) } : undefined}
+        style={
+          surface
+            ? {
+                backgroundColor: containerBackground(look),
+                ...premiumSurfaceStyle(look.container, look.v2.container.params),
+              }
+            : undefined
+        }
       >
+        {/* Phase 3d premium surfaces: the moving part, under the content */}
+        {surface && (
+          <ContainerFx
+            entry={look.container}
+            params={look.v2.container.params}
+            colors={look.colors}
+            paused={paused || weak}
+          />
+        )}
         <header className="flex flex-col items-center text-center">
           {/* 039 I08: one photo, compressed source first */}
           {profile.photo &&
@@ -310,17 +352,43 @@ export function CreatorPage({
             )}
             style={nameStyle}
           >
-            <NameText
-              entry={look.name}
-              params={look.nameParams}
-              text={profile.name}
-              colors={look.colors}
-              paused={paused}
-              entranceKey={entranceKey}
-              loop={nameLoops(look) && !weak}
-              onCircle={circular}
-              fontFamily={look.values.fontFamily}
-            />
+            {particleName ? (
+              <span
+                className="relative inline-block max-w-full"
+                style={dotsDrawn ? { color: "transparent" } : undefined}
+              >
+                {profile.name}
+                <ParticleName
+                  entry={look.name}
+                  params={look.v2.name.params}
+                  colors={look.colors}
+                  showcase={showcase}
+                  paused={paused}
+                  weak={weak}
+                  text={profile.name}
+                  onDrawn={setDotsDrawn}
+                />
+              </span>
+            ) : look.name.id === "name.weight-pulse" ? (
+              // TE-3e2: Weight pulse needs the catalog fonts; without them the name is plain
+              loadFonts ? (
+                <WeightPulseName text={profile.name} params={look.v2.name.params} paused={paused} />
+              ) : (
+                profile.name
+              )
+            ) : (
+              <NameText
+                entry={look.name}
+                params={look.nameParams}
+                text={profile.name}
+                colors={look.colors}
+                paused={paused}
+                entranceKey={entranceKey}
+                loop={nameLoops(look) && !weak}
+                onCircle={circular}
+                fontFamily={look.values.fontFamily}
+              />
+            )}
             {nameExtras}
           </h1>
           {/* 109 I06, I07: the RNS chip in the creator font and color, never animated */}
@@ -354,12 +422,18 @@ export function CreatorPage({
     </div>
   );
 
+  const fonts =
+    loadFonts || fontLinks ? (
+      <CreatorFontLinks theme={theme} profile={profile} hrefs={fontLinks} />
+    ) : null;
+
   if (embedded) {
     // The editor: the scene stays put outside the scroller and fills the
     // device while the page scrolls inside it (QA-024)
     return (
       <ShowcaseProvider value={{ showcase, paused, device }}>
         <div className="relative flex h-full flex-col" style={lookCssVars(look)}>
+          {fonts}
           {backgroundLayer}
           <div className="relative z-[1] flex-1 overflow-auto">{column}</div>
           {frame}
@@ -372,6 +446,7 @@ export function CreatorPage({
   return (
     <ShowcaseProvider value={{ showcase, paused, device }}>
       <div className="relative min-h-dvh" style={lookCssVars(look)}>
+        {fonts}
         {backgroundLayer}
         {column}
         {frame}

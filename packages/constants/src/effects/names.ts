@@ -166,6 +166,34 @@ export const NAME_EFFECTS: readonly EffectEntry[] = [
     preview: { sample: "name" },
     addedIn: 2,
   },
+  // TE-3e2 (spec 3.5): Weight pulse. The name's weight follows the pointer,
+  // boldest when it is close. Needs a variable name font with a wght axis
+  // (the font catalog, fontCatalog flag); the editor sets Lightest and
+  // Boldest inside the family's axis. Phones show the name at its weight.
+  {
+    id: "name.weight-pulse",
+    layer: "name",
+    label: "Weight pulse",
+    description: "Your name grows bolder as the pointer comes near",
+    tier: "plus",
+    engine: "waapi",
+    cost: "light",
+    source: "amped",
+    colorMode: "theme",
+    pointer: "fine",
+    params: {
+      lightest: { kind: "range", min: 100, max: 900, step: 50, default: 300, label: "Lightest" },
+      boldest: { kind: "range", min: 200, max: 1000, step: 50, default: 900, label: "Boldest" },
+    },
+    render: {
+      kind: "waapi",
+      trigger: "always",
+      keyframes: () => [],
+      options: () => ({ duration: 233 }),
+    },
+    preview: { sample: "name" },
+    addedIn: 2,
+  },
   ...PLUS_NAME_EFFECTS(),
 ];
 

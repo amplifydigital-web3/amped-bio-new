@@ -38,11 +38,15 @@ const V2_NAMES: [string, number][] = [
   ["name.letter-rise", 0],
   ["name.type-on", 0],
   ["name.decrypt", 0],
+  // TE-3f, Showcase: offered with SHOW_THEME_SHOWCASE (NameRow)
+  ["name.particle-text", 0],
 ];
 
 export const NAME_TILES: NameTile[] = [
   ...V1_NAMES.map(([id, effectId]) => ({ id, entry: getEffect("name", effectId) })),
   ...V2_NAMES.map(([effectId, id]) => ({ id, effectId, entry: getEffect("name", effectId) })),
+  // TE-3e2: Weight pulse, with the fontCatalog flag; a renderer without it draws the plain name
+  { id: 0, effectId: "name.weight-pulse", entry: getEffect("name", "name.weight-pulse") },
   // Phase 3c: Fuzzy text on the canvas engine; a renderer without it draws the plain name
   { id: 0, effectId: "name.fuzzy", entry: getEffect("name", "name.fuzzy") },
   // Phase 3e: Rotating words, Circular and Depth parallax; without the flag, the plain name
@@ -53,12 +57,28 @@ export const NAME_TILES: NameTile[] = [
   })),
 ];
 
+/** Name effects that need themeShowcase beyond their tier (TE-3c, TE-3e). */
+const SHOWCASE_ONLY_NAMES = new Set([
+  "name.fuzzy",
+  "name.rotating-words",
+  "name.circular",
+  "name.depth-parallax",
+]);
+
 /**
- * Plus and Showcase name effects show only with themeShowcase (TE-3c, TE-3e).
- * They sit last, so indexes hold.
+ * Showcase name effects show only with themeShowcase (TE-3c, TE-3e). Weight
+ * pulse keeps its own fontCatalog gate and stays available here.
  */
 export function nameTilesFor(showcase: boolean): NameTile[] {
-  return showcase ? NAME_TILES : NAME_TILES.filter(tile => tile.entry.tier === "core");
+  if (showcase) return NAME_TILES;
+  return NAME_TILES.filter(
+    tile => tile.entry.tier !== "showcase" && !SHOWCASE_ONLY_NAMES.has(tile.effectId ?? "")
+  );
+}
+
+/** The tiles the row offers: Weight pulse only with fontCatalog. It sits last, so indexes hold. */
+export function nameRowTiles(fontCatalog: boolean): NameTile[] {
+  return fontCatalog ? NAME_TILES : NAME_TILES.filter(t => t.effectId !== "name.weight-pulse");
 }
 
 /** The patch a name tile writes: a v1 tile clears the v2 id; a new pick starts from default params. */

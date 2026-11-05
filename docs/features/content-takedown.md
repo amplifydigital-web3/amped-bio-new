@@ -1,7 +1,7 @@
 # Content takedown (C7a)
 
 Build Board #20 (Content system) and #28 (Adult content). PR C7a, branch `feat/content-takedown`.
-Revision 1, 3 Nov 2026. Written from the C7 readiness check on 3 Nov: content PR 7 is split. C7a is the delivery plumbing that makes "stop serving this item" true within a minute. The rest of PR 7 moves into the Safety PRs R1, R2 and R3 (`docs/features/adult-content-review.md` revision 6, section 16a).
+Revision 2, 4 Nov 2026 (TD1 to TD3 decided as recommended). Revision 1, 3 Nov 2026. Written from the C7 readiness check on 3 Nov: content PR 7 is split. C7a is the delivery plumbing that makes "stop serving this item" true within a minute. The rest of PR 7 moves into the Safety PRs R1, R2 and R3 (`docs/features/adult-content-review.md` revision 6, section 16a).
 
 Supersedes in `docs/features/content-system.md`: in 3.6, the **Takedown** bullet and "written by the API on block and delete" in **Worker steps**; in 3.16, the **PR 7** paragraph (see section 9). Everything else in the content spec stands.
 
@@ -34,7 +34,7 @@ The Safety PRs (R1 to R3) and the TAKE IT DOWN Act desk (hide within 48 hours, t
 
 ## 3. Decisions
 
-Recommended answers first. Boards tk1 and tk2 are drawn with them.
+Decided 4 Nov 2026 by Rob: all three as recommended. Boards tk1 and tk2 are drawn with them.
 
 | Id | Question | Recommended | Alternative |
 | --- | --- | --- | --- |
@@ -203,3 +203,4 @@ Gustavo before staging: create the two API tokens, add the four values in 4.9 to
 ## Revision log
 
 - 2026-11-03: Revision 1. Content PR 7 split into C7a (this spec) and the Safety PRs. Decisions TD1 to TD3 with recommendations. Boards tk1 and tk2.
+- 2026-11-04: Revision 2. TD1 to TD3 decided as recommended (Rob). Built in C7a: `services/content/edge.ts` (state rule, outbox loop, reconcile, alerts, Safety helpers), `services/cloudflare/{kv,cachePurge}.ts`, migration `20261104120000_content_edge_state`, admin tile "Takedown sync", library states "Hidden by Safety" and "Stopping delivery", player "This item is no longer available." "Open the notice" waits for the R2 notices.

@@ -7,6 +7,7 @@ import { getEffect, hoverStrengthVars, legacyEffectId, safeRenderHref } from "@r
 import { cn } from "../utils";
 import { effectClassName, hoverSpeedMs, lookFor } from "./look";
 import { buttonSurfaceClass } from "./surface";
+import { ButtonFx } from "./surface-fx";
 import { useShowcase } from "./showcase-context";
 import { playSpark } from "./spark-overlay";
 import { hoverHandlers, playSelfPress } from "./hover-motion";
@@ -163,6 +164,8 @@ export function CreatorButton({
   };
   const content = (
     <>
+      {/* Phase 3d: Specular draws its rim light here, under the label (dropped with effects off) */}
+      {effects && <ButtonFx entry={look.button} />}
       <span aria-hidden className="flex h-[21px] w-[21px] shrink-0 items-center justify-center">
         {icon}
       </span>

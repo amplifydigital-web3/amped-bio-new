@@ -120,6 +120,7 @@ import { assetRowId, enqueueVideoProcessing, failItem } from "../services/conten
 import { publishContentJob } from "../services/cloudflare/queue";
 import { fromDbKind, newContentPublicId, toDbKind } from "../services/content/ids";
 import { UPLOAD_VERIFICATION_MESSAGES } from "../services/uploadVerification";
+import { edgeDirty, syncEdge } from "../services/content/edge";
 
 /** Upload starts per creator per minute (spec 3.10 rate limits) */
 const CREATE_UPLOADS_PER_MINUTE = 30;
@@ -214,6 +215,11 @@ function ownerView(item: ContentItem) {
       item.status === "DELETED" && item.purgeAfter && item.purgeAfter > new Date()
         ? item.purgeAfter
         : null,
+    // Content takedown tk1: a Safety hide shows in the library with no playback,
+    // and a removal shows "Stopping delivery" until the edge confirms it
+    hiddenBySafety: item.hiddenAt !== null,
+    stoppingDelivery:
+      item.edgeDirtyAt !== null && (item.hiddenAt !== null || item.status === "DELETED"),
     createdAt: item.createdAt,
     updatedAt: item.updatedAt,
   };
@@ -586,7 +592,7 @@ export const contentRouter = router({
     await prisma.$transaction(async tx => {
       const changed = await tx.contentItem.updateMany({
         where: { id: item.id, status: { in: ["UPLOADING", "FAILED"] } },
-        data: { status: "DELETED", deletedAt: now, purgeAfter: now },
+        data: { status: "DELETED", deletedAt: now, purgeAfter: now, ...edgeDirty(now) },
       });
       // FAILED items released their bytes when they failed
       if (changed.count === 1 && item.status === "UPLOADING") {
@@ -696,7 +702,10 @@ export const contentRouter = router({
     } satisfies Prisma.ContentItemUpdateInput;
     let updated: ContentItem;
     if (input.access === undefined) {
-      updated = await prisma.contentItem.update({ where: { id: item.id }, data: fields });
+      updated = await prisma.contentItem.update({
+        where: { id: item.id },
+        data: { ...fields, ...(input.adult !== undefined ? edgeDirty() : {}) },
+      });
     } else {
       // The new rule, the item and the old inline rule's cleanup in one transaction
       const access = input.access;
@@ -704,7 +713,7 @@ export const contentRouter = router({
         const ruleId = access === null ? null : await resolveAccessInput(tx, item.userId, access);
         const row = await tx.contentItem.update({
           where: { id: item.id },
-          data: { ...fields, accessRuleId: ruleId },
+          data: { ...fields, accessRuleId: ruleId, ...edgeDirty() },
         });
         const previous = item.accessRuleId ? Buffer.from(item.accessRuleId) : null;
         const deleted =
@@ -715,6 +724,10 @@ export const contentRouter = router({
       });
       await forgetRules(result.deleted);
       updated = result.row;
+    }
+    // An 18+ or access change can move the item between OPEN and PRIVATE (takedown 4.3)
+    if (input.access !== undefined || input.adult !== undefined) {
+      await syncEdge([updated.publicId]);
     }
     // Turning downloads on after READY: Stream makes the MP4 only when asked (spec 3.6)
     if (
@@ -762,8 +775,13 @@ export const contentRouter = router({
     }
     const updated = await prisma.contentItem.update({
       where: { id: item.id },
-      data: { publishState: "PUBLISHED", publishedAt: item.publishedAt ?? new Date() },
+      data: {
+        publishState: "PUBLISHED",
+        publishedAt: item.publishedAt ?? new Date(),
+        ...edgeDirty(),
+      },
     });
+    await syncEdge([updated.publicId]);
     return ownerView(updated);
   }),
 
@@ -772,8 +790,9 @@ export const contentRouter = router({
     const item = await findOwnedItem(input.publicId, ctx.user!.sub);
     const updated = await prisma.contentItem.update({
       where: { id: item.id },
-      data: { publishState: "DRAFT" },
+      data: { publishState: "DRAFT", ...edgeDirty() },
     });
+    await syncEdge([updated.publicId]);
     return ownerView(updated);
   }),
 
@@ -794,14 +813,28 @@ export const contentRouter = router({
       const purgeAfter = new Date(now.getTime() + CONTENT_RESTORE_DAYS * 24 * 3600 * 1000);
       await prisma.contentItem.updateMany({
         where: { id: item.id, status: "READY" },
-        data: { status: "DELETED", publishState: "DRAFT", deletedAt: now, purgeAfter },
+        data: {
+          status: "DELETED",
+          publishState: "DRAFT",
+          deletedAt: now,
+          purgeAfter,
+          ...edgeDirty(now),
+        },
       });
+      await syncEdge([item.publicId]);
       return { publicId: item.publicId, status: "deleted" as const, restorableUntil: purgeAfter };
     }
     await prisma.contentItem.updateMany({
       where: { id: item.id, status: { in: ["FAILED", "BLOCKED"] } },
-      data: { status: "DELETED", publishState: "DRAFT", deletedAt: now, purgeAfter: now },
+      data: {
+        status: "DELETED",
+        publishState: "DRAFT",
+        deletedAt: now,
+        purgeAfter: now,
+        ...edgeDirty(now),
+      },
     });
+    await syncEdge([item.publicId]);
     return { publicId: item.publicId, status: "deleted" as const, restorableUntil: null };
   }),
 
@@ -820,12 +853,13 @@ export const contentRouter = router({
     }
     const restored = await prisma.contentItem.updateMany({
       where: { id: item.id, status: "DELETED", purgeAfter: { gt: now } },
-      data: { status: "READY", deletedAt: null, purgeAfter: null },
+      data: { status: "READY", deletedAt: null, purgeAfter: null, ...edgeDirty(now) },
     });
     // The purge won the race: the files are gone and the space is already free
     if (restored.count !== 1) {
       throw new TRPCError({ code: "BAD_REQUEST", message: MESSAGES.restoreGone });
     }
+    await syncEdge([item.publicId]);
     return ownerView({ ...item, status: "READY", deletedAt: null, purgeAfter: null });
   }),
 
@@ -1170,8 +1204,7 @@ export const contentRouter = router({
     // Belt and braces: a refusal that is not about availability (kind_unavailable
     // after an engine error, for one) must not preview an item nobody may see
     const visible =
-      item &&
-      (decision.reason === "owner" ? ownerCanOpen(item) : isListedItem(item, item.user));
+      item && (decision.reason === "owner" ? ownerCanOpen(item) : isListedItem(item, item.user));
     if (!item || !visible) {
       throw new TRPCError({ code: "NOT_FOUND", message: VIEWER_MESSAGES.notFound });
     }

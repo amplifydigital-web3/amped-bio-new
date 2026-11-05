@@ -101,4 +101,14 @@ export const BUTTON_EFFECTS: readonly EffectEntry[] = [
     "rounded-lg border-2 border-[color:var(--amped-btn-dark)] shadow-[4px_4px_0_var(--amped-btn-dark)]",
     { addedIn: 2 }
   ),
+  // Phase 3d (TE-3d): a rim light that follows the pointer. The class is the
+  // surface; SurfaceFx draws the light. Phones see it resting at the top left.
+  button(
+    "specular",
+    "Specular",
+    "A rim of light that follows the pointer",
+    undefined,
+    "relative isolate overflow-hidden rounded-lg bg-gray-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.45),0_2px_8px_rgba(0,0,0,0.12)]",
+    { addedIn: 2, tier: "plus", cost: "light", pointer: "fine" }
+  ),
 ];

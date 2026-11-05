@@ -71,7 +71,7 @@ function ReportedThread({ report }: { report: Report }) {
 /**
  * Admin, Telegram (Build Board #2, Screen Review 120, board tg9). Reports with the
  * reported conversation (admins read a thread only after a report), paused fans
- * and creators, the MESSAGING_INVITE_ONLY pilot, connected groups (board tg9: names,
+ * and creators, the ended invite pilot, connected groups (board tg9: names,
  * counts and rules only, with a logged re-check) and bot health.
  */
 export function AdminTelegram() {
@@ -316,8 +316,8 @@ export function AdminTelegram() {
           <CardHeader>
             <CardTitle className="text-lg">Pilot creators</CardTitle>
             <p className="text-sm text-gray-600">
-              While MESSAGING_INVITE_ONLY is on, only invited creators can turn on Fan messages.
-              Ending an invite turns Fan messages off for that creator.
+              The invite pilot ended: messaging is open to every account. This list is kept read
+              only.
             </p>
           </CardHeader>
           <CardContent className="space-y-4">

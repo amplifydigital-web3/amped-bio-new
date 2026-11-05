@@ -1,4 +1,5 @@
 import { PARTICLE_PARAMS, particleOptions, presetOptions } from "./scenes.particles";
+import { COMET_TRAILS_EFFECT, EMITTER_SCENE_EFFECTS } from "./scenes.plugins";
 import { EMOJI_SET_PARAM, SCENE_PRESETS, emojiGlyphs } from "./scenes.presets";
 import type { ParticlePreset } from "./particlePresets";
 import { SHADER_SCENES } from "./scenes.shaders";
@@ -77,6 +78,9 @@ export const SCENE_EFFECTS: readonly EffectEntry[] = [
   ...Object.keys(SCENE_PRESETS).map(sceneEntry),
   // Phase 3b: the shader scenes (scenes.shaders.ts)
   ...SHADER_SCENES,
+  // TE-3f: the emitter scenes and Comet trails (scenes.plugins.ts)
+  ...EMITTER_SCENE_EFFECTS,
+  COMET_TRAILS_EFFECT,
 ];
 
 /**

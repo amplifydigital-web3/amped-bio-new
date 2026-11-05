@@ -45,7 +45,8 @@ describe("showcase tiles", () => {
 
   it("offers Fuzzy text and the TE-3e names only with the showcase flag, last, so indexes hold", () => {
     expect(nameTilesFor(true)).toBe(NAME_TILES);
-    expect(nameTilesFor(false)).toHaveLength(NAME_TILES.length - 4);
+    // Particle text is Showcase tier as well, so five tiles stay out
+    expect(nameTilesFor(false)).toHaveLength(NAME_TILES.length - 5);
     expect(NAME_TILES.slice(-4).map(t => t.effectId)).toEqual([
       "name.fuzzy",
       "name.rotating-words",
