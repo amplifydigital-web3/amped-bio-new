@@ -524,11 +524,17 @@ function VideoPlayer(props: MediaPlayerProps) {
             role="alert"
           >
             <p className="text-[17px] font-semibold">
-              {state.error === "ended" ? copy.endedTitle : copy.errorTitle}
+              {state.error === "ended"
+                ? copy.endedTitle
+                : state.error === "expired"
+                  ? copy.goneTitle
+                  : copy.errorTitle}
             </p>
-            <p className="text-[14px] text-white/80">
-              {state.error === "ended" ? copy.endedBody : copy.errorBody}
-            </p>
+            {state.error === "ended" ? (
+              <p className="text-[14px] text-white/80">{copy.endedBody}</p>
+            ) : state.error !== "expired" ? (
+              <p className="text-[14px] text-white/80">{copy.errorBody}</p>
+            ) : null}
             {state.error !== "ended" && (
               <button
                 type="button"
@@ -958,7 +964,11 @@ function AudioPlayer(props: MediaPlayerProps) {
             role="alert"
           >
             <span className="text-[14px]">
-              {state.error === "ended" ? copy.endedTitle : copy.errorTitle}
+              {state.error === "ended"
+                ? copy.endedTitle
+                : state.error === "expired"
+                  ? copy.goneTitle
+                  : copy.errorTitle}
             </span>
             {state.error !== "ended" && (
               <button

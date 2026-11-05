@@ -216,7 +216,13 @@ import {
 } from "../services/store/settings";
 import { OfferError, setOfferStatus, upsertOffer } from "../services/store/products";
 import { prisma } from "@repo/database";
-import { storePolicyPublic, storeProductPublic, storePublic } from "../services/store/public";
+import {
+  storeForBio,
+  storeForBioByHandle,
+  storePolicyPublic,
+  storeProductPublic,
+  storePublic,
+} from "../services/store/public";
 import { resolveTarget } from "../services/checkout/intents";
 import { DEFAULT_STORE_POLICY_DRAFT, type StorePolicyDraft } from "@repo/constants";
 
@@ -544,6 +550,52 @@ describe("public store", () => {
     });
     expect(await storePolicyPublic("maya", 1, null)).toBeNull();
     expect(await storePolicyPublic("maya", 1, MAYA)).toMatchObject({ version: 1, current: false });
+  });
+});
+
+describe("store block (st10)", () => {
+  const maya = { id: MAYA, handle: "maya", name: "Maya Lin" };
+
+  it("hides until the store is live with sales on, never showing the owner's preview", async () => {
+    await readyStore();
+    expect(await storeForBio(maya, NOW)).toBeNull();
+    await setLive(MAYA, true, NOW);
+    state.storeSales = false;
+    expect(await storeForBio(maya, NOW)).toBeNull();
+    state.storeSales = true;
+    expect(await storeForBio(maya, NOW)).toMatchObject({
+      handle: "maya",
+      name: "Maya Lin",
+      productCount: 1,
+    });
+    expect(await storeForBioByHandle("maya", NOW)).toMatchObject({ productCount: 1 });
+  });
+
+  it("puts featured products first, caps the row at 6 and counts every product", async () => {
+    await readyStore();
+    const ids: string[] = [];
+    for (let i = 0; i < 7; i += 1) {
+      const offer = await upsertOffer(
+        MAYA,
+        offerInput({ slug: `extra-${i}`, title: `Extra ${i}`, itemPublicIds: ["vid2"] })
+      );
+      await setOfferStatus(MAYA, offer.id, "active");
+      ids.push(offer.id);
+    }
+    await updateStore(MAYA, { featuredOfferIds: [ids[6]!] });
+    await setLive(MAYA, true, NOW);
+    const block = await storeForBio(maya, NOW);
+    expect(block!.productCount).toBe(8);
+    expect(block!.products).toHaveLength(6);
+    expect(block!.products[0]!.id).toBe(ids[6]);
+    expect(new Set(block!.products.map(p => p.id)).size).toBe(6);
+  });
+
+  it("hides when no product is left to sell", async () => {
+    await readyStore();
+    await setLive(MAYA, true, NOW);
+    table("contentItem").find(c => c.publicId === "vid1")!.adult = true;
+    expect(await storeForBio(maya, NOW)).toBeNull();
   });
 });
 

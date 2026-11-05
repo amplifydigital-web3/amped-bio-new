@@ -36,6 +36,7 @@ import {
   findBannedTerms,
   REFUND_SUMMARY,
   STORE_COPY,
+  PROMOTER_COPY,
   STORE_SALES_COPY,
   MEMBERSHIP_COPY,
   STORE_REPORT_LABELS,
@@ -235,6 +236,8 @@ async function main() {
     ...Object.values(STORE_REPORT_LABELS),
     // MB-1: renewal reminders and member states
     ...strings(MEMBERSHIP_COPY),
+    // C12: promoter codes, the FTC line and Referred by
+    ...strings(PROMOTER_COPY),
   ];
   const storeOk = report("store", "packages/constants/src/store.ts", store, checkStoreCopy(store));
   if (!telegramOk || !effectsOk || !messagesOk || !gatingOk || !storeOk) process.exit(1);

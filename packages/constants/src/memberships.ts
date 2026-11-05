@@ -110,6 +110,12 @@ const sig65 = z.string().regex(/^0x[0-9a-fA-F]{130}$/);
 export const membershipJoinPrepareSchema = z.object({
   handle: z.string().trim().min(1).max(64),
   interval: z.enum(MEMBERSHIP_INTERVALS),
+  /** C12: the promoter code from ?via= on the join link */
+  via: z
+    .string()
+    .trim()
+    .regex(/^[A-Za-z0-9_-]{1,32}$/)
+    .optional(),
   /** The fan's live wallet, refused when it is not the account's wallet */
   signer: z
     .string()
@@ -221,6 +227,8 @@ export type MembershipJoinPrepareResult =
       storePolicyVersion: number | null;
       signer: `0x${string}`;
       typed: MembershipJoinTypedData;
+      /** C12: Referred by @handle when a promoter row is in the join table */
+      promoterHandle: string | null;
     }
   | { refused: true; reason: MembershipRefusal; shortBy?: string };
 

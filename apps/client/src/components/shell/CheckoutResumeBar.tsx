@@ -5,7 +5,7 @@ import { Button, trpc } from "@repo/ui";
 import { checkoutResumeLabel } from "@repo/constants";
 import { isFeatureOn } from "../../config/featureFlags";
 
-/** Mobile checkout (Build Board #49). Off until VITE_CHECKOUT is "true". */
+/** Mobile checkout (Build Board #49). Off until the `checkout` feature flag is on (site settings). */
 // eslint-disable-next-line react-refresh/only-export-components
 export const CHECKOUT_ON = isFeatureOn("checkout");
 

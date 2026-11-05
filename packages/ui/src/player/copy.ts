@@ -30,6 +30,8 @@ export const PLAYER_COPY = {
   errorBody: "Check your connection and try again.",
   endedTitle: "Access ended",
   endedBody: "You can no longer open this item. Your Library shows what you can open now.",
+  // Content takedown tk1: the item was removed, hidden or closed while playing
+  goneTitle: "This item is no longer available.",
   retry: "Try again",
   chapters: "Chapters",
   chapterAt: (clock: string, title: string) => `Play from ${clock}, ${title}`,

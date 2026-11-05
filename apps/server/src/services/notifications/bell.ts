@@ -13,7 +13,13 @@ import { personOut, type Person } from "../messaging/direct";
 
 export type BellItem = {
   id: string;
-  kind: "MESSAGE" | "REQUEST" | "BROADCAST" | "MEMBERSHIP_RENEWAL" | "CONTENT";
+  kind:
+    | "MESSAGE"
+    | "REQUEST"
+    | "BROADCAST"
+    | "MEMBERSHIP_RENEWAL"
+    | "PROMOTER_CODE"
+    | "CONTENT";
   count: number;
   seen: boolean;
   /** conversation id (hex) for MESSAGE and REQUEST */
