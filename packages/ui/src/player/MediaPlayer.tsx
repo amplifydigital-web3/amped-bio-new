@@ -9,19 +9,29 @@
  * creator's theme on public pages and on Prism glass in the editor without
  * borrowing either. Every control is at least 44 square, labelled, and works
  * from the keyboard: space or k, left and right or j and l, up and down, f, m, c.
+ *
+ * FL-1 (boards m6, m7): on touch screens a tap shows the controls for 3
+ * seconds instead of pausing, a double tap on the left or right third skips 10
+ * seconds with a ring, a swipe down minimizes, and turning the phone sideways
+ * enters full screen. Chapters and speed open in a sheet. Audio gains 15 second
+ * skips with numerals, a larger scrub handle, the sleep timer and the queue.
  */
 import * as React from "react";
 import {
   Airplay,
   Captions,
+  ChevronDown,
+  ListMusic,
   Loader2,
   Maximize,
   Minimize,
+  Moon,
   Pause,
   PictureInPicture2,
   Play,
   RotateCcw,
   RotateCw,
+  Settings,
   Volume2,
   VolumeX,
 } from "lucide-react";
@@ -37,6 +47,8 @@ import {
   spokenClock,
 } from "./format";
 import { usePlayer, type PlayerApi } from "./PlayerProvider";
+import { DOUBLE_TAP_MS, classifySwipe, doubleTapSide, sleepMinutesLeft } from "./queue";
+import { PlayerOptionsSheet, QueueSheet, SleepTimerSheet } from "./PlayerSheets";
 import type { PlayerItem, SourceResolver } from "./types";
 
 export interface MediaPlayerProps {
@@ -49,6 +61,13 @@ export interface MediaPlayerProps {
   className?: string;
   /** Called the first time this item starts playing (analytics) */
   onStart?: () => void;
+  /**
+   * Swipe down and the chevron on phones: hand playback to the mini player
+   * (the host navigates away). Without it the swipe leaves full screen only.
+   */
+  onMinimize?: () => void;
+  /** Names the creator in the queue's autoplay line */
+  creatorName?: string | null;
 }
 
 const ICON_BTN =
@@ -81,6 +100,41 @@ function IconButton({
       {children}
     </button>
   );
+}
+
+/** A skip arrow with its seconds inside, as the boards draw it (10 for video, 15 for audio). */
+function SkipIcon({
+  direction,
+  seconds,
+  className,
+}: {
+  direction: "back" | "forward";
+  seconds: number;
+  className?: string;
+}) {
+  const Icon = direction === "back" ? RotateCcw : RotateCw;
+  return (
+    <span aria-hidden className="relative inline-flex items-center justify-center">
+      <Icon className={className} />
+      <span className="absolute inset-0 flex items-center justify-center pt-[1px] text-[9px] font-bold tabular-nums">
+        {seconds}
+      </span>
+    </span>
+  );
+}
+
+/** True on touch first screens, where taps and swipes drive the video (FL-1). */
+function useCoarsePointer(): boolean {
+  const [coarse, setCoarse] = React.useState(false);
+  React.useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
+    const query = window.matchMedia("(pointer: coarse)");
+    const update = () => setCoarse(query.matches);
+    update();
+    query.addEventListener?.("change", update);
+    return () => query.removeEventListener?.("change", update);
+  }, []);
+  return coarse;
 }
 
 /** Keyboard shortcuts (fan library spec 3.5). Returns true when handled. */
@@ -137,12 +191,15 @@ function SeekBar({
   durationMs,
   chapters,
   hideTrack = false,
+  largeThumb = false,
 }: {
   player: PlayerApi;
   durationMs: number | null;
   chapters: ReturnType<typeof normalizeChapters>;
   /** The audio waveform draws the track instead */
   hideTrack?: boolean;
+  /** A 20 px handle for the audio scrubber; the hit area is the 44 high input either way */
+  largeThumb?: boolean;
 }) {
   const total = durationMs ?? 0;
   const current = Math.min(player.state.currentMs, total || player.state.currentMs);
@@ -187,7 +244,12 @@ function SeekBar({
         disabled={!total}
         onClick={event => event.stopPropagation()}
         onChange={event => player.seek(Number(event.target.value))}
-        className="relative h-11 w-full cursor-pointer appearance-none bg-transparent outline-none focus-visible:[&::-webkit-slider-thumb]:ring-2 focus-visible:[&::-webkit-slider-thumb]:ring-white [&::-moz-range-thumb]:h-3.5 [&::-moz-range-thumb]:w-3.5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-white [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white"
+        className={cn(
+          "relative h-11 w-full cursor-pointer appearance-none bg-transparent outline-none focus-visible:[&::-webkit-slider-thumb]:ring-2 focus-visible:[&::-webkit-slider-thumb]:ring-white [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-white [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white",
+          largeThumb
+            ? "[&::-moz-range-thumb]:h-5 [&::-moz-range-thumb]:w-5 [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:w-5"
+            : "[&::-moz-range-thumb]:h-3.5 [&::-moz-range-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:w-3.5"
+        )}
       />
     </div>
   );
@@ -262,7 +324,7 @@ function useStart(props: MediaPlayerProps, player: PlayerApi) {
 // ------------------------------------------------------------------- video
 
 function VideoPlayer(props: MediaPlayerProps) {
-  const { item, poster, showResume = true, className } = props;
+  const { item, poster, showResume = true, className, onMinimize } = props;
   const player = usePlayer();
   const containerRef = React.useRef<HTMLDivElement | null>(null);
   const isCurrent = player.item?.id === item.id;
@@ -275,6 +337,14 @@ function VideoPlayer(props: MediaPlayerProps) {
   const [chrome, setChrome] = React.useState(true);
   const hideTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const [fullscreen, setFullscreen] = React.useState(false);
+  const coarse = useCoarsePointer();
+  const [optionsOpen, setOptionsOpen] = React.useState(false);
+  const [ring, setRing] = React.useState<"back" | "forward" | null>(null);
+  const ringTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const tapTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastTap = React.useRef<{ t: number; side: "back" | "forward" } | null>(null);
+  const pointer = React.useRef<{ x: number; y: number; t: number; id: number } | null>(null);
+  const enteredOnRotate = React.useRef(false);
 
   const { registerSlot } = player;
   const slot = React.useCallback(
@@ -294,8 +364,100 @@ function VideoPlayer(props: MediaPlayerProps) {
     if (hideTimer.current) clearTimeout(hideTimer.current);
     hideTimer.current = setTimeout(() => setChrome(false), 3000);
   }, []);
-  React.useEffect(() => () => void (hideTimer.current && clearTimeout(hideTimer.current)), []);
+  React.useEffect(
+    () => () => {
+      for (const timer of [hideTimer.current, ringTimer.current, tapTimer.current]) {
+        if (timer) clearTimeout(timer);
+      }
+    },
+    []
+  );
   const showChrome = !state.playing || chrome;
+
+  // Phone: turning sideways while playing enters full screen; turning back leaves it
+  const { toggleFullscreen } = player;
+  React.useEffect(() => {
+    if (!coarse || !live || typeof window.matchMedia !== "function") return;
+    const query = window.matchMedia("(orientation: landscape)");
+    const onTurn = () => {
+      const container = containerRef.current;
+      const inFullscreen = document.fullscreenElement === container;
+      if (query.matches && !inFullscreen && state.playing) {
+        enteredOnRotate.current = true;
+        toggleFullscreen(container);
+      } else if (!query.matches && inFullscreen && enteredOnRotate.current) {
+        enteredOnRotate.current = false;
+        toggleFullscreen(container);
+      }
+    };
+    query.addEventListener?.("change", onTurn);
+    return () => query.removeEventListener?.("change", onTurn);
+  }, [coarse, live, state.playing, toggleFullscreen]);
+
+  const showRing = (side: "back" | "forward") => {
+    setRing(side);
+    if (ringTimer.current) clearTimeout(ringTimer.current);
+    ringTimer.current = setTimeout(() => setRing(null), 600);
+  };
+
+  const minimize = () => {
+    if (fullscreen) toggleFullscreen(containerRef.current);
+    onMinimize?.();
+  };
+
+  // Phone gestures on the picture. Buttons and the slider keep their own taps.
+  const onPointerDown = (event: React.PointerEvent) => {
+    if (!coarse || !live) return;
+    if ((event.target as HTMLElement).closest("button, input")) return;
+    pointer.current = {
+      x: event.clientX,
+      y: event.clientY,
+      t: performance.now(),
+      id: event.pointerId,
+    };
+  };
+  const onPointerUp = (event: React.PointerEvent) => {
+    const began = pointer.current;
+    pointer.current = null;
+    if (!began || began.id !== event.pointerId) return;
+    const swipe = classifySwipe(
+      event.clientX - began.x,
+      event.clientY - began.y,
+      performance.now() - began.t
+    );
+    if (swipe === "down") {
+      minimize();
+      return;
+    }
+    if (swipe !== "tap") return;
+    const rect = containerRef.current?.getBoundingClientRect();
+    const side = rect ? doubleTapSide(event.clientX - rect.left, rect.width) : null;
+    const now = performance.now();
+    const previous = lastTap.current;
+    if (side && previous && previous.side === side && now - previous.t < DOUBLE_TAP_MS) {
+      if (tapTimer.current) clearTimeout(tapTimer.current);
+      lastTap.current = null;
+      player.skip(side === "back" ? -PLAYER_SEEK_MS : PLAYER_SEEK_MS);
+      showRing(side);
+      wake();
+      return;
+    }
+    const toggleChrome = () => {
+      if (state.playing && showChrome) setChrome(false);
+      else wake();
+    };
+    if (!side) {
+      lastTap.current = null;
+      toggleChrome();
+      return;
+    }
+    lastTap.current = { t: now, side };
+    if (tapTimer.current) clearTimeout(tapTimer.current);
+    tapTimer.current = setTimeout(() => {
+      lastTap.current = null;
+      toggleChrome();
+    }, DOUBLE_TAP_MS);
+  };
 
   const onKeyDown = (event: React.KeyboardEvent) => {
     if (!live) return;
@@ -313,10 +475,15 @@ function VideoPlayer(props: MediaPlayerProps) {
         aria-label={copy.videoPlayer(item.title)}
         tabIndex={live ? 0 : -1}
         onKeyDown={onKeyDown}
-        onPointerMove={live ? wake : undefined}
-        onClick={live ? () => player.toggle() : undefined}
+        onPointerMove={live && !coarse ? wake : undefined}
+        onPointerDown={onPointerDown}
+        onPointerUp={onPointerUp}
+        onPointerCancel={() => (pointer.current = null)}
+        onClick={live && !coarse ? () => player.toggle() : undefined}
+        data-touch-controls={coarse ? "" : undefined}
         className={cn(
           "relative w-full overflow-hidden bg-black text-white outline-none focus-visible:ring-2 focus-visible:ring-white",
+          coarse && live && "touch-pan-y",
           fullscreen ? "h-full" : "aspect-video rounded-[13px]"
         )}
       >
@@ -371,7 +538,115 @@ function VideoPlayer(props: MediaPlayerProps) {
           </div>
         )}
 
-        {live && !state.error && (
+        {live && ring && (
+          <div
+            aria-hidden
+            className={cn(
+              "pointer-events-none absolute top-1/2 flex h-[110px] w-[110px] -translate-y-1/2 flex-col items-center justify-center rounded-full bg-white/20 text-[16px] font-semibold",
+              ring === "back" ? "left-[8%]" : "right-[8%]"
+            )}
+          >
+            {ring === "back" ? <RotateCcw className="h-7 w-7" /> : <RotateCw className="h-7 w-7" />}
+            {copy.skipRing(PLAYER_SEEK_MS / 1000)}
+          </div>
+        )}
+
+        {live && !state.error && coarse && (
+          <div
+            className={cn(
+              "absolute inset-0 flex flex-col justify-between bg-black/35 transition-opacity motion-reduce:transition-none",
+              showChrome ? "opacity-100" : "pointer-events-none opacity-0"
+            )}
+          >
+            <div className="flex items-center gap-[2px] px-[4px] pt-[4px]">
+              {(onMinimize || fullscreen) && (
+                <IconButton label={copy.minimize} onClick={minimize}>
+                  <ChevronDown className="h-6 w-6" aria-hidden />
+                </IconButton>
+              )}
+              <span className="flex-1" />
+              {player.captions.length > 0 && (
+                <IconButton
+                  label={
+                    state.captionIndex >= 0
+                      ? copy.captionsOn(player.captions[state.captionIndex]?.label ?? "")
+                      : copy.captionsOff
+                  }
+                  pressed={state.captionIndex >= 0}
+                  onClick={player.cycleCaptions}
+                >
+                  <Captions className="h-5 w-5" aria-hidden />
+                </IconButton>
+              )}
+              {player.airplayAvailable && (
+                <IconButton label={copy.airplay} onClick={player.showAirplay}>
+                  <Airplay className="h-5 w-5" aria-hidden />
+                </IconButton>
+              )}
+              <IconButton label={copy.settings} onClick={() => setOptionsOpen(true)}>
+                <Settings className="h-5 w-5" aria-hidden />
+              </IconButton>
+            </div>
+            <div className="flex items-center justify-center gap-[34px]">
+              <IconButton
+                label={copy.back(PLAYER_SEEK_MS / 1000)}
+                onClick={() => {
+                  player.skip(-PLAYER_SEEK_MS);
+                  wake();
+                }}
+              >
+                <SkipIcon direction="back" seconds={PLAYER_SEEK_MS / 1000} className="h-8 w-8" />
+              </IconButton>
+              <button
+                type="button"
+                aria-label={state.playing ? copy.pause : copy.play}
+                onClick={event => {
+                  event.stopPropagation();
+                  player.toggle();
+                  wake();
+                }}
+                className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-white text-[#16152B] outline-none focus-visible:ring-4 focus-visible:ring-white/60"
+              >
+                {state.playing ? (
+                  <Pause className="h-7 w-7" aria-hidden />
+                ) : (
+                  <Play className="ml-0.5 h-7 w-7" aria-hidden />
+                )}
+              </button>
+              <IconButton
+                label={copy.forward(PLAYER_SEEK_MS / 1000)}
+                onClick={() => {
+                  player.skip(PLAYER_SEEK_MS);
+                  wake();
+                }}
+              >
+                <SkipIcon direction="forward" seconds={PLAYER_SEEK_MS / 1000} className="h-8 w-8" />
+              </IconButton>
+            </div>
+            <div className="flex items-center gap-[8px] px-[8px] pb-[2px]">
+              <span className="text-[14px] tabular-nums">{formatClock(state.currentMs)}</span>
+              <div className="min-w-0 flex-1">
+                <SeekBar player={player} durationMs={durationMs} chapters={chapters} />
+              </div>
+              <span className="text-[14px] tabular-nums">{formatClock(durationMs)}</span>
+              <IconButton
+                label={fullscreen ? copy.fullscreenExit : copy.fullscreen}
+                onClick={() => {
+                  enteredOnRotate.current = false;
+                  player.toggleFullscreen(containerRef.current);
+                }}
+              >
+                {fullscreen ? (
+                  <Minimize className="h-5 w-5" aria-hidden />
+                ) : (
+                  <Maximize className="h-5 w-5" aria-hidden />
+                )}
+              </IconButton>
+            </div>
+          </div>
+        )}
+
+        {live && !state.error && !coarse && (
           <div
             className={cn(
               "absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/50 to-transparent px-[8px] pb-[4px] pt-[34px] transition-opacity motion-reduce:transition-none",
@@ -466,6 +741,12 @@ function VideoPlayer(props: MediaPlayerProps) {
           onStartOver={() => start(0)}
         />
       )}
+      <PlayerOptionsSheet
+        open={optionsOpen}
+        onOpenChange={setOptionsOpen}
+        item={item}
+        resolve={props.resolve}
+      />
     </div>
   );
 }
@@ -491,7 +772,9 @@ function useWaveform(url: string | null | undefined) {
 }
 
 function AudioPlayer(props: MediaPlayerProps) {
-  const { item, poster, showResume = true, className } = props;
+  const { item, poster, showResume = true, className, creatorName } = props;
+  const [sleepOpen, setSleepOpen] = React.useState(false);
+  const [queueOpen, setQueueOpen] = React.useState(false);
   const player = usePlayer();
   const isCurrent = player.item?.id === item.id;
   const state = player.state;
@@ -553,6 +836,7 @@ function AudioPlayer(props: MediaPlayerProps) {
               durationMs={durationMs}
               chapters={chapters}
               hideTrack={peaks.length > 0}
+              largeThumb
             />
           ) : (
             <div className="h-11" aria-hidden />
@@ -564,13 +848,25 @@ function AudioPlayer(props: MediaPlayerProps) {
           <span>{formatClock(durationMs)}</span>
         </div>
 
-        <div className="mt-[8px] flex items-center justify-center gap-[13px]">
+        <div className="mt-[8px] flex items-center justify-center gap-[8px] sm:gap-[13px]">
+          <button
+            type="button"
+            aria-label={copy.speed(speedLabel(state.rate))}
+            onClick={player.cycleRate}
+            className={cn(
+              ICON_BTN,
+              "w-auto min-w-11 border border-white/40 px-2 text-[14px] font-semibold tabular-nums",
+              !live && "invisible"
+            )}
+          >
+            {speedLabel(state.rate)}
+          </button>
           <IconButton
             label={copy.back(PLAYER_SKIP_MS / 1000)}
             onClick={() => player.skip(-PLAYER_SKIP_MS)}
             className={cn(!live && "invisible")}
           >
-            <RotateCcw className="h-6 w-6" aria-hidden />
+            <SkipIcon direction="back" seconds={PLAYER_SKIP_MS / 1000} className="h-7 w-7" />
           </IconButton>
           <button
             type="button"
@@ -593,7 +889,19 @@ function AudioPlayer(props: MediaPlayerProps) {
             onClick={() => player.skip(PLAYER_SKIP_MS)}
             className={cn(!live && "invisible")}
           >
-            <RotateCw className="h-6 w-6" aria-hidden />
+            <SkipIcon direction="forward" seconds={PLAYER_SKIP_MS / 1000} className="h-7 w-7" />
+          </IconButton>
+          <IconButton
+            label={sleepLabel(player)}
+            pressed={player.sleep.choice !== "off"}
+            onClick={() => setSleepOpen(true)}
+            className={cn(
+              "border border-white/40",
+              player.sleep.choice !== "off" && "bg-white text-[#16152B] hover:bg-white/90",
+              !live && "invisible"
+            )}
+          >
+            <Moon className="h-5 w-5" aria-hidden />
           </IconButton>
         </div>
 
@@ -612,17 +920,9 @@ function AudioPlayer(props: MediaPlayerProps) {
                 <Captions className="h-5 w-5" aria-hidden />
               </IconButton>
             )}
-            <button
-              type="button"
-              aria-label={copy.speed(speedLabel(state.rate))}
-              onClick={player.cycleRate}
-              className={cn(
-                ICON_BTN,
-                "w-auto min-w-11 px-2 text-[13px] font-semibold tabular-nums"
-              )}
-            >
-              {speedLabel(state.rate)}
-            </button>
+            <IconButton label={copy.queueOpen} onClick={() => setQueueOpen(true)}>
+              <ListMusic className="h-5 w-5" aria-hidden />
+            </IconButton>
             <IconButton
               label={state.muted ? copy.unmute : copy.mute}
               pressed={state.muted}
@@ -670,8 +970,20 @@ function AudioPlayer(props: MediaPlayerProps) {
           onStartOver={() => start(0)}
         />
       )}
+      <SleepTimerSheet open={sleepOpen} onOpenChange={setSleepOpen} />
+      <QueueSheet
+        open={queueOpen}
+        onOpenChange={setQueueOpen}
+        creatorName={creatorName ?? item.subtitle ?? null}
+      />
     </div>
   );
+}
+
+function sleepLabel(player: PlayerApi): string {
+  if (player.sleep.choice === "end") return copy.sleepAtEnd;
+  const left = sleepMinutesLeft(player.sleep.endsAt);
+  return left != null ? copy.sleepLeft(left) : copy.sleep;
 }
 
 // ------------------------------------------------------------------- chapters
