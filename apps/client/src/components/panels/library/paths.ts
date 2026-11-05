@@ -10,6 +10,8 @@ export const LIBRARY_PATHS = {
   search: "/library/search",
   creators: "/library/creators",
   saved: "/library/saved",
+  /** FL-7: Memberships; `?m={id}` opens one membership's Manage sheet */
+  memberships: "/library/memberships",
   creator: (handle: string) => `/library/@${handle}`,
   item: (handle: string, publicId: string) => `/library/@${handle}/c/${publicId}`,
 } as const;
@@ -19,6 +21,7 @@ export type LibraryRoute =
   | { view: "search" }
   | { view: "creators" }
   | { view: "saved" }
+  | { view: "memberships" }
   | { view: "creator"; handle: string }
   | { view: "item"; handle: string; publicId: string };
 
@@ -31,6 +34,7 @@ export function parseLibraryPath(pathname: string): LibraryRoute | null {
   if (parts.length === 2 && second === "search") return { view: "search" };
   if (parts.length === 2 && second === "creators") return { view: "creators" };
   if (parts.length === 2 && second === "saved") return { view: "saved" };
+  if (parts.length === 2 && second === "memberships") return { view: "memberships" };
   if (!second?.startsWith("@")) return null;
   // A hand written link can carry a broken escape (`/library/@%`): decode can
   // throw, and this runs while the panel renders, so refuse the path instead

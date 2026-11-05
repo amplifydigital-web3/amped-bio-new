@@ -38,6 +38,7 @@ import {
   libraryOpenAccess,
   type LibraryViewer,
 } from "./access";
+import { creatorMoneyStatus, moneyCreatorIds, moneyLabels } from "./money";
 
 type ItemWithCreator = ContentItem & { user: { page_status: string; block: string } };
 
@@ -106,7 +107,7 @@ async function ownerInfo(users: OwnerRow[]): Promise<Map<number, OwnerInfo>> {
   return out;
 }
 
-async function ownersFor(creatorIds: number[]): Promise<Map<number, OwnerInfo>> {
+export async function ownersFor(creatorIds: number[]): Promise<Map<number, OwnerInfo>> {
   const unique = [...new Set(creatorIds)];
   if (!unique.length) return new Map();
   const users = await prisma.user.findMany({
@@ -149,11 +150,24 @@ export async function poolCreatorIds(viewerId: number): Promise<number[]> {
 
 /** Followed creators, then pool creators the fan does not follow. */
 export async function connectedCreatorIds(viewerId: number): Promise<number[]> {
-  const [followed, pools] = await Promise.all([
+  const [followed, pools, money] = await Promise.all([
     followedCreatorIds(viewerId),
     libraryGating() ? poolCreatorIds(viewerId) : Promise.resolve([]),
+    // FL-7: a membership or a purchase connects the fan too (spec 2.1)
+    moneyCreatorIds(viewerId),
   ]);
-  return [...new Set([...followed, ...pools])].slice(0, LIBRARY_LIMITS.creatorsMax);
+  const paid = [...money.members, ...money.purchased.keys()];
+  const visible = paid.length
+    ? (
+        await prisma.user.findMany({
+          where: { id: { in: paid }, ...LIBRARY_CREATOR_WHERE },
+          select: { id: true },
+        })
+      ).map(user => user.id)
+    : [];
+  return [...new Set([...followed, ...visible, ...pools])]
+    .filter(id => id !== viewerId)
+    .slice(0, LIBRARY_LIMITS.creatorsMax);
 }
 
 /** A public creator by handle, with what the section header needs. */
@@ -218,10 +232,12 @@ async function toLibraryItems(
   }
   if (!allowed.length) return [];
   const items = allowed.map(entry => entry.row);
-  const [cards, owners, loaded] = await Promise.all([
+  const [cards, owners, loaded, labels] = await Promise.all([
     cardsForItems(items, now),
     ownersFor(items.map(item => item.userId)),
     extras ? Promise.resolve(extras) : extrasFor(viewer.userId, items),
+    // FL-7: Purchased and the plan name outrank how the item opened (decision 12)
+    moneyLabels(viewer.userId, items, now),
   ]);
   const out: LibraryItem[] = [];
   for (const { row, access } of allowed) {
@@ -229,11 +245,12 @@ async function toLibraryItems(
     const owner = owners.get(row.userId)?.owner;
     if (!card || !owner?.handle) continue;
     const key = hex(row.id);
+    const label = labels.get(row.publicId);
     out.push({
       ...card,
       owner,
-      accessSource: access.source,
-      planName: access.planName,
+      accessSource: label?.source ?? access.source,
+      planName: label ? label.planName : access.planName,
       progress: loaded.progress?.get(key) ?? null,
       savedAt: loaded.saved?.get(key)?.toISOString() ?? null,
     });
@@ -359,12 +376,9 @@ export async function libraryNewest(
     deviceIds?: string[];
   } = {}
 ): Promise<LibraryPage<LibraryItem>> {
-  // Sources that need gating are empty while it is off, and purchases and
-  // memberships stay empty until FL-7: no query for an answer known now
-  if (input.source && input.source !== "public" && !libraryGating()) {
-    return { items: [], nextCursor: null };
-  }
-  if (input.source === "purchased" || input.source === "member") {
+  // Pool and follower sources need gating; Purchased and Membership are labels on items the
+  // fan already opens (FL-7), so they filter the page like any other source
+  if ((input.source === "pool" || input.source === "follower") && !libraryGating()) {
     return { items: [], nextCursor: null };
   }
   const creatorIds = await connectedCreatorIds(viewer.userId);
@@ -386,8 +400,12 @@ export async function libraryNewest(
   );
 }
 
-function connectionFor(following: boolean, poolFan: boolean): LibraryConnection {
-  return { following, member: false, purchases: 0, poolFan };
+function connectionFor(
+  following: boolean,
+  poolFan: boolean,
+  money: { member: boolean; purchases: number } = { member: false, purchases: 0 }
+): LibraryConnection {
+  return { following, member: money.member, purchases: money.purchases, poolFan };
 }
 
 /** New since the fan last opened the section, or since they followed. */
@@ -442,13 +460,14 @@ export async function libraryCreators(
   });
   const page = rows.slice(0, LIBRARY_LIMITS.page);
   const creatorIds = page.map(row => row.creator.id);
-  const [owners, poolFans, counts] = await Promise.all([
+  const [owners, poolFans, counts, money] = await Promise.all([
     ownerInfo(page.map(row => row.creator)),
     batchPoolFanCreatorIds(creatorIds, viewerId),
     newCounts(
       viewerId,
       page.map(row => ({ creatorId: row.creator.id, followedAt: row.created_at }))
     ),
+    moneyCreatorIds(viewerId),
   ]);
   const items: LibraryCreatorRow[] = [];
   for (const row of page) {
@@ -456,9 +475,12 @@ export async function libraryCreators(
     if (!info?.owner.handle) continue;
     items.push({
       owner: info.owner,
-      connection: connectionFor(true, poolFans.has(row.creator.id)),
+      connection: connectionFor(true, poolFans.has(row.creator.id), {
+        member: money.members.has(row.creator.id),
+        purchases: money.purchased.get(row.creator.id) ?? 0,
+      }),
       newCount: counts.get(row.creator.id) ?? 0,
-      pastDue: false,
+      pastDue: money.pastDue.has(row.creator.id),
     });
   }
   return {
@@ -500,17 +522,21 @@ async function sectionCounts(
 
 /** The fan's follow of this creator, and whether they stake in the creator's pool. */
 async function connectionTo(viewerId: number, creatorId: number) {
-  const [follow, poolFans] = await Promise.all([
+  const [follow, poolFans, money] = await Promise.all([
     prisma.follow.findUnique({
       where: { follower_id_creator_id: { follower_id: viewerId, creator_id: creatorId } },
       select: { show_publicly: true, email_updates: true },
     }),
     batchPoolFanCreatorIds([creatorId], viewerId),
+    creatorMoneyStatus(viewerId, creatorId),
   ]);
   const poolFan = poolFans.has(creatorId);
+  // FL-7: any membership, current or ended, and any purchase keep the section open
+  const paid = !!money.membership || money.purchases > 0;
   // A pool stake connects the fan only where gating can open pool items
-  const connected = creatorId !== viewerId && (!!follow || (poolFan && libraryGating()));
-  return { follow, poolFan, connected };
+  const connected =
+    creatorId !== viewerId && (!!follow || paid || (poolFan && libraryGating()));
+  return { follow, poolFan, connected, money };
 }
 
 /**
@@ -542,10 +568,17 @@ export async function libraryCreator(
     connected: link.connected,
     owner: owner.owner,
     theme: owner.theme,
-    connection: connectionFor(!!link.follow, link.poolFan),
+    connection: connectionFor(!!link.follow, link.poolFan, {
+      member:
+        !!link.money.membership &&
+        link.money.membership.state !== "ended" &&
+        !!link.money.membership.accessUntil,
+      purchases: link.money.purchases,
+    }),
     status: {
-      membership: null,
-      purchases: { count: 0 },
+      membership: link.money.membership,
+      purchases: { count: link.money.purchases },
+      plan: link.money.plan,
       follow: link.follow
         ? { showPublicly: link.follow.show_publicly, emailUpdates: link.follow.email_updates }
         : null,

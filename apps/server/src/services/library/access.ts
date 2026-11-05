@@ -103,6 +103,19 @@ export function shopHint(decision: AccessDecision): LibraryUnlockHint | null {
       return decision.hint.action === "follow" ? { kind: "follow" } : null;
     case "follow_pending":
       return { kind: "confirm_email" };
+    // FL-7: paid and member rules (the engine's paid and member kinds, G4 and G5)
+    case "not_purchased":
+    case "purchase_pending":
+      return decision.hint.action === "buy"
+        ? { kind: "buy", amount: decision.hint.priceDisplay, offerId: decision.hint.offerId }
+        : null;
+    case "not_member":
+      return { kind: "join", planName: null };
+    case "membership_ended":
+      return { kind: "rejoin", planName: null };
+    // A past due member is still a member: the fix is USDC on Library, Memberships, and a
+    // Join would be refused (already a member), so the Shop leaves it out until G5 can
+    // carry the shortfall here
     default:
       return null;
   }

@@ -11,16 +11,17 @@ import {
   Bookmark,
   ChevronRight,
   Compass,
+  Crown,
   MessageCircle,
   Search,
   SlidersHorizontal,
   WifiOff,
 } from "lucide-react";
-import type { LibraryCreatorRow, LibraryItem } from "@repo/constants";
+import type { LibraryCreatorRow, LibraryItem, LibraryMembershipCard } from "@repo/constants";
 import { Button, EmptyState, ErrorCard, Skeleton, cn, trpc, useOptionalPlayer } from "@repo/ui";
 import { useDelayed } from "@/hooks/useDelayed";
 import { isFeatureOn } from "@/config/featureFlags";
-import { LIBRARY_COPY } from "./copy";
+import { LIBRARY_COPY, LIBRARY_MONEY_COPY } from "./copy";
 import { LIBRARY_PATHS } from "./paths";
 import {
   ActiveFilterChip,
@@ -62,6 +63,11 @@ export function LibraryHome() {
   });
   const saved = useQuery({ ...trpc.library.saved.queryOptions({}), enabled: !filtered });
   const creators = useQuery({ ...trpc.library.creators.queryOptions({}), enabled: !filtered });
+  const memberships = useQuery({
+    ...trpc.library.memberships.queryOptions(),
+    enabled: !filtered,
+  });
+  const membershipCards = memberships.data?.items ?? [];
   const newest = useInfiniteQuery(
     trpc.library.newest.infiniteQueryOptions(
       { type: filter.type ?? undefined, source: filter.source ?? undefined },
@@ -144,6 +150,7 @@ export function LibraryHome() {
                 loading={saved.isLoading}
               />
               <CreatorsSection rows={creatorRows} loading={creators.isLoading} />
+              <MembershipsRow cards={membershipCards} />
             </div>
           )}
           <section aria-labelledby="library-newest" className="space-y-2">
@@ -199,6 +206,7 @@ export function LibraryHome() {
         {!filtered && (
           <aside className="hidden space-y-[34px] lg:block">
             <CreatorsSection rows={creatorRows} loading={creators.isLoading} />
+            <MembershipsRow cards={membershipCards} />
             <SavedTile
               items={saved.data?.items ?? []}
               more={!!saved.data?.nextCursor}
@@ -341,6 +349,48 @@ export function ContinueCard({
         <ItemMenu item={item} inContinue inCreatorSection={inCreatorSection} />
       </div>
     </div>
+  );
+}
+
+/**
+ * The Memberships row (FL-7, spec 2.2 item 1): count, and one line when a membership needs
+ * USDC. Hidden until the fan has a membership.
+ */
+function MembershipsRow({ cards }: { cards: LibraryMembershipCard[] }) {
+  const navigate = useNavigate();
+  const current = cards.filter(card => card.state !== "ended");
+  if (!current.length) return null;
+  const urgent = current.some(card => card.state === "past_due" || card.state === "not_covered");
+  return (
+    <section aria-labelledby="library-memberships">
+      <h2 id="library-memberships" className="sr-only">
+        {LIBRARY_MONEY_COPY.rowTitle}
+      </h2>
+      <button
+        type="button"
+        onClick={() => navigate(LIBRARY_PATHS.memberships)}
+        className="prism-focus flex min-h-[72px] w-full items-center gap-3 rounded-prism-13 bg-white/70 px-3 py-2 text-left shadow-prism-e1 transition-colors duration-prism-hover ease-prism hover:bg-white"
+      >
+        <span className="flex h-touch w-touch shrink-0 items-center justify-center rounded-full bg-prism-nav-tint">
+          <Crown aria-hidden className="h-5 w-5 text-prism-ink" strokeWidth={1.5} />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-[16px] font-semibold text-prism-ink">
+            {LIBRARY_MONEY_COPY.rowTitle}
+          </span>
+          <span
+            className={
+              urgent
+                ? "block text-[14px] font-semibold text-prism-warning-ink"
+                : "block text-[14px] text-prism-ink-2"
+            }
+          >
+            {urgent ? LIBRARY_MONEY_COPY.rowPastDue : LIBRARY_MONEY_COPY.rowCount(current.length)}
+          </span>
+        </span>
+        <ChevronRight aria-hidden className="h-5 w-5 shrink-0 text-prism-ink-3" />
+      </button>
+    </section>
   );
 }
 

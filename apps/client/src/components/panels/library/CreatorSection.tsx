@@ -15,6 +15,7 @@ import {
   ACCESS_STAKE_DISCLOSURE,
   TESTNET_NOTICE,
   contentCardMeta,
+  usdcDollarsLabel,
   type LibraryCreatorHeader,
   type LibraryItem,
   type LibraryShopItem,
@@ -32,11 +33,14 @@ import {
   creatorSectionColors,
   queryClient,
   trpc,
+  trpcClient,
 } from "@repo/ui";
 import { toast } from "@/components/ui/toast";
 import { trackGAEvent } from "@/utils/ga";
 import { useDelayed } from "@/hooks/useDelayed";
-import { LIBRARY_COPY } from "./copy";
+import { isFeatureOn } from "@/config/featureFlags";
+import { LIBRARY_COPY, LIBRARY_MONEY_COPY } from "./copy";
+import { cardAction, day, joinHref, stateLine, txUrl } from "./MembershipsPage";
 import { LIBRARY_PATHS } from "./paths";
 import { ItemMenu, refreshLibrary } from "./ItemMenu";
 import { ContinueCard } from "./LibraryHome";
@@ -44,6 +48,7 @@ import { CreatorAvatar, ItemCover, ItemListSkeleton, ItemRow, ownerName } from "
 import { connectionLine } from "./YourCreators";
 
 const C = LIBRARY_COPY;
+const MONEY = LIBRARY_MONEY_COPY;
 const SECTION = C.section;
 type Segment = "yours" | "shop";
 
@@ -151,6 +156,7 @@ export function CreatorSection({ handle }: { handle: string }) {
               id={`library-seg-panel-${seg}`}
               aria-labelledby={`library-seg-${seg}`}
             >
+              {seg === "shop" && <JoinFromRow header={data} />}
               {seg === "yours" ? (
                 <YoursList handle={handle} name={name} />
               ) : (
@@ -168,6 +174,42 @@ export function CreatorSection({ handle }: { handle: string }) {
       </CreatorSectionScope>
       <StatusSheet header={data} open={sheetOpen} onOpenChange={setSheetOpen} />
     </>
+  );
+}
+
+/**
+ * FL-7 (spec 2.2 item 5): when the fan is not a member and the creator takes members, one
+ * From {creator} row with Join as an outline button. Rejoin when a membership ended. The
+ * join sheet signs through the memberships checkout, so it waits on the checkout flag.
+ */
+function JoinFromRow({ header }: { header: LibraryCreatorHeader }) {
+  const navigate = useNavigate();
+  const plan = header.status.plan;
+  const membership = header.status.membership;
+  const current = membership && membership.state !== "ended";
+  if (!plan || current || !isFeatureOn("checkout")) return null;
+  return (
+    <div
+      className="mb-[13px] flex flex-wrap items-center gap-3 rounded-prism-13 p-3"
+      style={{ background: "var(--c-surface)", color: "var(--c-surface-ink)" }}
+    >
+      <span className="min-w-0 flex-1">
+        <span className="block text-[16px] font-semibold">
+          {MONEY.joinFrom(ownerName(header.owner))}
+        </span>
+        <span className="block text-[14px]" style={{ color: "var(--c-surface-muted)" }}>
+          {plan.name}, {MONEY.joinAmount(usdcDollarsLabel(plan.amountEvery30Days))}
+        </span>
+      </span>
+      <button
+        type="button"
+        onClick={() => navigate(joinHref(header.owner.handle))}
+        className="prism-focus inline-flex h-touch items-center rounded-prism-13 border px-4 text-[15px] font-semibold"
+        style={{ borderColor: "var(--c-btn)", color: "var(--c-surface-ink)" }}
+      >
+        {membership ? MONEY.rejoin : MONEY.join}
+      </button>
+    </div>
   );
 }
 
@@ -389,6 +431,7 @@ const actionClass =
   "prism-focus inline-flex h-touch shrink-0 items-center gap-2 rounded-prism-13 px-4 text-[15px] font-semibold";
 
 function ShopAction({ item, handle }: { item: LibraryShopItem; handle: string }) {
+  const navigate = useNavigate();
   const hint = item.unlockHint;
   if (hint.kind === "pool") {
     const address = item.gate?.poolAddress;
@@ -422,16 +465,45 @@ function ShopAction({ item, handle }: { item: LibraryShopItem; handle: string })
     );
   }
   if (hint.kind === "confirm_email") return null;
+  if (hint.kind === "buy") return <BuyAction hint={hint} />;
+  // FL-7: Join and Rejoin open the join sheet in the app (MB-2)
   return (
     <button
       type="button"
-      disabled
-      aria-describedby={`shop-later-${item.publicId}`}
-      className={cn(actionClass, "border opacity-60")}
-      style={{ borderColor: "var(--c-btn)", color: "var(--c-ink)" }}
+      onClick={() => navigate(joinHref(handle))}
+      className={actionClass}
+      style={{ background: "var(--c-btn)", color: "var(--c-btnink)" }}
     >
-      {hint.kind === "buy" ? SECTION.shopBuy : SECTION.shopJoin}
-      <span className="sr-only">, {SECTION.shopLater}</span>
+      {hint.kind === "rejoin" ? MONEY.rejoin : MONEY.join}
+    </button>
+  );
+}
+
+/** FL-7: Buy starts a checkout for the product and opens the creator's payment sheet. */
+function BuyAction({ hint }: { hint: { amount: string; offerId?: string } }) {
+  const navigate = useNavigate();
+  const start = useMutation({
+    mutationFn: (offerId: string) =>
+      trpcClient.checkout.start.mutate({
+        kind: "purchase",
+        target: { type: "offer", id: offerId },
+        source: "library",
+      }),
+    onSuccess: ({ payPath }) => navigate(payPath),
+    onError: () => toast.add({ type: "error", title: MONEY.buyFailed }),
+  });
+  // Checkout starts through the checkout router, so the button waits on its flag
+  if (!hint.offerId || !isFeatureOn("checkout")) return null;
+  return (
+    <button
+      type="button"
+      onClick={() => start.mutate(hint.offerId!)}
+      disabled={start.isPending}
+      aria-busy={start.isPending || undefined}
+      className={actionClass}
+      style={{ background: "var(--c-btn)", color: "var(--c-btnink)" }}
+    >
+      {MONEY.buy(hint.amount)}
     </button>
   );
 }
@@ -439,7 +511,6 @@ function ShopAction({ item, handle }: { item: LibraryShopItem; handle: string })
 function ShopRow({ item, handle }: { item: LibraryShopItem; handle: string }) {
   const stake = !!item.gate?.stake;
   const hint = item.unlockHint;
-  const later = hint.kind === "join" || hint.kind === "rejoin" || hint.kind === "buy";
   return (
     <article
       aria-label={SECTION.shopLocked(item.title)}
@@ -470,15 +541,6 @@ function ShopRow({ item, handle }: { item: LibraryShopItem; handle: string }) {
       {hint.kind === "confirm_email" && (
         <p className="px-1 pt-2 text-[14px]" style={{ color: "var(--c-surface-muted)" }}>
           {SECTION.shopConfirmEmail}
-        </p>
-      )}
-      {later && (
-        <p
-          id={`shop-later-${item.publicId}`}
-          className="px-1 pt-2 text-[14px]"
-          style={{ color: "var(--c-surface-muted)" }}
-        >
-          {SECTION.shopLaterHelp}
         </p>
       )}
       {stake && (
@@ -599,16 +661,7 @@ function StatusSheet({
       <BottomSheetContent title={S.title(name)}>
         <div className="space-y-[21px] px-[21px] pb-[21px]">
           <p className="text-prism-body text-prism-ink-2">{SECTION.ownership(name)}</p>
-          {header.status.purchases.count > 0 && (
-            <section aria-labelledby="status-purchases" className="space-y-1">
-              <h3 id="status-purchases" className="text-prism-eyebrow uppercase text-prism-ink-3">
-                {S.purchases}
-              </h3>
-              <p className="text-prism-body text-prism-ink">
-                {C.connection.purchases(header.status.purchases.count)}
-              </p>
-            </section>
-          )}
+          {open && <StatusMoney header={header} onClose={() => onOpenChange(false)} />}
           {follow && (
             <section aria-labelledby="status-following" className="space-y-1">
               <h3 id="status-following" className="text-prism-eyebrow uppercase text-prism-ink-3">
@@ -655,6 +708,108 @@ function StatusSheet({
         </div>
       </BottomSheetContent>
     </BottomSheet>
+  );
+}
+
+/**
+ * FL-7 (row 182): the membership with this creator (state, Manage, Rejoin) and every
+ * purchase with its receipt and the store policy the fan was shown.
+ */
+function StatusMoney({ header, onClose }: { header: LibraryCreatorHeader; onClose: () => void }) {
+  const navigate = useNavigate();
+  const handle = header.owner.handle;
+  const money = useQuery(trpc.library.creatorMoney.queryOptions({ handle }));
+  if (!header.status.membership && header.status.purchases.count === 0) return null;
+  if (money.isLoading) return <Skeleton className="h-[96px] w-full rounded-prism-13" />;
+  if (!money.data) return null;
+  const card = money.data.membership;
+  const action = card ? cardAction(card) : null;
+  return (
+    <>
+      {card && (
+        <section aria-labelledby="status-membership" className="space-y-2">
+          <h3 id="status-membership" className="text-prism-eyebrow uppercase text-prism-ink-3">
+            {MONEY.rowTitle}
+          </h3>
+          <p className="text-prism-body font-semibold text-prism-ink">{card.planName}</p>
+          <p className="text-prism-body text-prism-ink">{stateLine(card)}</p>
+          <div className="flex flex-wrap gap-2">
+            {action && (
+              <Button
+                onClick={() => {
+                  onClose();
+                  navigate(action.href);
+                }}
+              >
+                {action.label}
+              </Button>
+            )}
+            {card.state !== "ended" && (
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  onClose();
+                  navigate(`${LIBRARY_PATHS.memberships}?m=${card.id}`);
+                }}
+              >
+                {MONEY.manage}
+              </Button>
+            )}
+          </div>
+        </section>
+      )}
+      {money.data.purchases.length > 0 && (
+        <section aria-labelledby="status-purchases" className="space-y-2">
+          <h3 id="status-purchases" className="text-prism-eyebrow uppercase text-prism-ink-3">
+            {MONEY.purchases}
+          </h3>
+          <ul className="prism-slab divide-y divide-prism-line rounded-prism-13 px-[13px]">
+            {money.data.purchases.map(purchase => {
+              const url = purchase.txHash ? txUrl(purchase.txHash) : null;
+              return (
+                <li key={purchase.id} className="space-y-1 py-2">
+                  <p className="text-prism-label font-semibold text-prism-ink">{purchase.title}</p>
+                  <p className="text-prism-meta text-prism-ink-2">
+                    {[
+                      usdcDollarsLabel(purchase.amount),
+                      day(purchase.at),
+                      MONEY.purchaseState[purchase.state],
+                      purchase.accessUntil ? MONEY.purchaseUntil(day(purchase.accessUntil)!) : null,
+                    ]
+                      .filter(Boolean)
+                      .join(", ")}
+                  </p>
+                  <p className="flex flex-wrap gap-x-3">
+                    {url && (
+                      <a
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="prism-focus inline-flex min-h-touch items-center gap-1 text-prism-meta font-semibold text-prism-nav underline"
+                      >
+                        {MONEY.viewTx}
+                        <ExternalLink aria-hidden className="h-3.5 w-3.5" />
+                      </a>
+                    )}
+                    {purchase.storePolicyVersion !== null && (
+                      <a
+                        href={`${import.meta.env.VITE_LANDINGPAGE_URL}/${handle}/store/policy?v=${purchase.storePolicyVersion}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="prism-focus inline-flex min-h-touch items-center gap-1 text-prism-meta font-semibold text-prism-nav underline"
+                      >
+                        {MONEY.storePolicy(purchase.storePolicyVersion)}
+                        <ExternalLink aria-hidden className="h-3.5 w-3.5" />
+                      </a>
+                    )}
+                  </p>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
+    </>
   );
 }
 

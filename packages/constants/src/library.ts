@@ -165,7 +165,8 @@ export interface LibraryItem extends ContentCard {
 /** What opens a Shop item. Shop items carry no media URL (content criterion 9). */
 export type LibraryUnlockHint =
   | { kind: "join" | "rejoin"; planName: string | null }
-  | { kind: "buy"; amount: string }
+  /** FL-7: offerId starts the creator's payment sheet for the product */
+  | { kind: "buy"; amount: string; offerId?: string }
   | { kind: "pool" }
   /** FL-6: a follower rule and the fan reached the section through the pool, not a follow */
   | { kind: "follow" }
@@ -204,9 +205,12 @@ export interface LibraryCreatorHeader {
   connection: LibraryConnection;
   /** The status line: membership (FL-7), purchases (FL-7), follow settings */
   status: {
-    membership: null;
+    /** FL-7: the fan's newest membership with this creator, current or ended */
+    membership: LibraryMembershipStatus | null;
     purchases: { count: number };
     follow: { showPublicly: boolean; emailUpdates: boolean } | null;
+    /** FL-7: the creator's plan when it takes members, for Join or Rejoin */
+    plan: { name: string; amountEvery30Days: string } | null;
   };
   counts: { yours: number; shop: number };
 }
@@ -256,4 +260,74 @@ export function libraryThemeSummary(
     bodyFont: theme.fonts.body.family,
     background,
   };
+}
+
+// ---------------------------------------------------------------- money (FL-7, MB-3)
+
+/**
+ * One state per membership card on Library, Memberships (row 125, boards r1, mb-q1).
+ * Ordered past due, not covered, covered, then the rest. `active` means the wallet could
+ * not be read, so the card claims nothing about coverage.
+ */
+export const LIBRARY_MEMBERSHIP_STATES = [
+  "past_due",
+  "not_covered",
+  "covered",
+  "active",
+  "renewal_paused",
+  "ends",
+  "ended",
+] as const;
+export type LibraryMembershipState = (typeof LIBRARY_MEMBERSHIP_STATES)[number];
+
+export interface LibraryMembershipStatus {
+  id: string;
+  planName: string;
+  state: LibraryMembershipState;
+  accessUntil: string | null;
+  nextChargeAt: string | null;
+  graceDay: number | null;
+}
+
+export interface LibraryMembershipCard extends LibraryMembershipStatus {
+  owner: LibraryOwner;
+  interval: "every_30_days" | "yearly";
+  /** USDC units per period */
+  amount: string;
+  /** The access the next charge pays for runs to here, when the wallet covers it */
+  coveredThrough: string | null;
+  /** USDC units to add so the next charge goes through; null when nothing is short */
+  need: string | null;
+  /** The wallet has the USDC but the approval ran out: Join again renews it */
+  allowanceShort: boolean;
+  /** Charges the approval still covers; null when unread */
+  chargesLeft: number | null;
+  storePolicyVersion: number | null;
+  joinedAt: string;
+}
+
+/** A membership charge or a purchase, with its transaction on Base. */
+export interface LibraryReceipt {
+  at: string;
+  amount: string;
+  txHash: string;
+}
+
+export interface LibraryPurchaseRow {
+  id: string;
+  title: string;
+  amount: string;
+  at: string;
+  state: "pending" | "final" | "refunded";
+  txHash: string | null;
+  /** The store policy the fan was shown at purchase (store policy 3.6) */
+  storePolicyVersion: number | null;
+  /** Null is lifetime access */
+  accessUntil: string | null;
+}
+
+export interface LibraryCreatorMoney {
+  membership: LibraryMembershipCard | null;
+  receipts: LibraryReceipt[];
+  purchases: LibraryPurchaseRow[];
 }
