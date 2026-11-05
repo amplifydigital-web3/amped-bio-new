@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { ChipGroup, ParticlesLayer, ShaderLayer } from "@repo/ui";
+import { EffectVideo, effectVideoSrc } from "../kit/EffectVideo";
 import { isFeatureOn } from "../../../../config/featureFlags";
 import { DisclosureRow } from "../kit/DisclosureRow";
 import { OptionGrid, OptionTile } from "../kit/OptionTile";
@@ -23,9 +24,9 @@ import {
 // VITE_SHOW_THEME_V2; the v1 Particles row stays in MotionRows.tsx. Tiles draw
 // with the page's own particle layer (tsParticles v4), still until hovered,
 // focused or tapped, one live tile at a time (029 I02, decision 12).
-// Phase 3b: shader tiles paint their poster and run the shader only while
-// live, so at most one WebGL context runs in the row. TE-3g swaps the live
-// shader for a build time video on heavy tiles.
+// Phase 3b: shader tiles paint their poster. Phase 3g: while live they play
+// their build time video (kit/EffectVideo.tsx), so the row opens no WebGL
+// context; a shader with no video yet runs live, one at a time.
 // TE-3b, TE-3f: shader scenes and Showcase scenes join the grid with the flag
 const showcaseOn = isFeatureOn("themeShowcase");
 const TILES = sceneTilesFor(showcaseOn);
@@ -44,6 +45,7 @@ function SceneTileView({
   onLive: (key: string | null) => void;
 }) {
   const { config, values, locked, update, preview, endPreview } = useDesign();
+  const [videoFailed, setVideoFailed] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout>>();
   useEffect(() => () => clearTimeout(timer.current), []);
   const key = tile.effectId ?? String(tile.id);
@@ -80,13 +82,20 @@ function SceneTileView({
       art={
         <CreatorBackdrop background={config.background}>
           {isShaderTile(tile) ? (
-            <ShaderLayer
-              entry={tile.entry}
-              colors={colors}
-              showcase={showcaseOn}
-              paused={!live}
-              device="typical"
-            />
+            <>
+              <ShaderLayer
+                entry={tile.entry}
+                colors={colors}
+                showcase={showcaseOn && (!effectVideoSrc(tile.entry.id) || videoFailed)}
+                paused={!live}
+                device="typical"
+              />
+              <EffectVideo
+                id={tile.entry.id}
+                playing={live}
+                onUnavailable={() => setVideoFailed(true)}
+              />
+            </>
           ) : (
             tile.entry.id !== "scene.none" && (
               <ParticlesLayer entry={tile.entry} colors={colors} paused={!live} />

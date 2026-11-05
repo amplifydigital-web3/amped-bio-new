@@ -8,6 +8,7 @@ import { CreatorBackdrop } from "../kit/CreatorArt";
 import { useDesign } from "../kit/useDesign";
 import { ParamPanel } from "../kit/ParamStrip";
 import { CURSOR_TILES, cursorIndex, cursorPatch } from "../kit/cursorLook";
+import { EffectVideo, effectVideoSrc } from "../kit/EffectVideo";
 
 // Theme Engine v2 phase 3c (spec 3.5): the Cursor row, Motion tab, last row.
 // Shown with themeShowcase. A tile runs its effect while hovered or focused,
@@ -30,6 +31,7 @@ function CursorTile({
   onLive: (id: string | null) => void;
 }) {
   const { config, values, locked, update, preview, endPreview } = useDesign();
+  const [videoFailed, setVideoFailed] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout>>();
   useEffect(() => () => clearTimeout(timer.current), []);
   const colors = {
@@ -64,8 +66,19 @@ function CursorTile({
       art={
         <CreatorBackdrop background={config.background}>
           <span className="relative flex h-full w-full items-center justify-center">
-            {entry.id !== "cursor.none" && (
-              <CursorLayer entry={entry} colors={colors} showcase paused={!live} device="typical" />
+            {/* Phase 3g: Blob and Splash play their tile video; the light cursors run live */}
+            {effectVideoSrc(entry.id) && !videoFailed ? (
+              <EffectVideo id={entry.id} playing={live} onUnavailable={() => setVideoFailed(true)} />
+            ) : (
+              entry.id !== "cursor.none" && (
+                <CursorLayer
+                  entry={entry}
+                  colors={colors}
+                  showcase
+                  paused={!live}
+                  device="typical"
+                />
+              )
             )}
             <MousePointer2
               aria-hidden
