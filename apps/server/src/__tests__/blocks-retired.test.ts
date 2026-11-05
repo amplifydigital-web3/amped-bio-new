@@ -56,6 +56,7 @@ beforeEach(() => {
       type: "telegram_group",
       order: 0,
       clicks: 0,
+      accessRuleId: null,
       config: { label: "Join" },
     },
     {
@@ -64,6 +65,7 @@ beforeEach(() => {
       type: "text",
       order: 1,
       clicks: 0,
+      accessRuleId: null,
       config: { content: "Hi", platform: "text" },
     },
   ]);
@@ -77,6 +79,17 @@ describe("retired Telegram blocks", () => {
     ).rejects.toThrow(RETIRED_TELEGRAM_GROUP_NOTICE);
     await expect(
       caller.addBlock({ type: "telegram_message", order: 0, config: { label: "DM" } } as never)
+    ).rejects.toThrow("Add the Message me block instead.");
+    expect(db.block.create).not.toHaveBeenCalled();
+  });
+
+  it("refuses a retired type through editBlock, which creates a block for an unknown id", async () => {
+    const caller = blocksRouter.createCaller({ user: { sub: OWNER } } as never);
+    await expect(
+      caller.editBlock({ id: 999, type: "telegram_group", order: 0, config: {} } as never)
+    ).rejects.toThrow(RETIRED_TELEGRAM_GROUP_NOTICE);
+    await expect(
+      caller.editBlock({ id: 999, type: "telegram_message", order: 0, config: {} } as never)
     ).rejects.toThrow("Add the Message me block instead.");
     expect(db.block.create).not.toHaveBeenCalled();
   });

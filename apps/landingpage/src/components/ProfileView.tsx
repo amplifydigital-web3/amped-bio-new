@@ -217,7 +217,7 @@ export function ProfileView({
   const followState = useFollow(normalizedHandle, !!authUser, authPending || !followEnabled);
   const showRns = useFeatureFlag("rns");
   // Amped Messages (#2 r4, M6): the native Message me block; a telegram_message row not
-  // yet migrated renders as one too
+  // yet migrated renders as one too, and as nothing while the flag is off
   const messagesOn = useFeatureFlag("messages");
   // Theme Engine v2 (#28): the shared CreatorPage shell, staging first
   const themeV2 = useFeatureFlag("themeV2");
@@ -466,7 +466,9 @@ export function ProfileView({
             rnsUrl={process.env.NEXT_PUBLIC_RNS_URL}
           />
         )
-      ) : block.type === "message" || (messagesOn && block.type === "telegram_message") ? (
+      ) : block.type === "message" || block.type === "telegram_message" ? (
+        // With the messages flag off neither renders (a telegram_message row never falls
+        // through to the text block)
         messagesOn && (
           <MessageBlock
             block={block as { config: { label: string } }}

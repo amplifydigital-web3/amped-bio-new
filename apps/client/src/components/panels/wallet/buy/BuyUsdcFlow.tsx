@@ -98,17 +98,6 @@ function deviceWalletPay(): WalletPayMode {
   return androidWebView ? "google_pay" : "apple_pay";
 }
 
-/**
- * Inside the Telegram Mini App the Coinbase frame cannot run Apple Pay or
- * Google Pay (spec 3.7), so that lens is not rendered there.
- */
-function inTelegramMiniApp(): boolean {
-  if (typeof window === "undefined") return false;
-  const telegram = (window as unknown as { Telegram?: { WebApp?: { initData?: string } } })
-    .Telegram;
-  return !!telegram?.WebApp?.initData;
-}
-
 /** Coinbase's payment frame posts from its own origin only. */
 function fromCoinbase(origin: string): boolean {
   try {
@@ -193,7 +182,6 @@ export default function BuyUsdcFlow() {
   const [paymentLink, setPaymentLink] = useState<string | null>(null);
   const [frameLoaded, setFrameLoaded] = useState(false);
   const walletPayMode = useMemo(deviceWalletPay, []);
-  const miniApp = useMemo(inTelegramMiniApp, []);
   const amountRef = useRef(amount);
   amountRef.current = amount;
   const [prefill, setPrefill] = useState<{ amount: string; raisedToMinimum: boolean } | null>(null);
@@ -215,7 +203,7 @@ export default function BuyUsdcFlow() {
   });
   const effectiveRegion = region ?? options.data?.region ?? null;
   const accountPath = options.data?.paths.coinbase_account;
-  const walletPath = miniApp ? undefined : options.data?.paths[walletPayMode];
+  const walletPath = options.data?.paths[walletPayMode];
   const currency = options.data?.fiatCurrency ?? "USD";
   const cents = /^\d{1,7}(\.\d{1,2})?$/.test(amount.trim())
     ? Math.round(Number(amount.trim()) * 100)

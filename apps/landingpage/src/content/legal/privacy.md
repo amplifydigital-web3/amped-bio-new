@@ -1,6 +1,6 @@
 # Amped.Bio Privacy Policy
 
-Last updated: November 3, 2026
+Last updated: November 5, 2026
 
 This policy explains what personal information Amped.Bio collects, why, who receives it, and the choices you have. It applies to creators, fans and anyone who visits an Amped.Bio page.
 
@@ -13,7 +13,6 @@ This policy covers:
 - The Amped.Bio editor, account and wallet, including USDC on Base and Buy USDC through Coinbase
 - Public creator pages at amped.bio/handle and the public site (home page, pools, blog and developer docs)
 - Sign in with Amped.Bio, when you use your account to sign in to another app
-- The Amped.Bio bot on Telegram, when you link your Telegram account
 - Emails we send you, and notifications from Amped.Bio on your devices
 
 It does not cover the creator's own tools on their page, or apps you connect through Sign in with Amped.Bio. Those follow their own privacy policies.
@@ -32,6 +31,7 @@ When you create an account and build your page, we collect:
 - **X import:** if you import from X, the profile details you choose to bring in.
 - **Browser check:** a proof of work check on sign up and sign in to stop automated abuse. It runs on our own service and sets no cookies.
 - **Messages to us:** what you send to support.
+- **Broadcasts:** a creator can send a broadcast to the people who stake in their pool, the people who follow them, or both. Each person gets one copy in their Amped.Bio inbox, with a bell alert and, if you allow notifications on a device, a push notification. The creator sees how many people received it, read it and reported it, never who. We email you a broadcast only if you ticked email updates when you followed that creator, or opted in when you staked. We keep a record of who received each broadcast, whether you read or reported it, and when.
 - **Message notifications:** when you get a message on Amped.Bio, we add it to the bell in the app. If you allow notifications on a device, your browser gives us a push address for that device (a web address at your browser's push service and two keys that encrypt what we send) and the browser details it reports. We store them to notify you on that device. If a message is still unread after 30 minutes, we may email you a reminder that names the sender but never includes the message text. We store whether notifications and reminder emails are on, and which reminders we sent.
 
 If you verify your identity with Authbase, we receive your verification status and badge, and only the attributes you choose to share with Amped.Bio: your name as checked on your ID, whether you are over 18, your gender and your country. We never receive your date of birth. Only you can see those shared attributes unless you choose to show one. You can show each attribute on your own, while you are verified, by turning it on in your page's RNS ID block. Anyone who views your page or your RNS name can then see it. Others see only your verification status, and only where you choose to show it, plus the attributes you turned on.
@@ -100,65 +100,58 @@ Some Amped.Bio apps may skip the consent screen. They still appear in Connected 
 
 If you register an app as a developer, we store the app's name, website, redirect addresses and credentials.
 
-### Telegram
+### Telegram (ended)
 
-You can link your Telegram account in Account settings, under Connected apps. Linking uses Telegram's own sign in. We receive your Telegram user ID, your name, your username if you have one, and a link to your profile photo. We never receive your phone number, your contacts or your other chats. We store your username, name and photo link encrypted.
+Amped.Bio no longer works with Telegram. The Amped.Bio bot, Log In with Telegram, delivery to Telegram and Telegram group checks have stopped, and we receive nothing new from Telegram.
 
-We use the link to deliver updates from creators you follow to your Telegram, but only after you turn Get creator updates on Telegram on. Each time you turn it on or off we record the choice, when you made it and the policy version, with no IP address. Sending /stop to the bot turns it off for every creator.
+If you linked a Telegram account before then, we still hold what we stored for the link: your Telegram user ID, name, username and photo link (the username, name and photo link encrypted), and the history of your link and delivery choices. If a creator connected a Telegram group, we still hold the group membership records described in our earlier policy. We delete all of these when we remove the Telegram tables, and we keep nothing from them after that. To have yours deleted sooner, write to privacy@amped.bio.
 
-A creator never sees your Telegram username unless you turn on Let creators see my Telegram username. A creator who shows the Telegram mark on their page never shows their username either.
-
-When you message a creator through Amped.Bio, or a creator replies to you, we store the messages and show them in both inboxes on Amped.Bio. When the other side linked Telegram, the Amped.Bio bot also delivers a copy there. We do not read conversations unless one side reports one; then our staff read that conversation to review the report. We keep messages for 12 months after the last message in a conversation, then delete them.
-
-When a creator connects a Telegram group to Amped.Bio, the Amped.Bio bot checks who may join it. For each person who asks to join, joins or leaves that group, we store their Telegram user ID, whether it matches a linked Amped.Bio account, and when they were approved, declined or removed, with the reason. We store this even for people who never linked Telegram to Amped.Bio, because the bot needs it to apply the creator's rule. The creator sees counts only, never who. We delete these records when the creator disconnects the group or closes their account.
-
-Unlink at any time under Connected apps. Unlinking stops all Telegram delivery at once and deletes the link. Your messages stay in your Amped.Bio inbox. Telegram's own privacy policy covers how Telegram handles your messages.
+Messages you sent or received through Amped.Bio stay in your Amped.Bio inbox. Telegram's own privacy policy covers what Telegram holds.
 
 ## 7. How we use information and why
 
 We do not sell your personal information. We do not use it for our own advertising.
 
-| Use | Information | Legal basis (EU and UK) |
-| --- | --- | --- |
-| Provide your account, page, wallet and pools | Account, page, wallet and transaction data | Contract |
-| Keep accounts secure and stop abuse | Sessions, IP address, browser check, two factor | Legitimate interests |
-| Send account emails (verify, reset, security notices) | Email address | Contract |
-| Send RNS name expiry reminders | Email address, your RNS name and its expiry date | Contract |
-| Count visits for creators and measure the site | Cookieless visit data, Google Analytics in Consent Mode | Legitimate interests |
-| Show returning visitors | Random ID, Google Analytics cookies | Consent |
-| Creator tags and server side events | IP address, device, page events | Consent |
-| Sign in with Amped.Bio | What you allow on the consent screen | Consent and contract |
-| Link Telegram and deliver what you asked for there | Telegram user ID, name, username, photo link | Contract |
-| Creator updates on Telegram | Telegram user ID and your delivery choice | Consent |
-| Messages between fans and creators, and reports on them | Message text, who sent it and when, reports | Contract, legitimate interests for reports |
-| Message notifications: the bell, notifications on your devices and reminder emails | Push address and keys, browser details, the sender's name and handle, a short preview of the message on your device, your email address, your notification choices | Contract |
-| ndau conversion records | Addresses, amounts, signatures, terms hash | Contract and legal obligation |
-| Send and receive USDC, show your activity | Wallet address, amounts, addresses, transaction IDs | Contract |
-| Buy USDC through Coinbase | Wallet address, IP address, amount, region, random reference, Coinbase's order record, the encrypted Coinbase token | Contract |
-| Screen addresses against sanctions and risk lists | Wallet addresses, the vendor's result | Legal obligation and legitimate interests |
-| Written summaries for creators | Page totals, top sources, devices, visitor counts and up to 10 link names | Legitimate interests |
-| Meet legal duties and handle disputes | Any of the above as needed | Legal obligation, legitimate interests |
+| Use                                                                                | Information                                                                                                                                                        | Legal basis (EU and UK)                    |
+| ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------ |
+| Provide your account, page, wallet and pools                                       | Account, page, wallet and transaction data                                                                                                                         | Contract                                   |
+| Keep accounts secure and stop abuse                                                | Sessions, IP address, browser check, two factor                                                                                                                    | Legitimate interests                       |
+| Send account emails (verify, reset, security notices)                              | Email address                                                                                                                                                      | Contract                                   |
+| Send RNS name expiry reminders                                                     | Email address, your RNS name and its expiry date                                                                                                                   | Contract                                   |
+| Count visits for creators and measure the site                                     | Cookieless visit data, Google Analytics in Consent Mode                                                                                                            | Legitimate interests                       |
+| Show returning visitors                                                            | Random ID, Google Analytics cookies                                                                                                                                | Consent                                    |
+| Creator tags and server side events                                                | IP address, device, page events                                                                                                                                    | Consent                                    |
+| Sign in with Amped.Bio                                                             | What you allow on the consent screen                                                                                                                               | Consent and contract                       |
+| Broadcasts from creators you follow or stake with, and reports on them             | Your account, whether you follow or stake, your email choice for that creator, read and report status                                                              | Contract, legitimate interests for reports |
+| Broadcast emails                                                                   | Email address                                                                                                                                                      | Consent                                    |
+| Messages between fans and creators, and reports on them                            | Message text, who sent it and when, reports                                                                                                                        | Contract, legitimate interests for reports |
+| Message notifications: the bell, notifications on your devices and reminder emails | Push address and keys, browser details, the sender's name and handle, a short preview of the message on your device, your email address, your notification choices | Contract                                   |
+| ndau conversion records                                                            | Addresses, amounts, signatures, terms hash                                                                                                                         | Contract and legal obligation              |
+| Send and receive USDC, show your activity                                          | Wallet address, amounts, addresses, transaction IDs                                                                                                                | Contract                                   |
+| Buy USDC through Coinbase                                                          | Wallet address, IP address, amount, region, random reference, Coinbase's order record, the encrypted Coinbase token                                                | Contract                                   |
+| Screen addresses against sanctions and risk lists                                  | Wallet addresses, the vendor's result                                                                                                                              | Legal obligation and legitimate interests  |
+| Written summaries for creators                                                     | Page totals, top sources, devices, visitor counts and up to 10 link names                                                                                          | Legitimate interests                       |
+| Meet legal duties and handle disputes                                              | Any of the above as needed                                                                                                                                         | Legal obligation, legitimate interests     |
 
 ## 8. Who we share information with
 
-| Recipient | What they receive | Why |
-| --- | --- | --- |
-| netcup (Germany) | All service data: servers, MariaDB database and Redis cache | Host Amped.Bio |
-| Amazon Web Services (AWS S3) | Uploaded images and files | Store uploads |
-| SMTP2GO | Your email address and the message, including your RNS name and its expiry date when we send a name expiry reminder, and the sender's name and handle and how many messages wait when we send a message reminder (never the message text) | Send account emails from noreply@amped.bio |
-| Web3Auth | Sign in details needed for your wallet key | Create and secure your wallet |
-| Google | Sign in with Google data; Google Analytics measurements, and cookies with permission | Sign in; site measurement |
-| Anthropic | Page totals, top sources, devices, visitor counts and up to 10 link names | Write creator summaries |
-| Authbase | Your verification request | Identity badge, if you choose it |
-| Creator tools (Google Analytics, Meta, TikTok) | Visit events, IP address and device, with permission per creator | The creator's own analytics and ads |
-| Apps you connect with Sign in with Amped.Bio | What you allow on the consent screen | Sign you in to that app |
-| Coinbase (United States) | For Buy USDC: your wallet address, IP address, amount, region and a random reference. For USDC sends: the transfer you signed, which Coinbase submits | Sell and deliver USDC; submit your sends and pay the network fee |
-| Circle (United States) | Wallet addresses to screen | Sanctions and risk screening |
-| Chainalysis (sanctions oracle on Base) | Wallet addresses, checked on chain | Sanctions screening |
-| Your browser's push service: Google (Chrome and most Android browsers), Apple (Safari), Mozilla (Firefox) or Microsoft (Edge on Windows) | Your device's push address and each notification, encrypted so only your device can read it: the sender's handle and a short preview of the message, or "Sent you a message" for message requests and senders with 18+ content | Deliver notifications to your device, only if you allow them |
-| Telegram (United Arab Emirates and other locations) | Your Telegram user ID and the messages the bot sends you | Deliver what you asked for on Telegram |
-| The public, the Revolution Network and Base | Your public page, handle, wallet address, transactions, pools and the verification status you choose to show | Public by design |
-| Authorities, advisers, a buyer of the business | What the law requires or a transaction needs | Legal duties, rights, a sale or merger |
+| Recipient                                                                                                                                | What they receive                                                                                                                                                                                                                         | Why                                                              |
+| ---------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| netcup (Germany)                                                                                                                         | All service data: servers, MariaDB database and Redis cache                                                                                                                                                                               | Host Amped.Bio                                                   |
+| Amazon Web Services (AWS S3)                                                                                                             | Uploaded images and files                                                                                                                                                                                                                 | Store uploads                                                    |
+| SMTP2GO                                                                                                                                  | Your email address and the message, including your RNS name and its expiry date when we send a name expiry reminder, and the sender's name and handle and how many messages wait when we send a message reminder (never the message text) | Send account emails from noreply@amped.bio                       |
+| Web3Auth                                                                                                                                 | Sign in details needed for your wallet key                                                                                                                                                                                                | Create and secure your wallet                                    |
+| Google                                                                                                                                   | Sign in with Google data; Google Analytics measurements, and cookies with permission                                                                                                                                                      | Sign in; site measurement                                        |
+| Anthropic                                                                                                                                | Page totals, top sources, devices, visitor counts and up to 10 link names                                                                                                                                                                 | Write creator summaries                                          |
+| Authbase                                                                                                                                 | Your verification request                                                                                                                                                                                                                 | Identity badge, if you choose it                                 |
+| Creator tools (Google Analytics, Meta, TikTok)                                                                                           | Visit events, IP address and device, with permission per creator                                                                                                                                                                          | The creator's own analytics and ads                              |
+| Apps you connect with Sign in with Amped.Bio                                                                                             | What you allow on the consent screen                                                                                                                                                                                                      | Sign you in to that app                                          |
+| Coinbase (United States)                                                                                                                 | For Buy USDC: your wallet address, IP address, amount, region and a random reference. For USDC sends: the transfer you signed, which Coinbase submits                                                                                     | Sell and deliver USDC; submit your sends and pay the network fee |
+| Circle (United States)                                                                                                                   | Wallet addresses to screen                                                                                                                                                                                                                | Sanctions and risk screening                                     |
+| Chainalysis (sanctions oracle on Base)                                                                                                   | Wallet addresses, checked on chain                                                                                                                                                                                                        | Sanctions screening                                              |
+| Your browser's push service: Google (Chrome and most Android browsers), Apple (Safari), Mozilla (Firefox) or Microsoft (Edge on Windows) | Your device's push address and each notification, encrypted so only your device can read it: the sender's handle and a short preview of the message, or "Sent you a message" for message requests and senders with 18+ content            | Deliver notifications to your device, only if you allow them     |
+| The public, the Revolution Network and Base                                                                                              | Your public page, handle, wallet address, transactions, pools and the verification status you choose to show                                                                                                                              | Public by design                                                 |
+| Authorities, advisers, a buyer of the business                                                                                           | What the law requires or a transaction needs                                                                                                                                                                                              | Legal duties, rights, a sale or merger                           |
 
 Creators see totals for their own page. They do not see your IP address, your Amped.Bio account, or your browser ID.
 
@@ -166,46 +159,46 @@ Creators see totals for their own page. They do not see your IP address, your Am
 
 Creator pages and the public site set nothing in your browser until you choose, except where a line below says otherwise.
 
-| Name | Type | Set by | Purpose | Set when | Lifetime |
-| --- | --- | --- | --- | --- | --- |
-| `amped_consent_v2` | Local storage | Amped.Bio | Remembers your privacy choices | You make a choice | 24 months |
-| `amped_vid` | Local storage | Amped.Bio | Random ID for return visits | You allow Return visits | 24 months or until withdrawn |
-| `amped_sid` | Session storage | Amped.Bio | Groups events in one visit | You allow Return visits | Until the tab closes |
-| `amped_message_intent`, `amped_tg_link_prefs` | Session storage | Amped.Bio | Returns you to the creator you chose to message, with the Telegram choices you ticked | You tap Message me on Telegram | Until you return, or the tab closes |
-| `_ga`, `_ga_SK6H61G3S1` | Cookies | Google, for Amped.Bio | Recognise return visits in Google Analytics | You choose Accept all or allow Return visits | 24 months or until withdrawn |
-| Referral cookie | Cookie | Amped.Bio | Credits the creator if you sign up from their page | You tap Claim your own Amped.Bio | 30 days |
-| Sign in session cookies | Cookies | Amped.Bio | Keep you signed in | You sign in | Until you sign out, or 7 days after you last use Amped.Bio |
-| Creator tag cookies (Google, Meta, TikTok) | Cookies | Each provider, for the creator | The creator's own analytics and ads | You allow that creator's tags | Set by each provider |
-| Wallet key share | Local storage | Web3Auth | Keep your wallet available on this device | You use your wallet | Set by Web3Auth |
-| Service worker (`sw.js`) and push subscription | Service worker | Amped.Bio, with your browser's push service | Shows message notifications on this device and opens the conversation you tap. It stores no pages or data | You allow notifications in the Amped.Bio app | Until you turn notifications off or clear this site's data in your browser |
+| Name                                           | Type            | Set by                                      | Purpose                                                                                                   | Set when                                               | Lifetime                                                                   |
+| ---------------------------------------------- | --------------- | ------------------------------------------- | --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ | -------------------------------------------------------------------------- |
+| `amped_consent_v2`                             | Local storage   | Amped.Bio                                   | Remembers your privacy choices                                                                            | You make a choice                                      | 24 months                                                                  |
+| `amped_vid`                                    | Local storage   | Amped.Bio                                   | Random ID for return visits                                                                               | You allow Return visits                                | 24 months or until withdrawn                                               |
+| `amped_sid`                                    | Session storage | Amped.Bio                                   | Groups events in one visit                                                                                | You allow Return visits                                | Until the tab closes                                                       |
+| `amped_message_draft`                          | Session storage | Amped.Bio                                   | Keeps the message you started to a creator while you sign up or log in                                    | You write a message on a creator page while signed out | Until you return, or the tab closes                                        |
+| `_ga`, `_ga_SK6H61G3S1`                        | Cookies         | Google, for Amped.Bio                       | Recognise return visits in Google Analytics                                                               | You choose Accept all or allow Return visits           | 24 months or until withdrawn                                               |
+| Referral cookie                                | Cookie          | Amped.Bio                                   | Credits the creator if you sign up from their page                                                        | You tap Claim your own Amped.Bio                       | 30 days                                                                    |
+| Sign in session cookies                        | Cookies         | Amped.Bio                                   | Keep you signed in                                                                                        | You sign in                                            | Until you sign out, or 7 days after you last use Amped.Bio                 |
+| Creator tag cookies (Google, Meta, TikTok)     | Cookies         | Each provider, for the creator              | The creator's own analytics and ads                                                                       | You allow that creator's tags                          | Set by each provider                                                       |
+| Wallet key share                               | Local storage   | Web3Auth                                    | Keep your wallet available on this device                                                                 | You use your wallet                                    | Set by Web3Auth                                                            |
+| Service worker (`sw.js`) and push subscription | Service worker  | Amped.Bio, with your browser's push service | Shows message notifications on this device and opens the conversation you tap. It stores no pages or data | You allow notifications in the Amped.Bio app           | Until you turn notifications off or clear this site's data in your browser |
 
 ## 10. How long we keep information
 
-| Information | How long |
-| --- | --- |
-| Account, page and uploads | While your account is open, then deleted within 30 days of closing it, except what the law requires us to keep |
-| Sign in sessions | Until the session ends or expires |
-| Visit events | 25 months, then deleted or combined into totals |
-| Consent records (what you chose, when, policy version; no IP address) | 5 years |
-| Browser ID and Google Analytics cookies | Up to 24 months, or until you withdraw |
-| Wallet and transaction records, including USDC sends, USDC transfers and Buy USDC purchases | While your account is open, and 5 years after it closes, for disputes and legal duties |
-| Coinbase sign in token (Apple Pay and Google Pay) | 60 days, or until your account closes |
-| Refused address screenings | 5 years |
-| ndau conversion records | 7 years after the request |
-| Connected app records | Until you remove the app, then 30 days |
-| Telegram link | Until you unlink or close your account |
-| Telegram link and delivery choice history (no IP address) | 5 years |
-| Messages between fans and creators | 12 months after the last message in the conversation |
-| Push subscriptions (push address, keys and browser details) | Until you turn notifications off on that device, the push service reports it ended, or you close your account |
-| Bell notifications and your notification choices | While your account is open, then deleted within 30 days of closing it |
-| Notification and reminder email records (who, which conversation, when, and the result) | 30 days after the notification is sent or skipped |
-| Telegram group membership records (Telegram user ID, decisions and removals) | Until the creator disconnects the group or closes their account |
-| Support messages | 2 years |
-| Checkouts you started (the item, the creator, where you tapped Buy, any promoter code, and the status) | 30 days after the checkout ends, unless it became a purchase |
-| RNS name expiry reminders (your name, its expiry date, the reminder stage, the time of the reminder and how many sends failed) | While your account is open, then deleted within 30 days of closing it |
-| Locked item views and unlocks | 25 months |
-| Authbase age and seller check results (pass or fail, the reason and when the check ends) | While your account is open, then deleted within 30 days of closing it |
-| Under 18 reviews (that an age check showed under 18, and how we decided) | 5 years |
+| Information                                                                                                                    | How long                                                                                                       |
+| ------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------- |
+| Account, page and uploads                                                                                                      | While your account is open, then deleted within 30 days of closing it, except what the law requires us to keep |
+| Sign in sessions                                                                                                               | Until the session ends or expires                                                                              |
+| Visit events                                                                                                                   | 25 months, then deleted or combined into totals                                                                |
+| Consent records (what you chose, when, policy version; no IP address)                                                          | 5 years                                                                                                        |
+| Browser ID and Google Analytics cookies                                                                                        | Up to 24 months, or until you withdraw                                                                         |
+| Wallet and transaction records, including USDC sends, USDC transfers and Buy USDC purchases                                    | While your account is open, and 5 years after it closes, for disputes and legal duties                         |
+| Coinbase sign in token (Apple Pay and Google Pay)                                                                              | 60 days, or until your account closes                                                                          |
+| Refused address screenings                                                                                                     | 5 years                                                                                                        |
+| ndau conversion records                                                                                                        | 7 years after the request                                                                                      |
+| Connected app records                                                                                                          | Until you remove the app, then 30 days                                                                         |
+| Telegram link and its choice history, held from before Telegram ended                                                          | Until we remove the Telegram tables, or sooner on request                                                      |
+| Broadcast deliveries (who received it, read and report status)                                                                 | While the recipient's account is open, then deleted within 30 days of closing it                               |
+| Messages between fans and creators                                                                                             | 12 months after the last message in the conversation                                                           |
+| Push subscriptions (push address, keys and browser details)                                                                    | Until you turn notifications off on that device, the push service reports it ended, or you close your account  |
+| Bell notifications and your notification choices                                                                               | While your account is open, then deleted within 30 days of closing it                                          |
+| Notification and reminder email records (who, which conversation, when, and the result)                                        | 30 days after the notification is sent or skipped                                                              |
+| Telegram group membership records, held from before Telegram ended                                                             | Until we remove the Telegram tables, or sooner on request                                                      |
+| Support messages                                                                                                               | 2 years                                                                                                        |
+| Checkouts you started (the item, the creator, where you tapped Buy, any promoter code, and the status)                         | 30 days after the checkout ends, unless it became a purchase                                                   |
+| RNS name expiry reminders (your name, its expiry date, the reminder stage, the time of the reminder and how many sends failed) | While your account is open, then deleted within 30 days of closing it                                          |
+| Locked item views and unlocks                                                                                                  | 25 months                                                                                                      |
+| Authbase age and seller check results (pass or fail, the reason and when the check ends)                                       | While your account is open, then deleted within 30 days of closing it                                          |
+| Under 18 reviews (that an age check showed under 18, and how we decided)                                                       | 5 years                                                                                                        |
 
 On chain records on the Revolution Network and Base are permanent. We cannot delete them.
 

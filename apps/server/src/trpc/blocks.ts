@@ -96,6 +96,17 @@ export const blocksRouter = router({
   editBlock: privateProcedure.input(blockSchema).mutation(async ({ ctx, input }) => {
     const userId = ctx.user!.sub;
     const { id, type, order } = input;
+    // M8 review: editBlock creates a block when the id is not found, so it refuses the
+    // retired types the same way addBlock does
+    if (isRetiredBlockType(type)) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message:
+          type === "telegram_group"
+            ? RETIRED_TELEGRAM_GROUP_NOTICE
+            : "Add the Message me block instead.",
+      });
+    }
     const config = await keepOwnedContentIds(userId, type, sanitizeBlockConfig(type, input.config));
 
     try {
