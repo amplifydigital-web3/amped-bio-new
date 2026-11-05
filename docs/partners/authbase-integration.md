@@ -2,7 +2,7 @@
 
 Authbase integration specification
 
-**Draft 2 for Authbase review.** 5 November 2026. Prepared by Amped.Bio
+**Draft 3 for Authbase review.** 5 November 2026. Prepared by Amped.Bio
 for the Authbase engineering team.
 
 This document tells Authbase what to build so that Amped.Bio users can
@@ -107,7 +107,7 @@ members must turn on two factor.
 | Payout wallet    | A Base address that receives USDC. Prove control by signing a message from it. A second Owner approves. It takes effect 24 hours later. A Safe is supported (see 11). |
 | Products         | One per check. Title, short description, up to four feature lines, amount in USDC, status. Product code must match the check type on Authbase: STANDARD or ENHANCED.  |
 | Store policy     | Authbase's terms, privacy and refund policy, shown to the user on the pay sheet.                                                                                      |
-| Return URL       | Where Authbase sends the user after the check. Use https://app.staging.amped.bio/wallet/rns/{name}/identity?order={order_ref} on staging.                             |
+| Return URL       | Where Authbase sends the user after the check. Use https://app.staging.amped.bio/wallet?tab=rns&name={name}&view=identity&order={order_ref} on staging.               |
 | Webhook endpoint | HTTPS URL that receives events. The Console shows the signing secret once and lets you rotate it.                                                                     |
 | API keys         | Bearer keys for the Partner API. Shown once. Test keys work only on staging.                                                                                          |
 

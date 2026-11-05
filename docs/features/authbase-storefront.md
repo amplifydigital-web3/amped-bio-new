@@ -2,7 +2,7 @@
 
 Status: approved for build, 5 Nov 2026. M1 to M10 and AB-D1 decided by Rob; M11 built as recommended in AB-1 (reversible before merge); proposed positions on the Authbase questions adopted by Rob (section 7), pending Authbase's reply. Build Board #66 (Authbase storefront and USDC checkout).
 Owner: Rob Frasca. Drafted by Claude.
-Overview: `docs/overviews/authbase-storefront.md`. Partner spec for Authbase: `docs/partners/authbase-integration.md` (Draft 2).
+Overview: `docs/overviews/authbase-storefront.md`. Partner spec for Authbase: `docs/partners/authbase-integration.md` (Draft 3).
 Design: "Authbase storefront screens", https://claude.ai/artifact/4dSAoKNiC8S1ozwTnVhukP, Prism 2.2. Page Fan: s1 Identity storefront desktop, s2 phone, s3 status states, c1 pay sheet, c2 short balance, c3 paid. Page Authbase Merchant Console: p1 Overview, p2 Products, p3 Payout wallet, p4 Orders and refund, p5 Developers (p6 Team follows the p5 table pattern and is not drawn). Page Amped.Bio admin: a1 Money, Merchants. Amounts on every board are placeholders until Authbase sets prices.
 Builds on: AmpedPay spec (#50, approved 28 Oct), content and store spec 3.9 (split table, purchase flow), CK-5 pay sheet (PR #482), identity checks spec r3 (I1, seller gate), mobile checkout rules (24 Oct).
 Rule for this build (Rob, 5 Nov): an Authbase check is a paid content purchase with a different seller and a different fulfillment step. Reuse the paid content checkout on Base wherever it already does the job.
@@ -139,7 +139,7 @@ Only the payment moves into Amped.Bio. The rest is the flow that runs on staging
 2. The paid screen (c3) and the Identity tab show Continue to Authbase. It opens Authbase's Amped.Bio sign in entry in the same tab: `{AUTHBASE}/sso/amped?returnTo=/verify?order={order_ref}`. This is `authbaseSsoUrl()` in `rns/identity/catalog.ts`, with the order added.
 3. Authbase signs the fan in through Amped.Bio, as today. No new account and no wallet link step.
 4. On `/verify`, Authbase finds the paid order: from the `order.paid` webhook it already holds, or `GET /entitlements?wallet=`, or the `Paid` event on chain. It confirms the payer is the wallet of the signed in account, skips its own payment step, and runs the steps for the check bought (`product_code`).
-5. Authbase writes the ID on chain and sends the fan back to the return URL set in the Console: `app.amped.bio/wallet/rns/{name}/identity?order={order_ref}`.
+5. Authbase writes the ID on chain and sends the fan back to the return URL set in the Console: `app.amped.bio/wallet?tab=rns&name={name}&view=identity&order={order_ref}`.
 6. On return the tab runs `checkIdentity` with `fresh: true` and polls until the status reads VERIFIED. While the ID is not yet on chain it shows "Authbase is creating your ID on chain." The badge comes only from the status API.
 7. Authbase may report progress through `POST /orders/{order_ref}/fulfillment` (started, in_review, verified, not_passed). These update the order record and the Console. They never set the badge.
 
