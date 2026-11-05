@@ -870,8 +870,12 @@ enum BroadcastStatus {
   FAILED
 }
 
+// Amped Messages M9 (bc-audience): pool stakers, followers, or both. ALL_MEMBERS rows
+// became POOL_MEMBERS in 20261105120000_broadcast_audiences
 enum BroadcastAudienceKind {
-  ALL_MEMBERS
+  POOL_MEMBERS
+  FOLLOWERS
+  POOL_AND_FOLLOWERS
 }
 
 enum BroadcastEmailStatus {
@@ -895,13 +899,12 @@ enum BroadcastReportReason {
 model Broadcast {
   id                Int                   @id @default(autoincrement())
   creatorUserId     Int
+  // Set only when the audience includes the pool (M9)
   poolId            Int?
-  audienceKind      BroadcastAudienceKind @default(ALL_MEMBERS)
+  audienceKind      BroadcastAudienceKind @default(POOL_MEMBERS)
   title             String                @db.VarChar(120)
   body              String                @db.Text // Markdown subset, rendered with an allowlist
   sendEmail         Boolean               @default(false) // email arrives in phase 2
-  // Messaging on Telegram (Build Board #2): the creator ticked Telegram in the composer
-  sendTelegram      Boolean               @default(false)
   status            BroadcastStatus       @default(QUEUED)
   idempotencyKey    String                @db.VarChar(64)
   // Phrases the content check matched. Warn only: the creator confirmed and sent (Rob, 2026-10-04)
@@ -941,9 +944,6 @@ model BroadcastDelivery {
   emailAttempts     Int                     @default(0)
   providerMessageId String?                 @db.VarChar(255)
   emailSentAt       DateTime?
-  // Messaging on Telegram (Build Board #2), spec 3.3
-  telegramStatus    BroadcastTelegramStatus @default(NOT_ELIGIBLE)
-  tgMessageId       BigInt?
   readAt            DateTime?
   archivedAt        DateTime?
   createdAt         DateTime                @default(now())
@@ -1014,14 +1014,6 @@ model NotificationPreference {
 // Spec: docs/features/telegram-messaging.md, section 3.3. New entities use UUID v7 Binary(16).
 // Phase 0 (PR 1, foundation): link models, webhook idempotency, the outbox tables the
 // in process sender loop drains (spec decision 13). Thread and group models arrive in later PRs.
-
-enum BroadcastTelegramStatus {
-  NOT_ELIGIBLE
-  PENDING
-  SENT
-  FAILED
-  BLOCKED
-}
 
 model TelegramAccount {
   id                Bytes     @id @db.Binary(16)

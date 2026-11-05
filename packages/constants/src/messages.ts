@@ -339,6 +339,72 @@ export const MESSAGE_BANNED_PHRASES = [
 ] as const;
 
 /** Every Amped Messages string, for `pnpm run check:copy` (spec acceptance 13). */
+// ── Broadcast in Messages (M9, spec 8.6 and 9) ─────────────────────────
+
+export const BROADCAST_AUDIENCES = ["POOL_MEMBERS", "FOLLOWERS", "POOL_AND_FOLLOWERS"] as const;
+export type BroadcastAudience = (typeof BROADCAST_AUDIENCES)[number];
+
+/** True when the audience includes the creator's pool stakers. */
+export const audienceHasPool = (audience: BroadcastAudience) => audience !== "FOLLOWERS";
+
+/** `?audience=` on /inbox/broadcast/new */
+export const BROADCAST_AUDIENCE_PARAM: Record<string, BroadcastAudience> = {
+  pool: "POOL_MEMBERS",
+  followers: "FOLLOWERS",
+  both: "POOL_AND_FOLLOWERS",
+};
+
+/**
+ * True when a broadcast mentions the pool, staking or tREVO. The Testnet notice then
+ * shows in the preview and on the opened broadcast for every recipient (bc-pool-terms).
+ */
+export function broadcastMentionsPool(title: string, body: string): boolean {
+  return /\b(pool|pools|stake|stakes|staked|staking|staker|stakers|trevo|revo)\b/i.test(
+    `${title}\n${body}`
+  );
+}
+
+export const BROADCAST_UI = {
+  audience: {
+    POOL_MEMBERS: { label: "Pool stakers", line: "To pool stakers" },
+    FOLLOWERS: { label: "Followers", line: "To followers" },
+    POOL_AND_FOLLOWERS: { label: "Both", line: "To followers and pool stakers" },
+  },
+  audienceLegend: "Send to",
+  audienceHelp: {
+    POOL_MEMBERS: "Everyone with a stake in your pool.",
+    FOLLOWERS: "Everyone who follows you.",
+    POOL_AND_FOLLOWERS: "Followers and pool stakers. Someone who is both gets it once.",
+  },
+  noPool: "Create your pool to send to pool stakers.",
+  people: (n: number) => `${Number(n).toLocaleString()} ${n === 1 ? "person" : "people"}`,
+  sendTo: (n: number) => `Send to ${Number(n).toLocaleString()} ${n === 1 ? "person" : "people"}`,
+  total: (n: number) =>
+    `${Number(n).toLocaleString()} ${n === 1 ? "person gets" : "people get"} it in their Amped.Bio inbox.`,
+  emptyAudience: {
+    POOL_MEMBERS: "Nobody stakes in your pool yet.",
+    FOLLOWERS: "Nobody follows you yet.",
+    POOL_AND_FOLLOWERS: "Nobody follows you or stakes in your pool yet.",
+  },
+  quota: (n: number) => `${n} of 3 left today`,
+  dailyFull: "3 of 3 sent today. You can send again tomorrow.",
+  weeklyFull:
+    "10 of 10 this week. You can send again when a week has passed since your oldest one.",
+  firstSend: "Your first broadcast is reviewed by Amped before it sends.",
+  newBroadcast: "New broadcast",
+  received: "Received",
+  sent: "Sent",
+  sentEmpty: "No broadcasts yet. Send an update to your followers or pool stakers.",
+  receivedEmpty: "When you follow a creator or stake in their pool, their broadcasts arrive here.",
+  myPoolCard: {
+    title: "Broadcast",
+    body: "Send an update to the people who stake in your pool.",
+    last: "Last broadcast",
+    none: "You have not sent a broadcast yet.",
+    button: "Broadcast",
+  },
+} as const;
+
 export function collectMessageCopy(): string[] {
   return [
     ...Object.values(MESSAGE_RULE_LABELS),
@@ -348,6 +414,7 @@ export function collectMessageCopy(): string[] {
     MESSAGE_REMOVED_LABEL,
     DELETED_ACCOUNT_LABEL,
     ...collectStrings(MESSAGE_UI),
+    ...collectStrings(BROADCAST_UI),
   ];
 }
 

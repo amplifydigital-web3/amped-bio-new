@@ -17,7 +17,7 @@ import {
   trpc,
   type RouterOutputs,
 } from "@repo/ui";
-import { BROADCAST_FOOTER } from "@repo/constants";
+import { BROADCAST_FOOTER, BROADCAST_UI } from "@repo/constants";
 
 type Item = RouterOutputs["admin"]["broadcasts"]["reviewQueue"][number];
 type Tab = "review" | "flagged" | "reported" | "senders";
@@ -57,8 +57,10 @@ function BroadcastCard({
           {flags.length > 0 && <Badge variant="destructive">Flagged: {flags.join(", ")}</Badge>}
         </div>
         <p className="text-sm text-gray-600">
-          {item.creator.name} (@{item.creator.handle ?? "no handle"}, {item.creator.email}), pool{" "}
-          {item.pool?.name ?? item.pool?.id ?? "none"}. {new Date(item.createdAt).toLocaleString()}.{" "}
+          {item.creator.name} (@{item.creator.handle ?? "no handle"}, {item.creator.email}),{" "}
+          {BROADCAST_UI.audience[item.audienceKind].line.toLowerCase()}
+          {item.pool ? ` (${item.pool.name ?? item.pool.id})` : ""}.{" "}
+          {new Date(item.createdAt).toLocaleString()}.{" "}
           {item.status === "SENT"
             ? `${item.recipientCount} recipients`
             : `about ${item.recipientEstimate} members`}
@@ -81,7 +83,7 @@ function BroadcastCard({
 /**
  * Creator Pool Broadcast admin (Build Board #1): first-send review, flagged
  * sends (warn only, so these already reached members), reports, and senders with
- * pause and resume. The invite-only pilot ended in PR M2; every pool owner can send.
+ * pause and resume. The invite-only pilot ended in PR M2; every creator can send.
  */
 export function AdminBroadcasts() {
   const queryClient = useQueryClient();
@@ -265,7 +267,8 @@ export function AdminBroadcasts() {
           <CardHeader>
             <CardTitle className="text-lg">Senders</CardTitle>
             <p className="text-sm text-gray-600">
-              Every pool owner can send. A paused sender cannot send until you resume them.
+              Every creator can send to their followers and pool stakers. A paused sender cannot
+              send until you resume them.
             </p>
           </CardHeader>
           <CardContent className="space-y-4">
