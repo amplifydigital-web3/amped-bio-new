@@ -15,6 +15,9 @@ import {
 
 const mocks = vi.hoisted(() => ({ shelf: vi.fn(), item: vi.fn() }));
 
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn(), back: vi.fn() }),
+}));
 vi.mock("next/link", () => ({
   default: ({ href, children, ...props }: any) => (
     <a href={href} {...props}>
