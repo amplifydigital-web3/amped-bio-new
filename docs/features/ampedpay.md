@@ -54,7 +54,7 @@ The fan signs an authorization for an amount to AmpedPay. The API signs the spli
 Solidity 0.8.x, OpenZeppelin upgradeable contracts, transparent proxy. The ProxyAdmin is owned by the environment's Safe. Lives in `packages/contracts` (Foundry) in this repo (PR plan decision P2).
 
 ```
-struct Recipient { address to; uint16 bps; uint8 role; }   // role: 0 creator, 1 platform, 2 promoter, 3 partner
+struct Recipient { address to; uint16 bps; uint8 role; }   // role: 0 creator, 1 platform, 2 promoter, 3 partner, 4 merchant (M11, authbase-storefront.md 3.13)
 struct SplitTable {
   bytes32 paymentRef;      // Purchase id
   address payer;
@@ -109,6 +109,8 @@ Full amount refunds only (content spec decision 25). Promoter and partner shares
 | `paused` | false | pause, unpause | pause: `PAUSER_ROLE`; unpause: `DEFAULT_ADMIN_ROLE` |
 
 `PAUSER_ROLE` is held by the Safe and by one CDP Server Wallet account, the pauser, whose CDP policy allows only `pause()` on AmpedPay. The admin portal's Pause button calls it. Unpause always goes through the Safe.
+
+Merchant payments (M11, 5 Nov, `docs/features/authbase-storefront.md` 3.13): a split carries exactly one creator row or exactly one merchant row (role 4), never both. With a merchant row, the platform row may sit between `feeFloorBps` and `MAX_MERCHANT_FEE_BPS` = 2000. Without one, `MAX_FEE_BPS` = 1000 holds. `refund` treats the merchant row like the creator row.
 
 ### 3.3 Server settings (adjustable directly in the admin portal)
 

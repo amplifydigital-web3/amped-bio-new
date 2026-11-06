@@ -14,6 +14,7 @@ import { startContentSweeper } from "./services/content/state";
 import { startEdgeSync } from "./services/content/edge";
 import { startOnrampTokenPurge } from "./services/onramp/sessions";
 import { startRnsExpirySweeper } from "./services/rnsExpiry";
+import { startSellerOverrideSweeper } from "./services/identity/sellerOverride";
 import { startCheckoutIntentPurge } from "./services/checkout/intents";
 import { getGeoIpReader } from "./services/analytics/geoipDatabase";
 import { startFeatureFlagRefresh } from "./services/featureFlags";
@@ -58,6 +59,8 @@ startEdgeSync();
 startOnrampTokenPurge();
 // RNS name expiry emails: an hourly sweep, one email per name and stage
 startRnsExpirySweeper();
+// AB-6: seller override reminders and end notices (Build Board #66)
+startSellerOverrideSweeper();
 // Mobile checkout (Build Board #49): delete checkout intents 30 days after they end
 startCheckoutIntentPurge();
 // Access gating (Build Board #21, G6): nightly leak scan and the 25 month access event purge

@@ -127,6 +127,9 @@ function AppRouter() {
 
         {/* Amped Messages (#2 r4, M5): push and email links open /inbox/{conversationId} */}
         <Route path="/inbox/:conversationId" element={<InboxDeepLink />} />
+        {/* M9 (spec 8.6 item 5): New broadcast and an opened broadcast */}
+        <Route path="/inbox/broadcast/new" element={<BroadcastDeepLink />} />
+        <Route path="/inbox/broadcast/:broadcastId" element={<BroadcastDeepLink />} />
 
         {/* Fan Library (#26, FL-3): /library/search, /library/@handle and the item view.
           The Editor keeps these sub paths; /library itself is the /:panel route */}
@@ -180,6 +183,23 @@ function InboxDeepLink() {
   if (conversationId && /^[0-9a-f]{32}$/.test(conversationId)) params.set("c", conversationId);
   const query = params.toString();
   return <Navigate replace to={`/inbox${query ? `?${query}` : ""}`} />;
+}
+
+/**
+ * /inbox/broadcast/new?audience=pool opens the composer in Inbox, Broadcast, Sent;
+ * /inbox/broadcast/{id} opens that broadcast in Received.
+ */
+function BroadcastDeepLink() {
+  const { broadcastId } = useParams();
+  const location = useLocation();
+  const params = new URLSearchParams(location.search);
+  params.set("tab", "broadcast");
+  if (broadcastId && /^\d{1,10}$/.test(broadcastId)) params.set("b", broadcastId);
+  else {
+    params.set("view", "sent");
+    params.set("compose", "1");
+  }
+  return <Navigate replace to={`/inbox?${params.toString()}`} />;
 }
 
 // 081 I04, I05: any other path belongs to the public site. While the session

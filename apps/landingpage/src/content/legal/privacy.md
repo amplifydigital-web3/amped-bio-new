@@ -38,6 +38,7 @@ When you create an account and build your page, we collect:
 - **18+ creator setup:** if you turn on 18+ content, the custodian of records you name (name and address). We encrypt both at rest and give them only on a lawful request. We also keep the Adult Content Policy version you accepted and when you turned 18+ on or off.
 - **Performer releases:** if you appear in someone's 18+ content, the display name the creator gave you, the full legal name you type to sign (encrypted at rest), the options you chose, the filled release text and its hash, the time you signed and the time the creator countersigned, and the Over 18 result we received when you signed. We never store a copy of your ID; you confirm you gave it to the creator. A creator's release list shows the display name and status, never your legal name.
 - **Your Library:** when you are signed in, the items you save to your Library and when you saved them, and when you last opened each followed creator's section of your Library, so we can show what is new. Only you see them. Creators do not see what you saved or when you visited.
+- **Broadcasts:** a creator can send a broadcast to the people who stake in their pool, the people who follow them, or both. Each person gets one copy in their Amped.Bio inbox, with a bell alert and, if you allow notifications on a device, a push notification. The creator sees how many people received, read and reported it, never who. We email you a broadcast only if you ticked email updates when you followed that creator, or opted in when you staked. We keep a record of who received each broadcast, whether you read or reported it, and when.
 - **Message notifications:** when you get a message on Amped.Bio, we add it to the bell in the app. If you allow notifications on a device, your browser gives us a push address for that device (a web address at your browser's push service and two keys that encrypt what we send) and the browser details it reports. We store them to notify you on that device. If a message is still unread after 30 minutes, we may email you a reminder that names the sender but never includes the message text. We store whether notifications and reminder emails are on, and which reminders we sent.
 - **New items from creators:** when a creator you follow, or whose pool you stake in, posts an item you can open, we may add it to the bell in the app. If you chose Email me updates when you followed a creator, we may send you at most one email a day listing that creator's new items you can open. We store whether these alerts are on, for every creator or for one, and which emails we sent.
 
@@ -138,6 +139,8 @@ We do not sell your personal information. We do not use it for our own advertisi
 | Link Telegram and deliver what you asked for there | Telegram user ID, name, username, photo link | Contract |
 | Creator updates on Telegram | Telegram user ID and your delivery choice | Consent |
 | Messages between fans and creators, and reports on them | Message text, who sent it and when, reports | Contract, legitimate interests for reports |
+| Broadcasts from creators you follow or stake with, and reports on them | Your account, whether you follow or stake, your email choice for that creator, read and report status | Contract, legitimate interests for reports |
+| Broadcast emails | Email address | Consent |
 | Message notifications: the bell, notifications on your devices and reminder emails | Push address and keys, browser details, the sender's name and handle, a short preview of the message on your device, your email address, your notification choices | Contract |
 | New items from creators: bell alerts and the daily email | The creator's name and handle, item titles you can open, your email address, your alert and email choices | Contract for bell alerts, consent for the daily email |
 | ndau conversion records | Addresses, amounts, signatures, terms hash | Contract and legal obligation |
@@ -211,6 +214,7 @@ Creator pages and the public site set nothing in your browser until you choose, 
 | Telegram link | Until you unlink or close your account |
 | Telegram link and delivery choice history (no IP address) | 5 years |
 | Messages between fans and creators | 12 months after the last message in the conversation |
+| Broadcast deliveries (who received it, read and report status) | While the recipient's account is open, then deleted within 30 days of closing it |
 | Push subscriptions (push address, keys and browser details) | Until you turn notifications off on that device, the push service reports it ended, or you close your account |
 | Bell notifications and your notification choices | While your account is open, then deleted within 30 days of closing it |
 | Notification and reminder email records (who, which conversation or creator, when, and the result) | 30 days after the notification is sent or skipped |
