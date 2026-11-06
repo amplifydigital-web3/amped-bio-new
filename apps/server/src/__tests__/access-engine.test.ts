@@ -900,12 +900,13 @@ describe("member (G5, spec 3.3 and the memberships amendment)", () => {
       await eligibleUserIds({ kind: "member", params: { planId: PLAN } }, OWNER)
     ).toMatchObject({ userIds: [21, 22] });
     expect(state.memberWhere).toMatchObject({
+      planId: Buffer.from(PLAN, "hex"),
       creatorUserId: OWNER,
       fan: { block: "no" },
       OR: [
-        { status: "active" },
-        { status: "canceled" },
-        { status: "past_due" },
+        { status: "active", currentPeriodEnd: { gt: expect.any(Date) } },
+        { status: "canceled", currentPeriodEnd: { gt: expect.any(Date) } },
+        { status: "past_due", pastDueSince: { gt: expect.any(Date) } },
       ],
     });
     mem.plan = { ownerUserId: 99, status: "active", amountEvery30Days: 1n };
