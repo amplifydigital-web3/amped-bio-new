@@ -163,14 +163,14 @@ const envSchema = z.object({
   // Better Auth secret for authentication
   BETTER_AUTH_SECRET: z.string(),
 
-  // Redis Configuration
+  // Redis Configuration (Redis 6.2+ or DragonflyDB, both speak the same protocol)
   // Redis server host
   REDIS_HOST: z.string().default("localhost"),
   // Redis server port
   REDIS_PORT: portSchema(26379),
   // Redis authentication password
   REDIS_PASSWORD: z.string().default(""),
-  // Enable TLS connection for Redis (required for Upstash)
+  // Enable TLS connection for Redis (required for Upstash and Dragonfly Cloud)
   REDIS_TLS: boolSchema(false),
 
   // URL for the RNS subgraph to validate name ownership and expiry

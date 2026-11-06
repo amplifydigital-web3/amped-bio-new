@@ -462,7 +462,9 @@ let draining = false;
  */
 export const LOCK_OWNER = `${hostname()}:${process.pid}:${randomUUID()}`;
 
-// Extend the lock only while this process still owns it (atomic get and pexpire)
+// Extend the lock only while this process still owns it (atomic get and pexpire).
+// Every key the script touches must be passed in KEYS: DragonflyDB rejects scripts
+// that reach undeclared keys, unlike Redis.
 const REFRESH_LOCK_SCRIPT = `if redis.call("get", KEYS[1]) == ARGV[1] then
   return redis.call("pexpire", KEYS[1], ARGV[2])
 end

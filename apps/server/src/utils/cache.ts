@@ -1,6 +1,20 @@
 import type { Address } from "viem";
-import Redis from "ioredis";
+import Redis, { type RedisOptions } from "ioredis";
 import { env } from "../env";
+
+/**
+ * Connection settings shared by every client (cache and realtime subscriber).
+ * The server speaks plain RESP and only uses commands that Redis and DragonflyDB
+ * both implement, so `REDIS_*` can point at either. See docs/ops/dragonfly.md.
+ */
+export function redisConnectionOptions(): RedisOptions {
+  return {
+    host: env.REDIS_HOST,
+    port: env.REDIS_PORT,
+    password: env.REDIS_PASSWORD || undefined,
+    tls: env.REDIS_TLS ? {} : undefined,
+  };
+}
 
 let redisClient: Redis | null = null;
 
@@ -8,10 +22,7 @@ export function getRedisClient(): Redis | null {
   if (!redisClient) {
     try {
       redisClient = new Redis({
-        host: env.REDIS_HOST,
-        port: env.REDIS_PORT,
-        password: env.REDIS_PASSWORD || undefined,
-        tls: env.REDIS_TLS ? {} : undefined,
+        ...redisConnectionOptions(),
         maxRetriesPerRequest: 1,
         retryStrategy: () => null,
         commandTimeout: 3000,
@@ -293,17 +304,16 @@ class Cache {
   }
 
   /**
-   * Atomic read-and-delete (Redis GETDEL): the value is returned to exactly one
-   * caller, which is what single use tokens (OIDC state) need. Falls back to
-   * get + delete when the server does not support GETDEL.
+   * Atomic read-and-delete (GETDEL, Redis 6.2+ and DragonflyDB): the value is
+   * returned to exactly one caller, which is what single use tokens (OIDC state)
+   * need. Falls back to the in-memory cache when the server is unreachable.
    */
   async take<T>(key: string): Promise<T | null> {
     const redis = getRedisClient();
     if (redis) {
       try {
-        const value = await (redis as unknown as { getdel?: (k: string) => Promise<string | null> })
-          .getdel?.(key);
-        if (value === null || value === undefined) return null;
+        const value = await redis.getdel(key);
+        if (value === null) return null;
         try {
           return JSON.parse(value) as T;
         } catch {
