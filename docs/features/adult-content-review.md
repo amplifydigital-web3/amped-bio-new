@@ -724,6 +724,7 @@ Drafted for counsel. Nothing here is on a board as final text.
 
 ## Revision log
 
+- 2026-11-05: F1 built (`fix/content-adult-unlabel`). `explicitAt` set from a new `explicit` flag on the classifier callback; unlabel refused while set, else a READY item is held with `adult_label_removed`. Handoff `docs/fixes/content-adult-unlabel.md`.
 - 2026-11-03: Q8 answered by Rob: Twilio sends child safety SMS alerts (8.5). Secrets and the privacy processor entry added.
 
 - 2026-11-03: Revision 6. Content PR 7 split (16a): C7a builds the delivery stop; R1 gains the hash blocklist service, the evidence path and the alert channel; R2 gains Block this file, the delivery line and the Blocked files list; R3 gains the copyright desk (7.5), counter notices and repeat infringers. Case type Copyright, `TakedownRequest.kind`, `BlockedContentHash` columns, API, notifications, analytics, acceptance 28 to 32, Q8 and Q9. Boards ad2b, ad3b, ad6b, ar8, ar9, tk1, tk2.

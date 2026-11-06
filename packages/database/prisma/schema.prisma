@@ -1558,6 +1558,9 @@ model ContentItem {
   allowDownload    Boolean             @default(false) @map("allow_download")
   // Creator label 18+ (#28)
   adult            Boolean             @default(false)
+  // Set when the classifier returns explicit or a reviewer labels the item 18+ (#28 F1).
+  // While set, the owner can not turn the 18+ label off.
+  explicitAt       DateTime?           @map("explicit_at")
   moderationState  ModerationState     @default(PENDING) @map("moderation_state")
   moderationReason String?             @map("moderation_reason") @db.VarChar(255)
   durationMs       Int?                @map("duration_ms")

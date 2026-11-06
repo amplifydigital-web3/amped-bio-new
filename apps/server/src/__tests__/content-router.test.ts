@@ -525,3 +525,80 @@ describe("ownership and the rest", () => {
     });
   });
 });
+
+describe("the 18+ label after processing (#28 F1)", () => {
+  /** An item that finished processing with the 18+ label on. */
+  async function readyAdult(overrides: Record<string, unknown> = {}) {
+    const { publicId } = await owner.createUpload(audio);
+    const row = db.items.find(item => item.publicId === publicId)!;
+    Object.assign(row, {
+      status: "READY",
+      adult: true,
+      moderationState: "CLEAR",
+      explicitAt: null,
+      ...overrides,
+    });
+    return { publicId, row };
+  }
+
+  it("refuses to take the label off an item the classifier found explicit", async () => {
+    const { publicId, row } = await readyAdult({ explicitAt: new Date() });
+    expect((await owner.get({ publicId })).adultLocked).toBe(true);
+    await expect(owner.update({ publicId, adult: false })).rejects.toMatchObject({
+      code: "FORBIDDEN",
+      message: "A reviewer marked this 18+. Ask for a review if this is wrong.",
+    });
+    expect(row).toMatchObject({ adult: true, moderationState: "CLEAR" });
+    // Other edits still save
+    await owner.update({ publicId, title: "Late set" });
+    expect(row.title).toBe("Late set");
+  });
+
+  it("holds a READY item for review when the label comes off, so publish is refused", async () => {
+    const { publicId, row } = await readyAdult();
+    expect((await owner.get({ publicId })).adultLocked).toBe(false);
+    const updated = await owner.update({ publicId, adult: false });
+    expect(updated).toMatchObject({ adult: false, moderationState: "held" });
+    expect(row.moderationReason).toBe("adult_label_removed");
+    await expect(owner.publish({ publicId })).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+      message: "This item is in review. You can publish it once a reviewer clears it.",
+    });
+  });
+
+  it("leaves a still processing item to the classifier, and labeling on never holds", async () => {
+    const { publicId } = await owner.createUpload(audio);
+    const row = db.items.find(item => item.publicId === publicId)!;
+    Object.assign(row, { status: "PROCESSING", adult: true });
+    await owner.update({ publicId, adult: false });
+    expect(row).toMatchObject({ adult: false, moderationState: "PENDING" });
+
+    const ready = await readyAdult({ adult: false });
+    await owner.update({ publicId: ready.publicId, adult: true });
+    expect(ready.row).toMatchObject({ adult: true, moderationState: "CLEAR" });
+  });
+
+  it("refuses to publish an unlabeled item the classifier found explicit", async () => {
+    // The race the label lock alone does not close: the label came off while the
+    // queued job still ran with it on, so the item is CLEAR with no label.
+    const { publicId } = await readyAdult({ adult: false, explicitAt: new Date() });
+    await expect(owner.publish({ publicId })).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+      message:
+        "This item was found 18+. It needs the 18+ label and a review before it can be published.",
+    });
+  });
+
+  it("keeps the hold reason a reviewer already wrote when the label comes off", async () => {
+    const { publicId, row } = await readyAdult({
+      moderationState: "HELD",
+      moderationReason: "safety_review",
+    });
+    await owner.update({ publicId, adult: false });
+    expect(row).toMatchObject({
+      moderationState: "HELD",
+      moderationReason: "safety_review",
+      publishState: "DRAFT",
+    });
+  });
+});

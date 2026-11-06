@@ -117,7 +117,12 @@ import {
   reserveBytes,
   videoMinutesLeft,
 } from "../services/content/quota";
-import { assetRowId, enqueueVideoProcessing, failItem } from "../services/content/state";
+import {
+  ADULT_LABEL_REMOVED,
+  assetRowId,
+  enqueueVideoProcessing,
+  failItem,
+} from "../services/content/state";
 import { publishContentJob } from "../services/cloudflare/queue";
 import { fromDbKind, newContentPublicId, toDbKind } from "../services/content/ids";
 import { UPLOAD_VERIFICATION_MESSAGES } from "../services/uploadVerification";
@@ -152,6 +157,9 @@ const MESSAGES = {
   publishHeld: "This item is in review. You can publish it once a reviewer clears it.",
   publishNotClear: "This item is not cleared yet. A reviewer clears it before it can be published.",
   publishAdult: "18+ items can not be published yet.",
+  publishExplicit:
+    "This item was found 18+. It needs the 18+ label and a review before it can be published.",
+  adultLocked: "A reviewer marked this 18+. Ask for a review if this is wrong.",
   publishBlocked: "This item can not be published.",
   deleteBusy: "Wait until processing finishes, or cancel the upload.",
   restoreGone: "This item can no longer be restored.",
@@ -202,6 +210,8 @@ function ownerView(item: ContentItem) {
     moderationState: item.moderationState.toLowerCase() as "pending" | "clear" | "held" | "blocked",
     allowDownload: item.allowDownload,
     adult: item.adult,
+    // The classifier or a reviewer marked the item explicit: the 18+ switch is locked on (#28 F1)
+    adultLocked: item.explicitAt !== null,
     gated: item.accessRuleId !== null,
     previewConfig: item.previewConfig,
     chapters: item.chapters,
@@ -687,7 +697,25 @@ export const contentRouter = router({
         throw new TRPCError({ code: "FORBIDDEN", message: MESSAGES.ruleKind });
       }
     }
+    // #28 F1: the 18+ label can not come off an item found explicit. On an item with
+    // no explicitAt (processed before the column, or labeled before processing ran),
+    // taking the label off a READY item holds it for a reviewer, so an unlabeled item
+    // never reaches the public pages without a review.
+    const unlabel = input.adult === false && item.adult;
+    if (unlabel && item.explicitAt) {
+      throw new TRPCError({ code: "FORBIDDEN", message: MESSAGES.adultLocked });
+    }
+    const holdForReview =
+      unlabel && item.status === "READY" && item.moderationState !== "BLOCKED"
+        ? {
+            moderationState: "HELD" as const,
+            // Keep a hold reason a reviewer or the classifier already wrote
+            ...(item.moderationState === "HELD" ? {} : { moderationReason: ADULT_LABEL_REMOVED }),
+            publishState: "DRAFT" as const,
+          }
+        : {};
     const fields = {
+      ...holdForReview,
       ...(input.title !== undefined ? { title: input.title } : {}),
       ...(input.description !== undefined ? { description: input.description } : {}),
       ...(input.allowDownload !== undefined ? { allowDownload: input.allowDownload } : {}),
@@ -770,6 +798,13 @@ export const contentRouter = router({
     // public surface until the age gate lands (#28), so it never reaches the pages.
     if (item.adult) {
       throw new TRPCError({ code: "BAD_REQUEST", message: MESSAGES.publishAdult });
+    }
+    // #28 F1: an item the classifier or a reviewer marked explicit never reaches the
+    // public pages unlabeled, whatever order the writes arrived in (for example the
+    // label taken off while the queued job still ran with it on). A labeled one is
+    // the 18+ branch above.
+    if (item.explicitAt && !item.adult) {
+      throw new TRPCError({ code: "BAD_REQUEST", message: MESSAGES.publishExplicit });
     }
     if (item.moderationState !== "CLEAR") {
       throw new TRPCError({ code: "BAD_REQUEST", message: MESSAGES.publishNotClear });
