@@ -46,8 +46,14 @@ services:
     volumes:
       - s3mock_data:/data
 
+  # DragonflyDB: a Redis compatible in-memory store (drop-in for redis:7).
+  # The server reaches it through the REDIS_* variables (port 26379).
   redis:
-    image: redis:7-alpine
+    image: ghcr.io/dragonflydb/dragonfly:v2.1.0
+    # Dragonfly needs 256 MiB per thread; two threads keep it inside small dev VMs
+    command: ["--proactor_threads=2", "--dir", "/data", "--dbfilename", "dump"]
+    ulimits:
+      memlock: -1
     ports:
       - "26379:6379"
     volumes:

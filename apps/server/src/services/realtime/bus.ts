@@ -1,7 +1,6 @@
 import Redis from "ioredis";
 import { EventEmitter } from "node:events";
-import { env } from "../../env";
-import { getRedisClient } from "../../utils/cache";
+import { getRedisClient, redisConnectionOptions } from "../../utils/cache";
 
 /**
  * Realtime bus (Build Board #2 r4, PR M3, spec 7.3 item 1). One Redis pub/sub channel per
@@ -59,10 +58,7 @@ function getSubscriber(): Redis | null {
     // A connection in subscribe mode can run no other command, so it is its own client.
     // It reconnects (unlike the cache client) because a stream outlives one blip.
     subscriber = new Redis({
-      host: env.REDIS_HOST,
-      port: env.REDIS_PORT,
-      password: env.REDIS_PASSWORD || undefined,
-      tls: env.REDIS_TLS ? {} : undefined,
+      ...redisConnectionOptions(),
       maxRetriesPerRequest: null,
       retryStrategy: times => Math.min(times * 500, 5000),
       connectTimeout: 3000,
