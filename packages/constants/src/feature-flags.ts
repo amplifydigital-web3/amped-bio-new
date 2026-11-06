@@ -289,6 +289,14 @@ export const FEATURE_FLAGS = {
     default: false,
     env: { server: "ACCESS_GATING_ENABLED" },
   },
+  adultContent: {
+    label: "18+ content",
+    description:
+      "18+ items open to fans who pass the Over 18 check: the Adult items card, the 18+ shelf and item pages, and publishing 18+ by creators who pass Over 18 and verified seller. Keep off until the safety queue, adult setup and review before publish ship (#28 R1 to R5).",
+    scope: "public",
+    default: false,
+    env: {},
+  },
   themeSharing: {
     label: "Theme sharing",
     description:

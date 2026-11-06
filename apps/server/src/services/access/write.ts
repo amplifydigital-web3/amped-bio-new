@@ -92,6 +92,8 @@ export async function ownerAccess(ruleId: Uint8Array | null) {
     kind: rule.kind,
     summary: ACCESS_RULE_SUMMARIES[rule.kind],
     name: row?.name ?? null,
+    // G6: the early access date ("Open to everyone on")
+    opensToAllAt: rule.opensToAllAt?.toISOString() ?? null,
     params: rule.params,
     leaves: leaves.filter((leaf): leaf is NonNullable<typeof leaf> => leaf !== null),
   };
