@@ -7,6 +7,7 @@ import { trpcClient } from "@repo/ui";
 import { queryClient, useAuth } from "@repo/ui";
 import { type Address } from "viem";
 import { clearWalletBrowserState, isWalletMismatch } from "../utils/walletSession";
+import { clearDevice } from "@/components/panels/library/downloads/store";
 
 export const MetaMaskWalletProvider = ({ children }: { children: ReactNode }) => {
   const { authUser, signOut } = useAuth();
@@ -64,6 +65,8 @@ export const MetaMaskWalletProvider = ({ children }: { children: ReactNode }) =>
     // before it would leave whatever the sign out writes behind
     await signOut();
     clearWalletBrowserState();
+    // Fan Library FL-5: offline copies belong to the account that signed out
+    await clearDevice().catch(() => {});
     queryClient.clear();
   }, [wallet, signOut]);
 

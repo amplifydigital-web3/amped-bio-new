@@ -19,6 +19,11 @@ import {
   librarySaveSchema,
   librarySavedSchema,
   librarySearchSchema,
+  libraryDownloadsCheckSchema,
+  libraryDownloadsSchema,
+  libraryMarkDownloadedSchema,
+  libraryRecordDownloadSchema,
+  libraryRemoveDownloadSchema,
 } from "@repo/constants";
 import { privateProcedure, router, type Context } from "./trpc";
 import { isFeatureOn } from "../services/featureFlags";
@@ -37,6 +42,14 @@ import {
   librarySearch,
   libraryUnsave,
 } from "../services/library/library";
+import {
+  DownloadRefused,
+  checkDownloads,
+  listDownloads,
+  markDownloaded,
+  recordDownload,
+  removeDownload,
+} from "../services/library/downloads";
 import type { LibraryViewer } from "../services/library/access";
 import {
   libraryCreatorMoney,
@@ -51,7 +64,30 @@ export const LIBRARY_MESSAGES = {
   rate: "Too many requests. Try again in a minute.",
   notFound: "This item is not available.",
   creatorNotFound: "This page is not available.",
+  downloadsOff: "The creator does not allow downloads for this item.",
+  downloadNotReady: "This item is not ready to download yet. Try again later.",
+  downloadCap: "You reached today's downloads for this item. Try again tomorrow.",
+  unknownDownload: "This download is not on this device.",
 } as const;
+
+/** FL-5: a refused download as the error the app shows. */
+function downloadError(error: unknown): never {
+  if (error instanceof DownloadRefused) {
+    switch (error.reason) {
+      case "downloadsOff":
+        throw new TRPCError({ code: "FORBIDDEN", message: LIBRARY_MESSAGES.downloadsOff });
+      case "notReady":
+        throw new TRPCError({ code: "NOT_FOUND", message: LIBRARY_MESSAGES.downloadNotReady });
+      case "cap":
+        throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: LIBRARY_MESSAGES.downloadCap });
+      case "unknownRecord":
+        throw new TRPCError({ code: "NOT_FOUND", message: LIBRARY_MESSAGES.unknownDownload });
+      default:
+        throw new TRPCError({ code: "NOT_FOUND", message: LIBRARY_MESSAGES.notFound });
+    }
+  }
+  throw error;
+}
 
 /**
  * The flag guard and the per account limit, before any read. Returns the
@@ -181,4 +217,59 @@ export const libraryRouter = router({
     }
     return libraryCreatorMoney(viewer.userId, creator.id);
   }),
+
+  // ------------------------------------------------------------ FL-5 downloads
+
+  /** The copies this installed app keeps (board m10). */
+  downloads: privateProcedure.input(libraryDownloadsSchema).query(async ({ ctx, input }) => {
+    const viewer = await begin(ctx, "read");
+    return listDownloads(viewer, input.device);
+  }),
+
+  /** Starts a download: the record and a single use file link (decision C). */
+  recordDownload: privateProcedure
+    .input(libraryRecordDownloadSchema)
+    .mutation(async ({ ctx, input }) => {
+      const viewer = await begin(ctx, "save");
+      try {
+        return await recordDownload(viewer, input.publicId, input.device);
+      } catch (error) {
+        downloadError(error);
+      }
+    }),
+
+  /** The app saved the file; the size feeds the storage line. */
+  markDownloaded: privateProcedure
+    .input(libraryMarkDownloadedSchema)
+    .mutation(async ({ ctx, input }) => {
+      const viewer = await begin(ctx, "save");
+      try {
+        return await markDownloaded(viewer.userId, input.id, input.bytes);
+      } catch (error) {
+        downloadError(error);
+      }
+    }),
+
+  /** The fan removed a copy (swipe, Remove, Clear all). */
+  removeDownload: privateProcedure
+    .input(libraryRemoveDownloadSchema)
+    .mutation(async ({ ctx, input }) => {
+      const viewer = await begin(ctx, "save");
+      try {
+        return await removeDownload(viewer.userId, input.id);
+      } catch (error) {
+        downloadError(error);
+      }
+    }),
+
+  /**
+   * The sync check (spec 3.5): which copies the fan may still open. A mutation,
+   * because it closes the records it finds the fan may no longer keep.
+   */
+  downloadsCheck: privateProcedure
+    .input(libraryDownloadsCheckSchema)
+    .mutation(async ({ ctx, input }) => {
+      const viewer = await begin(ctx, "read");
+      return checkDownloads(viewer, input.device, input.ids);
+    }),
 });

@@ -6,7 +6,7 @@
 import { useEffect } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { ChevronLeft } from "lucide-react";
-import { Button } from "@repo/ui";
+import { Button, useAuth } from "@repo/ui";
 import { LIBRARY_COPY } from "./copy";
 import { LIBRARY_PATHS, parseLibraryPath } from "./paths";
 import { LibraryHome } from "./LibraryHome";
@@ -14,12 +14,17 @@ import { LibrarySearch } from "./LibrarySearch";
 import { YourCreatorsPage } from "./YourCreators";
 import { SavedPage } from "./SavedPage";
 import { ItemView } from "./ItemView";
+import { DownloadItemView, DownloadsPage } from "./downloads/DownloadsPage";
+import { downloadsApi } from "./downloads/api";
+import { useOnline } from "./downloads/OfflineDownloads";
 import { CreatorSection } from "./CreatorSection";
 import { MembershipsPage } from "./MembershipsPage";
 
 export function LibraryPanel() {
   const { pathname } = useLocation();
   const route = parseLibraryPath(pathname) ?? { view: "home" as const };
+  const { authUser } = useAuth();
+  const online = useOnline();
 
   useEffect(() => {
     document.getElementById("editor-content")?.scrollTo?.({ top: 0 });
@@ -32,6 +37,12 @@ export function LibraryPanel() {
       {route.view === "search" && <LibrarySearch />}
       {route.view === "creators" && <YourCreatorsPage />}
       {route.view === "saved" && <SavedPage />}
+      {route.view === "downloads" && authUser && (
+        <DownloadsPage account={authUser.id} online={online} api={downloadsApi} />
+      )}
+      {route.view === "download" && authUser && (
+        <DownloadItemView account={authUser.id} publicId={route.publicId} online={online} />
+      )}
       {route.view === "memberships" && <MembershipsPage />}
       {route.view === "creator" && <CreatorSection handle={route.handle} />}
       {route.view === "item" && <ItemView handle={route.handle} publicId={route.publicId} />}
