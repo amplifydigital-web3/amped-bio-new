@@ -48,7 +48,12 @@ import {
   type ContentUploadKind,
 } from "@repo/constants";
 import { privateProcedure, publicProcedure, router } from "./trpc";
-import { adultOpen, creatorAdultBlocker, viewerAdultRefusal } from "../services/content/adult";
+import {
+  adultOpen,
+  canViewAdult,
+  creatorAdultBlocker,
+  viewerAdultRefusal,
+} from "../services/content/adult";
 import { env } from "../env";
 import { hitRateLimit } from "../utils/rateLimit";
 import { uuidv7 } from "../utils/uuid-v7";
@@ -1187,7 +1192,10 @@ export const contentRouter = router({
       item &&
       (isPublicItem(item, item.user) ||
         (isFeatureOn("accessGating") && isListedItem(item, item.user)));
-    if (!item || (!visible && item.userId !== viewerId)) {
+    // An 18+ item is reportable on the 18+ pages by a fan who passed the check
+    // (adult content review 9, PR A1); without the pass it does not exist for them.
+    const adultVisible = item?.adult === true && (await canViewAdult(viewerId));
+    if (!item || (!visible && !adultVisible && item.userId !== viewerId)) {
       throw new TRPCError({ code: "NOT_FOUND", message: VIEWER_MESSAGES.notFound });
     }
     await prisma.contentReport.create({

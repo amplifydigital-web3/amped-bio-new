@@ -18,6 +18,7 @@ Turn it on only after the safety queue, adult setup and review before publish sh
 - With accessGating on, the engine's age step already decides (it calls `checkIdentity`). The content resolver now marks 18+ unavailable to non owners while the flag is off.
 - `content.publish` on an 18+ item: refused while the flag is off; with it on, refused unless the creator passes Over 18 and seller. `content.update` turning the label on asks the same once the flag is on.
 - `handle.getHandle` returns `hasAdult`: true when the page has a listed 18+ item and the flag is on. No title, cover or count.
+- `content.report` accepts an 18+ item from a fan who passed the check, so the Report button on the 18+ shelf and item page works. Without the pass the item does not exist for them. R3 adds the 18+ report reasons.
 - Public reads are unchanged: `PUBLIC_ITEM_WHERE` and `LISTED_ITEM_WHERE` keep `adult: false`, so server HTML, the sitemap, `llms.txt`, share tags, email, push and Telegram stay 18+ free.
 
 ### App host (`apps/client`)
