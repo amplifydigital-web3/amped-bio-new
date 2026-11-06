@@ -24,6 +24,9 @@ export const IDENTITY_FAIL_REASONS = [
   "name_expired",
   // Seller only: the name's owner or resolver address is not the wallet
   "name_not_bound",
+  // Seller only: verified with Standard; selling needs Enhanced unless an Amped.Bio admin set an
+  // override (M10, docs/features/authbase-storefront.md 3.2b)
+  "needs_enhanced",
   // Authbase or the chain could not be read, or Authbase is not configured. Never passes.
   "unavailable",
 ] as const;
@@ -32,8 +35,14 @@ export type IdentityFailReason = (typeof IDENTITY_FAIL_REASONS)[number];
 export type IdentityTier = "STANDARD" | "ENHANCED";
 
 export type IdentityCheckResult =
-  | { pass: true; validUntil: Date; tier: IdentityTier }
+  /** overrideUntil: a seller pass on Standard that an Amped.Bio admin allowed until this date */
+  | { pass: true; validUntil: Date; tier: IdentityTier; overrideUntil?: Date }
   | { pass: false; reason: IdentityFailReason };
+
+/** The longest an admin can allow a creator to sell with Standard (M10). */
+export const SELLER_OVERRIDE_MAX_DAYS = 365;
+/** The creator gets a reminder this long before an override ends. */
+export const SELLER_OVERRIDE_REMINDER_MS = 7 * 24 * 60 * 60 * 1000;
 
 /** A pass is reused until the earlier of its valid until date and this long after the check. */
 export const IDENTITY_PASS_CACHE_MS = 24 * 60 * 60 * 1000;

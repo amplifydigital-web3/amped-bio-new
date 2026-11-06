@@ -39,11 +39,23 @@ import {
   contentReportSchema,
   contentRetrySchema,
   contentPreviewSchema,
+  CONTENT_REPORT_FORM,
+  contentAdultItemSchema,
+  contentAdultShelfSchema,
+  type ContentAdultItem,
+  type ContentAdultShelf,
   type AccessDecision,
   type ContentPreview,
   type ContentUploadKind,
 } from "@repo/constants";
 import { privateProcedure, publicProcedure, router } from "./trpc";
+import { intakeReport } from "../services/safety/reports";
+import {
+  adultOpen,
+  canViewAdult,
+  creatorAdultBlocker,
+  viewerAdultRefusal,
+} from "../services/content/adult";
 import { env } from "../env";
 import { hitRateLimit } from "../utils/rateLimit";
 import { uuidv7 } from "../utils/uuid-v7";
@@ -117,7 +129,12 @@ import {
   reserveBytes,
   videoMinutesLeft,
 } from "../services/content/quota";
-import { assetRowId, enqueueVideoProcessing, failItem } from "../services/content/state";
+import {
+  ADULT_LABEL_REMOVED,
+  assetRowId,
+  enqueueVideoProcessing,
+  failItem,
+} from "../services/content/state";
 import { publishContentJob } from "../services/cloudflare/queue";
 import { fromDbKind, newContentPublicId, toDbKind } from "../services/content/ids";
 import { UPLOAD_VERIFICATION_MESSAGES } from "../services/uploadVerification";
@@ -152,6 +169,12 @@ const MESSAGES = {
   publishHeld: "This item is in review. You can publish it once a reviewer clears it.",
   publishNotClear: "This item is not cleared yet. A reviewer clears it before it can be published.",
   publishAdult: "18+ items can not be published yet.",
+  publishExplicit:
+    "This item was found 18+. It needs the 18+ label and a review before it can be published.",
+  adultLocked: "A reviewer marked this 18+. Ask for a review if this is wrong.",
+  adultNeedsAge: "18+ needs your own Over 18 check. Pass it in Authbase, then try again.",
+  adultNeedsSeller: "18+ needs a verified seller. Finish Get paid, then try again.",
+  adultCheckDown: "We could not check your account right now. Try again in a minute.",
   publishBlocked: "This item can not be published.",
   deleteBusy: "Wait until processing finishes, or cancel the upload.",
   restoreGone: "This item can no longer be restored.",
@@ -202,6 +225,8 @@ function ownerView(item: ContentItem) {
     moderationState: item.moderationState.toLowerCase() as "pending" | "clear" | "held" | "blocked",
     allowDownload: item.allowDownload,
     adult: item.adult,
+    // The classifier or a reviewer marked the item explicit: the 18+ switch is locked on (#28 F1)
+    adultLocked: item.explicitAt !== null,
     gated: item.accessRuleId !== null,
     previewConfig: item.previewConfig,
     chapters: item.chapters,
@@ -231,6 +256,20 @@ function ownerView(item: ContentItem) {
 // ----------------------------------------------------------------------------
 
 const ruleHex = (id: Uint8Array) => Buffer.from(id).toString("hex");
+
+/** Refuses unless the creator passes Over 18 and verified seller (decision A2). */
+async function requireAdultCreator(userId: number): Promise<void> {
+  const blocker = await creatorAdultBlocker(userId);
+  if (blocker === "age") {
+    throw new TRPCError({ code: "FORBIDDEN", message: MESSAGES.adultNeedsAge });
+  }
+  if (blocker === "seller") {
+    throw new TRPCError({ code: "FORBIDDEN", message: MESSAGES.adultNeedsSeller });
+  }
+  if (blocker === "unavailable") {
+    throw new TRPCError({ code: "SERVICE_UNAVAILABLE", message: MESSAGES.adultCheckDown });
+  }
+}
 
 async function findOwnedItem(publicId: string, userId: number): Promise<ContentItem> {
   const item = await prisma.contentItem.findUnique({ where: { publicId } });
@@ -687,7 +726,29 @@ export const contentRouter = router({
         throw new TRPCError({ code: "FORBIDDEN", message: MESSAGES.ruleKind });
       }
     }
+    // #28 F1: the 18+ label can not come off an item found explicit. On an item with
+    // no explicitAt (processed before the column, or labeled before processing ran),
+    // taking the label off a READY item holds it for a reviewer, so an unlabeled item
+    // never reaches the public pages without a review.
+    const unlabel = input.adult === false && item.adult;
+    if (unlabel && item.explicitAt) {
+      throw new TRPCError({ code: "FORBIDDEN", message: MESSAGES.adultLocked });
+    }
+    // Decision A2: once 18+ can open, labeling needs the creator's own passes
+    if (input.adult === true && !item.adult && adultOpen()) {
+      await requireAdultCreator(item.userId);
+    }
+    const holdForReview =
+      unlabel && item.status === "READY" && item.moderationState !== "BLOCKED"
+        ? {
+            moderationState: "HELD" as const,
+            // Keep a hold reason a reviewer or the classifier already wrote
+            ...(item.moderationState === "HELD" ? {} : { moderationReason: ADULT_LABEL_REMOVED }),
+            publishState: "DRAFT" as const,
+          }
+        : {};
     const fields = {
+      ...holdForReview,
       ...(input.title !== undefined ? { title: input.title } : {}),
       ...(input.description !== undefined ? { description: input.description } : {}),
       ...(input.allowDownload !== undefined ? { allowDownload: input.allowDownload } : {}),
@@ -766,10 +827,22 @@ export const contentRouter = router({
     if (item.moderationState === "HELD") {
       throw new TRPCError({ code: "BAD_REQUEST", message: MESSAGES.publishHeld });
     }
-    // Only a READY, CLEAR, non 18+ item publishes (spec 3.10). 18+ stays off every
-    // public surface until the age gate lands (#28), so it never reaches the pages.
+    // 18+ publishes only while the adultContent flag is on, and only for a creator
+    // with their own Over 18 and seller passes (identity checks 4.1, decision A2).
+    // A published 18+ item still never reaches a public surface: it opens on the
+    // signed in shelf after the viewer's Over 18 pass (identity checks 4.4).
     if (item.adult) {
-      throw new TRPCError({ code: "BAD_REQUEST", message: MESSAGES.publishAdult });
+      if (!adultOpen()) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: MESSAGES.publishAdult });
+      }
+      await requireAdultCreator(item.userId);
+    }
+    // #28 F1: an item the classifier or a reviewer marked explicit never reaches the
+    // public pages unlabeled, whatever order the writes arrived in (for example the
+    // label taken off while the queued job still ran with it on). A labeled one is
+    // the 18+ branch above.
+    if (item.explicitAt && !item.adult) {
+      throw new TRPCError({ code: "BAD_REQUEST", message: MESSAGES.publishExplicit });
     }
     if (item.moderationState !== "CLEAR") {
       throw new TRPCError({ code: "BAD_REQUEST", message: MESSAGES.publishNotClear });
@@ -1065,9 +1138,48 @@ export const contentRouter = router({
   }),
 
   /**
-   * Report content (spec 3.11). Recorded for the admin queue (PR 7). A CSAM
-   * report also raises an alert line for on call; nothing is taken down by a
-   * report alone, so a report can not be used to remove someone's work.
+   * The 18+ shelf (identity checks 4.4, adult content review 9, R6). Signed in only:
+   * the landing app serves an empty shell for /{handle}/adult and fills it from
+   * here, so no server HTML holds an 18+ title or cover. Before a pass the answer
+   * carries only the refusal reason for the Over 18 sheet. A page that is not
+   * public, or the flag off, answers `closed`.
+   */
+  listAdultForBio: privateProcedure
+    .input(contentAdultShelfSchema)
+    .query(async ({ ctx, input }): Promise<ContentAdultShelf> => {
+      await limitViewerReads(ctx, "content-adult");
+      const refusal = await viewerAdultRefusal(ctx.user!.sub);
+      if (refusal) return { open: false, reason: refusal };
+      const creator = await findPublicCreator(input.handle);
+      if (!creator) return { open: false, reason: "closed" };
+      const page = await publicFeed(
+        creator,
+        { cursor: input.cursor, limit: input.limit },
+        new Date(),
+        "adult"
+      );
+      return { open: true, page };
+    }),
+
+  /** One 18+ item page's data, after the same pass. Playback still comes from getReadUrl. */
+  getAdult: privateProcedure
+    .input(contentAdultItemSchema)
+    .query(async ({ ctx, input }): Promise<ContentAdultItem> => {
+      await limitViewerReads(ctx, "content-adult");
+      const refusal = await viewerAdultRefusal(ctx.user!.sub);
+      if (refusal) return { open: false, reason: refusal };
+      const creator = await findPublicCreator(input.handle);
+      const item = creator ? await publicItem(creator, input.publicId, new Date(), "adult") : null;
+      if (!item) throw new TRPCError({ code: "NOT_FOUND", message: VIEWER_MESSAGES.notFound });
+      return { open: true, item };
+    }),
+
+  /**
+   * Report content (adult content review 7.1, R3). Every report joins or opens a
+   * Safety case. "This shows a child" hides the item at once and opens a Critical
+   * case, behind the abuse guard (services/safety/reports.ts); every other reason
+   * hides nothing. `form` tells the page to continue on the Take It Down or
+   * copyright form.
    */
   report: publicProcedure.input(contentReportSchema).mutation(async ({ ctx, input }) => {
     const key = `content-report:${viewerKey(ctx)}`;
@@ -1084,22 +1196,24 @@ export const contentRouter = router({
       item &&
       (isPublicItem(item, item.user) ||
         (isFeatureOn("accessGating") && isListedItem(item, item.user)));
-    if (!item || (!visible && item.userId !== viewerId)) {
+    // An 18+ item is reportable on the 18+ pages by a fan who passed the check
+    // (adult content review 9, PR A1); without the pass it does not exist for them.
+    const adultVisible = item?.adult === true && (await canViewAdult(viewerId));
+    if (!item || (!visible && !adultVisible && item.userId !== viewerId)) {
       throw new TRPCError({ code: "NOT_FOUND", message: VIEWER_MESSAGES.notFound });
     }
-    await prisma.contentReport.create({
-      data: {
-        id: uuidv7(),
-        contentItemId: item.id,
-        reporterUserId: viewerId,
-        reason: input.reason,
-        details: input.details || null,
-      },
-    });
+    const intake = await intakeReport(
+      { id: item.id, publicId: item.publicId, userId: item.userId },
+      { reason: input.reason, details: input.details || null, reporterUserId: viewerId }
+    );
     const line = JSON.stringify({ publicId: item.publicId, reason: input.reason });
     if (input.reason === "csam") console.error("[content] ALERT csam report", line);
     else console.info("[content] report", line);
-    return { received: true };
+    return {
+      received: true,
+      hidden: intake.hidden,
+      form: intake.withdrawn ? null : (CONTENT_REPORT_FORM[input.reason] ?? null),
+    };
   }),
 
   /** Public items for the sitemap (decision 23). */

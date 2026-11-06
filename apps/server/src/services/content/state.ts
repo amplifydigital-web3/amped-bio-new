@@ -18,12 +18,30 @@ import { publishContentJob } from "../cloudflare/queue";
 import { createStreamClip, enableStreamDownloads } from "../cloudflare/stream";
 import { env } from "../../env";
 import { purgeDeletedItems } from "./purge";
+import { blockHash, findBlockedHash } from "../safety/blocklist";
+import { onCsamMatch, onReviewHold } from "../safety/intake";
 import { edgeDirty } from "./edge";
 
 /** Items left in UPLOADING longer than this are failed and their bytes released. */
 export const UPLOADING_TIMEOUT_MS = 24 * 60 * 60 * 1000;
 
 type ItemRef = Pick<ContentItem, "id" | "userId" | "totalBytes">;
+
+/**
+ * A blocklist write must never fail the processor callback: the item is already
+ * BLOCKED by the time this runs, so a retry sees a non PROCESSING item and is
+ * ignored, and the hash (or the child safety case behind it) would be lost.
+ */
+async function blockHashAfterBlock(input: Parameters<typeof blockHash>[0]): Promise<void> {
+  try {
+    await blockHash(input);
+  } catch (error) {
+    console.error("[safety] ALERT hash block failed", {
+      reason: input.reason,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
 
 /**
  * Moves an item from one of `from` to FAILED (or BLOCKED) and releases its reserved
@@ -126,6 +144,9 @@ export async function applyStreamWebhook(body: StreamWebhookBody): Promise<Strea
  */
 export type ProcessorCallbackResult = "not_found" | "ignored" | "applied" | "blocked";
 
+/** Moderation reason when an item found explicit lost its 18+ label (#28 F1). */
+export const ADULT_LABEL_REMOVED = "adult_label_removed";
+
 /** R2 prefixes the processor may report; anything else is rejected (untrusted toolbox). */
 const ASSET_KEY_PREFIXES = ["originals", "audio", "derived"];
 
@@ -203,6 +224,10 @@ export async function applyProcessorCallback(
   }
 
   const metadata = {
+    // The classifier found the file explicit (#28 F1): the 18+ label locks on
+    ...(callback.step === "classifier" && callback.explicit === true && !item.explicitAt
+      ? { explicitAt: new Date() }
+      : {}),
     ...(callback.sha256 ? { sha256: callback.sha256 } : {}),
     ...(callback.durationMs !== undefined ? { durationMs: callback.durationMs } : {}),
     ...(callback.pageCount !== undefined ? { pageCount: callback.pageCount } : {}),
@@ -222,14 +247,18 @@ export async function applyProcessorCallback(
         from: ["PROCESSING"],
         blocked: true,
       });
-      // Malware positives join the hash blocklist (spec 3.5 step 3). CSAM matches never
-      // touch these tables: they go to the restricted evidence path (spec 3.11, PR 7).
+      // Malware positives join the hash blocklist (spec 3.5 step 3)
       if (callback.step === "malware" && callback.sha256) {
-        await prisma.blockedContentHash.upsert({
-          where: { sha256: callback.sha256 },
-          update: {},
-          create: { id: uuidv7(), sha256: callback.sha256, reason: "malware" },
-        });
+        await blockHashAfterBlock({ sha256: callback.sha256, reason: "malware" });
+      }
+      // A CSAM match (#28 R1, adult content review 8.5): a Critical child safety case,
+      // the evidence copy and the alert, and the hash is blocked for good (8.7). The
+      // case runs first and does not depend on the blocklist write, so a database
+      // error there cannot drop the alert of a blocked item (the retry is ignored).
+      if (callback.step === "csam") {
+        await onCsamMatch(item, callback.reason ?? null);
+        const sha256 = callback.sha256 ?? item.sha256;
+        if (sha256) await blockHashAfterBlock({ sha256, reason: "csam" });
       }
       return "applied";
 
@@ -244,14 +273,15 @@ export async function applyProcessorCallback(
           ...edgeDirty(),
         },
       });
+      // A held item reaches the Safety queue as a Classifier hold case (#28 R1)
+      await onReviewHold(item, "classifier_hold");
       return "applied";
 
     case "ok":
       // Spec 3.5 step 3.1: a file removed before (copyright, malware) cannot come back
       if (callback.step === "hash" && callback.sha256) {
-        const listed = await prisma.blockedContentHash.findUnique({
-          where: { sha256: callback.sha256 },
-        });
+        // An unblocked row (removedAt set) no longer refuses the file (R1)
+        const listed = await findBlockedHash(callback.sha256);
         if (listed) {
           await prisma.contentItem.update({ where: { id: item.id }, data: metadata });
           await failItem(item, `blocklist:${listed.reason}`, {
@@ -262,13 +292,35 @@ export async function applyProcessorCallback(
         }
       }
       if (callback.step !== "done") {
+        // #28 F1: the queued job carries the 18+ label from when it was enqueued, so
+        // a label taken off mid-processing still reports this item explicit. The
+        // unlabeled item is held for a reviewer instead of clearing to the public
+        // pages, and stays held when "done" arrives.
+        const unlabeledExplicit =
+          callback.step === "classifier" && callback.explicit === true && !item.adult;
         await prisma.contentItem.update({
           where: { id: item.id },
-          data: { ...metadata, processingStep: callback.step },
+          data: {
+            ...metadata,
+            processingStep: callback.step,
+            ...(unlabeledExplicit
+              ? {
+                  moderationState: "HELD" as const,
+                  moderationReason: ADULT_LABEL_REMOVED,
+                  ...edgeDirty(),
+                }
+              : {}),
+          },
         });
         return "applied";
       }
-      await prisma.$transaction(async tx => {
+      // #28 R7 (defect F2): nothing reads inside a `file`, so a creator with 18+ on
+      // gets every file reviewed before it can be published (decision D10)
+      const fileReview =
+        item.kind === "FILE" &&
+        item.moderationState === "PENDING" &&
+        (await adultCreator(item.userId));
+      const held = await prisma.$transaction(async tx => {
         if (callback.assets?.length) {
           await upsertAssets(item.id, item.publicId, callback.assets, tx);
         }
@@ -280,16 +332,36 @@ export async function applyProcessorCallback(
             status: "READY",
             processingStep: null,
             // A held item stays held until a reviewer clears it (spec 3.5 step 6)
-            ...(item.moderationState === "PENDING" ? { moderationState: "CLEAR" as const } : {}),
+            ...(fileReview
+              ? { moderationState: "HELD" as const, moderationReason: FILE_REVIEW_REASON }
+              : item.moderationState === "PENDING"
+                ? { moderationState: "CLEAR" as const }
+                : {}),
           },
         });
-        if (ready.count !== 1) return;
+        if (ready.count !== 1) return false;
         const minutes = item.kind === "VIDEO" ? minutesForDuration(durationMs) : 0;
         await commitBytes(item.userId, item.totalBytes, minutes, tx);
+        return fileReview;
       });
+      // Only the callback that moved the item to READY opens the case
+      if (held) await onReviewHold(item, FILE_REVIEW_REASON);
       if (item.kind === "VIDEO") await finishVideo(item);
       return "applied";
   }
+}
+
+/** Moderation reason for a file of an 18+ creator waiting for review (R7). */
+export const FILE_REVIEW_REASON = "adult_file_review";
+
+async function adultCreator(userId: number): Promise<boolean> {
+  // Fail closed: if the profile can not be read the callback retries, so no file
+  // of an 18+ creator is cleared without the review it needs
+  const profile = await prisma.creatorAdultProfile.findUnique({
+    where: { userId },
+    select: { enabledAt: true, disabledAt: true },
+  });
+  return Boolean(profile?.enabledAt && !profile.disabledAt);
 }
 
 /**

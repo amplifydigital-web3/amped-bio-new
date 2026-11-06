@@ -29,6 +29,7 @@ import { getAuthbaseWalletStatus, isAuthbaseConfigured } from "../authbase";
 import { checkRnsBinding, type RnsBindingResult } from "../rns";
 import { uuidv7 } from "../../utils/uuid-v7";
 import { hasOpenUnder18Case, recordUnder18Result } from "./reviewCase";
+import { applySellerTier } from "./sellerOverride";
 
 /** What the evaluation needs from Authbase. Attribute values never leave this module. */
 export type AuthbaseFacts = {
@@ -206,7 +207,8 @@ export async function checkIdentity(
         },
       });
       const reused = reuseStored(row, wallet, now);
-      if (reused) return reused;
+      // AB-6: the stored row is the Authbase and RNS result; the tier rule runs on every read
+      if (reused) return kind === "seller" ? applySellerTier(userId, reused, now) : reused;
     }
 
     const facts = await readAuthbase(wallet);
@@ -225,7 +227,7 @@ export async function checkIdentity(
     const result = evaluateIdentity(kind, facts, binding, now);
     await store(userId, kind, wallet, result);
     if (!result.pass && result.reason === "under_18") await recordUnder18Result(userId);
-    return result;
+    return kind === "seller" ? applySellerTier(userId, result, now) : result;
   } catch (err) {
     console.error("[identity] check failed", {
       userId,

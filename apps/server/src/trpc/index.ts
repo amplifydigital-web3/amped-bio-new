@@ -4,6 +4,9 @@ import { authRouter } from "./auth";
 import appRouter from "./handle";
 import { rnsRouter } from "./rns";
 import { adminRouter } from "./admin/index";
+import { safetyRouter } from "./safety";
+import { copyrightRouter, takedownRouter } from "./takedown";
+import { adultRouter } from "./adult";
 import { uploadRouter } from "./upload";
 import { themeRouter } from "./theme";
 import { themeGalleryRouter } from "./themeGallery";
@@ -51,6 +54,13 @@ const mergedRouter = router({
   // Home Get tREVO: invite stats across every referral
   referralInvite: referralInviteRouter,
   admin: adminRouter,
+  // Safety (#28 R1): moderators and safety leads, not admin by default
+  safety: safetyRouter,
+  // Public notice forms (#28 R3)
+  takedown: takedownRouter,
+  copyright: copyrightRouter,
+  // Creator 18+ setup and releases (#28 R4)
+  adult: adultRouter,
   upload: uploadRouter,
   theme: themeRouter,
   themeGallery: themeGalleryRouter,
