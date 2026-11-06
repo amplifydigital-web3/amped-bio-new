@@ -14,7 +14,10 @@ import { ReferralBlock } from "./blocks/ReferralBlock";
 import { FollowBlock } from "./blocks/FollowBlock";
 import { FollowersBlock } from "./blocks/FollowersBlock";
 import { RnsIdBlock } from "./blocks/RnsIdBlock";
-import { TelegramMessagePreview } from "./blocks/TelegramMessageBlock";
+import { ContentBlockPreview } from "./blocks/ContentBlockPreview";
+import { StoreBlockPreview } from "./blocks/StoreBlockPreview";
+import { TelegramGroupPreview, TelegramMessagePreview } from "./blocks/TelegramMessageBlock";
+import { MessageBlockPreview } from "./blocks/MessageBlockPreview";
 import { isHTML } from "@/utils/htmlutils";
 import { type BlockType, DEFAULT_RNSID_CONFIG, safeHref, sanitizeRichHtml } from "@repo/constants";
 import { Theme, UserProfile } from "@/types/editor";
@@ -37,6 +40,7 @@ import { usePreviewMotion } from "./preview/PreviewChrome";
 import { AlertCircle } from "lucide-react";
 import { blockNeed, isHidden, mediaName } from "./panels/page/blocks/blockInfo";
 import { useMyPageIdentity, withLiveAttributes } from "./panels/page/rns/useMyPageIdentity";
+import { isFeatureOn } from "../config/featureFlags";
 
 // Helper function to extract the root domain from a URL
 const extractRootDomain = (url: string): string => {
@@ -55,12 +59,17 @@ const extractRootDomain = (url: string): string => {
  *  (same value as the public page). */
 const VIDEO_BACKDROP = "#14141C";
 
-const fanGraphOn = import.meta.env.VITE_FAN_GRAPH === "true";
-const rnsOn = import.meta.env.VITE_SHOW_RNS === "true";
-const telegramOn = import.meta.env.VITE_SHOW_TELEGRAM === "true";
+const fanGraphOn = isFeatureOn("fanGraph");
+const rnsOn = isFeatureOn("rns");
+const telegramOn = isFeatureOn("telegram");
+const messagesOn = isFeatureOn("messages");
 // Theme Engine v2 (#28): the preview mounts the shared CreatorPage shell, so it
 // draws what the public page draws (spec 3.4, closes D10)
-const themeV2On = import.meta.env.VITE_SHOW_THEME_V2 === "true";
+const themeV2On = isFeatureOn("themeV2");
+// Theme Engine v2 phase 3 (TE-3a): showcase engines in the preview
+const themeShowcaseOn = isFeatureOn("themeShowcase");
+// Theme Engine v2 fonts (2b): the preview loads catalog faces with the picker
+const fontCatalogOn = themeV2On && isFeatureOn("fontCatalog");
 
 interface PreviewProps {
   isEditing: boolean;
@@ -272,7 +281,32 @@ export function Preview({
         </ErrorBoundary>
       );
     }
-    // Messaging on Telegram (#2, row 115). The group block waits on PR 5.
+    // Content system (#20, spec 3.7): public items only, as on the page
+    if (block.type === "content") {
+      return (
+        <ErrorBoundary key={block.id} fallback={fallback}>
+          <ContentBlockPreview block={block} theme={themeConfig} />
+        </ErrorBoundary>
+      );
+    }
+    // Store block (st10): what visitors get, from store.listForBio
+    if (block.type === "store") {
+      return (
+        <ErrorBoundary key={block.id} fallback={fallback}>
+          <StoreBlockPreview block={block} theme={themeConfig} />
+        </ErrorBoundary>
+      );
+    }
+    // Amped Messages (#2 r4, M6): Message me, and a telegram_message row not yet migrated
+    if (block.type === "message" || (messagesOn && block.type === "telegram_message")) {
+      if (!messagesOn) return null;
+      return (
+        <ErrorBoundary key={block.id} fallback={fallback}>
+          <MessageBlockPreview label={block.config.label} theme={themeConfig} />
+        </ErrorBoundary>
+      );
+    }
+    // Messaging on Telegram (#2, row 115 and board tg13)
     if (block.type === "telegram_message") {
       if (!telegramOn) return null;
       return (
@@ -281,7 +315,14 @@ export function Preview({
         </ErrorBoundary>
       );
     }
-    if (block.type === "telegram_group") return null;
+    if (block.type === "telegram_group") {
+      if (!telegramOn) return null;
+      return (
+        <ErrorBoundary key={block.id} fallback={fallback}>
+          <TelegramGroupPreview block={block} theme={themeConfig} />
+        </ErrorBoundary>
+      );
+    }
     return (
       <ErrorBoundary key={block.id} fallback={fallback}>
         <TextBlock block={block} theme={themeConfig} />
@@ -327,6 +368,8 @@ export function Preview({
         // Editor chrome: Device budget and Pause motion for the preview only
         device={previewMotion.device}
         paused={previewMotion.paused}
+        showcase={themeShowcaseOn}
+        loadFonts={fontCatalogOn}
         profile={{
           name: profile.name,
           photo: profile.photoCmp || profile.photoUrl,

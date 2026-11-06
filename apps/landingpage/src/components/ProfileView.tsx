@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Pause, Pencil, Play, Send } from "lucide-react";
 import { TELEGRAM_APP_STRINGS } from "@repo/constants";
+import { useFeatureFlag } from "@/components/providers/FeatureFlagsProvider";
 import { getPlatformIcon } from "@/lib/platforms";
 import { trpcClient } from "@/lib/trpc";
 import { normalizeHandle } from "@/lib/handle";
@@ -30,6 +31,13 @@ import { FollowBlock } from "@/components/blocks/FollowBlock";
 import { FollowersBlock } from "@/components/blocks/FollowersBlock";
 import { RnsIdBlock } from "@/components/blocks/RnsIdBlock";
 import { TelegramMessageBlock } from "@/components/blocks/TelegramMessageBlock";
+import { MessageBlock } from "@/components/blocks/MessageBlock";
+import { TelegramGroupBlock } from "@/components/blocks/TelegramGroupBlock";
+import { ContentBlock } from "@/components/content/ContentBlock";
+import { StoreBlock } from "@/components/store/StoreBlock";
+import { GatedBlock, stakeNoticeBlockId } from "@/components/blocks/GatedBlock";
+import { StakeNotices } from "@/components/content/gating";
+import { usePageDecisions } from "@/components/content/gating";
 import { FollowContext } from "@/components/follow/FollowContext";
 import { useReferralHandler } from "@/hooks/useReferralHandler";
 import { useAuth } from "@/contexts/AuthContext";
@@ -56,6 +64,7 @@ import {
 import { TrackingConsentBanner, type ConsentChoice } from "@/components/TrackingConsentBanner";
 import { getContainerStyle, getHeroEffectStyle, isHTML, LOOPING_HERO_EFFECTS } from "@/lib/styles";
 import { CREATOR_FOCUS, CreatorButton } from "@/components/blocks/frame";
+import { AdultItemsCard } from "@/components/content/adult";
 import { useFollow } from "@/components/follow/useFollow";
 import {
   FirstFollowSheet,
@@ -182,6 +191,11 @@ export function ProfileView({
   const [profile, setProfile] = useState<UserProfile | null>(initialData?.profile ?? null);
   const [blocks, setBlocks] = useState<BlockType[]>(initialData?.blocks ?? []);
   const [theme, setTheme] = useState<Theme | null>(initialData?.theme ?? null);
+  const [contentCards, setContentCards] = useState(initialData?.contentCards ?? {});
+  // Identity checks 4.4: one "Adult items" card, no title, cover or count
+  const [hasAdult, setHasAdult] = useState(initialData?.hasAdult ?? false);
+  const [fontLinks, setFontLinks] = useState<string[] | null>(initialData?.fonts ?? null);
+  const [storeBlock, setStoreBlock] = useState(initialData?.storeBlock ?? null);
   const [hasCreatorPool, setHasCreatorPool] = useState(initialData?.hasCreatorPool ?? false);
   const [creatorPoolAddress, setCreatorPoolAddress] = useState(
     initialData?.creatorPoolAddress ?? null
@@ -208,13 +222,20 @@ export function ProfileView({
   const effectiveHandle = rawHandle || DEFAULT_HANDLE;
   const normalizedHandle = normalizeHandle(effectiveHandle);
   // Fan Graph (#22): Follow lives in the frame capsule (decision 2)
-  const followEnabled =
-    process.env.NEXT_PUBLIC_FAN_GRAPH === "true" && normalizedHandle !== DEFAULT_HANDLE;
+  const fanGraphOn = useFeatureFlag("fanGraph");
+  const followEnabled = fanGraphOn && normalizedHandle !== DEFAULT_HANDLE;
   const followState = useFollow(normalizedHandle, !!authUser, authPending || !followEnabled);
-  const showRns = process.env.NEXT_PUBLIC_SHOW_RNS === "true";
-  const telegramMarkOn = process.env.NEXT_PUBLIC_SHOW_TELEGRAM === "true";
+  const showRns = useFeatureFlag("rns");
+  const telegramMarkOn = useFeatureFlag("telegram");
+  // Amped Messages (#2 r4, M6): the native Message me block; a telegram_message row not
+  // yet migrated renders as one too
+  const messagesOn = useFeatureFlag("messages");
   // Theme Engine v2 (#28): the shared CreatorPage shell, staging first
-  const themeV2 = process.env.NEXT_PUBLIC_SHOW_THEME_V2 === "true";
+  const themeV2 = useFeatureFlag("themeV2");
+  // Theme Engine v2 phase 3 (TE-3a): showcase engines, staging first
+  const themeShowcase = useFeatureFlag("themeShowcase");
+  // Theme Engine v2 fonts (2b): catalog faces load only while fontCatalog is on
+  const fontCatalogOn = useFeatureFlag("fontCatalog");
 
   // Pause motion (041 I02): read the remembered choice once on the client
   useEffect(() => {
@@ -328,6 +349,10 @@ export function ProfileView({
           setHasCreatorPool(data.hasCreatorPool);
           setCreatorPoolAddress(data.creatorPoolAddress);
           setTrackingPixels(data.trackingPixels);
+          setContentCards(data.contentCards);
+          setHasAdult(data.hasAdult);
+          setFontLinks(data.fonts);
+          setStoreBlock(data.storeBlock);
         }
       } catch {
         if (normalizedHandle === DEFAULT_HANDLE) {
@@ -341,6 +366,19 @@ export function ProfileView({
       }
     })();
   }, [normalizedHandle, initialData]);
+
+  // G3: decisions for gated blocks after hydration, and ?unlock=<blockId> from /go
+  const blockDecision = usePageDecisions(
+    normalizedHandle,
+    blocks
+      .filter(block => block.gated && isRenderable(block))
+      .map(block => ({ type: "block" as const, id: String(block.id) }))
+  );
+  const [unlockId, setUnlockId] = useState<number | null>(null);
+  useEffect(() => {
+    const raw = new URLSearchParams(window.location.search).get("unlock");
+    if (raw && /^\d{1,10}$/.test(raw)) setUnlockId(Number(raw));
+  }, []);
 
   if (loading) return <ProfileSkeleton />;
   if (!profile) return <ProfileSkeleton />;
@@ -413,9 +451,26 @@ export function ProfileView({
       className={CREATOR_FOCUS}
     />
   ) : null;
+  // GQ2-2: the stake notice shows once on the page, under the first block behind a
+  // stake rule, before any tap or refusal (decision D2: one block per section)
+  const firstStakeBlockId = stakeNoticeBlockId(renderable);
   const blockList = renderable.map(block => (
     <ErrorBoundary key={block.id} fallback={null} context={{ blockId: block.id, type: block.type }}>
-      {block.type === "link" ? (
+      {block.gated ? (
+        <>
+          <GatedBlock
+            block={block}
+            theme={themeConfig as any}
+            handle={normalizedHandle}
+            decision={blockDecision(String(block.id), "block")}
+            autoOpen={unlockId === block.id}
+            onChanged={blockDecision.refresh}
+          />
+          {block.id === firstStakeBlockId && (
+            <StakeNotices className="mt-[8px] w-full" style={{ color: fontColor }} />
+          )}
+        </>
+      ) : block.type === "link" ? (
         <CreatorButton
           theme={themeConfig}
           icon={<LinkIcon platform={block.config.platform} url={block.config.url} />}
@@ -449,6 +504,20 @@ export function ProfileView({
             rnsUrl={process.env.NEXT_PUBLIC_RNS_URL}
           />
         )
+      ) : block.type === "message" || (messagesOn && block.type === "telegram_message") ? (
+        messagesOn && (
+          <MessageBlock
+            block={block as { config: { label: string } }}
+            theme={themeConfig}
+            door={profile.messageDoor}
+            handle={normalizedHandle}
+            creatorName={profile.name}
+            creatorAvatar={photo || null}
+            signedIn={!!authUser}
+            authPending={authPending}
+            isOwner={isOwner}
+          />
+        )
       ) : block.type === "telegram_message" ? (
         // Row 115: live only while the creator takes Fan messages
         telegramMarkOn && (
@@ -465,11 +534,43 @@ export function ProfileView({
             isOwner={isOwner}
           />
         )
-      ) : block.type === "telegram_group" ? null : (
+      ) : block.type === "telegram_group" ? (
+        // Board tg13: live only while the creator has a connected group
+        telegramMarkOn && (
+          <TelegramGroupBlock
+            block={block}
+            theme={themeConfig}
+            door={profile.telegramGroupDoor}
+            handle={normalizedHandle}
+            creatorUserId={profile.id}
+            creatorName={profile.name}
+            signedIn={!!authUser}
+            authPending={authPending}
+            isOwner={isOwner}
+          />
+        )
+      ) : block.type === "content" ? (
+        // Content system (#20, spec 3.7): public items only, from getHandle
+        <ContentBlock
+          block={block}
+          theme={themeConfig}
+          cards={contentCards}
+          handle={normalizedHandle}
+          creatorName={profile.name || null}
+        />
+      ) : block.type === "store" ? (
+        // Store block (st10): public stores only, from getHandle
+        <StoreBlock block={block} theme={themeConfig} store={storeBlock} />
+      ) : (
         <TextBlock block={block as any} theme={themeConfig as any} />
       )}
     </ErrorBoundary>
   ));
+  if (hasAdult) {
+    blockList.push(
+      <AdultItemsCard key="adult-items" handle={normalizedHandle} theme={themeConfig} />
+    );
+  }
   const footerEl = (
     <footer className="mt-[34px] flex flex-col items-center" style={textStyle}>
       <div className="flex items-center gap-[13px]">
@@ -525,6 +626,25 @@ export function ProfileView({
           )}
         >
           Privacy Policy
+        </a>
+        {/* Adult content review 7.2 and 7.5 (R3): linked from every page footer */}
+        <a
+          href="/takedown"
+          className={cn(
+            "inline-flex min-h-[44px] items-center px-1 text-[13px] leading-[16px] underline-offset-2 hover:underline",
+            CREATOR_FOCUS
+          )}
+        >
+          Take It Down
+        </a>
+        <a
+          href="/copyright"
+          className={cn(
+            "inline-flex min-h-[44px] items-center px-1 text-[13px] leading-[16px] underline-offset-2 hover:underline",
+            CREATOR_FOCUS
+          )}
+        >
+          Copyright
         </a>
       </div>
     </footer>
@@ -626,13 +746,16 @@ export function ProfileView({
       profile={{ name: profile.name, photo, bio: profile.bio }}
       nameExtras={nameExtras}
       identity={identityChip}
-      blocks={renderable.length > 0 ? blockList : null}
+      blocks={blockList.length > 0 ? blockList : null}
       footer={footerEl}
       frame={frameLayer}
       videoRef={videoRef}
       bottomPadding={`calc(89px + env(safe-area-inset-bottom, 0px) + ${cardShowing ? cardHeight + 13 : 0}px)`}
       entranceKey={normalizedHandle}
       device={weakDevice ? "weak" : undefined}
+      showcase={themeShowcase}
+      loadFonts={fontCatalogOn}
+      fontLinks={fontCatalogOn ? fontLinks : null}
     />
   ) : (
     <div
@@ -743,7 +866,7 @@ export function ProfileView({
           </header>
 
           {/* 040 I12: blocks 13 apart; blocks add no margins of their own */}
-          {renderable.length > 0 && (
+          {blockList.length > 0 && (
             <div className="mt-[34px] flex flex-col gap-[13px]">{blockList}</div>
           )}
 

@@ -10,13 +10,13 @@ Branch `feat/content-foundation`. PR 2 of the content system plan (`docs/feature
 
 The content system lets creators upload video, audio, images, PDFs, ebooks and ZIP files, and later sell them in their store. Rob chose Cloudflare for all of it (12 Oct): R2 for files, Stream for video, Workers for delivery and processing. Every later PR builds on this one:
 
-| Later PR | Needs from PR 2 |
-| --- | --- |
-| 3 media gateway Worker | The token format and signer (`mediaToken.ts`), the R2 key layout |
+| Later PR                 | Needs from PR 2                                                                      |
+| ------------------------ | ------------------------------------------------------------------------------------ |
+| 3 media gateway Worker   | The token format and signer (`mediaToken.ts`), the R2 key layout                     |
 | 4 media processor Worker | The callback route and schema, the asset model, the Stream client (clips, downloads) |
-| 5 library UI | The `content` router, the upload targets, `getStorage` |
-| 6 public pages | Items, assets and publish state, playback tokens |
-| 7 trust and safety | `ContentReport`, `CopyrightNotice`, `BlockedContentHash` |
+| 5 library UI             | The `content` router, the upload targets, `getStorage`                               |
+| 6 public pages           | Items, assets and publish state, playback tokens                                     |
+| 7 trust and safety       | `ContentReport`, `CopyrightNotice`, `BlockedContentHash`                             |
 
 PR 2 is the part that has to be right first: the data model, how bytes get to storage without passing through our servers, and the checks that stop a bad file before anyone sees it.
 
@@ -50,49 +50,49 @@ browser                      API (content router)                    R2 / Stream
 
 ### 3.1 Database
 
-| File | Change |
-| --- | --- |
-| `packages/database/prisma/schema.prisma` | 7 enums and 6 models, copied from spec 3.3: `ContentItem`, `ContentAsset`, `UserStorageQuota`, `ContentReport`, `CopyrightNotice`, `BlockedContentHash`. Two back relations on `User` (`contentItems`, `storageQuota`). UUID v7 `BINARY(16)` ids per `AGENTS.md`. No `offerItems` yet: that comes with `Offer` in PR 9, per spec 3.3 "Migrations per PR". The existing schema is untouched; only the new section is Prisma formatted. |
-| `packages/database/prisma/migrations/20261012120000_content_foundation/migration.sql` | Creates the 6 tables and 4 foreign keys. Written in the same form `prisma migrate` emits for MySQL (names, `DATETIME(3)`, charset). No existing table is altered. |
+| File                                                                                  | Change                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/database/prisma/schema.prisma`                                              | 7 enums and 6 models, copied from spec 3.3: `ContentItem`, `ContentAsset`, `UserStorageQuota`, `ContentReport`, `CopyrightNotice`, `BlockedContentHash`. Two back relations on `User` (`contentItems`, `storageQuota`). UUID v7 `BINARY(16)` ids per `AGENTS.md`. No `offerItems` yet: that comes with `Offer` in PR 9, per spec 3.3 "Migrations per PR". The existing schema is untouched; only the new section is Prisma formatted. |
+| `packages/database/prisma/migrations/20261012120000_content_foundation/migration.sql` | Creates the 6 tables and 4 foreign keys. Written in the same form `prisma migrate` emits for MySQL (names, `DATETIME(3)`, charset). No existing table is altered.                                                                                                                                                                                                                                                                     |
 
 ### 3.2 Shared constants (`@repo/constants`)
 
-| File | Change |
-| --- | --- |
-| `packages/constants/src/content.ts` (new) | Kinds and accepted types (spec 3.2), size defaults, upload mechanics (100 MB multipart threshold, 10 MB parts, 15 minute URLs, Stream limits), public id format, R2 key prefixes, `contentTypeAllowed`, every tRPC input schema, the processor callback schema shared with the PR 4 Worker, the signature header names. |
+| File                                         | Change                                                                                                                                                                                                                                                                                                                                                        |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/constants/src/content.ts` (new)    | Kinds and accepted types (spec 3.2), size defaults, upload mechanics (100 MB multipart threshold, 10 MB parts, 15 minute URLs, Stream limits), public id format, R2 key prefixes, `contentTypeAllowed`, every tRPC input schema, the processor callback schema shared with the PR 4 Worker, the signature header names.                                       |
 | `packages/constants/src/mediaToken.ts` (new) | The gateway token format `v1.{kid}.{payload}.{sig}` (spec 3.6), shared with the PR 3 Worker. Format only, no crypto, and pure base64url and UTF-8 helpers, because this package has no Node or DOM globals and the same code must run on the API and in a Worker. `parseMediaTokenKeys` refuses a short secret or a duplicate kid instead of signing with it. |
-| `packages/constants/src/index.ts` | Exports both. |
+| `packages/constants/src/index.ts`            | Exports both.                                                                                                                                                                                                                                                                                                                                                 |
 
 ### 3.3 Server
 
-| File | Change |
-| --- | --- |
-| `apps/server/src/env.ts`, `.env.example` | 20 variables (section 5.3). All default to empty or off. |
-| `services/cloudflare/config.ts` (new) | `contentUploadsOpen()`: the flag is on **and** every required setting exists. A half configured environment answers "Uploads are not open yet." instead of a broken upload. |
-| `services/cloudflare/r2.ts` (new) | One S3 client on the R2 endpoint: region `auto`, path style, checksums `WHEN_REQUIRED` (PR 1 trap 3.2). Presigned PUT, multipart create, part presign bound per part, complete, abort, delete, verify. Reuses PR 1's `createPresignedPutUrl` and `verifyUploadedObject`. |
-| `services/cloudflare/stream.ts` (new) | Direct creator upload over TUS. Video get, update (meta, `allowedOrigins`, `requireSignedURLs`) and delete, plus clip and downloads for PR 4. RS256 playback token signing with our Stream key, so playback needs no API call. Webhook signature check: HMAC-SHA256 of `time.body` with a 5 minute window. |
-| `services/cloudflare/mediaToken.ts` (new) | Gateway token signer and a reference verifier with key rotation (the first key signs, all verify). `mediaUrl()`. Processor callback signing and verification. Nothing hands out a token yet: `getReadUrl` is PR 6. |
-| `services/content/quota.ts` (new) | `ensureQuota` (env defaults: 5 GB, 300 minutes), plus `reserveBytes`, `releaseBytes` and `commitBytes` as single conditional `UPDATE` statements, floored at zero. |
-| `services/content/ids.ts` (new) | 16 character public ids from a to z and 0 to 9, using rejection sampling so every character is equally likely. |
-| `services/content/state.ts` (new) | `failItem`, `applyStreamWebhook`, `applyProcessorCallback`, the sweep, and `enqueueVideoProcessing` (a logged no-op until PR 4, section 6.4). |
-| `trpc/content.ts` (new) | `createUpload`, `signParts`, `completeUpload`, `abortUpload`, `list`, `get`, `update`, `getStorage`. Owner only. Someone else's item reads as NOT_FOUND, so ids cannot be probed. Outputs never include the numeric user id, R2 keys or Stream uids. |
-| `trpc/index.ts` | Registers `content`. |
-| `routes/content.ts` (new) | `POST /webhooks/cloudflare-stream` and `POST /internal/content/processed`. Both read the raw body (the signatures cover exact bytes). Each answers 404 until its secret is set and 401 on a bad signature, and does not depend on the upload flag, so items already in flight still finish during a pause. |
-| `services/API.ts` | Mounts both routes before the global JSON parser, next to the Telegram webhook. |
-| `bootstrap.ts` | Starts the stale upload sweep. |
-| `utils/fileSignature.ts` (from PR 1) | Recognises MP3, AAC, WAV, FLAC, M4A, PDF, EPUB, ZIP, HEIC and MKV. Profile and theme uploads are unchanged: their allowed lists do not include these types, so they are still refused. |
+| File                                      | Change                                                                                                                                                                                                                                                                                                     |
+| ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/server/src/env.ts`, `.env.example`  | 20 variables (section 5.3). All default to empty or off.                                                                                                                                                                                                                                                   |
+| `services/cloudflare/config.ts` (new)     | `contentUploadsOpen()`: the flag is on **and** every required setting exists. A half configured environment answers "Uploads are not open yet." instead of a broken upload.                                                                                                                                |
+| `services/cloudflare/r2.ts` (new)         | One S3 client on the R2 endpoint: region `auto`, path style, checksums `WHEN_REQUIRED` (PR 1 trap 3.2). Presigned PUT, multipart create, part presign bound per part, complete, abort, delete, verify. Reuses PR 1's `createPresignedPutUrl` and `verifyUploadedObject`.                                   |
+| `services/cloudflare/stream.ts` (new)     | Direct creator upload over TUS. Video get, update (meta, `allowedOrigins`, `requireSignedURLs`) and delete, plus clip and downloads for PR 4. RS256 playback token signing with our Stream key, so playback needs no API call. Webhook signature check: HMAC-SHA256 of `time.body` with a 5 minute window. |
+| `services/cloudflare/mediaToken.ts` (new) | Gateway token signer and a reference verifier with key rotation (the first key signs, all verify). `mediaUrl()`. Processor callback signing and verification. Nothing hands out a token yet: `getReadUrl` is PR 6.                                                                                         |
+| `services/content/quota.ts` (new)         | `ensureQuota` (env defaults: 5 GB, 300 minutes), plus `reserveBytes`, `releaseBytes` and `commitBytes` as single conditional `UPDATE` statements, floored at zero.                                                                                                                                         |
+| `services/content/ids.ts` (new)           | 16 character public ids from a to z and 0 to 9, using rejection sampling so every character is equally likely.                                                                                                                                                                                             |
+| `services/content/state.ts` (new)         | `failItem`, `applyStreamWebhook`, `applyProcessorCallback`, the sweep, and `enqueueVideoProcessing` (a logged no-op until PR 4, section 6.4).                                                                                                                                                              |
+| `trpc/content.ts` (new)                   | `createUpload`, `signParts`, `completeUpload`, `abortUpload`, `list`, `get`, `update`, `getStorage`. Owner only. Someone else's item reads as NOT_FOUND, so ids cannot be probed. Outputs never include the numeric user id, R2 keys or Stream uids.                                                       |
+| `trpc/index.ts`                           | Registers `content`.                                                                                                                                                                                                                                                                                       |
+| `routes/content.ts` (new)                 | `POST /webhooks/cloudflare-stream` and `POST /internal/content/processed`. Both read the raw body (the signatures cover exact bytes). Each answers 404 until its secret is set and 401 on a bad signature, and does not depend on the upload flag, so items already in flight still finish during a pause. |
+| `services/API.ts`                         | Mounts both routes before the global JSON parser, next to the Telegram webhook.                                                                                                                                                                                                                            |
+| `bootstrap.ts`                            | Starts the stale upload sweep.                                                                                                                                                                                                                                                                             |
+| `utils/fileSignature.ts` (from PR 1)      | Recognises MP3, AAC, WAV, FLAC, M4A, PDF, EPUB, ZIP, HEIC and MKV. Profile and theme uploads are unchanged: their allowed lists do not include these types, so they are still refused.                                                                                                                     |
 
 ### 3.4 Tests (84 new, 450 in total)
 
-| File | Tests | Covers |
-| --- | --- | --- |
-| `content-tokens.test.ts` | 23 | Type rules, part maths, public ids, base64url and UTF-8 matching Node byte for byte, token round trip and tamper, key rotation, callback and Stream webhook signatures (format from Cloudflare's docs), RS256 token verified with the public key, the TUS request, per part length binding on real presigned R2 URLs |
-| `content-signatures.test.ts` | 17 | Every R2 content type detected; renamed and cross kind files refused; EXE, HTML and shell scripts refused for every kind |
-| `content-router.test.ts` | 20 | Flag and config gate, type and size checks, quota refusal, each target type, video minutes, cleanup when storage fails, completeUpload pass, mismatch, retry, multipart and idempotence, ownership, signParts bounds, abort, no leaks in owner output, preview rules, getStorage |
-| `content-state.test.ts` | 12 | Step recording, READY commits once, video minutes rounding, held stays held, failed and blocked release bytes, malware hash blocklisted, CSAM hash never stored, asset upsert, Stream ready and error, sweep |
-| `content-quota.test.ts` | 5 | The exact SQL of reserve, release and commit; defaults |
-| `content-routes.test.ts` | 8 | 404 without secret, 401 on bad signature, 400 on a bad body, 200 and 404 paths |
-| `upload-validation.test.ts` (PR 1) | changed | ZIP and HEIC are now recognised; they are still refused for profile uploads |
+| File                               | Tests   | Covers                                                                                                                                                                                                                                                                                                               |
+| ---------------------------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `content-tokens.test.ts`           | 23      | Type rules, part maths, public ids, base64url and UTF-8 matching Node byte for byte, token round trip and tamper, key rotation, callback and Stream webhook signatures (format from Cloudflare's docs), RS256 token verified with the public key, the TUS request, per part length binding on real presigned R2 URLs |
+| `content-signatures.test.ts`       | 17      | Every R2 content type detected; renamed and cross kind files refused; EXE, HTML and shell scripts refused for every kind                                                                                                                                                                                             |
+| `content-router.test.ts`           | 20      | Flag and config gate, type and size checks, quota refusal, each target type, video minutes, cleanup when storage fails, completeUpload pass, mismatch, retry, multipart and idempotence, ownership, signParts bounds, abort, no leaks in owner output, preview rules, getStorage                                     |
+| `content-state.test.ts`            | 12      | Step recording, READY commits once, video minutes rounding, held stays held, failed and blocked release bytes, malware hash blocklisted, CSAM hash never stored, asset upsert, Stream ready and error, sweep                                                                                                         |
+| `content-quota.test.ts`            | 5       | The exact SQL of reserve, release and commit; defaults                                                                                                                                                                                                                                                               |
+| `content-routes.test.ts`           | 8       | 404 without secret, 401 on bad signature, 400 on a bad body, 200 and 404 paths                                                                                                                                                                                                                                       |
+| `upload-validation.test.ts` (PR 1) | changed | ZIP and HEIC are now recognised; they are still refused for profile uploads                                                                                                                                                                                                                                          |
 
 ## 4. What Gustavo needs to do
 
@@ -108,6 +108,7 @@ browser                      API (content router)                    R2 / Stream
    ```
 
    If you squash merged #316, the rebase replays only this PR's commits. Then mark the PR ready for review.
+
 2. Read sections 1 and 2.
 3. Read in this order: `services/content/state.ts`, `trpc/content.ts`, `services/cloudflare/r2.ts`, `services/cloudflare/stream.ts`, `routes/content.ts`. The constants and tests read as reference.
 4. Run locally:
@@ -134,6 +135,7 @@ pnpm --filter @repo/database exec prisma migrate deploy --schema=./prisma/schema
 ```
 
 What was checked: all 32 migration folders, from `0_init` through this one, applied in order on a fresh MariaDB 10.11 with no errors. On that database:
+
 - Defaults are right: UPLOADING, DRAFT, PENDING.
 - Deleting a user cascades to items, assets, reports and the quota row.
 - The reserve statement refuses a reservation past the limit.
@@ -161,11 +163,11 @@ DELETE FROM _prisma_migrations WHERE migration_name = '20261012120000_content_fo
 
 ## 5. Cloudflare setup (Gustavo, before the flag goes on in staging)
 
-Spec 3.17 in executable form. Do staging first, on **its own Cloudflare account**, because Stream allows one webhook URL per account.
+Spec 3.17 in executable form. Do staging first. Staging and production share **one Cloudflare account** (changed 3 Nov 2026). Stream allows one webhook URL per account, so the webhook points at the router Worker: `docs/fixes/single-account-usercontent.md`.
 
 ### 5.1 Accounts and R2
 
-1. Create or choose the staging Cloudflare account. Turn on Workers Paid (needed for Queues and Containers in PR 4).
+1. Use the one Amped Cloudflare account. Turn on Workers Paid (needed for Queues and Containers in PR 4).
 2. R2, Create bucket: `amped-content-staging`, location hint North America. Leave Public access off. Do not enable the `r2.dev` URL.
 3. Bucket, Settings, CORS policy:
 
@@ -182,6 +184,7 @@ Spec 3.17 in executable form. Do staging first, on **its own Cloudflare account*
    ```
 
    `ETag` must be exposed, or the browser cannot read part ETags for multipart.
+
 4. Bucket, Settings, Object lifecycle rules:
    - Abort incomplete multipart uploads after 1 day.
    - Delete objects with prefix `quarantine/` after 30 days.
@@ -189,37 +192,29 @@ Spec 3.17 in executable form. Do staging first, on **its own Cloudflare account*
 
 ### 5.2 Stream
 
-1. Stream, Signing keys (or `POST /accounts/{id}/stream/keys`): create one key. Record `id` and `pem`. The `pem` is base64 encoded. Store it as returned; the server decodes it.
+1. Stream, Signing keys (or `POST /accounts/{id}/stream/keys`): create one key for this environment (production gets its own). Record `id` and `pem`. The `pem` is base64 encoded. Store it as returned; the server decodes it.
 2. Create an API token with **Stream Edit** on this account. This is `CF_STREAM_API_TOKEN`.
-3. Set the webhook:
-
-   ```bash
-   curl -X PUT "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/stream/webhook" \
-     -H "Authorization: Bearer $CF_STREAM_API_TOKEN" -H "Content-Type: application/json" \
-     -d '{"notificationUrl":"https://api.staging.amped.bio/webhooks/cloudflare-stream"}'
-   ```
-
-   The response carries `secret`. That is `CF_STREAM_WEBHOOK_SECRET`.
+3. Webhook: set once for the account, pointing at the router Worker, per `docs/fixes/single-account-usercontent.md` section 4. Do not point it at an API. `CF_STREAM_WEBHOOK_SECRET` on this API is the router's forward secret for this environment (`STAGING_FORWARD_SECRET`), not the account secret.
 4. Prepay Stream storage for the pilot, starting at 10,000 minutes, with a usage alert at 80%.
 
 ### 5.3 Secrets and settings (staging API)
 
-| Variable | Value |
-| --- | --- |
-| `CONTENT_UPLOADS_ENABLED` | `false` until section 5 is done, then `true` |
-| `CF_ACCOUNT_ID` | Staging account id |
-| `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` | From 5.1 step 5 |
-| `R2_BUCKET` | `amped-content-staging` |
-| `CF_STREAM_API_TOKEN` | From 5.2 step 2 |
-| `CF_STREAM_KEY_ID`, `CF_STREAM_KEY_PEM` | From 5.2 step 1 |
-| `CF_STREAM_WEBHOOK_SECRET` | From 5.2 step 3 |
-| `CF_STREAM_ALLOWED_ORIGINS` | `staging.amped.bio,app.staging.amped.bio` |
-| `MEDIA_GATEWAY_ORIGIN` | `https://media.ampedusercontent-staging.com` (used from PR 3; host changed in PR 3, see `docs/fixes/content-media-gateway.md`) |
-| `MEDIA_TOKEN_KEYS` | `s1:` followed by the output of `openssl rand -base64 48 \| tr '+/' '-_' \| tr -d '='` (used from PR 3) |
-| `CONTENT_PROCESSOR_SECRET` | `openssl rand -hex 32` (used from PR 4) |
-| `UPLOAD_LIMIT_CONTENT_*_MB`, `CONTENT_QUOTA_*` | Leave unset for the spec defaults |
+| Variable                                       | Value                                                                                                                     |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `CONTENT_UPLOADS_ENABLED`                      | `false` until section 5 is done, then `true`                                                                              |
+| `CF_ACCOUNT_ID`                                | The Amped Cloudflare account id (same for both environments)                                                              |
+| `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`     | From 5.1 step 5                                                                                                           |
+| `R2_BUCKET`                                    | `amped-content-staging`                                                                                                   |
+| `CF_STREAM_API_TOKEN`                          | From 5.2 step 2                                                                                                           |
+| `CF_STREAM_KEY_ID`, `CF_STREAM_KEY_PEM`        | From 5.2 step 1                                                                                                           |
+| `CF_STREAM_WEBHOOK_SECRET`                     | The router's `STAGING_FORWARD_SECRET` (5.2 step 3)                                                                        |
+| `CF_STREAM_ALLOWED_ORIGINS`                    | `staging.amped.bio,app.staging.amped.bio`                                                                                 |
+| `MEDIA_GATEWAY_ORIGIN`                         | `https://usercontent.staging.amped.bio` (used from PR 3; host changed in PR 3, see `docs/fixes/content-media-gateway.md`) |
+| `MEDIA_TOKEN_KEYS`                             | `s1:` followed by the output of `openssl rand -base64 48 \| tr '+/' '-_' \| tr -d '='` (used from PR 3)                   |
+| `CONTENT_PROCESSOR_SECRET`                     | `openssl rand -hex 32` (used from PR 4)                                                                                   |
+| `UPLOAD_LIMIT_CONTENT_*_MB`, `CONTENT_QUOTA_*` | Leave unset for the spec defaults                                                                                         |
 
-The other spec 3.17 items (the `ampedusercontent.com` zone, Queues, KV, event notifications, WAF, the CSAM Scanning Tool, the classifier account) belong to PR 3 and PR 4. Their handoff docs will list them. They are not needed to test PR 2.
+The other spec 3.17 items (the `amped.bio` zone rules for the media hosts, Queues, KV, event notifications, WAF, the CSAM Scanning Tool, the classifier account) belong to PR 3 and PR 4. Their handoff docs will list them. They are not needed to test PR 2.
 
 ## 6. Decisions made in this PR
 
@@ -240,22 +235,41 @@ There is no UI until PR 5, so QA runs from the browser console on `https://app.s
 const api = "https://api.staging.amped.bio/trpc";
 const call = (path, input) =>
   fetch(`${api}/${path}`, {
-    method: "POST", credentials: "include", headers: { "content-type": "application/json" },
+    method: "POST",
+    credentials: "include",
+    headers: { "content-type": "application/json" },
     body: JSON.stringify(input),
   }).then(r => r.json());
 const query = (path, input) =>
-  fetch(`${api}/${path}` + (input === undefined ? "" : `?input=${encodeURIComponent(JSON.stringify(input))}`), {
-    credentials: "include",
-  }).then(r => r.json());
+  fetch(
+    `${api}/${path}` +
+      (input === undefined ? "" : `?input=${encodeURIComponent(JSON.stringify(input))}`),
+    {
+      credentials: "include",
+    }
+  ).then(r => r.json());
 
 // 1. A small MP3 through one presigned PUT
-const mp3 = new Uint8Array(4096); mp3.set([0x49, 0x44, 0x33, 4, 0, 0]); // "ID3" header
+const mp3 = new Uint8Array(4096);
+mp3.set([0x49, 0x44, 0x33, 4, 0, 0]); // "ID3" header
 const file = new File([mp3], "qa-tone.mp3", { type: "audio/mpeg" });
-const up = await call("content.createUpload", { kind: "audio", fileName: file.name, mimeType: file.type, size: file.size });
+const up = await call("content.createUpload", {
+  kind: "audio",
+  fileName: file.name,
+  mimeType: file.type,
+  size: file.size,
+});
 console.log("createUpload", up);
-const put = await fetch(up.result.data.target.url, { method: "PUT", body: file, headers: up.result.data.target.headers });
+const put = await fetch(up.result.data.target.url, {
+  method: "PUT",
+  body: file,
+  headers: up.result.data.target.headers,
+});
 console.log("PUT", put.status); // 200
-console.log("complete", await call("content.completeUpload", { publicId: up.result.data.publicId })); // processing
+console.log(
+  "complete",
+  await call("content.completeUpload", { publicId: up.result.data.publicId })
+); // processing
 console.log("storage", await query("content.getStorage"));
 ```
 

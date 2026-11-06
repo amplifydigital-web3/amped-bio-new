@@ -1,3 +1,5 @@
+import { messageDoor } from "../services/messaging/messageDoor";
+import { publicFontLinks } from "../services/fonts/fontMirror";
 import { publicProcedure, privateProcedure, router } from "./trpc";
 import { TRPCError } from "@trpc/server";
 import { getFileUrl } from "../utils/fileUrlResolver";
@@ -14,7 +16,7 @@ import { sanitizeBlockConfig } from "../utils/sanitizeBlockConfig";
 import { logger } from "better-auth";
 import { getPublicTrackingPixels } from "./trackingPixels";
 import { showsTelegramMark } from "../services/telegram/accounts";
-import { telegramDoor } from "../services/messaging/door";
+import { telegramDoor, telegramGroupDoor } from "../services/messaging/door";
 import { indexableUserWhere, isUserIndexable } from "../utils/indexable";
 import {
   computeRnsIdentity,
@@ -26,6 +28,11 @@ import { changeHandle, newHandleSchema } from "../services/pageHandle";
 import { matchReserved } from "../services/reservedHandles";
 import { enforceRateLimits } from "../utils/rateLimit";
 import { getVisitorIp } from "../services/analytics/visitorIp";
+import { publicCardsFor } from "../services/content/publicView";
+import { hasAdultItems } from "../services/content/adult";
+import { publicBlocksFor } from "../services/access/blocks";
+import type { ContentBlockConfig, ContentCard, StoreBioBlock } from "@repo/constants";
+import { storeForBio } from "../services/store/public";
 
 export const SITEMAP_MAX_PAGE_SIZE = 10000;
 
@@ -182,7 +189,7 @@ const appRouter = router({
             where: {
               walletId: user.wallet.id,
               poolAddress: { not: null },
-              OR: [{ hidden: false }, { hidden: null }],
+              hidden: false,
             },
             orderBy: { id: "desc" },
             select: { poolAddress: true },
@@ -213,6 +220,19 @@ const appRouter = router({
 
       const blockOptions = rnsIdBlockOptions(blockRows);
       const hasTelegramMessageBlock = blockRows.some(block => block.type === "telegram_message");
+      const hasTelegramGroupBlock = blockRows.some(block => block.type === "telegram_group");
+      // Amped Messages (M6): the Message me block's door, read only when the page carries it
+      // (a telegram_message row not yet migrated by 20261103020000 counts too)
+      const hasMessageBlock = blockRows.some(
+        block => block.type === "message" || block.type === "telegram_message"
+      );
+      // Content blocks (#20, spec 3.7): cards for the ids they hold, read once per page
+      const contentIds = blockRows
+        .filter(block => block.type === "content")
+        .flatMap(block => (block.config as Partial<ContentBlockConfig> | null)?.publicIds ?? [])
+        .filter((id): id is string => typeof id === "string");
+      // Store block (st10): the creator's products, read only when the page carries it
+      const hasStoreBlock = blockRows.some(block => block.type === "store");
       const [
         themeResult,
         imageResult,
@@ -220,6 +240,11 @@ const appRouter = router({
         trackingPixelsResult,
         telegramResult,
         doorResult,
+        groupDoorResult,
+        contentResult,
+        messageDoorResult,
+        adultResult,
+        storeBlockResult,
       ] = await Promise.allSettled([
         getPublicTheme(Number(theme_id)),
         getFileUrl({
@@ -239,21 +264,42 @@ const appRouter = router({
         showsTelegramMark(user_id),
         // Row 115: the Message me block's door, read only when the page carries the block
         hasTelegramMessageBlock ? telegramDoor(user_id) : Promise.resolve(null),
+        // Board tg13: the Join group block's door, read only when the page carries the block
+        hasTelegramGroupBlock ? telegramGroupDoor(user_id) : Promise.resolve(null),
+        // Public items only; drafts, 18+ and deleted ids are left out, and a
+        // suspended page shows none, as getReadUrl would refuse them. Fails closed.
+        contentIds.length && user.page_status === "PUBLISHED" && user.block === "no"
+          ? publicCardsFor(user_id, contentIds)
+          : Promise.resolve({} as Record<string, ContentCard>),
+        hasMessageBlock ? messageDoor(user_id) : Promise.resolve(null),
+        // Identity checks 4.4: one "Adult items" card, no title, cover or count
+        user.page_status === "PUBLISHED" && user.block === "no"
+          ? hasAdultItems(user_id)
+          : Promise.resolve(false),
+        // Public stores only, never the owner's preview; a suspended page shows none
+        hasStoreBlock && user.handle && user.page_status === "PUBLISHED" && user.block === "no"
+          ? storeForBio({ id: user_id, handle: user.handle.toLowerCase(), name })
+          : Promise.resolve(null),
       ]);
 
       // The theme is the profile itself, so its failure is fatal
       if (themeResult.status === "rejected") throw themeResult.reason;
 
-      const publicBlocks = blockRows.map(block => ({
-        id: block.id,
-        user_id: block.user_id,
-        type: block.type,
-        order: block.order,
-        clicks: block.clicks,
-        config: sanitizeBlockConfig(block.type, block.config),
-        created_at: block.created_at,
-        updated_at: block.updated_at,
-      }));
+      // G3: gated link, media and text blocks leave as the locked DTO (or not at all
+      // while the accessGating flag is off). Never the URL, body or embed.
+      const publicBlocks = await publicBlocksFor(
+        blockRows.map(block => ({
+          id: block.id,
+          user_id: block.user_id,
+          type: block.type,
+          order: block.order,
+          clicks: block.clicks,
+          config: sanitizeBlockConfig(block.type, block.config),
+          created_at: block.created_at,
+          updated_at: block.updated_at,
+        })),
+        blockRows
+      );
 
       // Any failure shows no chip (fails closed)
       const identity: PublicRnsIdentity =
@@ -281,13 +327,39 @@ const appRouter = router({
           telegramMark: telegramResult.status === "fulfilled" && telegramResult.value,
           // Row 115: open, the rule kind and the bot. Null without the block. Fails closed.
           telegramDoor: doorResult.status === "fulfilled" ? doorResult.value : null,
+          // Board tg13: open, the rule kind and the bot. Null without the block. Fails closed.
+          telegramGroupDoor: groupDoorResult.status === "fulfilled" ? groupDoorResult.value : null,
+          // Amped Messages (M6): open and the rule kind, never an amount. Null without the block.
+          messageDoor: messageDoorResult.status === "fulfilled" ? messageDoorResult.value : null,
         },
         theme: themeResult.value,
+        // Theme Engine v2 fonts (2b PR 2): the mirrored font links on the media host,
+        // or null while fontDelivery is off (the page keeps the Google requests)
+        fonts: await publicFontLinks(themeResult.value?.config ?? null, {
+          name,
+          bio: description,
+        }).catch(error => {
+          console.error("[getHandle] font links failed, showing fallback fonts:", error);
+          return [] as string[];
+        }),
         blocks: publicBlocks,
         hasCreatorPool,
         creatorPoolAddress,
         trackingPixels: settledOrFallback(trackingPixelsResult, null, "tracking pixels"),
+        contentCards: settledOrFallback(
+          contentResult,
+          {} as Record<string, ContentCard>,
+          "content cards"
+        ),
+        // Store block (st10): null hides the block. Fails closed.
+        storeBlock: settledOrFallback(
+          storeBlockResult,
+          null as StoreBioBlock | null,
+          "store block"
+        ),
         indexable: isUserIndexable(user, publicBlocks.length),
+        // True when the page has a listed 18+ item and the adultContent flag is on. Fails closed.
+        hasAdult: adultResult.status === "fulfilled" && adultResult.value,
       };
 
       return result;

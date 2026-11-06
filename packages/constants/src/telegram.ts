@@ -107,14 +107,53 @@ export const FAN_RELATION_LABELS = {
 // other kind, and every kind added later, is skipped until it is added here.
 // ----------------------------------------------------------------------------
 
-/** Link and media platforms that carry crypto. Never rendered inside the Mini App. */
+/**
+ * Link and media platforms that carry crypto or point to a non TON asset. Never rendered
+ * inside the Mini App. `creator-pool` is the pool embed; `zora` and `mirror` mint NFTs;
+ * `lens` and `warpcast` are wallet based social apps (counsel confirms, PR 6).
+ */
 export const CRYPTO_PLATFORMS = [
   "token-price",
   "nft-collection",
   "uniswap",
   "opensea",
   "creator-pool",
+  "zora",
+  "mirror",
+  "lens",
+  "warpcast",
 ] as const;
+
+/**
+ * Hosts a custom link may not point to inside the Mini App: exchanges, NFT markets,
+ * explorers and wallets for non TON assets, and Amped's own pool pages.
+ */
+export const CRYPTO_LINK_HOSTS = [
+  "opensea.io",
+  "uniswap.org",
+  "zora.co",
+  "mirror.xyz",
+  "etherscan.io",
+  "basescan.org",
+  "coinbase.com",
+  "binance.com",
+  "metamask.io",
+  "revolution.network",
+] as const;
+
+/** True when a link URL points to a host in CRYPTO_LINK_HOSTS or to an Amped pool page. */
+export function isCryptoLinkUrl(url: string | null | undefined): boolean {
+  if (!url) return false;
+  // No URL global in this package: scheme, then host up to the first / ? or #
+  const match = /^(?:[a-z][a-z0-9+.-]*:\/\/)?(?:[^@/?#]*@)?([^/?#:]+)(?::\d+)?([^?#]*)/i.exec(
+    url.trim()
+  );
+  if (!match) return false;
+  const host = match[1]!.toLowerCase().replace(/^www\./, "");
+  const path = match[2] ?? "";
+  if (CRYPTO_LINK_HOSTS.some(item => host === item || host.endsWith(`.${item}`))) return true;
+  return /(^|\.)amped\.bio$/.test(host) && /^\/i\/pools(\/|$)/.test(path);
+}
 
 /** Block types the Mini App may render. Link and media also pass the platform check. */
 export const TELEGRAM_MINIAPP_BLOCK_KINDS = [
@@ -141,10 +180,41 @@ export function isMiniAppSafeBlock(block: MiniAppBlockLike): boolean {
   if (block.adult) return false;
   if (!(TELEGRAM_MINIAPP_BLOCK_KINDS as readonly string[]).includes(block.type)) return false;
   if (block.type === "link" || block.type === "media") {
-    const platform = (block.config as { platform?: string } | null)?.platform ?? "";
-    return !(CRYPTO_PLATFORMS as readonly string[]).includes(platform);
+    const config = block.config as { platform?: string; url?: string } | null;
+    if ((CRYPTO_PLATFORMS as readonly string[]).includes(config?.platform ?? "")) return false;
+    return !isCryptoLinkUrl(config?.url);
   }
   return true;
+}
+
+/**
+ * Words the Mini App never shows (spec 3.7, tonSafeRender.test.ts): no non TON asset, no
+ * staking and no return. Checked on the copy and on every string the page endpoint sends.
+ */
+export const TELEGRAM_MINIAPP_BANNED_WORDS = [
+  "revo",
+  "trevo",
+  "stake",
+  "staking",
+  "pool",
+  "apy",
+  "apr",
+  "yield",
+  "usdc",
+  "wallet",
+] as const;
+
+/** Plural and verb endings a banned word may carry: pools, staked, stakers, wallets, yielding. */
+const BANNED_WORD_ENDINGS = "(s|es|d|ed|ing|r|rs|er|ers)?";
+
+/** The first banned word a string contains, as a whole word or an inflection of one, or null. */
+export function miniAppBannedWord(text: string): string | null {
+  const lower = text.toLowerCase();
+  for (const word of TELEGRAM_MINIAPP_BANNED_WORDS) {
+    const pattern = new RegExp(`(^|[^a-z0-9])${word}${BANNED_WORD_ENDINGS}([^a-z0-9]|$)`);
+    if (pattern.test(lower)) return word;
+  }
+  return null;
 }
 
 // ----------------------------------------------------------------------------
@@ -225,6 +295,8 @@ export const TELEGRAM_APP_STRINGS = {
     PAID_MEMBER: (creator: string) => `Members only. Membership is on ${creator}'s page.`,
     POOL_MEMBER: (creator: string) => `Pool fans only. ${creator}'s pool is on their page.`,
     FOLLOWER: (creator: string) => `Follow ${creator} to get in.`,
+    STAKE_MIN: (creator: string) =>
+      `Fans above a minimum stake. The details are on ${creator}'s page.`,
   },
   exploreTooltip: "Messages on Telegram",
   accountNotLinked: {
@@ -266,6 +338,9 @@ export const TELEGRAM_APP_STRINGS = {
   accountLinkedNoUsername: "Linked. Your Telegram account has no username.",
   accountBlockedNotice:
     "You blocked the Amped.Bio bot in Telegram, so nothing reaches you there. Unblock it in Telegram and send /start.",
+  botStartNotice:
+    "One more step: open the Amped.Bio bot in Telegram and press Start. Until you do, the bot cannot send you anything.",
+  openBotButton: "Open the bot",
   linkButton: "Link Telegram",
   unlinkButton: "Unlink",
   unlinkConfirmTitle: "Unlink Telegram?",
@@ -297,6 +372,7 @@ export const TELEGRAM_APP_STRINGS = {
     notPublished: "Publish your page before turning on messages.",
     emailNotVerified: "Verify your email first.",
     notLinked: "Link Telegram first.",
+    botNotStarted: "Open the Amped.Bio bot in Telegram and press Start, then try again.",
     notInvited: "Fan messages are invite only for now.",
     paused: "Fan messages are paused on your account while Amped reviews reports.",
     needsPool: "Create your pool first. Then you can limit messages to pool fans.",
@@ -372,6 +448,7 @@ export const TELEGRAM_APP_STRINGS = {
   settingsFailed: "Not saved. Check your connection and try again.",
   requirementsTitle: "Before you turn on Fan messages",
   requirementLink: "Link Telegram in Account, Connected apps.",
+  requirementStartBot: "Press Start in the Amped.Bio bot on Telegram.",
   requirementEmail: "Verify your email.",
   requirementPublish: "Publish your page.",
   openAccount: "Open Account",
@@ -388,8 +465,8 @@ export const TELEGRAM_APP_STRINGS = {
   // PR 4: wizard A, creator setup (row 121, tg10). Step 4 and the Done share card wait on groups and the Mini App.
   creatorWizard: {
     title: "Amped.Bio on Telegram",
-    steps: { link: "Link", messages: "Messages", page: "Page" },
-    stepOf: (step: number) => `Step ${step} of 3`,
+    steps: { link: "Link", bot: "Bot", messages: "Messages", page: "Page" },
+    stepOf: (step: number) => `Step ${step} of 4`,
     close: "Close",
     next: "Next",
     linkTitle: "Put your page inside Telegram.",
@@ -400,6 +477,12 @@ export const TELEGRAM_APP_STRINGS = {
     linkGroupLine: "Your Telegram group lets in the people who back you.",
     linkButton: "Link Telegram",
     linkFootnote: "We store your Telegram id and username. Never your phone.",
+    botTitle: "Start the Amped.Bio bot.",
+    botLine:
+      "Open the bot in Telegram and press Start. It brings you fan messages and lets you reply from Telegram.",
+    botStarted: "Bot started.",
+    botKeepChat:
+      "Keep this chat with the bot. If you delete it or stop the bot, fan messages and updates stop reaching you on Telegram until you press Start again.",
     messagesTitle: "Who can message you?",
     messagesButton: "Turn on messages",
     messagesOn: "Fan messages are on.",
@@ -524,9 +607,16 @@ export const TELEGRAM_BOT_STRINGS = {
   groupRemoved: (creator: string) =>
     `You no longer meet the rule for ${creator}'s group, so you were removed. You can rejoin once you qualify.`,
   botAddedNoAdmin:
-    "Thanks for adding Amped.Bio. Make me an admin with Invite users and Ban users, then connect this group from My Pool on Amped.Bio. I never post in your group.",
+    "Thanks for adding Amped.Bio. Make me an admin with Invite users and Ban users, then connect this group on Amped.Bio, in My Pool or Inbox, Settings. I never post in your group.",
+  // PR 5: groups (spec r3 3.2 to 3.6)
+  botAddedAdmin: (group: string) =>
+    `${group} is ready to connect. Open My Pool or Inbox, Settings on Amped.Bio to choose who gets in.`,
+  groupNotOpen: (creator: string) => `${creator} has no Telegram group open right now.`,
+  groupInvite: (creator: string) =>
+    `${creator}'s group is open to you. Tap Join group and Telegram asks the group to let you in.`,
   inlineCardLine: (followers: number) =>
     `${followers} followers on Amped.Bio. Messages on Telegram.`,
+  inlineCardLineNoMessages: (followers: number) => `${followers} followers on Amped.Bio.`,
   unlinked:
     "Your Telegram is unlinked from Amped.Bio. This bot will not message you again unless you link it again.",
   // PR 3: fan to creator messages
@@ -536,6 +626,173 @@ export const TELEGRAM_BOT_STRINGS = {
   senderPaused: "Sending is paused on your account for now. Try again tomorrow.",
   replyThreadClosed: "This conversation is closed. Your reply was not sent.",
   dmNotFound: "That page is not on Amped.Bio. Check the link and try again.",
+} as const;
+
+// ----------------------------------------------------------------------------
+// Mini App (PR 6, spec r3 3.7, board tg7). No pool, stake or wallet words.
+// ----------------------------------------------------------------------------
+
+export const TELEGRAM_MINIAPP_STRINGS = {
+  title: (creator: string) => `${creator} on Amped.Bio`,
+  messageMain: (creator: string) => `Message ${creator} on Telegram`,
+  joinGroup: (creator: string) => `Join ${creator}'s group`,
+  follow: "Follow",
+  following: "Following",
+  followersLine: (count: number) => (count === 1 ? "1 follower" : `${count} followers`),
+  followed: (creator: string) => `You follow ${creator}.`,
+  share: "Share",
+  shareText: (creator: string) => `${creator} on Amped.Bio`,
+  linkTitle: "Link Telegram to Amped.Bio to continue.",
+  linkBody:
+    "Linking lets the Amped.Bio bot reply to you. Nothing is sent until you write first or turn on updates.",
+  linkButton: "Link Telegram",
+  notNow: "Not now",
+  madeWith: "Made with Amped.Bio",
+  notFound: "This page is not on Amped.Bio.",
+  outsideTelegram: "Open this page from Telegram.",
+  failed: "Something went wrong. Close and open the page again.",
+  followFailed: "That did not work. Try again.",
+} as const;
+
+// ----------------------------------------------------------------------------
+// Groups (PR 5, spec r3 3.2 to 3.6, boards tg5, tg9, tg10, tg13, tg14)
+// ----------------------------------------------------------------------------
+
+export const TELEGRAM_GROUP_STRINGS = {
+  tabLabel: "Telegram group",
+  connectTitle: "Connect a group",
+  stepAddBot: "Add the bot",
+  stepMakeAdmin: "Make it admin",
+  stepConfirm: "Confirm the group",
+  rowAddBot: "Open your group, Add members, search @AmpedBioBot.",
+  rowMakeAdmin: "Make it an admin with Invite users and Ban users.",
+  copyBotName: "Copy @AmpedBioBot",
+  copyRights: "Copy the admin rights",
+  copiedBotName: "Copied @AmpedBioBot.",
+  copiedRights: "Copied Invite users and Ban users.",
+  waitingTitle: "Waiting for your group",
+  waitingLine: "Your group appears here as soon as the bot is an admin.",
+  found: (group: string) => `We found ${group}.`,
+  foundLine: "Added by you. Connect it?",
+  foundNoRights: "The bot is in the group but is not an admin with Invite users and Ban users yet.",
+  whoGetsIn: "Who gets in",
+  /** Helper lines under the group rule tiles (board tg5) */
+  ruleHelpers: {
+    ANYONE: "Anyone who linked Telegram to Amped.Bio.",
+    FOLLOWER: "People who follow you, hold a membership or back your pool.",
+    PAID_MEMBER: "People with a paid membership.",
+    POOL_MEMBER: "People who back your pool. Checked every hour.",
+    STAKE_MIN: "Fans below the amount are removed at the next check.",
+  },
+  waitingLink: "Link Telegram first, so the bot knows the group is yours.",
+  connect: "Connect group",
+  publicPrompt: "Public group?",
+  publicPaste: "Paste its @username",
+  publicLabel: "Public group username",
+  publicPlaceholder: "@yourgroup",
+  privateLinkNotice:
+    "Private group links cannot be read. Add @AmpedBioBot as an admin and the group appears here.",
+  notFoundPublic: "No public group with that username. Check it, or add the bot as an admin.",
+  notAdmin: "The bot is not an admin yet. Add it and try again.",
+  notYourGroup:
+    "Only an admin of the group can connect it. Link the Telegram account that runs it.",
+  limitReached: "You can connect up to 3 groups.",
+  yourGroups: "Your groups",
+  connected: "Connected",
+  rightsMissing: "Rights missing",
+  privateBotAdmin: "Private group, bot is admin.",
+  checkedAgo: (ago: string) => `Checked ${ago}.`,
+  notChecked: "Not checked yet.",
+  members: "Members",
+  rule: "Rule",
+  change: "Change",
+  inviteLink: "Invite link",
+  approvalRequired: "Approval required",
+  copyInvite: "Copy the invite link",
+  copiedInvite: "Invite link copied.",
+  lastWeek: "Last check, past 7 days",
+  approved: "Approved",
+  declined: "Declined",
+  removed: "Removed",
+  removeUnverified: {
+    label: "Remove members Amped cannot verify",
+    helper:
+      "Members the bot has seen without a linked account. Off: they are listed and left alone.",
+  },
+  infoLine:
+    "The bot never posts in your group. Removed members who linked Telegram get one message with the reason.",
+  recheck: "Re-check now",
+  recheckQueued: "Check queued. Results land within a few minutes.",
+  disconnect: "Disconnect",
+  disconnectTitle: "Disconnect this group?",
+  disconnectBody:
+    "The invite link stops working. Members stay in the group and the bot stops checking them. You can connect it again later.",
+  disconnected: "Group disconnected.",
+  connectAnother: "Connect another group",
+  changeTitle: "Change who gets in",
+  changeWarning: (n: number) =>
+    n === 1
+      ? "1 member would no longer qualify. They are removed at the next hourly check and get one message with the reason."
+      : `${n} members would no longer qualify. They are removed at the next hourly check and get one message with the reason.`,
+  changeNoLoss: "Everyone in the group still qualifies.",
+  saveRule: "Save rule",
+  cancel: "Cancel",
+  saved: "Saved.",
+  failed: "That did not work. Try again.",
+  off: "Telegram groups are not open yet.",
+  // Join group block on the public page (board tg13)
+  blockJoin: "Join my Telegram group",
+  blockOpensTelegram: "Telegram opens with the invite.",
+  blockNoGroup: "Connect a group in My Pool first. Visitors do not see this button until you do.",
+  blockEditorLine: "Visitors who qualify get the invite in Telegram.",
+  blockGroupField: "Group",
+  blockRuleNote: "The rule comes from the group. Change it in My Pool, Telegram group.",
+  blockOpenMyPool: "Open My Pool",
+  // Welcome message kit (board tg14)
+  kitOpen: "Welcome message for your channel",
+  kitTitle: "Paste this in your channel or group.",
+  kitLine:
+    "Telegram lets you set a welcome message with buttons in your channel settings. Use this text and add a button with your link.",
+  kitText: (link: string, handle: string) =>
+    `Message me on Telegram through Amped.Bio. Tap the link and send your message: ${link}\n\nShare my card in any chat: type @AmpedBioBot ${handle}`,
+  kitButtonText: (creator: string) => `Message ${creator}`,
+  kitButtonLabel: "Button text",
+  kitButtonLink: "Button link",
+  kitCopy: "Copy welcome message",
+  kitCopyLink: "Copy button link",
+  kitCopied: "Welcome message copied.",
+  kitLinkCopied: "Button link copied.",
+  // Wizard step 5 (group) and Done (board tg10)
+  wizardStep: "Group",
+  wizardTitle: "Connect your Telegram group.",
+  wizardOptional: "Step 5 of 5. Optional.",
+  wizardStepOf: (step: number) => `Step ${step} of 5`,
+  wizardRuleFromMessages: (rule: string) =>
+    `Rule from the Messages step: ${rule}. Change it in My Pool any time.`,
+  wizardSkip: "Skip for now",
+  doneInline: (handle: string) => `Type @AmpedBioBot ${handle} in any chat to drop your card.`,
+  doneCopyLink: "Copy my Telegram link",
+  // Admin, Telegram, Groups (board tg9)
+  adminTab: "Groups",
+  adminGroupsConnected: "Groups connected",
+  adminMembers: "Members in groups",
+  adminNoRights: "Bot without rights",
+  adminRemovedToday: "Removed today",
+  adminColumns: {
+    group: "Group",
+    creator: "Creator",
+    rule: "Rule",
+    members: "Members",
+    lastCheck: "Last check",
+    bot: "Bot",
+    action: "Action",
+  },
+  adminBotAdmin: "Admin",
+  adminView: "View",
+  adminRecheck: "Re-check",
+  adminLine:
+    "Admins see group names, counts and rules only. The bot never posts in a group. Every re-check is logged with the admin's handle.",
+  adminEmpty: "No groups connected yet.",
 } as const;
 
 /** Phrases the compliance check rejects on Telegram surfaces, beyond BROADCAST_BANNED_TERMS. */
@@ -585,4 +842,6 @@ export const TELEGRAM_COPY_ROOTS = {
   TELEGRAM_BOT_COMMANDS,
   TELEGRAM_BOT_BUTTONS,
   TELEGRAM_BOT_STRINGS,
+  TELEGRAM_GROUP_STRINGS,
+  TELEGRAM_MINIAPP_STRINGS,
 } as const;

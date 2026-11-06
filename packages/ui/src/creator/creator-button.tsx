@@ -3,10 +3,15 @@
 import type { CSSProperties, PointerEvent, ReactNode } from "react";
 import { ChevronRight } from "lucide-react";
 import type { AnyThemeConfig, EffectEntry, ThemeColors } from "@repo/constants";
-import { safeRenderHref } from "@repo/constants";
+import { getEffect, hoverStrengthVars, legacyEffectId, safeRenderHref } from "@repo/constants";
 import { cn } from "../utils";
 import { effectClassName, hoverSpeedMs, lookFor } from "./look";
 import { buttonSurfaceClass } from "./surface";
+import { ButtonFx } from "./surface-fx";
+import { useShowcase } from "./showcase-context";
+import { playSpark } from "./spark-overlay";
+import { hoverHandlers, playSelfPress } from "./hover-motion";
+import { usePrefersReducedMotion } from "../use-reduced-motion";
 
 // Screen Review 040: shared pieces of the creator page block renderer. Blocks
 // wear only the creator's theme (section 17). Amped contributes rhythm, sizes
@@ -64,10 +69,25 @@ export function playPress(
 }
 
 /**
+ * Drops hover and press variants (hover:, active:, also behind motion-safe:) from a
+ * class list. A few button styles carry their own hover (Neon, Floating, Minimal), so a
+ * surface that must render no effect strips them and keeps the rest of the look.
+ */
+export function stillClasses(className: string): string {
+  return className
+    .split(/\s+/)
+    .filter(token => token && !/(^|:)(hover|active):/.test(token))
+    .join(" ");
+}
+
+/**
  * 040 I06: one button anatomy for link, referral and pool calls to action.
  * Full column width, min 55, a 21 icon at left, the label centered on the
  * button (a 21 spacer at right balances the icon), two lines then truncate.
  * The surface and hover come from the registry (button and buttonHover).
+ * effects false drops the creator's hover, press and ripple, and the hover a button
+ * style carries itself: pool blocks, stake flows and wallet views render no effect
+ * (theme engine v2 3.4 and 3.11).
  */
 export function CreatorButton({
   theme,
@@ -76,6 +96,7 @@ export function CreatorButton({
   href,
   onClick,
   newTab = true,
+  effects = true,
 }: {
   theme: AnyThemeConfig | null | undefined;
   icon?: ReactNode;
@@ -83,6 +104,8 @@ export function CreatorButton({
   href?: string;
   onClick?: () => void;
   newTab?: boolean;
+  /** false: no hover, press or ripple from the creator's look. Default true. */
+  effects?: boolean;
 }) {
   // D57: a stored link that is not http, https, mailto, tel or a site path
   // renders as a plain button with no href, so it can never run script
@@ -91,31 +114,58 @@ export function CreatorButton({
   // Phase 2 Buttons row (board 07): Label is the v1 anatomy; Icon slot sets
   // the label beside the icon; Split adds a chevron at the right
   const layout = look.v2.button.layout;
+  // Phase 3c and 3e: the Plus hovers and presses run with the showcase flag.
+  // Off, the hover falls back to the v1 look stored beside it and a Plus
+  // press plays nothing.
+  const showcaseState = useShowcase();
+  const reducedMotion = usePrefersReducedMotion();
+  const showcaseOn = showcaseState.showcase;
+  const motionOk = !showcaseState.paused && !reducedMotion;
+  const hover =
+    look.buttonHover.tier === "core" || showcaseOn
+      ? look.buttonHover
+      : getEffect("buttonHover", legacyEffectId("buttonEffect", look.values.buttonEffect));
+  const hoverParams = look.v2.buttonHover.params;
+  const press =
+    look.buttonPress.tier === "core" || showcaseOn
+      ? look.buttonPress
+      : getEffect("buttonPress", "buttonPress.none");
   // Phase 2 Button press row: a class press (Dip) or a ripple from the press point
-  const press = look.buttonPress;
-  const ripple = press.render.kind === "waapi";
+  const ripple = effects && press.render.kind === "waapi" && press.render.target !== "self";
+  const selfPress = effects && press.render.kind === "waapi" && press.render.target === "self";
+  const spark = effects && press.render.kind === "canvas" && showcaseOn && motionOk;
   const className = cn(
     "flex min-h-commit w-full items-center gap-[13px] px-[21px] py-2",
-    effectClassName(look.button),
+    effects ? effectClassName(look.button) : stillClasses(effectClassName(look.button)),
     buttonSurfaceClass(look),
-    effectClassName(look.buttonHover),
-    effectClassName(press),
+    effects && effectClassName(hover),
+    effects && effectClassName(press),
     ripple && "relative overflow-hidden",
     CREATOR_FOCUS
   );
   const onPointerDown = ripple
     ? (event: PointerEvent<HTMLElement>) => playPress(press, look.colors, event)
-    : undefined;
+    : spark
+      ? (event: PointerEvent<HTMLElement>) => playSpark(event.clientX, event.clientY, look.colors)
+      : selfPress && motionOk
+        ? (event: PointerEvent<HTMLElement>) => void playSelfPress(press, event.currentTarget)
+        : undefined;
+  // Phase 3e: Magnet and Jelly move the button from script
+  const handlers = effects && showcaseOn && motionOk ? hoverHandlers(hover, hoverParams) : {};
   // Editor chrome: the hover's Speed sets the transition; Default keeps its own
-  const speed = hoverSpeedMs(look);
+  const speed = effects ? hoverSpeedMs(look) : undefined;
   const style: CSSProperties = {
     backgroundColor: look.values.buttonColor,
     fontFamily: look.values.fontFamily,
     color: look.values.fontColor,
     ...(speed ? { transitionDuration: `${speed}ms` } : {}),
+    // Phase 3e Strength: the variables the hover classes read, with the flag
+    ...(effects && showcaseOn ? hoverStrengthVars(hover.id, hoverParams) : {}),
   };
   const content = (
     <>
+      {/* Phase 3d: Specular draws its rim light here, under the label (dropped with effects off) */}
+      {effects && <ButtonFx entry={look.button} />}
       <span aria-hidden className="flex h-[21px] w-[21px] shrink-0 items-center justify-center">
         {icon}
       </span>
@@ -144,6 +194,7 @@ export function CreatorButton({
         rel={newTab ? "noopener noreferrer" : undefined}
         onClick={onClick}
         onPointerDown={onPointerDown}
+        {...handlers}
         className={className}
         style={style}
       >
@@ -156,6 +207,7 @@ export function CreatorButton({
       type="button"
       onClick={onClick}
       onPointerDown={onPointerDown}
+      {...handlers}
       className={className}
       style={style}
     >

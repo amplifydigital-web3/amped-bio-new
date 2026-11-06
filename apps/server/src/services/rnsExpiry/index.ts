@@ -11,6 +11,7 @@ import { deliverEmail } from "../../utils/email/transport";
 import { uuidv7 } from "../../utils/uuid-v7";
 import RnsExpiryTemplate from "../../utils/email/RnsExpiryTemplate";
 import { rnsDaysLeft, rnsExpiryStage, rnsExpirySubject, type RnsExpiryStage } from "./stage";
+import { isFeatureOn } from "../featureFlags";
 
 export { rnsExpiryStage, rnsDaysLeft, rnsExpirySubject } from "./stage";
 
@@ -290,11 +291,14 @@ let sweeper: NodeJS.Timeout | null = null;
 /** Hourly. The notice table keeps each reminder to one email. */
 export function startRnsExpirySweeper() {
   // No subgraph means no names to sweep: the timer never starts
-  if (sweeper || process.env.NODE_ENV === "test" || !env.RNS_EXPIRY_EMAILS || !env.SUBGRAPH_URL) {
+  if (sweeper || process.env.NODE_ENV === "test" || !env.SUBGRAPH_URL) {
     return;
   }
-  const run = () =>
+  // The rnsExpiryEmails flag is read on every run, so turning it on needs no restart
+  const run = () => {
+    if (!isFeatureOn("rnsExpiryEmails")) return;
     void sweepRnsExpiry().catch(error => console.error("[rns-expiry] sweep failed", error));
+  };
   setTimeout(run, 60_000);
   sweeper = setInterval(run, SWEEP_MS);
   sweeper.unref();

@@ -9,6 +9,10 @@ const state = vi.hoisted(() => ({
   token: "" as string,
   username: "AmpedBioStagingBot" as string | undefined,
   getMeFails: false,
+  apiHost: "api.staging.amped.bio",
+  webhookSecret: "hook_secret",
+  groups: false,
+  setWebhook: vi.fn(async () => true),
 }));
 
 vi.mock("../env", () => ({
@@ -20,6 +24,15 @@ vi.mock("../env", () => ({
       return state.token;
     },
     TELEGRAM_BOT_USERNAME: "",
+    get API_HOST() {
+      return state.apiHost;
+    },
+    get TELEGRAM_WEBHOOK_SECRET() {
+      return state.webhookSecret;
+    },
+    get TELEGRAM_GROUPS() {
+      return state.groups;
+    },
   },
 }));
 
@@ -33,6 +46,7 @@ vi.mock("grammy", () => ({
           if (state.getMeFails) throw new Error("api down");
           return { id: Number(token.split(":")[0]), username: state.username, is_bot: true };
         }),
+        setWebhook: state.setWebhook,
       };
     }
   },
@@ -43,14 +57,21 @@ vi.mock("../services/telegram/bot", () => ({ installBotHandlers: vi.fn() }));
 
 import {
   getBotUsername,
+  registerTelegramWebhook,
   resetTelegramBotForTests,
   telegramBotId,
+  telegramWebhookUrl,
 } from "../services/telegram/client";
 
 beforeEach(async () => {
   state.token = "";
   state.username = "AmpedBioStagingBot";
   state.getMeFails = false;
+  state.apiHost = "api.staging.amped.bio";
+  state.webhookSecret = "hook_secret";
+  state.groups = false;
+  state.setWebhook.mockReset();
+  state.setWebhook.mockResolvedValue(true);
   const envModule = await import("../env");
   (envModule.env as { TELEGRAM_BOT_USERNAME: string }).TELEGRAM_BOT_USERNAME = "";
   resetTelegramBotForTests();
@@ -88,5 +109,73 @@ describe("getBotUsername", () => {
     expect(telegramBotId()).toBe(12345);
     state.token = "";
     expect(telegramBotId()).toBeNull();
+  });
+});
+
+describe("registerTelegramWebhook", () => {
+  it("points the bot at this API's webhook route with the secret and the handled updates", async () => {
+    state.token = "123456:abc";
+    expect(await registerTelegramWebhook()).toBe(true);
+    expect(state.setWebhook).toHaveBeenCalledWith(
+      "https://api.staging.amped.bio/webhooks/telegram",
+      {
+        secret_token: "hook_secret",
+        allowed_updates: ["message", "callback_query", "my_chat_member"],
+      }
+    );
+  });
+
+  it("also asks for the group and inline updates when TELEGRAM_GROUPS is on", async () => {
+    state.token = "123456:abc";
+    state.groups = true;
+    expect(await registerTelegramWebhook()).toBe(true);
+    expect(state.setWebhook).toHaveBeenCalledWith(
+      "https://api.staging.amped.bio/webhooks/telegram",
+      {
+        secret_token: "hook_secret",
+        allowed_updates: [
+          "message",
+          "callback_query",
+          "my_chat_member",
+          "chat_join_request",
+          "chat_member",
+          "inline_query",
+          "chosen_inline_result",
+        ],
+      }
+    );
+  });
+
+  it("does nothing while the bot is not configured", async () => {
+    expect(await registerTelegramWebhook()).toBe(false);
+    expect(state.setWebhook).not.toHaveBeenCalled();
+  });
+
+  it("skips a local API_HOST so a dev server never takes the shared bot's webhook", async () => {
+    state.token = "123456:abc";
+    for (const host of ["localhost:43000", "http://127.0.0.1:24300", "[::1]"]) {
+      state.apiHost = host;
+      expect(telegramWebhookUrl()).toBeNull();
+      expect(await registerTelegramWebhook()).toBe(false);
+    }
+    expect(state.setWebhook).not.toHaveBeenCalled();
+  });
+
+  it("skips registration without a secret, since the route would refuse every update", async () => {
+    state.token = "123456:abc";
+    state.webhookSecret = "";
+    expect(await registerTelegramWebhook()).toBe(false);
+    expect(state.setWebhook).not.toHaveBeenCalled();
+  });
+
+  it("logs a Bot API failure instead of throwing", async () => {
+    state.token = "123456:abc";
+    state.setWebhook.mockRejectedValueOnce(new Error("bad secret"));
+    expect(await registerTelegramWebhook()).toBe(false);
+  });
+
+  it("strips a scheme and trailing slash from API_HOST", () => {
+    state.apiHost = "https://api.amped.bio/";
+    expect(telegramWebhookUrl()).toBe("https://api.amped.bio/webhooks/telegram");
   });
 });

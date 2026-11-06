@@ -27,11 +27,13 @@ export function useAuthbaseIdentityStatus(address: string | null | undefined) {
  * shared with Amped.Bio. Owner only on the server (keyed by the session
  * wallet). Enable it only when the viewer owns the name being shown.
  */
-export function useMyAuthbaseStatus(enabled: boolean) {
+export function useMyAuthbaseStatus(enabled: boolean, pollMs?: number | false) {
   return useQuery({
     ...trpc.authbase.getMyStatus.queryOptions(),
     enabled,
-    staleTime: 45_000,
+    // AB-3: after the return from Authbase the tab polls until the new ID lands
+    refetchInterval: pollMs ?? false,
+    staleTime: pollMs ? 0 : 45_000,
     gcTime: 5 * 60_000,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,

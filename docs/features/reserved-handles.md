@@ -2,6 +2,7 @@
 
 Status: revision 2, 28 Oct 2026, for approval. Revision 1 (27 Oct) had R1 to R4, all answered as recommended on 28 Oct. Revision 2 adds the admin interface (section 7): the list moves to two tiers, a locked system tier in code and an admin managed tier in the database, with screens to reserve, assign and release words, run the holder notices from R1, and see redirects and the audit log. Changed sections: 3, 4, 5, 7 (new), 8, 9, 10, 11.
 Full QA, 28 Oct 2026: two independent reviewers (spec and code; design and accessibility). 48 spec edits applied from their reports. Results: `docs/features/reserved-handles-qa.md`. A2 and A5 recommendations changed after QA and are open for Rob.
+Screen QA fixes, 3 Nov 2026 (rows 330 to 337): sections 3.1, 4, 5, 6, 7.1, 7.2, 7.6, 7.8, 7.11, 10 and the new section 12 "For counsel" changed. RH-Q15 decided by Rob on 3 Nov: a word reserved for an impersonation report suspends the holder now, with no notice and no redirect (sections 5, 7.3, 7.6, 7.7, 7.9, 7.10, decision A7).
 Build Board: D2 "Reserved handle list" (Step 1, priority 5).
 Owner: Rob Frasca. Drafted by Claude.
 Baseline: `development` at a3ce333.
@@ -32,7 +33,7 @@ Better Auth runs in two processes. `apps/auth-server` answers every sign up, soc
 
 Rules live in `packages/constants/src/handle.ts`: `HANDLE_MIN_LENGTH = 2`, `HANDLE_REGEX = /^[a-z0-9_-]+$/`. The regex already rules out dots, so `robots.txt`, `llms.txt` and `.well-known` cannot collide.
 
-Top level routes in `apps/landingpage/src/app` today: `auth`, `docs`, `i`, `login`, `oauth`, `og`, `privacy`, `register`, `sign`.
+Top level routes in `apps/landingpage/src/app` today: `auth`, `docs`, `i`, `login`, `oauth`, `og`, `privacy`, `register`, `sign`, `tg`.
 
 Admin today: the admin app (`apps/admin`) has no handle tools. The Users slab edit dialog (`components/users/UsersSlab.tsx`) changes name and email only. `admin.users.updateUser` does not take a handle. There is no audit table; the suspended pages spec proposes `AdminAuditLog`, and this spec uses the same model.
 
@@ -48,7 +49,7 @@ Words that collide with a route or with infrastructure. No account may ever hold
 /** Routes and infrastructure. No account may hold these, ever. Lowercase. */
 export const SYSTEM_RESERVED_HANDLES: ReadonlySet<string> = new Set([
   // routes that exist
-  "auth", "docs", "i", "login", "oauth", "og", "privacy", "register", "sign",
+  "auth", "docs", "i", "login", "oauth", "og", "privacy", "register", "sign", "tg",
   // routes on the board
   "pools", "pool", "brands", "brand", "explore", "creators", "agency", "agencies",
   "store", "shop", "pay", "checkout", "age-check", "library", "live", "messages",
@@ -88,7 +89,7 @@ export function isSystemReservedHandle(handle: string): boolean {
 export function matchReservedIn(handle: string, rows: AdminReservedRow[], now: Date): ReservedMatch;
 ```
 
-`u` is added for the unsubscribe route in the bulk email spec (`/u/{token}`). The route guard test (acceptance 7) keeps this tier in step with `apps/landingpage/src/app`.
+`u` is added for the unsubscribe route in the bulk email spec (`/u/{token}`). `tg` is the shipped Telegram mini app route (`apps/landingpage/src/app/tg`). The tier holds 49 words plus the `_` prefix, so the System chip on the Reserved tab reads 50. The route guard test (acceptance 7) keeps this tier in step with `apps/landingpage/src/app`.
 
 ### 3.2 Admin tier (database, managed in the admin app)
 
@@ -125,13 +126,14 @@ The admin tier is never sent to a browser (decision A5). The client checks the s
    It checks the system tier first, then the admin tier. Exact rows compare `handleSkeleton`; prefix rows compare `handlePrefixForm`. The pure rule is `matchReservedIn` in `packages/constants`, so `apps/server` and `apps/auth-server` cannot drift. In `apps/server` the admin rows are held in a process cache keyed by a version counter in Redis (`reserved_handles:version`). Every admin write bumps the version and reloads the writing instance at once; other instances poll the version every 5 s. Every instance also reloads from the database every 60 s whatever Redis says, so a Redis outage leaves at most 60 s of staleness. `apps/auth-server` has no Redis; its sign up hook reads `reserved_handles` directly, one indexed query per sign up. Any row past its `expiresAt` does not match, whatever its category.
 2. **One validator.** `services/pageHandle.ts` `assertHandleAllowed(handle, userId?)`: regex, length, then `matchReserved`. A system match always throws. An admin match throws unless `assignedUserId === userId`, or the user has a `HandleNotice` in state `exempt` for that word whose `oldHandle` equals the handle (how a prefix exemption is kept). Message: `HANDLE_RESERVED_MESSAGE = "This handle is reserved"`. `assertHandleAvailable` calls it first.
 3. **Availability.** `checkAvailability` returns `{ available: false, handle, reason: "reserved" }` for a reserved word, and `reason: "taken"` when another account holds it. Partner and Hold rows return `reason: "taken"` (decision A5). The account lookup always runs, so reserved and free words take the same time. The procedure gets a per IP limit through `enforceRateLimits` (60 a minute). The client maps `reserved` to a new `HandleStatus` value `Reserved`. The response never says which tier or category matched.
-4. **Email sign up.** `databaseHooks.user.create.before` in `apps/auth-server/src/utils/auth.ts` (the instance that serves sign up) and in `apps/server/src/utils/auth.ts` (kept in step) validates a supplied handle with the same rules. A bad or reserved handle throws `APIError("BAD_REQUEST", { code: "INVALID_HANDLE" })`, which the register form already handles (`RegisterForm.test.tsx` line 175). This also closes the gap where a direct API call skips the regex.
+4. **Email sign up.** `databaseHooks.user.create.before` in `apps/auth-server/src/utils/auth.ts` (the instance that serves sign up) and in `apps/server/src/utils/auth.ts` (kept in step) validates a supplied handle with the same rules. A bad or reserved handle throws `APIError("BAD_REQUEST", { code: "INVALID_HANDLE" })`, which the register form already handles (`RegisterForm.test.tsx` line 175). This also closes the gap where a direct API call skips the regex. The reserved branch follows decision A5 exactly as `checkAvailability` does: `checkSignUpHandle` in both `apps/auth-server/src/utils/handleHooks.ts` and `apps/server/src/utils/handleHooks.ts` calls `publicReservedReason(match)` from `packages/constants/src/reservedHandles.ts`. For `"taken"` (Partner and Hold rows) it throws with the taken message, `"This handle is taken"`, and the register form shows the Taken line. Only `"reserved"` throws `"This handle is reserved"`. A direct sign up call therefore cannot confirm a guessed partner name (QA RH-Q3).
 5. **Google sign up.** `readSocialSignUpState` drops a reserved handle, so the account falls back to a generated one.
 6. **Generated handles.** `generateUniqueHandle` and `generateFanHandle` treat a reserved result as taken and add the numeric suffix (`support` becomes `support4821`). The check runs on the final handle, not the base. The base is first lowercased and cut to `HANDLE_REGEX` characters. A base that matches a prefix row or the `_` system prefix loses that prefix and any leading `-` or `_` before the suffix is added (`amped-joe` becomes `joe4821`, `_foo` becomes `foo4821`). If what remains is shorter than `HANDLE_MIN_LENGTH` or still reserved, the base becomes `user`. The same function makes the rename target in section 5. Both copies of `onelink-generator.ts` change.
 7. **Admin.** Assigning, reserving and releasing run through `admin.handles` (section 7.10). Every write is audited.
 8. **Better Auth update user.** A `databaseHooks.user.update.before` hook in both instances refuses any `handle` in the update data with `APIError("BAD_REQUEST", { code: "INVALID_HANDLE" })`. Handle changes go through `handle.redeem` only. No client calls `updateUser` today.
 9. **Session backfill.** `customSession` in both instances uses the generator in item 6.
 10. **Every handle write.** `handle.redeem`, `publishPage`, `admin.handles.assign`, `holders.renameNow` and the sweeper set a handle through one `changeHandle` (section 7.5).
+11. **Publishing under a held handle (QA RH-Q6, S1).** `publishPage` in `apps/server/src/services/pagePublish.ts` calls `changeHandle` only when the handle changes, so an unpublished account that already holds a reserved word (`support`, `amped-joe`, or a fan handle made before RH1 such as `amped-support-4821`) publishes under it with no check. Change: when `page_status` goes from `UNPUBLISHED` to `PUBLISHED` and the handle does not change, call `assertHandleAllowed(current, userId)` before the update. An assigned word or an exempt notice passes, as in item 2. A refusal throws the reserved message and the page stays unpublished. In `apps/client/src/components/shell/PublishPageSheet.tsx` the current handle is checked with `checkAvailability` like a typed one; a reserved current handle reads `Reserved`, not `Current`, and the sheet shows "Your link amped.bio/{handle} is reserved. Choose a new link to publish." with Publish disabled. This ships in RH1, before the RH2 notice flow exists.
 
 ## 5. Accounts that already hold a word
 
@@ -140,19 +142,35 @@ Revision 1 ran a one time script. Revision 2 runs the same check inside the admi
 - **Collision check.** `admin.handles.checkCollisions({ word, kind })` lists every account whose handle matches, with page status, followers, pool and last sign in. It uses the same folded forms as `matchReserved`. It filters in code or escapes `_` and `%` before any MySQL `LIKE`; a raw `amped_%` pattern also matches `ampedbio`. The Add word sheet runs it before saving (section 7.3, screen RA3). The launch audit is the same call run over the whole list: `pnpm --filter server handles:reserved-audit` prints it and changes nothing.
 - **Notice flow (R1).** For each colliding account, the admin chooses one action:
   - **Keep and exempt.** The account keeps the handle. For an admin tier word this is an assignment. A system tier word cannot be exempted, because the route would hide the page.
-  - **Start notice.** Accounts with no published page are renamed at once to the generated form (`pools` becomes `pools7319`) with no email. Accounts with a published page get the 14 day email with a one click "Choose a new link" button to Public URL. On day 14 the handle is renamed to the generated form if they have not chosen. Every rename, published or not, writes a 90 day `HandleRedirect` row. A live route always wins over it in Next.js, so the sweeper ends redirects whose old word has become a route.
-- **Default.** System, Company and Trust collisions default to Start notice. Brand, Partner and Hold collisions default to Keep and exempt (decision A2). The migration seeds rows and touches no account. RH2 does not reach production until the launch audit has a recorded action for every seed collision.
+  - **Suspend now (impersonation report).** Offered, and the only action, when the reservation's reason type is Impersonation report (decision A7, RH-Q15). In one transaction: `suspendUser(userId, reason)` from the suspended pages spec (block, delete sessions, audit), then `changeHandle` renames the account to the generated form with `redirectOld: false`, so no `HandleRedirect` is written and amped.bio/{word} never sends a visitor to the impersonator. A `HandleNotice` row is written in state `suspended` so the account shows in Holders. No 14 day notice, no Keep and exempt, no notice email and no rename email. The holder gets the suspension email from the suspended pages spec (section 3.4 and 9), category Impersonation, with the support ticket link and never the internal reason. Audit rows, one each: `handle.reserve` for the word, `handle.impersonation_suspend` for the account (`before` and `after` handle, reason, the report ticket ids in the reason), and the `user.block` row that `suspendUser` writes.
+  - **Start notice.** Accounts with no published page are renamed at once to the generated form (`pools` becomes `pools7319`) and get the rename email below. Accounts with a published page get the 14 day email with a one click "Choose a new link" button to Public URL. On day 14 the handle is renamed to the generated form if they have not chosen, and the rename email is sent. Every rename, published or not, writes a 90 day `HandleRedirect` row. A live route always wins over it in Next.js, so the sweeper ends redirects whose old word has become a route.
+- **Notice email (QA RH-Q9, RH-Q10).** Transactional stream, from Amped.Bio. Two variants, picked by tier and category:
+  - Route word (system tier): subject "Choose a new link for your page by {date}". First line: "Hi {name}, your page @{handle} uses amped.bio/{word}. Amped.Bio is opening a page at amped.bio/{word}."
+  - Admin word (Company, Trust, Brand): same subject. First line: "Hi {name}, your page @{handle} uses amped.bio/{word}. amped.bio/{word} is now reserved by Amped.Bio."
+  - Both then say: "Please choose a new link by {date}. If you do not choose one, your page moves to amped.bio/{fallback} on that date. Visitors to the old link are sent to the new one for 90 days." The button reads "Choose a new link". A support line follows: "Questions? Open a support ticket", linked to the Freshdesk new ticket page (`SUPPORT_TICKET_URL` in `packages/ui/src/prism/auth.tsx`). The transactional footer stays.
+- **Rename email (QA RH-Q11).** Sent on every rename by the notice flow, at once for an unpublished account and on day 14 for a published one. Subject "Your link is now amped.bio/{new}". Body: "Hi {name}, your page @{old} now lives at amped.bio/{new}. amped.bio/{word} is reserved, so we changed your link. Visitors to the old link are sent to the new one for 90 days. You can pick another link in Account, Public URL." Then the support line and the transactional footer. The editor shows the same fact once as a solid notice on the next sign in.
+- **Default.** An Impersonation report reason forces Suspend now for every matching account, whatever the category. Otherwise System, Company and Trust collisions default to Start notice. Brand, Partner and Hold collisions default to Keep and exempt (decision A2). The migration seeds rows and touches no account. RH2 does not reach production until the launch audit has a recorded action for every seed collision.
 - **The job.** A sweeper (`setInterval` every 15 minutes, started like `startBroadcastSweeper` in `services/broadcast/index.ts`) sends due notices, runs due renames, removes expired rows and expired redirects, and writes an audit row for each with `actorId` null. It claims each due `HandleNotice` with a conditional `updateMany`, the same lock the Telegram outbox uses (`services/telegram/loop.ts` line 110). Two instances never act on one row, and Redis is not needed. Before a rename it checks again that the word is still reserved and the account still holds `oldHandle`. If the account moved, the notice closes as `chose_new`. If the word was released, it closes as `cancelled`.
 
 ## 6. UI (people choosing a handle)
 
 Design boards cover the three surfaces where a person types a handle. One new status line, shared:
 
-| State | Copy |
-| --- | --- |
-| Reserved | amped.bio/{handle} is reserved. Pick another. |
+| State | Register (`HandleStatusLine.tsx`) | Public URL and publish sheet (`publicUrlInput.ts`) |
+| --- | --- | --- |
+| Checking (after 400 ms) | Checking amped.bio/{handle} | Checking |
+| Available | amped.bio/{handle} is available | amped.bio/{handle} is available |
+| Reserved | amped.bio/{handle} is reserved. Pick another. | amped.bio/{handle} is reserved. Pick another. |
+| Taken (also Partner and Hold words, A5) | amped.bio/{handle} is taken. Pick another. | That URL is taken. Pick another. |
+| Error, including the 60 a minute limit on `checkAvailability` | This URL check did not finish. Retry (ghost button) | Could not check this URL. Retry |
 
-Shown on the register card (`HandleStatusLine.tsx`), Account > Public URL, and the publish sheet. Submit stays disabled, as it is for Taken. No suggestion list in this PR.
+Surfaces and the submit rule (QA RH-Q1, RH-Q7). One rule per surface, matching the shipped code:
+
+- **Register card**, title "Claim your page", field "Your page URL", button "Create account". Create account stays enabled, as on every Prism auth card. Pressing it while the handle line shows Reserved, Taken or Error does not submit: focus moves to the Your page URL field and the line is announced (`aria-describedby`).
+- **Account > Public URL** (`PublicUrlRow.tsx`, a disclosure row). The button "Use this URL" is disabled unless the line is Available. The warning notice "Your old links stop working" shows only when the new URL is Available, never under Reserved.
+- **Publish sheet** "Publish your page". Publish is disabled unless the line is Current or Available. A reserved current handle shows Reserved (section 4, item 11).
+
+No suggestion list in this PR.
 
 ## 7. Admin interface
 
@@ -167,7 +185,7 @@ A new admin destination **Handles** at `/handles`, in the Access group after OAu
 | Redirects | Live `HandleRedirect` rows |
 | Log | Audit rows for handle actions |
 
-The Users slab gains two small changes: a `Reserved` WordBadge (nav tone) on the handle line of the Person cell for a handle that holds an assigned admin tier word, and a **Give reserved word** item (icon `AtSign`) in the row menu, after Block and before the separator and Copy user ID, that opens the Assign sheet (RA5) for that user, with the word picked from admin tier exact rows. Admins cannot set an ordinary handle in this build. `admin.users.getUsers` returns `assignedWord` for the badge. Edit stays the pencil button.
+The Users slab gains two small changes: a `Reserved` WordBadge (nav tone) on the handle line of the Person cell for a handle that holds an assigned admin tier word, and a **Give reserved word** item (icon `AtSign`) in the row menu, after Block and before the conditional Turn off two factor item (then the separator and Copy user ID), that opens the Assign sheet (RA5) for that user, with the word picked from admin tier exact rows. Admins cannot set an ordinary handle in this build. `admin.users.getUsers` returns `assignedWord` for the badge. Edit stays the pencil button.
 
 Every tab uses the kit's states: `SlabSkeletonRows` while loading; `SlabMessageRow` when empty ("No words match {search}.", "No accounts on notice.", "No live redirects.", "No handle actions yet."); `retryToast` on an API error. A signed in account without the admin role never reaches `/handles`: `ProtectedRoute` sends it to amped.bio, and the API answers FORBIDDEN.
 
@@ -175,7 +193,7 @@ Built with the admin kit: `SlabTable`, `SlabSkeletonRows`, `SearchWell`, `Filter
 
 ### 7.2 Reserved tab
 
-Search well (word or holder handle). Filter chips: All, System, Company, Trust, Brand, Partner, Hold, Assigned.
+Search well (word or holder handle). Filter chips: All, System, Company, Trust, Brand, Partner, Hold, Assigned, each with its count (System reads 50 today). On load, the selected chip scrolls into view in its row (QA RH-Q14).
 
 | Column | Content |
 | --- | --- |
@@ -211,10 +229,11 @@ Fields:
 | Word | Normalized as typed. Must pass `HANDLE_REGEX` and `HANDLE_MIN_LENGTH`. Refused if already reserved in either tier. Errors show under the field as typed (`FieldError`): "{word} is already reserved. Open it from the Reserved tab to edit it.", "{word} is a system word, reserved in code." or "Use only a to z, 0 to 9, - and _." |
 | Match | Exact word, or Starts with (prefix). A prefix ends in `-` or `_` and has at least 3 letters or digits before it (`amped-` passes, `ab-` fails). Error: "A prefix needs 3 or more letters or digits, then - or _." A prefix that matches more than 200 accounts is refused as too broad: "{word} matches {n} accounts. Reserve a narrower word." |
 | Category | Company, Trust, Brand, Partner, Hold |
+| Reason type | `ChipGroup`: Impersonation report, Other. Default Other. Impersonation report shows the help line "An impersonation report suspends any account that holds this word. No notice, no redirect." and switches the collision step to Suspend now |
 | Reason | Required, 1 to 500 characters. Internal only |
 | Ends on | Required for Hold, optional for Brand and Partner, not shown for Company and Trust |
 
-Match and Category are `ChipGroup` rows (44 chips). On Continue the sheet runs `checkCollisions`. With no matches it saves and shows the toast "Reserved {word}." With matches it lists every matching account (an exact word matches at most one account; a prefix up to 200, by the guard above) and asks for the action per R1 and A2: Keep and exempt (assigns the word for an exact match; for a prefix, a `HandleNotice` row in state `exempt` records it and the account keeps its handle) or Start 14 day notice. A prefix can match many: with more than 20 matches the sheet adds an **Action for all** choice (default per A2) above the per account choices for the first 20, and says how many accounts are not listed. Those accounts take the action for all. Save writes the row, the per account actions and one audit row each, in one transaction. The primary button reads "Reserve {word}"; Back returns to the form. `reserve` runs the collision query again inside the transaction and refuses with CONFLICT if the accounts differ from `holders`, so a handle claimed between Continue and Save is never skipped. A word already reserved by another admin meanwhile is refused with "amped.bio/{word} is already reserved."
+Match and Category are `ChipGroup` rows (44 chips). On Continue the sheet runs `checkCollisions`. With no matches it saves and shows the toast "Reserved {word}." With matches it lists every matching account (an exact word matches at most one account; a prefix up to 200, by the guard above) and asks for the action per R1 and A2 (with reason type Impersonation report, the only action is Suspend now, the primary becomes the danger button "Suspend and reserve {word}", and the sheet states that the handle moves with no redirect, screens RA3 and RA3s): Keep and exempt (assigns the word for an exact match; for a prefix, a `HandleNotice` row in state `exempt` records it and the account keeps its handle) or Start 14 day notice. A prefix can match many: with more than 20 matches the sheet adds an **Action for all** choice (default per A2) above the per account choices for the first 20, and says how many accounts are not listed. Those accounts take the action for all. Save writes the row, the per account actions and one audit row each, in one transaction. The primary button reads "Reserve {word}"; Back returns to the form. `reserve` runs the collision query again inside the transaction and refuses with CONFLICT if the accounts differ from `holders`, so a handle claimed between Continue and Save is never skipped. A word already reserved by another admin meanwhile is refused with "amped.bio/{word} is already reserved." On a CONFLICT the sheet reloads the accounts and shows the solid notice "The accounts changed since you checked. Review them again before you reserve {word}." Other field errors: Hold with no end date, "A hold needs an end date."; empty reason, "Add a reason. It is saved to the log." The reason help line counts "{n} of 500" and the field stops at 500. Continue stays disabled while any field error shows (QA RH-Q17, RH-Q18).
 
 ### 7.4 Word sheet (RA4)
 
@@ -234,7 +253,7 @@ Search for an account by handle, name or email. The sheet shows the account's cu
 
 Reason required. Assign runs `admin.handles.assign`, which sets the handle through a new `changeHandle(tx, userId, handle, opts)` in `services/pageHandle.ts`. Today `handle.redeem` only updates the row and refreshes no cache (`trpc/handle.ts` lines 103 to 133). `changeHandle` runs `assertHandleAllowed` (on assign it bypasses only the reserved check for this word and this user), writes the handle, deletes any `HandleRedirect` whose `oldHandle` is the new handle, writes the optional redirect for the old one, and revalidates the landing profile tag for both handles through the internal revalidate route in the suspended pages spec.
 
-An account can hold only one handle, so assigning moves it. A word can be assigned to only one account. If the assigned account later changes its handle through Public URL, the assignment ends in the same transaction (one `handle.unassign` audit row with `actorId` null) and the word stays reserved. `checkAvailability` is public and cannot tell the holder apart, so the holder cannot type the word back in; an admin assigns it again. Assign is refused while another account holds the word: "@{holder} holds amped.bio/{word}. Rename them or start a notice first."
+An account can hold only one handle, so assigning moves it. A word can be assigned to only one account. If the assigned account later changes its handle through Public URL, the assignment ends in the same transaction (one `handle.unassign` audit row with `actorId` null) and the word stays reserved. `checkAvailability` is public and cannot tell the holder apart, so the holder cannot type the word back in; an admin assigns it again. Assign is refused while another account holds the word: "@{holder} holds amped.bio/{word}. Rename them or start a notice first." The sheet shows this as a solid notice and keeps Assign disabled. Account search with no match shows "No accounts match {query}" with Clear search. The Edit sheet shows the word and match read only and lets the admin change category, end date and reason (QA RH-Q20).
 
 ### 7.6 Holders tab (RA6)
 
@@ -246,8 +265,9 @@ One row per account in the notice flow: handle, word matched, page status, follo
 | Chose new | Account changed its handle | None; leaves the tab after 30 days |
 | Renamed | Job renamed it on the deadline | Open redirect |
 | Exempt | Admin kept the handle | Start notice |
-| Failed | The email send threw, or the rename threw. No bounce feed exists today | Retry: resends a failed email, renames again after a failed rename |
+| Failed | The email send threw, or the rename threw. No bounce feed exists today. The row cause reads "Email did not send" or "Rename did not finish", never "bounced" | Retry: resends a failed email, renames again after a failed rename |
 | Cancelled | The word was released before the deadline | None; leaves the tab after 30 days |
+| Suspended | Suspended now for an impersonation report; renamed with no redirect | Open in Users (unblock there) |
 
 Exempt is offered only for admin tier words. Extend can be used twice per account.
 
@@ -265,10 +285,11 @@ How a redirect resolves:
 - The row stores `userId`, not the new handle, so it follows the account through later renames. There are no chains and no loops.
 - `changeHandle` deletes the redirect for a handle in the same transaction that gives the handle to an account. A redirect therefore ends the moment someone claims the old handle, including after a release.
 - A suspended account's redirect still resolves; the target shows the suspended state from the suspended pages spec.
+- Impersonation reports (A7, RH-Q15): Suspend now renames with `redirectOld: false`, so no row exists for the reserved word. `resolveRedirect` also returns null for any old handle whose `HandleNotice` is in state `suspended`, as a second guard. The reserved word then gives the reserved handle 404 for visitors.
 
 ### 7.8 Log tab (RA8)
 
-`AdminAuditLog` rows where `action` starts with `handle.`: time, admin, action, word, target account, reason. Filter by action (`FilterChips`: All, Reserve, Assign, Release, Notice, Hold ended) and by admin (a select). Sweeper rows show "System" as the admin. Export CSV for the visible range, a secondary button. Rows cannot be edited or deleted from the app.
+`AdminAuditLog` rows where `action` starts with `handle.`: time, admin, action, word, target account, reason. Filter by action (`FilterChips`: All, Reserve, Assign, Release, Notice, Hold ended) and by admin (a select). Sweeper rows show "System" as the admin. Export CSV is a secondary button that opens a range dialog (From, To; default the last 30 days; at most 1 year) and calls `log.export({ from, to })`. Every export writes one `AdminAuditLog` row, action `handle.log.export`, with the actor, the range in `after` and no target (QA RH-X1). Rows cannot be edited or deleted from the app.
 
 ### 7.9 Data model
 
@@ -361,6 +382,7 @@ enum HandleNoticeState {
   EXEMPT
   FAILED
   CANCELLED
+  SUSPENDED
 }
 ```
 
@@ -389,7 +411,7 @@ All under `admin.handles`, `adminProcedure`, every mutation writes `AdminAuditLo
 | `list({ filter, search, cursor, limit })` | query | Both tiers; system rows come from code, marked `tier: "system"` |
 | `get({ id })` or `get({ word })` | query | Row, holder, last 5 log rows. System rows have no id; they are read by `word` and return the accounts on notice (RA4b) |
 | `checkCollisions({ word, kind })` | query | The first 20 matching accounts and the total count; above 200 it returns `tooBroad: true` |
-| `reserve({ word, kind, category, reason, expiresAt?, defaultAction, holders: [{ userId, action }] })` | mutation | One transaction; bumps the cache version. Matching accounts not in `holders` take `defaultAction` |
+| `reserve({ word, kind, category, reasonType, reason, expiresAt?, defaultAction, holders: [{ userId, action }] })` | mutation | One transaction; bumps the cache version. Matching accounts not in `holders` take `defaultAction`. `reasonType` is `impersonation` or `other`; with `impersonation` every holder's action must be `suspend` and any other value is refused with BAD_REQUEST |
 | `update({ id, category?, reason?, expiresAt? })` | mutation | Word and kind are fixed |
 | `assign({ id, userId, reason, redirectOld, notify })` | mutation | Exact words only |
 | `unassign({ id, reason, startNotice })` | mutation | |
@@ -398,7 +420,7 @@ All under `admin.handles`, `adminProcedure`, every mutation writes `AdminAuditLo
 | `holders.list({ state, cursor })` | query | |
 | `holders.resend`, `holders.extend`, `holders.exempt`, `holders.renameNow`, `holders.startNotice` | mutations | Each takes `{ noticeId, reason }` |
 | `redirects.list({ cursor })`, `redirects.end({ oldHandle, reason })` | query, mutation | |
-| `log.list({ action?, actorId?, cursor })`, `log.export({ from, to })` | queries | Export columns in section 7.11 |
+| `log.list({ action?, actorId?, cursor })`, `log.export({ from, to })` | query, mutation | Export columns in section 7.11. `log.export` writes one `handle.log.export` audit row per call, so it is a mutation |
 
 Public, outside `admin.handles`: `handle.resolveRedirect({ handle })` (section 7.7).
 
@@ -406,7 +428,7 @@ Rate limits from the rate limiting spec apply as `*private` defaults.
 
 ### 7.11 Privacy
 
-This build stores handle history linked to an account id (`HandleNotice.oldHandle`, `HandleRedirect`, audit `subject`, `before` and `after`) and admin reasons about accounts. Audit rows are moderation records, kept 5 years and then deleted, and they keep the handle text after the account closes. Notices and redirects are deleted 30 days after they end. Add both to the retention line in `docs/legal/privacy-parameters.md` and to section 5 of the account deletion spec, for counsel review with that spec's open question 1. The log export holds time, admin handle, action, word, target handle and reason. It holds no email and no `before` or `after` JSON.
+This build stores handle history linked to an account id (`HandleNotice.oldHandle`, `HandleRedirect`, audit `subject`, `before` and `after`) and admin reasons about accounts. Audit rows are moderation records, kept 5 years and then deleted, and they keep the handle text after the account closes. Notices and redirects are deleted 30 days after they end. Both retention lines are drafted for counsel in section 12; `docs/legal/privacy-parameters.md` does not change until counsel approves them. Each CSV export is itself audited (section 7.8). The log export holds time, admin handle, action, word, target handle and reason. It holds no email and no `before` or `after` JSON.
 
 ## 8. Decisions
 
@@ -431,6 +453,8 @@ New in revision 2 (recommended first):
 
 **A5. Client visibility.** Recommended: ship only the system tier in the client; the admin tier stays on the server. Partner and Hold words answer `taken`, not `reserved`. Why: a list in the public bundle discloses every deal at once. `checkAvailability` still answers one word at a time, and the system tier is public, so a `reserved` answer for a word outside it shows that the admin tier holds it. A `taken` answer looks the same as any account that holds the handle without a public page, and fan accounts are many. Company, Trust and Brand words still say reserved (R4). Alternative: ship both tiers for instant feedback on every word, or answer `reserved` for every admin word and accept that a guessed partner name can be confirmed.
 
+**A7. Impersonation reports (RH-Q15).** Decided by Rob, 3 Nov. When a word is reserved because of an impersonation report, every account that holds it is suspended now. There is no 14 day notice and no redirect to the impersonator's new handle. The 14 day notice and the 90 day redirect stay for every other reserved word.
+
 **A6. Requests from brands and creators.** Recommended: no in app request flow in this build; a brand asks through a Freshdesk support ticket and an admin assigns. Why: volume is low and identity checks for brands belong with #7 Brand portal. Alternative: a "Request this handle" link on the Reserved status line.
 
 ## 9. Build
@@ -446,7 +470,7 @@ RH1 can ship alone and closes the sign up gap. RH2 must land before any route on
 ## 10. Acceptance
 
 1. `checkAvailability` returns `reserved` for every system, company, trust and brand word and prefix, and `taken` for partner and hold words. This holds in any case and with `-` or `_` added, removed or swapped (`admin_`, `-admin-`, `ad-min`, `amped_x`). The response does not reveal the tier or category.
-2. Register, Public URL and the publish sheet show the Reserved line and keep submit disabled.
+2. Register, Public URL and the publish sheet show the Reserved line. Register keeps Create account enabled and a press moves focus to the field without submitting. Public URL keeps Use this URL disabled and hides the old links notice. The publish sheet keeps Publish disabled. Checking and Error (with Retry) show on all three.
 3. A direct sign up call to `apps/auth-server` (auth.amped.bio) with `handle: "admin"` or `handle: "A B"` is refused with INVALID_HANDLE. A signed in `/update-user` call with any `handle` is refused.
 4. Google sign up with a reserved handle in the state creates the account with a generated handle.
 5. In both copies of `onelink-generator.ts`, `processEmailToUniqueHandle("support@example.com")` never returns `support`, `processEmailToUniqueHandle("amped-joe@example.com")` returns a handle outside `amped-`, and `generateFanHandle("Amped Support")` returns a handle `matchReserved` does not match.
@@ -467,6 +491,13 @@ RH1 can ship alone and closes the sign up gap. RH2 must land before any route on
 20. Reserve refuses a prefix that matches more than 200 accounts or has fewer than 3 letters or digits before its separator. Above 20 matches it shows Action for all.
 21. Two sweepers on two instances never act on the same notice twice, with Redis up or down.
 22. Assign is refused while another account holds the word.
+23. A direct sign up call with a Partner or Hold word is refused with the taken message, exactly as for a handle another account holds (RH-Q3).
+24. An unpublished account whose current handle is reserved and not assigned or exempt cannot publish: `publishPage` refuses it and the publish sheet shows the reserved current handle line (RH-Q6).
+25. Every notice email names @{handle}, uses the route or admin variant by tier, and carries the support ticket link. Every notice flow rename sends the rename email.
+26. Every `log.export` call writes one `handle.log.export` audit row.
+27. A Failed row on Holders reads "Email did not send" or "Rename did not finish".
+28. Reserving a word with reason type Impersonation report suspends every matching account in the same transaction (sessions end, page offline), renames it with no `HandleRedirect`, sends no notice or rename email, sends the suspension email with category Impersonation, and writes `handle.reserve`, `handle.impersonation_suspend` and `user.block` rows. amped.bio/{word} never redirects to the suspended account.
+29. With any other reason type, the 14 day notice and the 90 day redirect behave as in acceptance 11.
 
 ## 11. Open questions
 
@@ -475,3 +506,13 @@ RH1 can ship alone and closes the sign up gap. RH2 must land before any route on
 | Which account holds `amped` (the company page), and is it created before RH2 seeds the list? | Rob | RH2 seed |
 | Any brand or partner words to reserve at launch (for example names in active partnership talks)? | Rob | No; added in the app |
 | Does #28 R1 (Safety admin) land `AdminAuditLog` first? | Gustavo | No |
+
+## 12. For counsel
+
+Draft lines for counsel review. Nothing here is final legal text, and `docs/legal` does not change until counsel approves (QA RH-X1).
+
+1. Retention, proposed addition to `docs/legal/privacy-parameters.md`: "Moderation records about handles (reservations, assignments, releases, notices and renames, with the handle text, the admin who acted and the reason) are kept for 5 years and then deleted. They are kept after the account closes."
+2. Retention, proposed addition: "Handle notices and handle redirects are deleted 30 days after they end."
+3. Exports, proposed addition: "Admin exports of the handle log are recorded in the audit log with the admin and the date range. Exports hold no email address."
+4. Question: does a takeover of a handle under the notice flow need its own line in the Terms, beyond the existing reservation of rights over usernames? Owner: counsel. Not blocking RH1.
+

@@ -455,10 +455,113 @@ contract AmpedPayTest is Test {
         AmpedPay.Recipient[] memory rs = new AmpedPay.Recipient[](3);
         rs[0] = _r(creator, 8_500, 0);
         rs[1] = _r(treasury, 500, 1);
-        rs[2] = _r(partner, 1_000, 4);
+        rs[2] = _r(partner, 1_000, 5);
         _expectPayRevert(
             _split(keccak256("x"), 10e6, rs), abi.encodeWithSelector(AmpedPay.InvalidRecipient.selector, 2)
         );
+    }
+
+    // ------------------------------------- merchant payments (M11, authbase-storefront 3.13)
+
+    function _merchantRecipients(uint16 platformBps) internal view returns (AmpedPay.Recipient[] memory rs) {
+        rs = new AmpedPay.Recipient[](2);
+        rs[0] = _r(creator, BPS_TOTAL - platformBps, 4);
+        rs[1] = _r(treasury, platformBps, 1);
+    }
+
+    uint16 internal constant BPS_TOTAL = 10_000;
+
+    function test_pay_merchantAtTwentyPercent() public {
+        bytes32 ref = keccak256("merchant");
+        uint256 creatorBefore = usdc.balanceOf(creator);
+        uint256 treasuryBefore = usdc.balanceOf(treasury);
+
+        vm.expectEmit(true, true, false, true, address(pay));
+        emit AmpedPay.Share(ref, treasury, 1, 2e6);
+        vm.expectEmit(true, true, false, true, address(pay));
+        emit AmpedPay.Share(ref, creator, 4, 8e6);
+        _pay(_split(ref, 10e6, _merchantRecipients(2_000)));
+
+        assertEq(usdc.balanceOf(creator) - creatorBefore, 8e6, "merchant gets 80%");
+        assertEq(usdc.balanceOf(treasury) - treasuryBefore, 2e6, "treasury gets 20%");
+        AmpedPay.Payment memory p = pay.getPayment(ref);
+        assertEq(p.creator, creator, "merchant is the seller of record");
+        assertEq(p.platformAmount, 2e6);
+    }
+
+    function test_revert_merchantAboveTwentyPercent() public {
+        _expectPayRevert(
+            _split(keccak256("x"), 10e6, _merchantRecipients(2_001)),
+            abi.encodeWithSelector(AmpedPay.PlatformBps.selector, 2_001)
+        );
+    }
+
+    function test_revert_merchantBelowFloor() public {
+        _expectPayRevert(
+            _split(keccak256("x"), 10e6, _merchantRecipients(499)),
+            abi.encodeWithSelector(AmpedPay.PlatformBps.selector, 499)
+        );
+    }
+
+    function test_revert_creatorPaymentStillCappedAtTenPercent() public {
+        AmpedPay.Recipient[] memory rs = _basicRecipients();
+        rs[0].bps = 8_900;
+        rs[1].bps = 1_100;
+        _expectPayRevert(_split(keccak256("x"), 10e6, rs), abi.encodeWithSelector(AmpedPay.PlatformBps.selector, 1_100));
+    }
+
+    function test_revert_creatorAndMerchantTogether() public {
+        // Both rows at 5,000 pass every per row rule, so the seller count is what refuses.
+        AmpedPay.Recipient[] memory rs = new AmpedPay.Recipient[](2);
+        rs[0] = _r(creator, 5_000, 0);
+        rs[1] = _r(partner, 5_000, 4);
+        _expectPayRevert(_split(keccak256("x"), 10e6, rs), abi.encodeWithSelector(AmpedPay.CreatorCount.selector));
+    }
+
+    function test_revert_twoMerchants() public {
+        AmpedPay.Recipient[] memory rs = new AmpedPay.Recipient[](2);
+        rs[0] = _r(creator, 5_000, 4);
+        rs[1] = _r(partner, 5_000, 4);
+        _expectPayRevert(_split(keccak256("x"), 10e6, rs), abi.encodeWithSelector(AmpedPay.MerchantCount.selector));
+    }
+
+    function test_revert_merchantBelowMinimum() public {
+        AmpedPay.Recipient[] memory rs = new AmpedPay.Recipient[](3);
+        rs[0] = _r(creator, 4_999, 4);
+        rs[1] = _r(treasury, 2_000, 1);
+        rs[2] = _r(partner, 3_001, 3);
+        _expectPayRevert(_split(keccak256("x"), 10e6, rs), abi.encodeWithSelector(AmpedPay.CreatorBps.selector, 4_999));
+    }
+
+    function testFuzz_merchantPlatformCap(uint16 platformBps) public {
+        platformBps = uint16(bound(platformBps, 500, 5_000));
+        AmpedPay.SplitTable memory s = _split(keccak256(abi.encode(platformBps)), 10e6, _merchantRecipients(platformBps));
+        if (platformBps > 2_000) {
+            _expectPayRevert(s, abi.encodeWithSelector(AmpedPay.PlatformBps.selector, platformBps));
+        } else {
+            _pay(s);
+            assertEq(pay.getPayment(s.paymentRef).platformAmount, (10e6 * uint256(platformBps)) / 10_000);
+        }
+    }
+
+    function test_refund_merchantFundsItsShareTreasuryFundsTwentyPercent() public {
+        bytes32 ref = keccak256("merchant-refund");
+        _pay(_split(ref, 10e6, _merchantRecipients(2_000)));
+        uint256 payerBefore = usdc.balanceOf(payer);
+        uint256 merchantBefore = usdc.balanceOf(creator);
+        uint256 treasuryBefore = usdc.balanceOf(treasury);
+
+        vm.prank(creator);
+        usdc.approve(address(pay), 8e6);
+        uint64 deadline = uint64(block.timestamp + 600);
+        bytes memory sig = _refundSig(ref, deadline);
+        vm.prank(relayer);
+        pay.refund(ref, deadline, sig, 0, "");
+
+        assertEq(usdc.balanceOf(payer) - payerBefore, 10e6, "payer gets the full amount back");
+        assertEq(merchantBefore - usdc.balanceOf(creator), 8e6, "merchant funds 80%");
+        assertEq(treasuryBefore - usdc.balanceOf(treasury), 2e6, "treasury funds 20%");
+        assertTrue(pay.getPayment(ref).refunded);
     }
 
     // ------------------------------------------------------- refund (9)

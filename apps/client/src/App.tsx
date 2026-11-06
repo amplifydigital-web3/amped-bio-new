@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { BrowserRouter, Routes, Route } from "react-router";
+import { BrowserRouter, Navigate, Routes, Route, useLocation, useParams } from "react-router";
 import { Editor } from "./pages/Editor";
 
 import { ProtectedRoute } from "./components/ProtectedRoute";
@@ -10,12 +10,34 @@ import { signInUrl } from "./components/shell/ShellGate";
 import { useReferralHandler } from "./hooks/useReferralHandler";
 import { ExternalRedirect, NewVersionDialog, ToastCard, useAuth } from "@repo/ui";
 import { ERROR_TOAST_DURATION } from "@/components/ui/toast";
+import { JoinHandoffGate, PayHandoffGate } from "@/components/checkout/HandoffCard";
+import { isFeatureOn } from "@/config/featureFlags";
+import { DownloadsSync } from "@/components/panels/library/downloads/DownloadsSync";
+import {
+  OfflineDownloads,
+  useOnline,
+} from "@/components/panels/library/downloads/OfflineDownloads";
 
 // Internal Prism component gallery for review (not linked in the app). Served in
 // development, testing and staging builds only, never in production.
 const SHOW_PRISM_GALLERY = import.meta.env.MODE !== "production";
 const PrismGallery = lazy(() =>
   import("./pages/PrismGallery").then(module => ({ default: module.PrismGallery }))
+);
+
+// Mobile checkout (CK-2). Lazy, so the editor bundle carries none of it
+const PayPage = lazy(() => import("./pages/Pay").then(module => ({ default: module.PayPage })));
+// Release signing for people who appear (#28 R4, 5.2)
+const AppearPage = lazy(() =>
+  import("./pages/Appear").then(module => ({ default: module.AppearPage }))
+);
+// Over 18 check (identity checks 4.2, PR A1). Lazy, like checkout
+const AgeCheckPage = lazy(() =>
+  import("./pages/AgeCheck").then(module => ({ default: module.AgeCheckPage }))
+);
+const JoinPage = lazy(() => import("./pages/Join").then(module => ({ default: module.JoinPage })));
+const CheckoutReturnPage = lazy(() =>
+  import("./pages/CheckoutReturn").then(module => ({ default: module.CheckoutReturnPage }))
 );
 
 function AppRouter() {
@@ -38,9 +60,84 @@ function AppRouter() {
             }
           />
         )}
+        {/* Mobile checkout (Build Board #49, CK-2): the creator branded pay sheet */}
+        <Route
+          path="/pay/:intentId"
+          element={
+            // CK-4: in an in app browser the handoff card shows before sign in
+            <PayHandoffGate>
+              <ProtectedRoute>
+                <Suspense fallback={<div className="prism-room min-h-dvh" />}>
+                  <PayPage />
+                </Suspense>
+              </ProtectedRoute>
+            </PayHandoffGate>
+          }
+        />
+        <Route
+          path="/appear/:token"
+          element={
+            <ProtectedRoute>
+              <Suspense fallback={<div className="prism-room min-h-dvh" />}>
+                <AppearPage />
+              </Suspense>
+            </ProtectedRoute>
+          }
+        />
+        {/* Over 18 check sheet (A1). Signed out fans see its first state, so no ProtectedRoute */}
+        <Route
+          path="/age-check"
+          element={
+            <Suspense fallback={<div className="prism-room min-h-dvh" />}>
+              <AgeCheckPage />
+            </Suspense>
+          }
+        />
+        {/* MB-2: join a creator's membership (mobile checkout 11, board c2) */}
+        <Route
+          path="/join/:handle"
+          element={
+            <JoinHandoffGate>
+              <ProtectedRoute>
+                <Suspense fallback={<div className="prism-room min-h-dvh" />}>
+                  <JoinPage />
+                </Suspense>
+              </ProtectedRoute>
+            </JoinHandoffGate>
+          }
+        />
+        {/* CK-3: Coinbase returns here from a checkout. No session needed, nothing named */}
+        <Route
+          path="/r/:intentId"
+          element={
+            <Suspense fallback={<div className="prism-room min-h-dvh" />}>
+              <CheckoutReturnPage />
+            </Suspense>
+          }
+        />
         {/* Legacy /@handle/edit/... URLs are normalized to the panel route by Editor */}
         <Route
           path="/:handle/edit/:panel?"
+          element={
+            <ProtectedRoute>
+              <Editor />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Amped Messages (#2 r4, M5): push and email links open /inbox/{conversationId} */}
+        <Route path="/inbox/:conversationId" element={<InboxDeepLink />} />
+        {/* M9 (spec 8.6 item 5): New broadcast and an opened broadcast */}
+        <Route path="/inbox/broadcast/new" element={<BroadcastDeepLink />} />
+        <Route path="/inbox/broadcast/:broadcastId" element={<BroadcastDeepLink />} />
+
+        {/* Fan Library (#26, FL-3): /library/search, /library/@handle and the item view.
+          The Editor keeps these sub paths; /library itself is the /:panel route */}
+        {/* Fan Library FL-5: without a connection, Downloads opens on its own page,
+          since the shell needs the API to sign in */}
+        <Route path="/library/downloads/*" element={<DownloadsRoute />} />
+        <Route
+          path="/library/*"
           element={
             <ProtectedRoute>
               <Editor />
@@ -65,6 +162,44 @@ function AppRouter() {
       </Routes>
     </>
   );
+}
+
+/** Downloads: the Library page online, the offline page without a connection (FL-5). */
+function DownloadsRoute() {
+  const online = useOnline();
+  if (!online && isFeatureOn("fanLibrary")) return <OfflineDownloads />;
+  return (
+    <ProtectedRoute>
+      <Editor />
+    </ProtectedRoute>
+  );
+}
+
+/** /inbox/{id} becomes /inbox?c={id}, keeping any other query (the Editor owns /:panel). */
+function InboxDeepLink() {
+  const { conversationId } = useParams();
+  const location = useLocation();
+  const params = new URLSearchParams(location.search);
+  if (conversationId && /^[0-9a-f]{32}$/.test(conversationId)) params.set("c", conversationId);
+  const query = params.toString();
+  return <Navigate replace to={`/inbox${query ? `?${query}` : ""}`} />;
+}
+
+/**
+ * /inbox/broadcast/new?audience=pool opens the composer in Inbox, Broadcast, Sent;
+ * /inbox/broadcast/{id} opens that broadcast in Received.
+ */
+function BroadcastDeepLink() {
+  const { broadcastId } = useParams();
+  const location = useLocation();
+  const params = new URLSearchParams(location.search);
+  params.set("tab", "broadcast");
+  if (broadcastId && /^\d{1,10}$/.test(broadcastId)) params.set("b", broadcastId);
+  else {
+    params.set("view", "sent");
+    params.set("compose", "1");
+  }
+  return <Navigate replace to={`/inbox?${params.toString()}`} />;
 }
 
 // 081 I04, I05: any other path belongs to the public site. While the session
@@ -92,6 +227,7 @@ function App() {
     <BrowserRouter>
       <EditorProvider>
         <AppRouter />
+        <DownloadsSync />
         {/* The one toast stack (Screen Review 084, D21): react-hot-toast calls and
             toast.add from components/ui/toast render as the Prism ToastCard.
             Errors leave after 10 seconds, success and info after 5. */}

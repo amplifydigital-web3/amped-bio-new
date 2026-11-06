@@ -3,6 +3,8 @@ import { Navigate } from "react-router";
 import { useAuth } from "@repo/ui";
 import { useEditor } from "@/contexts/EditorContext";
 import { ShellPending, signInUrl } from "./shell/ShellGate";
+import { isFeatureOn } from "@/config/featureFlags";
+import { deviceAccount } from "./panels/library/downloads/store";
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -18,7 +20,14 @@ interface ProtectedRouteProps {
 export function ProtectedRoute({ children, adminOnly = false }: ProtectedRouteProps) {
   const { isPending, authUser } = useAuth();
   const { keepUnsavedEdits } = useEditor();
-  const signedOut = !isPending && authUser === null;
+  // Fan Library FL-5: offline, a device with downloads opens Downloads, which
+  // needs no sign in; the rest of the shell waits for the connection
+  const offlineWithDownloads =
+    typeof navigator !== "undefined" &&
+    navigator.onLine === false &&
+    isFeatureOn("fanLibrary") &&
+    deviceAccount() !== null;
+  const signedOut = !isPending && authUser === null && !offlineWithDownloads;
 
   // A session that ends while editing keeps the unsaved edits for after sign
   // in (081 I09), then leaves with the exact app URL as returnTo
@@ -27,6 +36,9 @@ export function ProtectedRoute({ children, adminOnly = false }: ProtectedRoutePr
     keepUnsavedEdits();
     window.location.replace(signInUrl());
   }, [signedOut, keepUnsavedEdits]);
+
+  if (offlineWithDownloads && authUser === null)
+    return <Navigate to="/library/downloads" replace />;
 
   // The auth context has no refetch; a reload reads the session again
   if (isPending) return <ShellPending onRetry={() => window.location.reload()} />;

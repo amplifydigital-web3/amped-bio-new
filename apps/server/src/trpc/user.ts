@@ -14,6 +14,7 @@ import { newHandleSchema } from "../services/pageHandle";
 import { publishPage, unpublishPage } from "../services/pagePublish";
 import { getFileUrl } from "../utils/fileUrlResolver";
 import { publicCount } from "../services/follow/rules";
+import { applicableThemeId } from "../services/theme/looks";
 import { batchPoolFanCreatorIds } from "../services/follow/poolFans";
 import { computeRnsIdentity, parseRnsDisplay } from "../services/rnsIdentity";
 import type { Background, ThemeConfig } from "@repo/constants";
@@ -35,10 +36,10 @@ const userCardSelect = {
     select: {
       address: true,
       creatorPools: {
-        where: { poolAddress: { not: null }, OR: [{ hidden: false }, { hidden: null }] },
+        where: { poolAddress: { not: null }, hidden: false },
         orderBy: { id: "desc" } as const,
         take: 1,
-        select: { name: true, fans: true, image_file_id: true },
+        select: { name: true, activeFans: true, image_file_id: true },
       },
     },
   },
@@ -193,7 +194,8 @@ export const userRouter = router({
           name,
           // Bio HTML is stored only after the shared allowlist sanitizer runs
           description: sanitizeRichText(description),
-          theme: `${theme}`,
+          // TE-4a: an id of the creator's own look or a marketplace theme; 0 clears it
+          theme: await applicableThemeId(userId, theme),
           image,
           reward_business_id,
         },
@@ -835,7 +837,7 @@ export const userRouter = router({
           mediaCount: visibleBlocks.filter(block => block.type === "media").length,
           platforms,
           pool: pool
-            ? { name: pool.name || "Creator pool", fans: pool.fans, image: poolImage }
+            ? { name: pool.name || "Creator pool", fans: pool.activeFans, image: poolImage }
             : null,
           viewer: viewerId
             ? {

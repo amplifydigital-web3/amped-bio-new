@@ -1,14 +1,13 @@
 import "./index.css";
-import ReactDOM from "react-dom/client";
-import { QueryClientProvider } from "@tanstack/react-query";
-import { queryClient } from "@repo/ui";
-import App from "./App.tsx";
-import { AppProviders } from "./providers/AppProviders.tsx";
+import { loadFeatureFlags } from "./config/featureFlags";
+import { linkBaseFonts } from "./config/baseFonts";
 
-ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
-  <QueryClientProvider client={queryClient}>
-    <AppProviders>
-      <App />
-    </AppProviders>
-  </QueryClientProvider>
-);
+// Feature flags load before the app is imported, so every module level flag
+// read sees the admin's rows (config/featureFlags.ts). The base fonts follow
+// the fontDelivery flag (config/baseFonts.ts) and do not hold up the app.
+void loadFeatureFlags()
+  .then(() => {
+    void linkBaseFonts();
+    return import("./renderApp");
+  })
+  .then(({ renderApp }) => renderApp());

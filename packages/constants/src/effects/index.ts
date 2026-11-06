@@ -10,8 +10,49 @@ export { PARTICLE_PRESETS, type ParticlePreset } from "./particlePresets";
 export { PARTICLE_PARAMS, particleOptions, presetOptions, toV4Options } from "./scenes.particles";
 export { EMOJI_SET_PARAM, SCENE_PRESETS, emojiGlyphs, type ScenePreset } from "./scenes.presets";
 export * from "./scenes.gradients";
+export {
+  GALAXY_FIELD_PARAMS,
+  SHADER_GALLERY_PARAMS,
+  SHADER_REACTIVE_PARAMS,
+  SHADER_SCENES,
+  shaderPalette,
+} from "./scenes.shaders";
 export * from "./surfaces";
+export { CURSOR_COLOR_PARAMS, CURSOR_EFFECTS, CURSOR_TRAIL_PARAMS } from "./cursors";
 export { nameSettle, isNameEntrance } from "./names";
-export { NAME_SPEED_FACTOR, NAME_SPEED_PARAM } from "./names";
-export { HOVER_SPEED_MS, HOVER_SPEED_PARAM } from "./buttonHovers";
+export {
+  NAME_SPEED_FACTOR,
+  NAME_SPEED_PARAM,
+  ROTATING_WORDS_MAX,
+  ROTATING_WORDS_MS,
+  rotatingWords,
+} from "./names";
+export {
+  HOVER_SPEED_MS,
+  HOVER_SPEED_PARAM,
+  HOVER_STRENGTH_PARAM,
+  hoverStrengthFactor,
+  hoverStrengthVars,
+} from "./buttonHovers";
 export { PAGE_BUDGET, pageCost, type CostPart, type PageCost } from "./cost";
+export {
+  COMET_PARAMS,
+  EMITTER_PARTICLE_LIMIT,
+  EMITTER_SCENES,
+  PARTICLE_PLUGINS,
+  PARTICLE_TEXT_PARAMS,
+  STILL_COUNT_KEY,
+  TRAIL_LENGTH_PARAM,
+  cometTrailOptions,
+  emitterSceneOptions,
+  particleTextOptions,
+  textDotCount,
+  type EmitterScene,
+  type ParticlePlugin,
+} from "./scenes.emitters";
+export {
+  COMET_TRAILS_EFFECT,
+  EMITTER_SCENE_EFFECTS,
+  PARTICLE_TEXT_EFFECT,
+  PLUGIN_SCENE_IDS,
+} from "./scenes.plugins";

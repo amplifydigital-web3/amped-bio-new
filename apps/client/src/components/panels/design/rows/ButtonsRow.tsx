@@ -18,11 +18,12 @@ import { ContrastNotice } from "../kit/Notices";
 import { formatRatio, useDesign, useSpecimenLabel } from "../kit/useDesign";
 import { buttonRowValue, currentButtonShape } from "../kit/surfaceLook";
 import { ButtonControls } from "./ButtonControls";
+import { isFeatureOn } from "../../../../config/featureFlags";
 
 // Screen Review 025. The Buttons row: shape tiles and Button color.
 
 // Theme Engine v2 (#28, phase 2): Hard shadow, Shape, Border, Layout (board 07)
-const themeV2On = import.meta.env.VITE_SHOW_THEME_V2 === "true";
+const themeV2On = isFeatureOn("themeV2");
 
 interface ButtonStyleTile {
   /** The v1 integer; for a v2 only style, the nearest v1 look. */
@@ -47,8 +48,14 @@ const V1_STYLES: ButtonStyleTile[] = [
 
 // Hard shadow has no v1 integer: v1 renderers draw Shadow (3) in its place
 const HARD_SHADOW = getEffect("button", "button.hard-shadow");
+// Phase 3d (TE-3d): Specular, a Plus style; v1 renderers draw Default (0)
+const SPECULAR = getEffect("button", "button.specular");
 const BUTTON_STYLES: ButtonStyleTile[] = themeV2On
-  ? [...V1_STYLES, { id: 3, name: HARD_SHADOW.label, styleId: HARD_SHADOW.id }]
+  ? [
+      ...V1_STYLES,
+      { id: 3, name: HARD_SHADOW.label, styleId: HARD_SHADOW.id },
+      { id: 0, name: SPECULAR.label, styleId: SPECULAR.id },
+    ]
   : V1_STYLES;
 
 /** The patch a tile writes: a v1 tile clears the v2 style id. */
@@ -108,6 +115,8 @@ export function ButtonsRow() {
             <OptionTile
               key={style.styleId ?? style.id}
               label={style.name}
+              tier={style.styleId ? getEffect("button", style.styleId).tier : undefined}
+              cost={style.styleId ? getEffect("button", style.styleId).cost : undefined}
               selected={index === selectedIndex}
               focusable={selectedIndex === -1 ? index === 0 : index === selectedIndex}
               disabled={locked}

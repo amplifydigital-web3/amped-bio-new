@@ -76,6 +76,22 @@ pnpm run test:affected
 
 These run Turborepo's `--affected` against `origin/development` (override with `TURBO_SCM_BASE=<ref>`), so a server-only branch checks only `@repo/server`, while a change in `packages/constants` also checks every app that imports it. `test:affected` runs the server's `test:unit` (no staging/OAuth integration files). Do NOT run `pnpm run typecheck` / `pnpm run build` across all workspaces or hand-pick `--filter` lists for validation, and never run several of these heavy validations in parallel on the same machine — run them one after another.
 
+## FEATURE FLAGS - SITE SETTINGS, NOT ENV VARS - MANDATORY
+
+Product on/off switches live in the database (`site_settings` rows `feature_flag.<key>`) and are changed by an admin on the admin **Feature flags** page, with no rebuild or redeploy. NEVER add a new boolean `VITE_*`, `NEXT_PUBLIC_*` or server `*_ENABLED` / `*_ON` environment variable to show, hide or enable a feature.
+
+The single registry is `packages/constants/src/feature-flags.ts` (`FEATURE_FLAGS`). To add a flag:
+
+1. Add an entry to `FEATURE_FLAGS` with `label`, `description`, `scope` (`"public"` when any app reads it, `"server"` when only the API does) and `default: false`. Only set `env` when migrating an existing variable (it becomes the fallback); a brand new flag has `env: {}` and needs no env file change.
+2. Read it with the app's helper, never `import.meta.env.X === "true"`, `process.env.NEXT_PUBLIC_X` or `env.X`:
+   - Server: `isFeatureOn("key")` from `apps/server/src/services/featureFlags.ts` (synchronous, in-memory, reloaded every 15 s). Loops started in `bootstrap.ts` must check the flag on every tick, not only at start.
+   - Client (editor): `isFeatureOn("key")` from `apps/client/src/config/featureFlags.ts`. Flags load before the app is imported (`main.tsx`), so module level reads are fine.
+   - Landing (Next): `useFeatureFlag("key")` from `components/providers/FeatureFlagsProvider.tsx` in client components; `resolveLandingFlag("key", await getFeatureFlagOverrides())` from `lib/featureFlags.ts` in server components. When migrating a `NEXT_PUBLIC_` variable, add it to `LANDING_ENV` written out literally.
+3. Hiding UI is not a guard: a public flag that gates an action must also be checked on the server with `isFeatureOn`.
+4. Tests: server `__setFeatureFlagOverridesForTests`, client `setFeatureFlagOverridesForTests`, or stub the fallback env variable.
+
+Resolution order in every app: the admin's row → the app's fallback env variable from `env` → `default`. Environment variables stay for secrets, URLs, infrastructure, and safety rails that must never be one click away (for example "never use the mock payment provider in production" belongs in code).
+
 # CORE MANDATES
 
 - **CONVENTION COMPLIANCE**: You MUST strictly adhere to existing project conventions (naming, formatting, structure, architectural patterns). Analyze surrounding code, tests, and configuration first. Deviation is not acceptable.

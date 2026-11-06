@@ -151,6 +151,57 @@ describe("takedown", () => {
     await env.TAKEDOWN.put(`blocked:${publicId}`, "copyright");
     expect((await call(await urlFor(key))).status).toBe(403);
   });
+
+  it("refuses every token class on a blocked item", async () => {
+    const publicId = newPublicId();
+    const key = `audio/${publicId}/full.m4a`;
+    await put(key, "bytes");
+    await env.TAKEDOWN.put(
+      `blocked:${publicId}`,
+      JSON.stringify({ r: "moderation", at: new Date().toISOString() })
+    );
+    expect((await call(await urlFor(key))).status).toBe(403);
+    expect((await call(await urlFor(key, { p: 1 }))).status).toBe(403);
+    expect((await call(await urlFor(key, { r: "blur", p: 1 }))).status).toBe(403);
+  });
+
+  it("lets a Safety reveal token open a hidden item, never a child safety one", async () => {
+    const hidden = newPublicId();
+    const hiddenKey = `audio/${hidden}/full.m4a`;
+    await put(hiddenKey, "bytes");
+    await env.TAKEDOWN.put(`blocked:${hidden}`, JSON.stringify({ r: "safety", at: "" }));
+    expect((await call(await urlFor(hiddenKey, { a: "safety" }))).status).toBe(200);
+
+    const csam = newPublicId();
+    const csamKey = `audio/${csam}/full.m4a`;
+    await put(csamKey, "bytes");
+    await env.TAKEDOWN.put(`blocked:${csam}`, JSON.stringify({ r: "child_safety", at: "" }));
+    expect((await call(await urlFor(csamKey, { a: "safety" }))).status).toBe(403);
+
+    // A value written before C7a carries no reason and is treated as child safety
+    const legacy = newPublicId();
+    const legacyKey = `audio/${legacy}/full.m4a`;
+    await put(legacyKey, "bytes");
+    await env.TAKEDOWN.put(`blocked:${legacy}`, "copyright");
+    expect((await call(await urlFor(legacyKey, { a: "safety" }))).status).toBe(403);
+  });
+
+  it("refuses old public links once the item is private, and keeps private tokens and the blur", async () => {
+    const publicId = newPublicId();
+    const audio = `audio/${publicId}/full.m4a`;
+    const blur = `derived/${publicId}/blur.webp`;
+    await put(audio, "audio");
+    await put(blur, "blur");
+    expect((await call(await urlFor(audio, { p: 1 }))).status).toBe(200);
+
+    await env.TAKEDOWN.put(`private:${publicId}`, JSON.stringify({ at: "" }));
+    expect((await call(await urlFor(audio, { p: 1 }))).status).toBe(403);
+    expect((await call(await urlFor(audio))).status).toBe(200);
+    expect((await call(await urlFor(blur, { r: "blur", p: 1 }))).status).toBe(200);
+
+    await env.TAKEDOWN.delete(`private:${publicId}`);
+    expect((await call(await urlFor(audio, { p: 1 }))).status).toBe(200);
+  });
 });
 
 describe("ranges and conditional requests", () => {
@@ -287,5 +338,33 @@ describe("CORS", () => {
       headers: { Origin: "https://evil.example" },
     });
     expect(refused.status).toBe(403);
+  });
+});
+
+describe("sandbox on every response (media host on amped.bio, spec 3.6)", () => {
+  const SANDBOX = "sandbox; default-src 'none'";
+  const locked = (response: Response) => [
+    response.headers.get("content-security-policy"),
+    response.headers.get("x-content-type-options"),
+  ];
+
+  it("carries the sandbox CSP and nosniff on 200, cache hits, 206, 403 and 405", async () => {
+    const key = `audio/${newPublicId()}/full.m4a`;
+    await put(key, "0123456789");
+    const url = await urlFor(key);
+    const first = await call(url);
+    await first.arrayBuffer();
+    const hit = await call(url);
+    await hit.arrayBuffer();
+    const partial = await call(url, { headers: { Range: "bytes=0-1" } });
+    await partial.arrayBuffer();
+    const refused = await call(`${ORIGIN}${pathForKey(key)}`);
+    const wrongMethod = await call(url, { method: "POST" });
+    for (const response of [first, hit, partial, refused, wrongMethod]) {
+      expect(locked(response)).toEqual([SANDBOX, "nosniff"]);
+    }
+    expect([first.status, hit.status, partial.status, refused.status, wrongMethod.status]).toEqual([
+      200, 200, 206, 403, 405,
+    ]);
   });
 });

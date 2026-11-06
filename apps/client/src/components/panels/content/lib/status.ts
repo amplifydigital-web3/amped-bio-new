@@ -4,6 +4,7 @@
  * rule names (Followers, Members, Paid) arrive with gated content in PR 8.
  */
 import { CONTENT_COPY } from "../copy";
+import { format } from "date-fns";
 
 export interface ItemStatusInput {
   status: "uploading" | "processing" | "ready" | "failed" | "blocked" | "deleted";
@@ -11,12 +12,25 @@ export interface ItemStatusInput {
   moderationState: "pending" | "clear" | "held" | "blocked";
   processingStep: string | null;
   failureReason: string | null;
+  /** Content takedown tk1: Safety hid the item; no playback, the owner included */
+  hiddenBySafety?: boolean;
+  /** A removal the media edge has not confirmed yet */
+  stoppingDelivery?: boolean;
 }
 
 export type StatusTone = "public" | "draft" | "progress" | "review" | "danger";
 
 export interface ItemStatus {
-  key: "uploading" | "processing" | "review" | "failed" | "blocked" | "draft" | "public";
+  key:
+    | "uploading"
+    | "processing"
+    | "review"
+    | "failed"
+    | "blocked"
+    | "draft"
+    | "public"
+    | "removed"
+    | "hidden";
   label: string;
   tone: StatusTone;
   /** The line under the title on the card */
@@ -55,8 +69,29 @@ export function failureLine(reason: string | null): string {
   return FAILURE_LINES[reason] ?? CONTENT_COPY.errors.processing;
 }
 
-export function itemStatus(item: ItemStatusInput): ItemStatus {
+export function itemStatus(
+  item: ItemStatusInput & { restorableUntil?: string | Date | null }
+): ItemStatus {
   const c = CONTENT_COPY.card;
+  // Recently removed (PR 6): restorable until the purge date
+  if (item.status === "deleted") {
+    const until = item.restorableUntil ? format(new Date(item.restorableUntil), "MMM d") : "";
+    return {
+      key: "removed",
+      label: c.removedLabel,
+      tone: "draft",
+      line: item.stoppingDelivery ? c.stoppingDelivery : until ? c.removedLine(until) : "",
+    };
+  }
+  // Takedown tk1: a Safety hide wins over every state but removed
+  if (item.hiddenBySafety) {
+    return {
+      key: "hidden",
+      label: c.hiddenLabel,
+      tone: "danger",
+      line: item.stoppingDelivery ? c.stoppingDelivery : c.hiddenLine,
+    };
+  }
   if (item.status === "blocked" || item.moderationState === "blocked") {
     return { key: "blocked", label: c.blocked, tone: "danger", line: c.blockedLine };
   }

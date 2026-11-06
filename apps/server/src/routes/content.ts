@@ -24,7 +24,7 @@ import { buildProcessorJob } from "../services/content/job";
  *
  * All three are signed over the exact request bytes, so they are mounted in
  * services/API.ts before the global JSON parser and read the raw body here.
- * Neither depends on CONTENT_UPLOADS_ENABLED: videos and files already in flight
+ * Neither depends on the contentUploads flag: videos and files already in flight
  * must still finish when uploads are paused. Each answers 404 until its secret is
  * set, so an unconfigured environment exposes nothing.
  */
@@ -52,6 +52,14 @@ export async function handleStreamWebhook(req: Request, res: Response) {
   } catch {
     // Signed but not JSON: nothing to retry
     res.status(200).end();
+    return;
+  }
+  // One Cloudflare account serves staging and production. The Stream webhook router
+  // Worker sends each event to the API its meta.env names, and an event with no env
+  // to both. An event tagged for another environment is never ours.
+  const eventEnv = body?.meta?.env;
+  if (typeof eventEnv === "string" && eventEnv !== "" && eventEnv !== env.APP_ENV) {
+    res.status(200).json({ result: "ignored" });
     return;
   }
   // A database error answers 500 so Stream retries

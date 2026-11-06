@@ -9,7 +9,7 @@
  *
  * R2 items (audio, image, document, file):
  *   hash -> malware (documents, files, downloads) -> normalize -> csam (images,
- *   documents) -> blur -> classifier (images) -> done -> delete incoming/
+ *   documents) -> blur -> classifier (images, document pages) -> done -> delete incoming/
  * Video items (after Stream reports ready):
  *   poster -> normalize (COVER) -> csam (keyframes) -> blur -> classifier -> done
  *
@@ -149,7 +149,10 @@ class Run {
   async classify(frames: Frame[]): Promise<void> {
     const result = await this.deps.classifier.classify(this.job, frames);
     if (result.verdict === "explicit" && !this.job.adult) {
-      const held = await this.report("classifier", "held", { reason: result.label });
+      const held = await this.report("classifier", "held", {
+        reason: result.label,
+        explicit: true,
+      });
       if (held !== "applied") throw new Stop(`stopped:classifier:${held}`);
       return;
     }
@@ -158,7 +161,8 @@ class Run {
       if (held !== "applied") throw new Stop(`stopped:classifier:${held}`);
       return;
     }
-    await this.ok("classifier");
+    // A labeled item passes, and the API locks its 18+ label on (#28 F1)
+    await this.ok("classifier", result.verdict === "explicit" ? { explicit: true } : {});
   }
 }
 
@@ -273,8 +277,11 @@ async function runFile(run: Run): Promise<Outcome> {
   // 5. Blur cover for locked cards
   if (blur) await run.ok("blur", { assets: [blur] });
 
-  // 6. Adult classifier
+  // 6. Adult classifier: images, and document page renders (#28 R7, defect F2).
+  // `file` items are never opened here; the API sends them to review for 18+ creators.
   if (job.kind === "image") await run.classify(frames);
+  if (job.kind === "document" && frames.length)
+    await run.classify(spread(frames, CLASSIFIER_FRAMES));
 
   // 7. Ready. The ORIGINAL row moves off incoming/ with this report.
   await run.ok("done", { assets: [original] });

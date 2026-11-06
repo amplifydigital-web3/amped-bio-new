@@ -23,6 +23,11 @@ vi.mock("@repo/ui", async () => ({
   queryClient: { setQueryData: vi.fn() },
 }));
 vi.mock("./lib/uploads", () => ({ refreshContent: vi.fn() }));
+// Preview and captions have their own tests (ItemMedia.test.tsx)
+vi.mock("./ItemMedia", () => ({ ItemPreview: () => null, CaptionsSection: () => null }));
+// Publishing and retry have their own tests (PublishCard.test.tsx, RetryProcessing.test.tsx)
+vi.mock("./PublishCard", () => ({ PublishCard: () => null }));
+vi.mock("./RetryProcessing", () => ({ RetryProcessing: () => null }));
 
 const ID = "abcdefgh12345678";
 
@@ -105,6 +110,20 @@ describe("ItemEditor (cs3)", () => {
     const paid = screen.getByRole("radio", { name: /Paid/ });
     expect(paid).toHaveAttribute("aria-disabled", "true");
     expect(screen.getAllByText("Later")).toHaveLength(6);
+  });
+
+  it("locks the 18+ switch on for an item the classifier found explicit", async () => {
+    mocks.get.mockResolvedValue(item({ adult: true, adultLocked: true }));
+    renderWithProviders(<ItemEditor publicId={ID} onBack={vi.fn()} />);
+    const toggle = await screen.findByRole("switch", { name: "18+ label" });
+    expect(toggle).toHaveAttribute("aria-checked", "true");
+    expect(toggle).toBeDisabled();
+    expect(
+      screen.getByText("A reviewer marked this 18+. Ask for a review if this is wrong.")
+    ).toBeInTheDocument();
+    fireEvent.click(toggle);
+    await new Promise(resolve => setTimeout(resolve, 900));
+    expect(mocks.update).not.toHaveBeenCalled();
   });
 
   it("explains a failed item and keeps the details", async () => {

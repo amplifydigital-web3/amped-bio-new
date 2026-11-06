@@ -22,7 +22,6 @@ vi.mock("../services/telegram/client", () => ({
 vi.mock("../utils/fileUrlResolver", () => ({ getFileUrl: async () => null }));
 vi.mock("../utils/rateLimit", () => ({ enforceRateLimits: vi.fn(), hitRateLimit: vi.fn() }));
 
-import { env } from "../env";
 import { canMessage } from "../services/messaging/access";
 import { messagingCreatorRouter } from "../trpc/messaging/creator";
 import {
@@ -36,12 +35,11 @@ import {
   seedPeople,
 } from "./helpers/messagingFixtures";
 
-const settings = () => fake.db.table("creatorMessagingSettings")[0];
+const settings = () => fake.db.table("messagingSettings")[0];
 
 beforeEach(() => {
   fake.db.reset();
   seedPeople(fake.db);
-  Object.assign(env, { MESSAGING_INVITE_ONLY: true });
 });
 
 /** One tREVO in wei. Stakes are mirrored in wei; creators type whole tREVO. */
@@ -52,7 +50,7 @@ describe("canMessage: the creator takes messages", () => {
     expect(await canMessage(JORDAN, MAYA)).toMatchObject({ allowed: false, reason: "disabled" });
     openMessages(fake.db, MAYA, { enabled: false });
     expect(await canMessage(JORDAN, MAYA)).toMatchObject({ reason: "disabled" });
-    settings().enabled = true;
+    settings().ruleKind = "ANYONE";
     settings().pausedAt = new Date();
     expect(await canMessage(JORDAN, MAYA)).toMatchObject({ reason: "disabled" });
     settings().pausedAt = null;
@@ -63,10 +61,8 @@ describe("canMessage: the creator takes messages", () => {
     expect(await canMessage(JORDAN, MAYA)).toMatchObject({ allowed: true });
   });
 
-  it("needs an invite while MESSAGING_INVITE_ONLY is on", async () => {
-    openMessages(fake.db, MAYA, { invitedAt: null });
-    expect(await canMessage(JORDAN, MAYA)).toMatchObject({ reason: "disabled" });
-    Object.assign(env, { MESSAGING_INVITE_ONLY: false });
+  it("is open to every creator: the invite pilot ended in M2", async () => {
+    openMessages(fake.db, MAYA);
     expect(await canMessage(JORDAN, MAYA)).toMatchObject({ allowed: true });
   });
 });
@@ -169,25 +165,30 @@ describe("messaging.creator.setSettings", () => {
   const caller = messagingCreatorRouter.createCaller({ user: { sub: MAYA } } as never);
 
   beforeEach(() => {
-    Object.assign(env, { MESSAGING_INVITE_ONLY: false });
     linkTelegram(fake.db, MAYA, 9001);
   });
 
   it("turns Fan messages on with the default rule for a published, verified, linked creator", async () => {
     await caller.setSettings({ enabled: true, ruleKind: "FOLLOWER" });
     expect(settings()).toMatchObject({
-      enabled: true,
       ruleKind: "FOLLOWER",
       dailyNewThreadCap: 50,
     });
   });
 
-  it("refuses without a link, a verified email, a published page or an invite", async () => {
+  it("refuses without a link, a verified email, a published page", async () => {
     fake.db.table("telegramAccount").length = 0;
     await expect(caller.setSettings({ enabled: true, ruleKind: "ANYONE" })).rejects.toThrow(
       "Link Telegram first."
     );
     linkTelegram(fake.db, MAYA, 9001);
+    fake.db.table("telegramAccount")[0].botAccess = false;
+    await expect(caller.setSettings({ enabled: true, ruleKind: "ANYONE" })).rejects.toThrow(
+      "Open the Amped.Bio bot in Telegram and press Start"
+    );
+    // Without Telegram replies the bot never has to write to the creator
+    await caller.setSettings({ enabled: true, ruleKind: "ANYONE", replyFromTelegram: false });
+    fake.db.table("telegramAccount")[0].botAccess = true;
     fake.db.table("user").find((u: any) => u.id === MAYA).email_verified = false;
     await expect(caller.setSettings({ enabled: true, ruleKind: "ANYONE" })).rejects.toThrow(
       "Verify your email first."
@@ -198,10 +199,8 @@ describe("messaging.creator.setSettings", () => {
       "Publish your page"
     );
     fake.db.table("user").find((u: any) => u.id === MAYA).page_status = "PUBLISHED";
-    Object.assign(env, { MESSAGING_INVITE_ONLY: true });
-    await expect(caller.setSettings({ enabled: true, ruleKind: "ANYONE" })).rejects.toThrow(
-      "invite only"
-    );
+    await caller.setSettings({ enabled: false, ruleKind: "ANYONE" });
+    expect(settings().ruleKind).toBe("NOBODY");
   });
 
   it("refuses PAID_MEMBER, a pool rule without a pool, and STAKE_MIN without an amount", async () => {

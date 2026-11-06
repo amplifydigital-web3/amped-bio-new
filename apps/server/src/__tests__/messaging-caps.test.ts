@@ -23,7 +23,6 @@ vi.mock("../services/telegram/client", () => ({
 }));
 vi.mock("../utils/fileUrlResolver", () => ({ getFileUrl: async () => null }));
 
-import { env } from "../env";
 import { uuidv7 } from "../utils/uuid-v7";
 import { canMessage, senderPaused } from "../services/messaging/access";
 import { creatorBlock, reportThread, sendFanMessage } from "../services/messaging/threads";
@@ -47,7 +46,6 @@ beforeEach(() => {
   fake.db.reset();
   seedPeople(fake.db);
   openMessages(fake.db, MAYA);
-  Object.assign(env, { MESSAGING_INVITE_ONLY: true });
 });
 
 describe("fan caps", () => {
@@ -94,7 +92,7 @@ describe("creator's daily new conversation cap", () => {
   });
 
   it("follows the creator's own cap", async () => {
-    fake.db.table("creatorMessagingSettings")[0].dailyNewThreadCap = 1;
+    fake.db.table("messagingSettings")[0].dailyNewThreadCap = 1;
     await send(JORDAN, MAYA);
     await expect(send(SAM, MAYA)).rejects.toMatchObject({ reason: "cap_reached" });
   });
@@ -134,7 +132,7 @@ describe("automatic pauses", () => {
     for (const threadId of threadIds) {
       await reportThread({ reporterUserId: MAYA, threadId, reason: "SPAM" });
     }
-    expect(fake.db.table("creatorMessagingSettings")[0].pausedAt).toBeNull();
+    expect(fake.db.table("messagingSettings")[0].pausedAt).toBeNull();
     for (let i = 0; i < 4; i += 1) {
       await reportThread({
         reporterUserId: 100 + i,
@@ -142,13 +140,13 @@ describe("automatic pauses", () => {
         reason: "HARASSMENT",
       });
     }
-    expect(fake.db.table("creatorMessagingSettings")[0].pausedAt).toBeNull();
+    expect(fake.db.table("messagingSettings")[0].pausedAt).toBeNull();
     await reportThread({
       reporterUserId: 104,
       threadId: threadIds[4]!,
       reason: "FINANCIAL_PROMISE",
     });
-    expect(fake.db.table("creatorMessagingSettings")[0].pausedAt).toBeInstanceOf(Date);
+    expect(fake.db.table("messagingSettings")[0].pausedAt).toBeInstanceOf(Date);
     addUser(200);
     expect(await canMessage(200, MAYA)).toMatchObject({ reason: "disabled" });
   });
@@ -159,7 +157,7 @@ describe("automatic pauses", () => {
     for (let i = 0; i < 5; i += 1) {
       await reportThread({ reporterUserId: 300, threadId, reason: "SPAM" });
     }
-    expect(fake.db.table("creatorMessagingSettings")[0].pausedAt).toBeNull();
+    expect(fake.db.table("messagingSettings")[0].pausedAt).toBeNull();
   });
 
   it("only a participant can report a thread", async () => {

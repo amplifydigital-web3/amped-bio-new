@@ -32,7 +32,6 @@ vi.mock("../utils/cache", () => ({
   },
 }));
 
-import { env } from "../env";
 import { installBotHandlers } from "../services/telegram/bot";
 import { encodeLinkCode } from "../services/telegram/linkCodes";
 import {
@@ -122,7 +121,6 @@ beforeEach(() => {
   openMessages(fake.db, MAYA, { ruleKind: "FOLLOWER" });
   linkTelegram(fake.db, MAYA, CREATOR_TG);
   linkTelegram(fake.db, JORDAN, FAN_TG);
-  Object.assign(env, { MESSAGING_INVITE_ONLY: true });
 });
 
 describe("/start dm_{handle}", () => {
