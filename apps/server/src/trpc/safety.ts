@@ -114,7 +114,9 @@ export const safetyRouter = router({
   }),
 
   /** Queue summary tiles (8.1): open, overdue, due today, by type, Take It Down clock. */
-  overview: safetyProcedure.query(() => caseOverview()),
+  overview: safetyProcedure.query(({ ctx }) =>
+    caseOverview(new Date(), { lead: reviewerOf(ctx).lead })
+  ),
 
   queue: router({
     /** Open cases by due time (8.1). Moderators never see child safety. */
