@@ -1,6 +1,6 @@
 # Access Gating Engine v2: build spec
 
-Status: build ready for G1, revised 2026-10-30 after Full QA (project doc claude/amped-identity-gating-full-qa-2026-10-30.md) and Rob's answers on GQ1 and GQ2. Build Board #21.
+Status: build ready for G1, revised 2026-10-30 after Full QA (project doc claude/amped-identity-gating-full-qa-2026-10-30.md) and Rob's answers on GQ1 and GQ2. G2 retired 2026-11-04 (section 6). Build Board #21.
 Owner: Rob Frasca. Drafted by Claude.
 Supersedes: v1 spec (CosimoRob/amped-bio-new, branch docs/wave1-specs, docs/features/access-gating-engine.md, 2026-09-26, revised 10 Oct) and the amendments in Memberships (#25, section 3.3), Live streaming (#27, section 3.4) and Content system (#20, sections 3.6 and 3.13). Where this document is silent, v1 still applies.
 Overview: claude/amped-gating-engine-overview-2026-10-23.md.
@@ -16,19 +16,19 @@ Every paid or members only feature on the board needs one answer: may this perso
 
 ### 2.1 What is on development now
 
-| Area                   | State                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | Source                                                       |
-| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
-| Rule table             | None. No `AccessRule`, no `AccessEvent`.                                                                                                                                                                                                                                                                                                                                                                                                                                     | `packages/database/prisma/schema.prisma`                     |
-| Content                | `ContentItem.accessRuleId` and `baseAccessRuleId` exist as `Binary(16)` with no foreign key. The owner view reports `gated: accessRuleId !== null`. No public read path checks it.                                                                                                                                                                                                                                                                                           | schema line 1361; `trpc/content.ts` line 97                  |
-| Blocks                 | `Block` has no rule column. Ten block types: link, media, text, pool, referral, follow, followers, rnsid, telegram_message, telegram_group.                                                                                                                                                                                                                                                                                                                                  | `packages/constants/src/blocks.ts`                           |
-| Public bio             | `getHandle` returns every block config through `sanitizeBlockConfig`. Creator email is no longer returned (v1 launch gate D1 is met).                                                                                                                                                                                                                                                                                                                                        | `trpc/handle.ts`                                             |
-| Media                  | Cloudflare media gateway verifies HMAC tokens the API signs. It never decides access. CloudFront is gone.                                                                                                                                                                                                                                                                                                                                                                    | `apps/media-gateway`, `services/cloudflare/mediaToken.ts`    |
-| Messaging and Telegram | Own evaluator over `DmRuleKind` (ANYONE, FOLLOWER, PAID_MEMBER, POOL_MEMBER, STAKE_MIN). Its header says it becomes a thin call into #21 when #21 ships.                                                                                                                                                                                                                                                                                                                     | `services/telegram/rules.ts`, `services/messaging/access.ts` |
-| Broadcast              | Own pool member query (positive stake in the mirror).                                                                                                                                                                                                                                                                                                                                                                                                                        | `services/broadcast/index.ts`                                |
-| Follows                | ACTIVE follow uses the email grace rule (verified, or inside 30 days).                                                                                                                                                                                                                                                                                                                                                                                                       | `trpc/follow.ts`, `utils/verificationGrace.ts`               |
-| Stakes                 | Staking is tREVO now and REVO at mainnet. USDC is never staked (Rob, 24 Oct). `StakedPool.stakeAmount` is wei as text, updated only when the fan confirms through Amped. The admin minimum stake lives in the deployed contracts: each pool takes `_minStake` at deploy and rejects smaller stakes with `InsufficientStake(min, actual)`. The contract has no getter for it. The gating engine never changes, deploys or writes to a staking contract; it only reads stakes. | `trpc/pools/fan.ts`, `packages/web3` `L2_BASE_TOKEN_ABI`     |
-| Identity               | Authbase status by wallet (`services/authbase.ts`): VERIFIED with tier and `valid_until`, plus consented attributes including `age_over_18`. Used for RNS identity and recipient trust. Nothing stored.                                                                                                                                                                                                                                                                      | `services/authbase.ts`, `services/rnsTrust.ts`               |
-| Payments               | `UsdcSend`, `PaymentEvent`, onramp tables. No `Offer`, `Purchase` or `Membership` yet (content PR 9 and 10, Memberships phase C).                                                                                                                                                                                                                                                                                                                                            | schema                                                       |
+| Area | State | Source |
+| --- | --- | --- |
+| Rule table | None. No `AccessRule`, no `AccessEvent`. | `packages/database/prisma/schema.prisma` |
+| Content | `ContentItem.accessRuleId` and `baseAccessRuleId` exist as `Binary(16)` with no foreign key. The owner view reports `gated: accessRuleId !== null`. No public read path checks it. | schema line 1361; `trpc/content.ts` line 97 |
+| Blocks | `Block` has no rule column. Ten block types: link, media, text, pool, referral, follow, followers, rnsid, telegram_message, telegram_group. | `packages/constants/src/blocks.ts` |
+| Public bio | `getHandle` returns every block config through `sanitizeBlockConfig`. Creator email is no longer returned (v1 launch gate D1 is met). | `trpc/handle.ts` |
+| Media | Cloudflare media gateway verifies HMAC tokens the API signs. It never decides access. CloudFront is gone. | `apps/media-gateway`, `services/cloudflare/mediaToken.ts` |
+| Messaging and Telegram | Own evaluator over `DmRuleKind` (ANYONE, FOLLOWER, PAID_MEMBER, POOL_MEMBER, STAKE_MIN). Its header says it becomes a thin call into #21 when #21 ships. | `services/telegram/rules.ts`, `services/messaging/access.ts` |
+| Broadcast | Own pool member query (positive stake in the mirror). | `services/broadcast/index.ts` |
+| Follows | ACTIVE follow uses the email grace rule (verified, or inside 30 days). | `trpc/follow.ts`, `utils/verificationGrace.ts` |
+| Stakes | Staking is tREVO now and REVO at mainnet. USDC is never staked (Rob, 24 Oct). `StakedPool.stakeAmount` is wei as text, updated only when the fan confirms through Amped. The admin minimum stake lives in the deployed contracts: each pool takes `_minStake` at deploy and rejects smaller stakes with `InsufficientStake(min, actual)`. The contract has no getter for it. The gating engine never changes, deploys or writes to a staking contract; it only reads stakes. | `trpc/pools/fan.ts`, `packages/web3` `L2_BASE_TOKEN_ABI` |
+| Identity | Authbase status by wallet (`services/authbase.ts`): VERIFIED with tier and `valid_until`, plus consented attributes including `age_over_18`. Used for RNS identity and recipient trust. Nothing stored. | `services/authbase.ts`, `services/rnsTrust.ts` |
+| Payments | `UsdcSend`, `PaymentEvent`, onramp tables. No `Offer`, `Purchase` or `Membership` yet (content PR 9 and 10, Memberships phase C). | schema |
 
 ### 2.2 Defects found in the audit
 
@@ -39,19 +39,19 @@ Both ship as PR G0 ahead of the engine (section 6).
 
 ### 2.3 Market patterns
 
-| Product             | Pattern                                                                                                                                                                        | Take                                                                                    | Avoid                                                                        |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| Patreon             | Post access: public, free members, paid members, selected tiers, sell this post, early access for paid tiers before going public. 7 day free trials on one tier, once per fan. | Early access as a date on the rule. Sell one item beside a membership.                  | Tier sprawl.                                                                 |
-| Linktree            | Per link locks (code, age, subscribe, payment). Profile Lock beta (July 2026) gates the whole page, with a 30 day cookie after unlock.                                         | One lock icon and one requirement line per card.                                        | A 30 day cookie as the proof of access. Payment Lock hands over the raw URL. |
-| Guild.xyz           | Requirements roll up to roles; AND, OR and should not satisfy; access gained and lost automatically.                                                                           | Rule separate from the thing it unlocks. Automatic loss of access.                      | Deep boolean builders.                                                       |
-| Collab.Land         | Balance checks on a schedule (24 hours paid, 7 days free).                                                                                                                     | A stated freshness window.                                                              | Day long staleness.                                                          |
-| Unlock Protocol     | Keys with an onchain expiry; ERC-20 renewals anyone can trigger with an allowance.                                                                                             | Access as a time bound credential.                                                      | An NFT per access.                                                           |
-| SpiceDB / Zanzibar  | Per request consistency: fast cached checks by default, "at least as fresh as" a token after a write, to avoid the new enemy problem.                                          | Cached by default, forced fresh after a change the viewer caused (pay, unstake, block). | Running a separate authorization service.                                    |
-| OPA, OpenFGA, Cedar | General engines. OpenFGA needs relationship data synced into its own store; Cedar takes data per request; OPA needs Rego.                                                      | Default deny, typed rules, explainable reasons.                                         | Any of them as a dependency (decision 1).                                    |
+| Product | Pattern | Take | Avoid |
+| --- | --- | --- | --- |
+| Patreon | Post access: public, free members, paid members, selected tiers, sell this post, early access for paid tiers before going public. 7 day free trials on one tier, once per fan. | Early access as a date on the rule. Sell one item beside a membership. | Tier sprawl. |
+| Linktree | Per link locks (code, age, subscribe, payment). Profile Lock beta (July 2026) gates the whole page, with a 30 day cookie after unlock. | One lock icon and one requirement line per card. | A 30 day cookie as the proof of access. Payment Lock hands over the raw URL. |
+| Guild.xyz | Requirements roll up to roles; AND, OR and should not satisfy; access gained and lost automatically. | Rule separate from the thing it unlocks. Automatic loss of access. | Deep boolean builders. |
+| Collab.Land | Balance checks on a schedule (24 hours paid, 7 days free). | A stated freshness window. | Day long staleness. |
+| Unlock Protocol | Keys with an onchain expiry; ERC-20 renewals anyone can trigger with an allowance. | Access as a time bound credential. | An NFT per access. |
+| SpiceDB / Zanzibar | Per request consistency: fast cached checks by default, "at least as fresh as" a token after a write, to avoid the new enemy problem. | Cached by default, forced fresh after a change the viewer caused (pay, unstake, block). | Running a separate authorization service. |
+| OPA, OpenFGA, Cedar | General engines. OpenFGA needs relationship data synced into its own store; Cedar takes data per request; OPA needs Rego. | Default deny, typed rules, explainable reasons. | Any of them as a dependency (decision 1). |
 
 ### 2.4 Legal context that changed since v1
 
-- Adult content is allowed behind age assurance (Rob, 8 Oct). The Supreme Court upheld Texas HB 1181 under intermediate scrutiny in _Free Speech Coalition v. Paxton_ (27 June 2025). About 27 states had adult content age verification laws in force by September 2026. Most apply when more than one third of a site is adult material; Kansas uses 25 percent; several states use other triggers. North Dakota adds a device age signal from 1 August 2026. Counsel decides whether Amped as a whole is covered. The engine enforces the per item check either way (section 3.4).
+- Adult content is allowed behind age assurance (Rob, 8 Oct). The Supreme Court upheld Texas HB 1181 under intermediate scrutiny in *Free Speech Coalition v. Paxton* (27 June 2025). About 27 states had adult content age verification laws in force by September 2026. Most apply when more than one third of a site is adult material; Kansas uses 25 percent; several states use other triggers. North Dakota adds a device age signal from 1 August 2026. Counsel decides whether Amped as a whole is covered. The engine enforces the per item check either way (section 3.4).
 - Stake gated access stays under securities review, launched in parallel to a pilot allowlist (Rob, 8 Oct). Unchanged.
 
 ## 3. Design
@@ -88,16 +88,16 @@ Steps 1 to 4 are pure reads. Step 5 belongs to the feature (sign a media token, 
 
 ### 3.3 Kinds
 
-| Kind            | Params                             | Pass when                                                                                                                                | Status                        |
-| --------------- | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------- |
-| `follower`      | none                               | ACTIVE follow of the owner, using `trustedEmailWhere` from Fan Graph                                                                     | Live in G1                    |
-| `pool_member`   | `poolId`                           | Any stake above zero in the owner's pool (the contract already enforces the admin minimum on every stake); open intent confirms on chain | Live in G1, pilot allowlist   |
-| `stake_min`     | `poolId`, `minWei`                 | Stake at or above the amount the creator sets                                                                                            | Live in G1, pilot allowlist   |
-| `paid`          | `offerId`                          | `PaymentVerifier.verifyPurchase` is `purchased`, or `confirming` (soft unlock, decision 5)                                               | Live with content PR 10       |
-| `member`        | `planId`                           | Membership active, or canceled with `currentPeriodEnd >= now`                                                                            | Live with Memberships phase C |
-| `any`, `all`    | `ruleIds` (2 to 4 leaves, depth 1) | Any or all leaves pass                                                                                                                   | Live in G1                    |
-| `reward_points` | `programId`, `minPoints`           | Ledger balance (Rewards #23)                                                                                                             | Defined, Later                |
-| `rns_verified`  | none, or `attribute`               | Viewer holds a verified RNS name, or a named identity facet (decision 7)                                                                 | Defined, Later                |
+| Kind | Params | Pass when | Status |
+| --- | --- | --- | --- |
+| `follower` | none | ACTIVE follow of the owner, using `trustedEmailWhere` from Fan Graph | Live in G1 |
+| `pool_member` | `poolId` | Any stake above zero in the owner's pool (the contract already enforces the admin minimum on every stake); open intent confirms on chain | Live in G1, pilot allowlist |
+| `stake_min` | `poolId`, `minWei` | Stake at or above the amount the creator sets | Live in G1, pilot allowlist |
+| `paid` | `offerId` | `PaymentVerifier.verifyPurchase` is `purchased`, or `confirming` (soft unlock, decision 5) | Live with content PR 10 |
+| `member` | `planId` | Membership active, or canceled with `currentPeriodEnd >= now` | Live with Memberships phase C |
+| `any`, `all` | `ruleIds` (2 to 4 leaves, depth 1) | Any or all leaves pass | Live in G1 |
+| `reward_points` | `programId`, `minPoints` | Ledger balance (Rewards #23) | Defined, Later |
+| `rns_verified` | none, or `attribute` | Viewer holds a verified RNS name, or a named identity facet (decision 7) | Defined, Later |
 
 Asset. Stake kinds count tREVO now and REVO at mainnet. USDC is never staked and never counts toward a stake rule. `paid` and `member` are the only kinds that involve USDC, and they never read a stake (Rob, 24 Oct).
 
@@ -114,93 +114,45 @@ Pools. A rule names `poolId` (the `CreatorPool` row) instead of v1's `chainId` p
 - **Blocked.** A `FollowBlock` from the creator refuses every kind, including paid. A paid item that a blocked fan bought stays refundable by the creator.
 - **Age.** A resolver that returns `adult: true` triggers the age check before the rule. Reason `age_check_required`, hint `verify_age`. The check is the Authbase Over 18 attribute through `checkIdentity(userId, "age_over_18")` from the identity checks spec (Rob, 23 Oct). It ships before this engine with content PR A1; the engine calls it and adds nothing. When Authbase facet proofs ship, `checkIdentity` reads the ZK facet and the engine does not change. Signed out viewers get the hint too. The engine maps `checkIdentity` results this way:
 
-  | `checkIdentity` result                                  | Reason                 | Hint                                                                |
-  | ------------------------------------------------------- | ---------------------- | ------------------------------------------------------------------- |
-  | signed out                                              | `age_check_required`   | `sign_in`                                                           |
-  | `no_wallet`, `not_linked`, `not_verified`, `not_shared` | `age_check_required`   | `verify_age`                                                        |
-  | `under_18`                                              | `age_check_required`   | `none` (no retry; the identity checks spec 4.5 opens a review case) |
-  | `unavailable`                                           | `identity_unavailable` | `unavailable` (Try again)                                           |
+  | `checkIdentity` result | Reason | Hint |
+  | --- | --- | --- |
+  | signed out | `age_check_required` | `sign_in` |
+  | `no_wallet`, `not_linked`, `not_verified`, `not_shared` | `age_check_required` | `verify_age` |
+  | `under_18` | `age_check_required` | `none` (no retry; the identity checks spec 4.5 opens a review case) |
+  | `unavailable` | `identity_unavailable` | `unavailable` (Try again) |
 
   18+ items are never in server HTML, sitemaps, `llms.txt` or share tags (content spec 3.6), whatever the rule.
-
 - **Seller verified.** `paid` and `member` refuse with `kind_unavailable` and hint `unavailable` when the seller's `seller` identity check no longer passes (identity checks spec 5.3). Buyers and members with current access keep it.
 - **Early access.** A rule may carry `opensToAllAt`. After that instant the resource is public. Before it, the rule applies. Patreon early access, at no extra kind cost.
 
 ### 3.5 Contract (`@repo/constants/src/access.ts`)
 
 ```ts
-export const ACCESS_RULE_KINDS = [
-  "follower",
-  "pool_member",
-  "stake_min",
-  "paid",
-  "member",
-  "any",
-  "all",
-  "reward_points",
-  "rns_verified",
-] as const;
-export const LIVE_ACCESS_RULE_KINDS = [
-  "follower",
-  "pool_member",
-  "stake_min",
-  "any",
-  "all",
-] as const; // paid joins in G4, member in G5
+export const ACCESS_RULE_KINDS = ["follower", "pool_member", "stake_min", "paid", "member",
+  "any", "all", "reward_points", "rns_verified"] as const;
+export const LIVE_ACCESS_RULE_KINDS = ["follower", "pool_member", "stake_min", "paid", "any", "all"] as const; // paid joined in G4, member joins in G5
 
-export const ACCESS_RESOURCE_TYPES = [
-  "block",
-  "content",
-  "broadcast",
-  "live_event",
-  "dm",
-  "telegram_group",
-] as const;
+export const ACCESS_RESOURCE_TYPES = ["block", "content", "broadcast", "live_event",
+  "dm", "telegram_group"] as const; // dm and telegram_group: reserved, no resolver (G2 retired)
 export type AccessResource = { type: AccessResourceType; id: string }; // block id, content publicId, etc.
 
-export const ACCESS_REASONS = [
-  "ok",
-  "owner",
-  "public",
-  "not_found",
-  "blocked",
-  "age_check_required",
-  "not_signed_in",
-  "no_wallet",
-  "not_follower",
-  "follow_pending",
-  "not_pool_member",
-  "stake_below_min",
-  "not_purchased",
-  "purchase_pending",
-  "not_member",
-  "membership_past_due",
-  "membership_ended",
-  "insufficient_points",
-  "kind_unavailable",
-  "chain_unavailable",
-  "identity_unavailable",
-] as const;
+export const ACCESS_REASONS = ["ok", "owner", "public", "not_found", "blocked",
+  "age_check_required", "not_signed_in", "no_wallet", "not_follower", "follow_pending",
+  "not_pool_member", "stake_below_min", "not_purchased", "purchase_pending",
+  "not_member", "membership_past_due", "membership_ended", "insufficient_points",
+  "kind_unavailable", "chain_unavailable", "identity_unavailable"] as const;
 
 export type UnlockHint =
-  | { action: "none" }
-  | { action: "sign_in" }
-  | { action: "verify_age" }
-  | { action: "link_wallet" }
-  | { action: "confirm_email" }
+  | { action: "none" } | { action: "sign_in" } | { action: "verify_age" }
+  | { action: "link_wallet" } | { action: "confirm_email" }
   | { action: "follow"; creatorHandle: string }
-  | { action: "view_pool"; poolId: number } // never a one tap stake
+  | { action: "view_pool"; poolId: number }                 // never a one tap stake
   | { action: "buy"; offerId: string; priceDisplay: string }
   | { action: "join_membership"; planId: number; priceMonthlyDisplay: string; pastDue: boolean }
   | { action: "unavailable" };
 
-export type AccessDecision = {
-  allowed: boolean;
-  reason: AccessReason;
-  hint: UnlockHint;
-  rule: { id: string; kind: AccessRuleKind; summary: string } | null;
-  checkedAt: string;
-};
+export type AccessDecision = { allowed: boolean; reason: AccessReason; hint: UnlockHint;
+  rule: { id: string; kind: AccessRuleKind; summary: string } | null; checkedAt: string };
 ```
 
 Changes from v1: resource ids are strings (content uses `publicId`); `stake` hint becomes `view_pool` with no amounts (matches the messaging rule that no refusal carries an amount); new reasons `blocked`, `age_check_required`, `follow_pending`, `purchase_pending`; hints `verify_age`, `confirm_email`, `buy`.
@@ -246,7 +198,7 @@ model AccessEvent {
 - Delete behavior (GQ2, Rob 30 Oct): `AccessRule.owner` uses `onDelete: NoAction`, not Cascade. A user delete then cannot remove a rule an item still points to. The account deletion job (#13 AD2) deletes content items and blocks, then the user's rules, then the user. `SetNull` is never used on a rule reference: it would make a gated item public.
 - `params` has a zod schema per kind in `@repo/constants/src/access.ts`, checked on create, update and read. A row that fails to parse refuses (default deny).
 - `Broadcast` gains `accessRuleId` when Broadcast phase 2 needs it, not before. Content attachments on broadcasts ship there too, with a `broadcast` resolver (CQ1, Rob 3 Nov); content PR 8 does not build them.
-- `CreatorMessagingSettings` and `TelegramGroup` (#383) keep `ruleKind` and `stakeMin` (whole tREVO) in G2. Both map onto engine kinds at read time, with `wholeTokensToWei` for the minimum. A later migration may replace them with `accessRuleId`; nothing in this build depends on it.
+- Messaging rules stay outside the engine (Rob, 2 Nov). `MessagingSettings` keeps `ruleKind` and `stakeMin` (whole tREVO), evaluated by `services/messaging/rules.ts` with `wholeTokensToWei` for the minimum. `TelegramGroup` (#383) is removed with the rest of Telegram in messaging PR M8. The resource types `dm` and `telegram_group` stay reserved with no resolver; M8 drops `telegram_group` from `ACCESS_RESOURCE_TYPES` and `GATABLE_BLOCK_TYPES`.
 - Privacy (AGENTS.md): `AccessEvent.viewerKey` for signed out viewers is the daily salted hash used by visit counting, never reversible or cross creator, and never the IP. G1 adds access events to the retention list in `docs/legal/privacy-parameters.md` (25 months, like visit events) and one line to the notice, section 4: "When you open or try to open a locked item, we record that it happened so the creator can see how their locks perform." Bump `CONSENT_POLICY_VERSION` with it.
 - A rule in use cannot be deleted (`CONFLICT` with the count). `kind` is immutable. Owner of rule must equal owner of resource on attach.
 
@@ -264,35 +216,35 @@ bumpViewer(userId, reason)  // follow, unfollow, block, stake confirm, purchase,
 
 - `viewer` is always built from `ctx.user`. No endpoint accepts a wallet or user id from the client.
 - `open` runs `check` with `intent: "open"` and `fresh: true`, calls `reveal` only on a pass, and logs the event. It replaces v1's client held AccessGrant JWT for every in app reveal (decision 2).
-- `eligibleUserIds` serves broadcast audiences (messaging M9) and the Library new content fan out (FL-6). It reads the mirror and Follow tables; it never grants. Broadcast audiences pass `stakeAllowlist: false`: the counsel pilot allowlist gates access to items, and a broadcast to pool stakers opens nothing (M9, pending Rob's confirmation).
+- `eligibleUserIds` serves broadcast audiences (messaging PR M9) and the Library new content fan out (FL-6). It reads the mirror and Follow tables; it never grants. Broadcast audiences pass `stakeAllowlist: false`: the counsel pilot allowlist gates access to items, and a broadcast to pool stakers opens nothing (M9, pending Rob's confirmation).
 
 tRPC `access` router:
 
-| Procedure                                                  | Auth           | Purpose                                                                                                                                               |
-| ---------------------------------------------------------- | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `access.checkPage`                                         | public         | Decisions for every gated block and content card on a bio, after hydration. Content PR 8 builds it for content cards; G3 adds blocks (CQ2, Rob 3 Nov) |
-| `access.check`                                             | public         | One decision, `intent` render or open                                                                                                                 |
-| `access.openBlock`                                         | public\*       | Text or media block body, through `open`                                                                                                              |
-| `access.rules.list`, `create`, `update`, `delete`, `stats` | private        | Creator rules and stats                                                                                                                               |
-| `blocks.setAccessRule`                                     | private        | Attach or clear a rule on a block                                                                                                                     |
-| `GET /go/:blockId`                                         | session cookie | Gated link redirect through `open` (v1 3.1.5 unchanged)                                                                                               |
+| Procedure | Auth | Purpose |
+| --- | --- | --- |
+| `access.checkPage` | public | Decisions for every gated block and content card on a bio, after hydration. Content PR 8 builds it for content cards; G3 adds blocks (CQ2, Rob 3 Nov) |
+| `access.check` | public | One decision, `intent` render or open |
+| `access.openBlock` | public* | Text or media block body, through `open` |
+| `access.rules.list`, `create`, `update`, `delete`, `stats` | private | Creator rules and stats |
+| `blocks.setAccessRule` | private | Attach or clear a rule on a block |
+| `GET /go/:blockId` | session cookie | Gated link redirect through `open` (v1 3.1.5 unchanged) |
 
-\*Public procedures return `not_signed_in` for anonymous viewers on any kind but public.
+*Public procedures return `not_signed_in` for anonymous viewers on any kind but public.
 
-Feature owned reveals call `open` directly: `content.getReadUrl` and `getPreview` (sign gateway token), `live.watchToken` (Stream token), Telegram invite link, `messaging.send`.
+Feature owned reveals call `open` directly: `content.getReadUrl` and `getPreview` (sign gateway token), `live.watchToken` (Stream token). `messaging.send` checks the messaging rules in `services/messaging/rules.ts`, not the engine (Rob, 2 Nov).
 
 Rate limits: 30 a minute per viewer key on check and open; 60 a minute on `/go`.
 
 ### 3.8 Freshness and caching
 
-| Fact                 | Source at render                                       | Source at open                                                                                                  | Purged by                                           |
-| -------------------- | ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
-| Rule                 | Redis 5 min                                            | Database (fresh)                                                                                                | edit, delete                                        |
-| Follow               | DB                                                     | DB                                                                                                              | follow, unfollow, block                             |
-| Stake                | Mirror (not cached)                                    | Chain read `fanStakes` on every open; a chain failure refuses with `chain_unavailable`, the mirror never passes | Nothing to purge (stake decisions are never cached) |
-| Purchase, membership | DB                                                     | DB, `fresh`                                                                                                     | payment indexer, refund, renewal job                |
-| Age check            | `identity_checks` row, cached to `valid_until` or 24 h | Same                                                                                                            | `identity.recheck`, wallet change                   |
-| Decision             | Redis 60 s keyed by `viewerVersion`                    | Not cached                                                                                                      | `bumpViewer`                                        |
+| Fact | Source at render | Source at open | Purged by |
+| --- | --- | --- | --- |
+| Rule | Redis 5 min | Database (fresh) | edit, delete |
+| Follow | DB | DB | follow, unfollow, block |
+| Stake | Mirror (not cached) | Chain read `fanStakes` on every open; a chain failure refuses with `chain_unavailable`, the mirror never passes | Nothing to purge (stake decisions are never cached) |
+| Purchase, membership | DB | DB, `fresh` | payment indexer, refund, renewal job |
+| Age check | `identity_checks` row, cached to `valid_until` or 24 h | Same | `identity.recheck`, wallet change |
+| Decision | Redis 60 s keyed by `viewerVersion` | Not cached | `bumpViewer` |
 
 Without Redis (`utils/cache.ts` falls back to per process memory), decisions are not cached: a bump on one server instance cannot reach another. Rule and stake caches may still use the fallback.
 
@@ -340,7 +292,7 @@ v1 section 3.9 stands. Additions:
 1. Unit fix and follower grace fix ship first, with tests that use wei on one side and whole tREVO on the other.
 2. `AccessRule`, `AccessEvent`, `Block.accessRuleId`, content foreign key.
 3. `check`, `checkBatch`, `open`, `eligibleUserIds`, resolver registry, preconditions, kinds follower, pool_member, stake_min, any, all.
-4. Messaging, Telegram and broadcast run through the engine with no behavior change except the two fixes.
+4. Messaging keeps its own evaluator with the two fixes (G0). Retired from the engine scope on 2026-11-04: see G2 in section 6.
 5. Gated link, text and media blocks with `/go`, locked DTO, `checkPage`, rule picker and unlock sheet, behind the `accessGating` feature flag.
 6. Leak test in CI.
 
@@ -370,7 +322,7 @@ v1 section 3.9 stands. Additions:
 10. A rule edit bumps `version`; decisions cached under the old version are not used.
 11. An 18+ item refuses with `age_check_required` until a passed age check exists, whatever the rule, including for followers and members.
 12. `open` never calls the reveal function on a refusal (unit test with a spy).
-13. Messaging and Telegram suites pass unchanged after G2, plus the new unit tests.
+13. Retired with G2 (2026-11-04). Messaging suites pass unchanged; the engine's new unit tests pass.
 14. Typecheck, build and tests pass for server, client, landing app and constants. Copy check passes.
 15. Authbase down on an 18+ item refuses with `identity_unavailable` and hint `unavailable`; an `under_18` result refuses with hint `none`.
 16. Deleting a rule that a block or item uses fails at the database. Deleting a user through the account deletion job removes items, blocks and rules in that order, and no gated item is ever served as public in between.
@@ -380,16 +332,16 @@ v1 section 3.9 stands. Additions:
 
 Each PR is one branch into `development`, labeled by type, with a handoff doc for Gustavo.
 
-| PR           | Branch                          | Scope                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | Depends             | Size     |
-| ------------ | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------- | -------- |
-| G0           | `fix/stake-min-units` (PR #357) | `wholeTokensToWei` in constants; STAKE_MIN converts the stored whole tREVO `stakeMin` to wei at comparison time, so no data migration and no settings change; follower rule uses `trustedEmailWhere`; tests with real units                                                                                                                                                                                                                                                                                  | none                | 0.5 day  |
-| G1           | `feat/access-core`              | Constants contract and zod params, one Prisma migration (`AccessRule`, `AccessEvent`, `Block.accessRuleId`, content foreign key, delete rules in 3.6), engine, resolver for `block`, kinds follower, pool_member, stake_min, any, all, identity mapping (3.4), caching, `bumpViewer` hooks in follow, unfollow, remove, block, unblock and `identity.recheck` (stake decisions are never cached, so stake confirm needs no hook), rules router behind flag, privacy entries (3.6). No UI. Label `migration`. | G0 (#357), I1       | 4 days   |
-| G2           | `refactor/access-adopt`         | `rules.ts`, `messaging/access.ts`, Telegram group sweep and broadcast audience call the engine. Resolvers `dm` and `telegram_group`, reading both `CreatorMessagingSettings` and `TelegramGroup` rules.                                                                                                                                                                                                                                                                                                      | G1, #383            | 1.5 days |
-| G3           | `feat/access-blocks`            | Locked DTO, blocks in `checkPage` (content PR 8 builds it for content cards), `/go`, `openBlock`, `blocks.setAccessRule`, rule picker on the block row, unlock sheet in landing app, leak test, copy check. No schema (in G1). Needs the gating boards redrawn first (3.10).                                                                                                                                                                                                                                 | G1                  | 4 days   |
-| Content PR 8 | `feat/content-gating`           | Content resolver built on `services/content/access.ts` from #348, `getReadUrl` and `getPreview` through `open`, `access.checkPage` for content cards, locked cards, item editor picker. Build spec: `docs/features/content-gating.md`                                                                                                                                                                                                                                                                        | G1, #348            | 5 days   |
-| G4           | `feat/access-paid`              | `UsdcPaymentVerifier`, `paid` live, soft unlock, `purchase_pending`                                                                                                                                                                                                                                                                                                                                                                                                                                          | Content PR 10       | 1.5 days |
-| G5           | `feat/access-member`            | Membership reader, `member` live                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | Memberships phase C | 1 day    |
-| G6           | `feat/access-insights`          | `access.rules.stats` (aggregates only, 3.10 delta 8), People Access tab with empty, loading and flag off states (3.10 deltas 7 to 9), events, nightly leak scan, early access date                                                                                                                                                                                                                                                                                                                           | G3                  | 2 days   |
+| PR | Branch | Scope | Depends | Size |
+| --- | --- | --- | --- | --- |
+| G0 | `fix/stake-min-units` (PR #357) | `wholeTokensToWei` in constants; STAKE_MIN converts the stored whole tREVO `stakeMin` to wei at comparison time, so no data migration and no settings change; follower rule uses `trustedEmailWhere`; tests with real units | none | 0.5 day |
+| G1 | `feat/access-core` | Constants contract and zod params, one Prisma migration (`AccessRule`, `AccessEvent`, `Block.accessRuleId`, content foreign key, delete rules in 3.6), engine, resolver for `block`, kinds follower, pool_member, stake_min, any, all, identity mapping (3.4), caching, `bumpViewer` hooks in follow, unfollow, remove, block, unblock and `identity.recheck` (stake decisions are never cached, so stake confirm needs no hook), rules router behind flag, privacy entries (3.6). No UI. Label `migration`. | G0 (#357), I1 | 4 days |
+| G2 | Retired | Not built. Messaging rules stay outside the engine (Rob, 2 Nov; `docs/features/messaging.md`). Telegram groups and the member sweep are removed in messaging M8. Broadcast audiences use `eligibleUserIds` in messaging M9. | none | 0 |
+| G3 | `feat/access-blocks` | Locked DTO, blocks in `checkPage` (content PR 8 builds it for content cards), `/go`, `openBlock`, `blocks.setAccessRule`, rule picker on the block row, unlock sheet in landing app, leak test, copy check. No schema (in G1). Needs the gating boards redrawn first (3.10). | G1 | 4 days |
+| Content PR 8 | `feat/content-gating` | Content resolver built on `services/content/access.ts` from #348, `getReadUrl` and `getPreview` through `open`, `access.checkPage` for content cards, locked cards, item editor picker. Build spec: `docs/features/content-gating.md` | G1, #348 | 5 days |
+| G4 | `feat/access-paid` | `UsdcPaymentVerifier`, `paid` live, soft unlock, `purchase_pending` | Content PR 10 | 1.5 days |
+| G5 | `feat/access-member` | Membership reader, `member` live | Memberships phase C | 1 day |
+| G6 | `feat/access-insights` | `access.rules.stats` (aggregates only, 3.10 delta 8), People Access tab with empty, loading and flag off states (3.10 deltas 7 to 9), events, nightly leak scan, early access date | G3 | 2 days |
 
 The age precondition needs no PR of its own: G1 calls `checkIdentity` from I1.
 
@@ -398,9 +350,9 @@ The age precondition needs no PR of its own: G1 calls `checkIdentity` from I1.
 1. G0 before messaging goes live. Messaging ships the Fan messages minimum stake door and Telegram group admission, which carry the unit defect.
 2. I1 and A1 (identity checks spec) with the content system. Content goes live with public items and 18+ items behind the Over 18 check. Members only, Followers only and paid items wait for the engine.
 3. S1 rides with the first PR that sells for USDC (store PR 9 or memberships).
-4. G1, then G2, G3, content PR 8 and G6 in parallel. G4 with store PR 10, G5 with memberships phase C.
+4. G1, then G3, content PR 8 and G6 in parallel. G4 with store PR 10, G5 with memberships phase C. G2 is retired.
 
-While messaging runs before G2, its evaluator (`telegram/rules.ts`) stays in place with the G0 fix. G2 moves it onto the engine with no behavior change.
+Messaging keeps its own evaluator, now `services/messaging/rules.ts`, with the G0 fix. It does not move onto the engine. Reason (Rob, 2 Nov): messaging stays open to every creator, and the engine's stake kinds sit behind the counsel pilot allowlist. Bringing messaging onto the engine later needs a new decision that exempts it from the allowlist.
 
 Critical path to the first paid unlock: G0 (done), I1, G1, content PR 8, store PR 9 with S1, store PR 10, G4.
 
@@ -413,19 +365,19 @@ Flags live in site_settings, set from the admin with no rebuild or redeploy (Rob
 3. **Rule ids are UUIDs.** Settled by the repo: AGENTS.md requires UUIDv7 `Binary(16)` keys on every new table, and `ContentItem.accessRuleId` already ships with that type. No decision needed.
 4. **Age check is a precondition, not a kind, and it is Authbase.** Recommended: every 18+ item runs the Authbase Over 18 check before any rule. Why: a creator cannot forget it, and Authbase already verifies it today (Rob, 23 Oct). Alternative: an `age` kind combined with `all`.
 5. **Soft unlock on paid.** Recommended: `paid` passes on first chain confirmation, final at 12, revoked on reorg or failure. Why: matches the 23 Oct mobile review (R7, D4). Alternative: wait for finality (about 25 seconds on Base).
-6. **Fix before messaging goes live.** Recommended: G0 ships before messaging launch; messaging keeps its own evaluator until G2 moves it onto the engine. Why: the unit defect lets any staker through a minimum stake door, and messaging launches before the engine. Alternative: launch messaging without the minimum stake rule and add it back with G2.
+6. **Fix before messaging goes live.** Recommended: G0 ships before messaging launch; messaging keeps its own evaluator (G2 later retired, 2026-11-04). Why: the unit defect lets any staker through a minimum stake door, and messaging launches before the engine. Alternative: launch messaging without the minimum stake rule and add it back with G2.
 7. **New kinds.** Recommended: define `rns_verified` now and build it with RNS phase 2; no code lock or email capture lock. Why: Rob wants identity facets on profiles; a code lock duplicates Followers and invites sharing; follows already capture the fan. Alternative: add a code lock for event style drops.
 8. **Early access date on rules.** Recommended: yes, in G6. Why: a standard Patreon lever, one column, no new kind. Alternative: creators publish twice.
 
 ## 8. Open questions
 
-| Question                                                                                                                              | Owner                  | Blocking          |
-| ------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- | ----------------- |
-| Does Amped as a whole fall under any state age verification threshold, and does the Authbase check meet the method those laws require | Counsel, Authbase team | A1 go live        |
-| Securities counsel comments on pool_member and stake_min copy (review running in parallel)                                            | Counsel                | GA of stake kinds |
-| Does `CreatorPool.fanStakes` reflect stakes made through the base token on Libertas (v1 build check)                                  | Engineering            | G1 open path      |
-| Store PR 9 `Offer` and PR 10 `Purchase` shapes final                                                                                  | Content plan           | G4                |
-| Agency delegate preview scope                                                                                                         | Rob with #38           | No                |
+| Question | Owner | Blocking |
+| --- | --- | --- |
+| Does Amped as a whole fall under any state age verification threshold, and does the Authbase check meet the method those laws require | Counsel, Authbase team | A1 go live |
+| Securities counsel comments on pool_member and stake_min copy (review running in parallel) | Counsel | GA of stake kinds |
+| Does `CreatorPool.fanStakes` reflect stakes made through the base token on Libertas (v1 build check) | Engineering | G1 open path |
+| Store PR 9 `Offer` and PR 10 `Purchase` shapes final | Content plan | G4 |
+| Agency delegate preview scope | Rob with #38 | No |
 
 ## 9. Success metrics
 
@@ -447,6 +399,7 @@ Lagging (90 days after paid goes live): share of creators with any paid or membe
 
 ## Revision log
 
+- 2026-11-04: G2 retired. Messaging rules stay outside the engine (Rob, 2 Nov), Telegram groups go in messaging M8, and broadcast audiences use `eligibleUserIds` in messaging M9, so nothing is left for G2. Resource types `dm` and `telegram_group` stay reserved with no resolver. P0 item 4, acceptance 13, the build plan, the sequence and the data model note updated. No code change.
 - 2026-11-03: Flags in site_settings. `accessGating` is a feature flag (#421) and the stake allowlist is the `access_stake_kinds_allowlist` site setting. `VITE_ACCESS_GATING` is dropped.
 - 2026-11-03: QA fix pass (rows 365 to 368, 370). 3.10 deltas 7 to 11: rules and stats move to People, Access; totals only; empty, loading and flag off states; block row actions; unlock sheet frames per hint. 3.11: the required minimum shows only in the `stake_below_min` step; the disclosure is `ACCESS_STAKE_DISCLOSURE`. G6 scope updated.
 
@@ -455,5 +408,6 @@ Lagging (90 days after paid goes live): share of creators with any paid or membe
 - 2026-10-30: Full QA against `development` f8bd0bb. GQ1: all gating schema in one G1 migration, `block` resolver in G1, `content` resolver moves to content PR 8 (needs #348). GQ2: rule references `Restrict`, `AccessRule.owner` `NoAction`, deletion order in AD2, never `SetNull`. Identity result mapping and new reason `identity_unavailable`. Suspended viewers refuse. zod params per kind. No decision cache without Redis. `TelegramGroup` rules (#383) in G2. AccessEvent privacy entries. G1 depends on G0 and I1.
 - 2026-10-28: G0 row and units paragraph matched to PR #357: convert at comparison time with `wholeTokensToWei`, no data migration. G1 stores wei in `AccessRule`; G2 maps `stakeMin` through `wholeTokensToWei`.
 - 2026-10-24: Rob: staking is tREVO or REVO only, never USDC. Deployed staking contracts are not changed; gating reads stakes and compares them to the amount the creator sets. The admin minimum stays in the contracts (`_minStake`). v1's 1 REVO app floor removed; `pool_member` is any stake. Acceptance 1 added.
+- 2026-11-04: G4 built (`feat/access-paid`). `paid` is live. `UsdcPaymentVerifier` reads Purchase rows by product. A final purchase passes with `ok`. The first confirmation passes with `purchase_pending` (soft unlock, decision 5). A purchase sent but not on chain refuses with `purchase_pending` and no action. Reorg, failure, refund and an ended access period close access on the next check. Buyers keep access when the product is paused or the seller check lapses; new buyers get `kind_unavailable` on a lapsed seller check and `not_purchased` with no action on a paused product. Paid decisions are never cached, like stake decisions. A product's access period starts at the first confirmation (`Purchase.accessUntil`).
 - 2026-10-23 (later): Rob's direction applied. Age precondition uses the Authbase Over 18 attribute through the shared identity check (G7 removed). Seller verification precondition on paid and member. Sequence: messaging and content live before the engine; G0 before messaging goes live.
 - 2026-10-23: v2. Reconciled to development at 48ca154. Audit found no engine, two defects in the messaging evaluator, UUID rule ids on content, the media gateway in place of CloudFront. Added preconditions (blocked, age, early access), one call `open`, `paid` soft unlock, `member` from #25, `rns_verified` defined, adoption of messaging, Telegram and broadcast, and a PR plan G0 to G7.

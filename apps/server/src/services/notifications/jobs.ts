@@ -13,6 +13,7 @@ import { decryptMessageBody } from "../crypto/messageBody";
 import { isLive, publish } from "../realtime/bus";
 import { emailOffUrl, messageNotificationPrefs } from "./bell";
 import { hasSubscription, pushConfigured, sendPush, type PushPayload } from "./push";
+import { isDigestPayload, runDigest } from "../library/newContent";
 
 /**
  * Push and email jobs (Build Board #2 r4, PR M4, spec 7.2 "after commit" and 7.4).
@@ -357,7 +358,10 @@ export async function claimNextJob(now = new Date()): Promise<NotificationJob | 
   return null;
 }
 
-/** Run one claimed job to completion. A skipped email is DONE with the reason in error. */
+/**
+ * Run one claimed job to completion. A skipped email is DONE with the reason in error.
+ * Channels: push, email (message reminders) and digest (Fan Library daily email, FL-6).
+ */
 export async function runJob(job: NotificationJob, now = new Date()): Promise<string> {
   try {
     let outcome: string;
@@ -373,6 +377,11 @@ export async function runJob(job: NotificationJob, now = new Date()): Promise<st
         const result = await sendPush(job.userId, push);
         outcome = result.sent > 0 ? "sent" : "no_device";
       }
+    } else if (job.channel === "digest") {
+      // Fan Library daily email (FL-6). A bad payload is skipped, not retried.
+      outcome = isDigestPayload(job.payload)
+        ? await runDigest(job.userId, job.payload, now)
+        : "skipped";
     } else {
       outcome = await runEmailCheck(job.userId, job.payload as MessageJobPayload, now);
     }

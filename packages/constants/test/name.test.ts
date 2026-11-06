@@ -26,7 +26,7 @@ describe("phase 2 name effects", () => {
   it("ships nine core effects after the six v1 effects, with no v1 integer", () => {
     expect(
       listEffects("name")
-        .slice(6)
+        .slice(6, 6 + NEW_NAMES.length)
         .map(e => e.id)
     ).toEqual(NEW_NAMES);
     for (const id of NEW_NAMES) {

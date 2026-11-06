@@ -1,4 +1,4 @@
-import { MESSAGE_UI, TELEGRAM_APP_STRINGS, type BlockType } from "@repo/constants";
+import { MESSAGE_UI, STORE_COPY, TELEGRAM_APP_STRINGS, type BlockType } from "@repo/constants";
 import { getPlatformName, getPlatformUrl, platforms, type PlatformId } from "@/utils/platforms";
 import { isFeatureOn } from "../../../../config/featureFlags";
 
@@ -46,6 +46,8 @@ export function blockTitle(block: BlockType) {
       return TELEGRAM_APP_STRINGS.groupBlockTitle;
     case "content":
       return block.config.label || "Content";
+    case "store":
+      return block.config.label || STORE_COPY.block.name;
     default:
       return "Text";
   }
@@ -115,6 +117,8 @@ export function blockMeta(block: BlockType) {
         { featured: "Featured", grid: "Grid", list: "List" }[block.config.layout] ?? "Featured";
       return `${layout}, ${n === 1 ? "1 item" : `${n} items`}`;
     }
+    case "store":
+      return "Up to 6 products, Visit store";
     case "text":
       return stripTags(block.config.content ?? "");
     default:
