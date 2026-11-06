@@ -15,7 +15,7 @@ import { prisma, type SafetyCase } from "@repo/database";
 import { SAFETY_REASON_CODES, type SafetyReasonCode } from "@repo/constants";
 import { deliverEmail } from "../../utils/email/transport";
 import { checkIdentity } from "../identity/checks";
-import { hideCreator, restoreItems } from "../content/edge";
+import { edgeDirty, hideCreator, restoreItems, syncEdge } from "../content/edge";
 import { logSafetyEvent } from "./events";
 import { openCase } from "./cases";
 import { releaseStatus } from "./adultSetup";
@@ -57,30 +57,41 @@ async function notify(email: string | null, subject: string, lines: string[]) {
 export async function creatorProfile(handle: string, now: Date = new Date()) {
   const user = await creatorByHandle(handle);
   const yearAgo = new Date(now.getTime() - 365 * 86_400_000);
-  const [profile, age, seller, people, strikes, cases, suspendEvents] = await Promise.all([
-    prisma.creatorAdultProfile.findUnique({ where: { userId: user.id } }),
-    checkIdentity(user.id, "age_over_18"),
-    checkIdentity(user.id, "seller"),
-    prisma.appearingPerson.findMany({ where: { creatorUserId: user.id } }),
-    prisma.strike.findMany({ where: { userId: user.id, createdAt: { gte: yearAgo } } }),
-    prisma.safetyCase.findMany({
-      where: { creatorUserId: user.id },
-      orderBy: { createdAt: "desc" },
-      take: 50,
-    }),
-    prisma.safetyEvent.findMany({
-      where: { action: "suspend_request", detail: { path: "$.userId", equals: user.id } },
-      orderBy: { createdAt: "desc" },
-      take: 1,
-    }),
-  ]);
+  const [profile, age, seller, people, strikes, cases, suspendEvents, approvals] =
+    await Promise.all([
+      prisma.creatorAdultProfile.findUnique({ where: { userId: user.id } }),
+      checkIdentity(user.id, "age_over_18"),
+      checkIdentity(user.id, "seller"),
+      prisma.appearingPerson.findMany({ where: { creatorUserId: user.id } }),
+      prisma.strike.findMany({ where: { userId: user.id, createdAt: { gte: yearAgo } } }),
+      prisma.safetyCase.findMany({
+        where: { creatorUserId: user.id },
+        orderBy: { createdAt: "desc" },
+        take: 50,
+      }),
+      prisma.safetyEvent.findMany({
+        where: { action: "suspend_request", detail: { path: "$.userId", equals: user.id } },
+        orderBy: { createdAt: "desc" },
+        take: 1,
+      }),
+      prisma.safetyEvent.findFirst({
+        where: { action: "suspend_approve", detail: { path: "$.userId", equals: user.id } },
+        orderBy: { createdAt: "desc" },
+      }),
+    ]);
+  // A request approved already, or made before the last approval, is not pending
+  const request = suspendEvents[0] ?? null;
+  const lastApproval = approvals ?? null;
+  const suspendPending =
+    user.block === "no" && request && (!lastApproval || lastApproval.createdAt < request.createdAt)
+      ? request.createdAt
+      : null;
   return {
     handle: user.handle,
     name: user.name,
     joined: user.created_at,
     suspended: user.block !== "no",
-    suspendPending:
-      suspendEvents.length > 0 && user.block === "no" ? suspendEvents[0]!.createdAt : null,
+    suspendPending,
     checks: {
       over18: age.pass
         ? { pass: true as const, validUntil: age.validUntil }
@@ -123,10 +134,16 @@ export async function disableAdultByAmped(handle: string, reason: string, review
     where: { userId: user.id },
     data: { disabledAt: now, disabledBy: reviewer.id, disabledReason: reason.slice(0, 255) },
   });
+  const published = await prisma.contentItem.findMany({
+    where: { userId: user.id, adult: true, publishState: "PUBLISHED" },
+    select: { publicId: true },
+  });
   const result = await prisma.contentItem.updateMany({
     where: { userId: user.id, adult: true, publishState: "PUBLISHED" },
-    data: { publishState: "DRAFT" },
+    data: { publishState: "DRAFT", ...edgeDirty() },
   });
+  // Turning 18+ off must close the public pages now, not on the next reconcile
+  if (published.length) await syncEdge(published.map(item => item.publicId));
   await logSafetyEvent({
     actorId: reviewer.id,
     action: "adult_off",
@@ -200,6 +217,14 @@ export async function approveSuspend(handle: string, reviewer: Reviewer) {
   if (request.actorId === reviewer.id) {
     throw new SafetyActionError("forbidden", "A second safety lead approves a suspend.");
   }
+  const approved = await prisma.safetyEvent.findFirst({
+    where: { action: "suspend_approve", detail: { path: "$.userId", equals: user.id } },
+    orderBy: { createdAt: "desc" },
+  });
+  // A stale request must not block the creator again after a reinstate
+  if (approved && approved.createdAt >= request.createdAt) {
+    throw new SafetyActionError("conflict", "This request was already approved.");
+  }
   if (user.block === "no") await suspend(user.id);
   await logSafetyEvent({
     actorId: reviewer.id,
@@ -250,6 +275,8 @@ export async function fileAppeal(
     actorId: userId,
     source: "appeal",
     note: input.text.slice(0, APPEAL_MAX),
+    // One appeal per decision: a second decision on the same item gets its own case
+    join: false,
   });
   return { number: opened.case.number };
 }
@@ -268,8 +295,9 @@ export async function decideAppeal(
   if (!appeal || appeal.type !== "APPEAL" || !appeal.parentCaseId) {
     throw new SafetyActionError("not_found", "Appeal not found.");
   }
-  if (appeal.state === "DECIDED" || appeal.state === "CLOSED") {
-    throw new SafetyActionError("conflict", "This appeal is decided.");
+  // WAITING_CREATOR is a Take It Down Reverse whose restore is pending: not decidable again
+  if (appeal.state !== "OPEN" && appeal.state !== "CLAIMED") {
+    throw new SafetyActionError("conflict", "This appeal is already decided.");
   }
   const parent = await prisma.safetyCase.findUnique({
     where: { id: Buffer.from(appeal.parentCaseId) },
@@ -283,6 +311,19 @@ export async function decideAppeal(
 
   let restoreAfter: Date | null = null;
   if (input.outcome === "reversed") {
+    // Another open case on the same item still holds it: a reverse must not lift it
+    if (parent.contentItemId) {
+      const held = await prisma.safetyCase.count({
+        where: {
+          contentItemId: parent.contentItemId,
+          id: { notIn: [parent.id, appeal.id] },
+          state: { in: ["OPEN", "CLAIMED", "WAITING_CREATOR"] },
+        },
+      });
+      if (held) {
+        throw new SafetyActionError("conflict", "Another open case still holds this item.");
+      }
+    }
     await prisma.strike.updateMany({
       where: { caseId: parent.id, reversedAt: null },
       data: { reversedAt: now },
@@ -301,8 +342,9 @@ export async function decideAppeal(
       await restoreParentItem(parent);
     }
   }
-  await prisma.safetyCase.update({
-    where: { id: appeal.id },
+  // Conditional: another lead deciding at the same moment must not overwrite this outcome
+  const decided = await prisma.safetyCase.updateMany({
+    where: { id: appeal.id, state: { in: ["OPEN", "CLAIMED"] } },
     data: {
       state: restoreAfter ? "WAITING_CREATOR" : "DECIDED",
       outcome: input.outcome,
@@ -311,6 +353,9 @@ export async function decideAppeal(
       ...(restoreAfter ? { dueAt: restoreAfter } : {}),
     },
   });
+  if (decided.count !== 1) {
+    throw new SafetyActionError("conflict", "This appeal is already decided.");
+  }
   await logSafetyEvent({
     caseId: appeal.id,
     actorId: reviewer.id,
@@ -325,14 +370,16 @@ async function restoreParentItem(parent: SafetyCase) {
   if (!parent.contentItemId) return;
   const item = await prisma.contentItem.findUnique({
     where: { id: Buffer.from(parent.contentItemId) },
-    select: { id: true, publicId: true },
+    select: { id: true, publicId: true, hiddenReason: true },
   });
   if (!item) return;
   await prisma.contentItem.update({
     where: { id: item.id },
     data: { moderationState: "CLEAR", moderationReason: null },
   });
-  await restoreItems([item.publicId]);
+  // Only a Safety hide comes back: a child safety or withdrawn consent hold stays put
+  if (item.hiddenReason === "safety") await restoreItems([item.publicId]);
+  else await syncEdge([item.publicId]);
 }
 
 async function noticeRequester(parent: SafetyCase, reason: string) {
@@ -357,6 +404,8 @@ export async function restoreAfterNotice(
   const appeal = await prisma.safetyCase.findUnique({ where: { id: Buffer.from(caseId, "hex") } });
   if (!appeal?.parentCaseId || appeal.outcome !== "reversed")
     throw new SafetyActionError("bad_request", "Nothing to restore.");
+  if (appeal.state !== "WAITING_CREATOR")
+    throw new SafetyActionError("conflict", "This appeal is not waiting for a restore.");
   const notified = await prisma.safetyEvent.findFirst({
     where: { caseId: appeal.id, action: "requester_notified" },
   });
@@ -371,7 +420,13 @@ export async function restoreAfterNotice(
     where: { id: Buffer.from(appeal.parentCaseId) },
   });
   if (parent) await restoreParentItem(parent);
-  await prisma.safetyCase.update({ where: { id: appeal.id }, data: { state: "DECIDED" } });
+  const closed = await prisma.safetyCase.updateMany({
+    where: { id: appeal.id, state: "WAITING_CREATOR" },
+    data: { state: "DECIDED" },
+  });
+  if (closed.count !== 1) {
+    throw new SafetyActionError("conflict", "This appeal is not waiting for a restore.");
+  }
   await logSafetyEvent({ caseId: appeal.id, actorId: reviewer.id, action: "restore" });
 }
 
@@ -427,7 +482,12 @@ export async function exportLog(filter: Parameters<typeof listLog>[0], reviewer:
   if (!reviewer.lead)
     throw new SafetyActionError("forbidden", "Only a safety lead can export the log.");
   const rows = await listLog({ ...filter, limit: 1000 }, reviewer);
-  const cell = (value: unknown) => `"${String(value ?? "").replace(/"/g, '""')}"`;
+  const cell = (value: unknown) => {
+    const text = String(value ?? "");
+    // A leading =, +, - or @ runs as a formula when the CSV opens in a spreadsheet
+    const safe = /^[=+\-@\t\r]/.test(text) ? `'${text}` : text;
+    return `"${safe.replace(/"/g, '""')}"`;
+  };
   const lines = [
     ["at", "actor", "case", "action", "detail", "note"].join(","),
     ...rows.map(r =>

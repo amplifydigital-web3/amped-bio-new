@@ -13,6 +13,7 @@ import {
   custodianSchema,
 } from "@repo/constants";
 import { isFeatureOn } from "../services/featureFlags";
+import { enforceRateLimits } from "../utils/rateLimit";
 import { privateProcedure, router } from "./trpc";
 import {
   AdultSetupError,
@@ -111,6 +112,10 @@ export const adultRouter = router({
       z.object({ publicId: contentPublicIdSchema, text: z.string().trim().min(10).max(APPEAL_MAX) })
     )
     .mutation(async ({ ctx, input }) => {
+      await enforceRateLimits(
+        [{ key: `adult:appeal:${ctx.user!.sub}`, limit: 5, windowSeconds: 3600 }],
+        "Too many appeals. Try again later."
+      );
       try {
         return await fileAppeal(ctx.user!.sub, input);
       } catch (error) {
