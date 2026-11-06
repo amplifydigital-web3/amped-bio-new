@@ -142,7 +142,7 @@ export const uploadRouter = router({
             },
           });
 
-          themeId = theme.id.toString();
+          themeId = theme.id;
 
           await prisma.user.update({
             where: { id: userId },

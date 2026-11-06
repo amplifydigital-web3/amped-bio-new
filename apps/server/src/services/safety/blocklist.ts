@@ -41,12 +41,17 @@ export async function findBlockedHash(sha256: string): Promise<BlockedContentHas
 export async function blockHash(input: BlockHashInput): Promise<BlockedContentHash> {
   const caseId = input.caseId ? Buffer.from(input.caseId) : null;
   const existing = await prisma.blockedContentHash.findUnique({ where: { sha256: input.sha256 } });
+  // A later child safety match must escalate the row, never keep a reason that can be
+  // unblocked (a file blocked first as malware or policy would otherwise be removable)
+  const escalateToCsam = input.reason === "csam" && existing !== null && existing.reason !== "csam";
   const row = existing
     ? await prisma.blockedContentHash.update({
         where: { sha256: input.sha256 },
         data: {
           // A file blocked again after Unblock is active again, with the new reason
-          ...(existing.removedAt ? { removedAt: null, reason: input.reason } : {}),
+          ...(existing.removedAt || escalateToCsam
+            ? { removedAt: null, reason: input.reason }
+            : {}),
           ...(existing.phash ? {} : { phash: input.phash ?? null }),
           ...(existing.caseId ? {} : { caseId }),
           ...(existing.addedById ? {} : { addedById: input.addedById ?? null }),

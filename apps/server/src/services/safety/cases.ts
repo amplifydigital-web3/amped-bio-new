@@ -21,6 +21,10 @@ export type OpenCaseInput = {
   type: SafetyCaseType;
   /** Overrides the type's default (a trafficking escalation is Critical) */
   severity?: 0 | 1 | 2;
+  /** An exact number (a copyright notice keeps its CN number); otherwise the next one */
+  number?: string;
+  /** False for a notice: each request needs its own case even on the same item */
+  join?: boolean;
   contentItemId?: Uint8Array | null;
   offerId?: Uint8Array | null;
   storePolicyVersionId?: Uint8Array | null;
@@ -65,7 +69,7 @@ export async function findOpenCase(
 export async function openCase(
   input: OpenCaseInput
 ): Promise<{ case: SafetyCase; joined: boolean }> {
-  if (input.contentItemId) {
+  if (input.contentItemId && input.join !== false) {
     const open = await findOpenCase(input.type, input.contentItemId);
     if (open) {
       await logSafetyEvent({
@@ -84,7 +88,7 @@ export async function openCase(
     input.type === "COPYRIGHT" ? SAFETY_NUMBER_PREFIX.copyright : SAFETY_NUMBER_PREFIX.case;
   const bytes = (value: Uint8Array | null | undefined) => (value ? Buffer.from(value) : null);
   for (let attempt = 0; attempt < 5; attempt += 1) {
-    const number = await nextNumber(prefix, now.getUTCFullYear());
+    const number = input.number ?? (await nextNumber(prefix, now.getUTCFullYear()));
     try {
       const created = await prisma.safetyCase.create({
         data: {
@@ -111,7 +115,12 @@ export async function openCase(
       });
       return { case: created, joined: false };
     } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") continue;
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+        // An explicit number (a notice number) can not be renumbered; only an
+        // allocated one may take the next in the sequence
+        if (input.number) throw error;
+        continue;
+      }
       throw error;
     }
   }
@@ -119,10 +128,18 @@ export async function openCase(
 }
 
 /** Open, overdue and due today counts plus the oldest open Take It Down request (8.1 tiles). */
-export async function caseOverview(now: Date = new Date()) {
+export async function caseOverview(
+  now: Date = new Date(),
+  options: { lead?: boolean } = {}
+) {
   const endOfDay = new Date(now);
   endOfDay.setUTCHours(23, 59, 59, 999);
-  const open = { state: { in: [...OPEN_STATES] } };
+  // The queue hides child safety from moderators (8.8), so the tiles must not
+  // count them either: the count alone tells a moderator a case exists.
+  const open = {
+    state: { in: [...OPEN_STATES] },
+    ...(options.lead === false ? { type: { not: "CHILD_SAFETY" as const } } : {}),
+  };
   const [openCount, overdue, dueToday, byType, oldestTakedown] = await Promise.all([
     prisma.safetyCase.count({ where: open }),
     prisma.safetyCase.count({ where: { ...open, dueAt: { lt: now } } }),

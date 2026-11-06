@@ -78,7 +78,8 @@ export async function intakeReport(
         report.reporterUserId !== null &&
         (await unfoundedChildReports(report.reporterUserId, now)) >= CHILD_REPORT_UNFOUNDED_LIMIT;
       if (!guarded) {
-        await hideItems([item.publicId], "safety");
+        // Child safety: the gateway refuses even a Safety reveal token (8.5)
+        await hideItems([item.publicId], "child_safety");
         hidden = true;
       }
       const opened = await openCase({

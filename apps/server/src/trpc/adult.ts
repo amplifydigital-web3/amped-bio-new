@@ -12,6 +12,8 @@ import {
   contentPublicIdSchema,
   custodianSchema,
 } from "@repo/constants";
+import { isFeatureOn } from "../services/featureFlags";
+import { enforceRateLimits } from "../utils/rateLimit";
 import { privateProcedure, router } from "./trpc";
 import {
   AdultSetupError,
@@ -36,6 +38,17 @@ import { SafetyActionError } from "../services/safety/review";
 
 const personId = z.string().regex(/^[0-9a-f]{32}$/);
 
+/** The `adultContent` flag gates the action, not just the tab (AGENTS.md, feature flags). */
+const gated = privateProcedure.use(({ next }) => {
+  if (!isFeatureOn("adultContent")) {
+    throw new TRPCError({
+      code: "PRECONDITION_FAILED",
+      message: "18+ content is not available yet.",
+    });
+  }
+  return next();
+});
+
 async function run<T>(work: () => Promise<T>): Promise<T> {
   try {
     return await work();
@@ -54,42 +67,42 @@ async function run<T>(work: () => Promise<T>): Promise<T> {
 }
 
 export const adultRouter = router({
-  getSetup: privateProcedure.query(({ ctx }) => getSetup(ctx.user!.sub)),
-  acceptPolicy: privateProcedure.mutation(({ ctx }) => acceptPolicy(ctx.user!.sub)),
-  setCustodian: privateProcedure
+  getSetup: gated.query(({ ctx }) => getSetup(ctx.user!.sub)),
+  acceptPolicy: gated.mutation(({ ctx }) => acceptPolicy(ctx.user!.sub)),
+  setCustodian: gated
     .input(custodianSchema)
     .mutation(({ ctx, input }) => setCustodian(ctx.user!.sub, input)),
-  enable: privateProcedure.mutation(({ ctx }) => run(() => enableAdult(ctx.user!.sub))),
-  disable: privateProcedure.mutation(({ ctx }) => disableAdult(ctx.user!.sub)),
+  enable: gated.mutation(({ ctx }) => run(() => enableAdult(ctx.user!.sub))),
+  disable: gated.mutation(({ ctx }) => disableAdult(ctx.user!.sub)),
 
   people: router({
-    list: privateProcedure.query(({ ctx }) => listPeople(ctx.user!.sub)),
-    invite: privateProcedure
+    list: gated.query(({ ctx }) => listPeople(ctx.user!.sub)),
+    invite: gated
       .input(z.object({ displayName: z.string().trim().min(1).max(80) }))
       .mutation(({ ctx, input }) => invitePerson(ctx.user!.sub, input.displayName)),
-    countersign: privateProcedure
+    countersign: gated
       .input(z.object({ id: personId }))
       .mutation(({ ctx, input }) => run(() => countersign(ctx.user!.sub, input.id))),
-    remove: privateProcedure
+    remove: gated
       .input(z.object({ id: personId }))
       .mutation(({ ctx, input }) => run(() => removePerson(ctx.user!.sub, input.id))),
   }),
 
   appear: router({
-    get: privateProcedure
+    get: gated
       .input(z.object({ token: appearTokenSchema }))
       .query(({ ctx, input }) => run(() => getInvite(input.token, ctx.user!.sub))),
-    sign: privateProcedure
+    sign: gated
       .input(appearSignSchema)
       .mutation(({ ctx, input }) => run(() => signRelease(input, ctx.user!.sub))),
-    mine: privateProcedure.query(({ ctx }) => myAppearances(ctx.user!.sub)),
-    withdraw: privateProcedure
+    mine: gated.query(({ ctx }) => myAppearances(ctx.user!.sub)),
+    withdraw: gated
       .input(z.object({ id: personId }))
       .mutation(({ ctx, input }) => run(() => withdrawRelease(ctx.user!.sub, input.id))),
   }),
 
   /** The item editor 18+ section (5.3). */
-  setItemPeople: privateProcedure
+  setItemPeople: gated
     .input(contentPeopleSchema)
     .mutation(({ ctx, input }) => run(() => setItemPeople(ctx.user!.sub, input))),
 
@@ -99,6 +112,10 @@ export const adultRouter = router({
       z.object({ publicId: contentPublicIdSchema, text: z.string().trim().min(10).max(APPEAL_MAX) })
     )
     .mutation(async ({ ctx, input }) => {
+      await enforceRateLimits(
+        [{ key: `adult:appeal:${ctx.user!.sub}`, limit: 5, windowSeconds: 3600 }],
+        "Too many appeals. Try again later."
+      );
       try {
         return await fileAppeal(ctx.user!.sub, input);
       } catch (error) {
@@ -116,7 +133,7 @@ export const adultRouter = router({
     }),
 
   /** Submit an 18+ item for review (6.1). Refusals carry the reason code and its text. */
-  submitForReview: privateProcedure
+  submitForReview: gated
     .input(z.object({ publicId: contentPublicIdSchema, confirmed: z.boolean() }))
     .mutation(async ({ ctx, input }) => {
       const result = await run(() =>

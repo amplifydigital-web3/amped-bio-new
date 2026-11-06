@@ -25,6 +25,7 @@ const db = vi.hoisted(() => {
         !(value instanceof Date)
       ) {
         if ("in" in value) return value.in.some((v: any) => eq(row[key], v));
+        if ("notIn" in value) return !value.notIn.some((v: any) => eq(row[key], v));
         if ("not" in value) return !eq(row[key], value.not);
         if ("path" in value) return row[key]?.[value.path.slice(2)] === value.equals;
         if ("gte" in value) return row[key] >= value.gte;
@@ -73,6 +74,8 @@ const db = vi.hoisted(() => {
 const edge = vi.hoisted(() => ({
   hideCreator: vi.fn(async () => {}),
   restoreItems: vi.fn(async () => ({})),
+  syncEdge: vi.fn(async () => ({ applied: 0, unchanged: 0, failed: 0 })),
+  edgeDirty: vi.fn(() => ({ edgeDirtyAt: new Date() })),
 }));
 const mail = vi.hoisted(() => ({ deliverEmail: vi.fn(async () => ({})) }));
 
@@ -90,6 +93,7 @@ import { safetyBox } from "../services/safety/crypto";
 import {
   approveSuspend,
   decideAppeal,
+  disableAdultByAmped,
   exportLog,
   fileAppeal,
   listLog,
@@ -125,6 +129,7 @@ beforeEach(() => {
   for (const key of Object.keys(db.s)) db.s[key] = [];
   edge.hideCreator.mockClear();
   edge.restoreItems.mockClear();
+  edge.syncEdge.mockClear();
   mail.deliverEmail.mockClear();
   db.s.users!.push({
     id: 7,
@@ -134,7 +139,35 @@ beforeEach(() => {
     block: "no",
     created_at: new Date(),
   });
-  db.s.items!.push({ id: ITEM, publicId: "item000000000001", userId: 7 });
+  db.s.items!.push({
+    id: ITEM,
+    publicId: "item000000000001",
+    userId: 7,
+    hiddenReason: "safety",
+  });
+});
+
+describe("turn off 18+ (8.4)", () => {
+  it("makes every 18+ item a draft and closes the public pages at once", async () => {
+    db.s.profiles!.push({
+      userId: 7,
+      enabledAt: new Date(),
+      disabledAt: null,
+      disabledBy: null,
+      custodianName: "encrypted",
+      policyVersion: "1.1",
+    });
+    Object.assign(db.s.items![0]!, { adult: true, publishState: "PUBLISHED" });
+    expect(await disableAdultByAmped("maya", "Policy breach noted", LEAD)).toEqual({
+      unpublished: 1,
+    });
+    expect(db.s.items![0]!.publishState).toBe("DRAFT");
+    expect(edge.syncEdge).toHaveBeenCalledWith(["item000000000001"]);
+    expect(db.s.events!.at(-1)).toMatchObject({ action: "adult_off", actorId: 51 });
+    expect(mail.deliverEmail).toHaveBeenCalledWith(
+      expect.objectContaining({ to: ["maya@amped.test"] })
+    );
+  });
 });
 
 describe("suspend (8.4)", () => {
@@ -148,6 +181,8 @@ describe("suspend (8.4)", () => {
     await approveSuspend("maya", LEAD2);
     expect(db.s.users![0]!.block).toBe("yes");
     expect(edge.hideCreator).toHaveBeenCalledWith(7);
+    // An approved request is not approved again
+    await expect(approveSuspend("maya", LEAD2)).rejects.toMatchObject({ code: "conflict" });
   });
 
   it("suspends at once with an open child safety case and still asks for approval", async () => {
@@ -189,6 +224,20 @@ describe("appeals (5.4, 8.6)", () => {
     ).rejects.toMatchObject({ code: "conflict" });
   });
 
+  it("gives each decision on the same item its own appeal", async () => {
+    const first = decided({ decidedAt: new Date(Date.now() - 2_000) });
+    await fileAppeal(7, { publicId: "item000000000001", text: "This is wrong, please check" });
+    const second = decided({
+      id: Buffer.alloc(16, 10),
+      number: "SC-2026-000010",
+      decidedAt: new Date(),
+    });
+    await fileAppeal(7, { publicId: "item000000000001", text: "The second call is wrong too" });
+    const appeals = db.s.cases!.filter(c => c.type === "APPEAL");
+    expect(appeals).toHaveLength(2);
+    expect(appeals.map(c => hex(c.parentCaseId))).toEqual([hex(first.id), hex(second.id)]);
+  });
+
   it("needs a different reviewer, and Reverse restores the item and the strike", async () => {
     const parent = decided();
     db.s.strikes!.push({ caseId: parent.id, userId: 7, reversedAt: null });
@@ -206,6 +255,30 @@ describe("appeals (5.4, 8.6)", () => {
     );
     expect(edge.restoreItems).toHaveBeenCalledWith(["item000000000001"]);
     expect(db.s.strikes![0]!.reversedAt).toBeInstanceOf(Date);
+  });
+
+  it("does not restore an item another open case still holds", async () => {
+    const parent = decided();
+    db.s.strikes!.push({ caseId: parent.id, userId: 7, reversedAt: null });
+    await fileAppeal(7, { publicId: "item000000000001", text: "This is wrong, please check" });
+    const appeal = db.s.cases!.find(c => c.type === "APPEAL")!;
+    db.s.cases!.push({
+      id: Buffer.alloc(16, 11),
+      number: "SC-2026-000011",
+      type: "TAKE_IT_DOWN",
+      state: "OPEN",
+      contentItemId: ITEM,
+      creatorUserId: 7,
+      dueAt: new Date(),
+    });
+    await expect(
+      decideAppeal(
+        { caseId: hex(appeal.id), outcome: "reversed", note: "Original call was wrong" },
+        LEAD2
+      )
+    ).rejects.toMatchObject({ code: "conflict" });
+    expect(edge.restoreItems).not.toHaveBeenCalled();
+    expect(db.s.strikes![0]!.reversedAt).toBeNull();
   });
 
   it("tells the Take It Down requester first and restores only after 2 business days", async () => {
@@ -228,11 +301,23 @@ describe("appeals (5.4, 8.6)", () => {
       expect.objectContaining({ to: ["me@example.test"] })
     );
     expect(edge.restoreItems).not.toHaveBeenCalled();
+    // A Reverse whose restore is pending is not decidable a second time
+    await expect(
+      decideAppeal(
+        { caseId: hex(appeal.id), outcome: "upheld", note: "Changed my mind" },
+        LEAD2,
+        now
+      )
+    ).rejects.toMatchObject({ code: "conflict" });
     await expect(restoreAfterNotice(hex(appeal.id), LEAD2, now)).rejects.toMatchObject({
       code: "bad_request",
     });
     await restoreAfterNotice(hex(appeal.id), LEAD2, new Date("2026-11-10T00:00:00Z"));
     expect(edge.restoreItems).toHaveBeenCalledWith(["item000000000001"]);
+    // The restore runs once
+    await expect(
+      restoreAfterNotice(hex(appeal.id), LEAD2, new Date("2026-11-10T00:00:00Z"))
+    ).rejects.toMatchObject({ code: "conflict" });
   });
 });
 
@@ -262,5 +347,15 @@ describe("log (8.6)", () => {
     const csv = await exportLog({}, LEAD);
     expect(csv.split("\n")[0]).toBe("at,actor,case,action,detail,note");
     expect(db.s.events!.at(-1)).toMatchObject({ action: "export", actorId: 51 });
+    // A note that looks like a formula opens as text, never runs
+    db.s.events!.push({
+      actorId: 50,
+      action: "decide",
+      createdAt: new Date(),
+      detail: null,
+      note: '=HYPERLINK("https://evil.test")',
+      caseId: null,
+    });
+    expect(await exportLog({}, LEAD)).toContain(`"'=HYPERLINK(""https://evil.test"")"`);
   });
 });

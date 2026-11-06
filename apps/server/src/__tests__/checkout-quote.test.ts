@@ -12,6 +12,7 @@ type Row = {
   userId: number | null;
   status: string;
   expiresAt: Date;
+  storePolicyVersionId?: Buffer | null;
 };
 
 const state = vi.hoisted(() => ({
@@ -21,6 +22,11 @@ const state = vi.hoisted(() => ({
   countedToday: 0,
   seller: { pass: true } as { pass: boolean; reason?: string },
   mockPrice: null as string | null,
+  appEnv: "staging",
+  testnetChain: true,
+  ampedPay: false,
+  live: null as { id: Buffer; version: number; mode: string; settings: unknown } | null,
+  policyWrites: [] as unknown[],
   settings: {
     paymentsPaused: false,
     platformFeeBps: 500,
@@ -71,10 +77,44 @@ vi.mock("@repo/database", () => ({
       ),
       count: vi.fn(async () => state.countedToday),
       update: vi.fn(async () => undefined),
+      updateMany: vi.fn(
+        async (args: { where: { id: Buffer }; data: { storePolicyVersionId: Buffer } }) => {
+          state.policyWrites.push(args);
+          const row = state.rows.find(r => r.id.equals(args.where.id));
+          if (row && !row.storePolicyVersionId)
+            row.storePolicyVersionId = args.data.storePolicyVersionId;
+          return { count: 1 };
+        }
+      ),
     },
   },
 }));
 
+vi.mock("../env", () => ({
+  env: {
+    get APP_ENV() {
+      return state.appEnv;
+    },
+  },
+}));
+
+vi.mock("../services/usdc/chain", () => ({
+  paymentChain: {
+    get testnet() {
+      return state.testnetChain;
+    },
+  },
+}));
+
+vi.mock("../services/store/policy", () => ({
+  liveVersion: vi.fn(async () => state.live),
+  versionSummary: (row: { version: number; settings: { sellerName: string } }) => ({
+    sellerName: row.settings.sellerName,
+    summary: "",
+    version: row.version,
+  }),
+}));
+vi.mock("../services/payments/ready", () => ({ paymentsReady: () => state.ampedPay }));
 vi.mock("../services/payments/settings", () => ({
   paymentSettings: vi.fn(async () => state.settings),
 }));
@@ -89,6 +129,7 @@ const checkIdentity = vi.hoisted(() => vi.fn());
 vi.mock("../services/identity/checks", () => ({ checkIdentity }));
 
 import { quoteIntent } from "../services/checkout/quote";
+import { checkoutProvider, mockProviderAllowed } from "../services/checkout/provider";
 
 const ID = "0f".repeat(16);
 
@@ -114,6 +155,11 @@ beforeEach(() => {
   checkIdentity.mockReset();
   checkIdentity.mockImplementation(async () => state.seller);
   state.mockPrice = null;
+  state.appEnv = "staging";
+  state.testnetChain = true;
+  state.ampedPay = false;
+  state.live = null;
+  state.policyWrites = [];
   state.settings = {
     ...state.settings,
     paymentsPaused: false,
@@ -137,6 +183,8 @@ describe("quoteIntent", () => {
       publicId: "abc123",
       kind: "VIDEO",
       adult: false,
+      path: "/maya/c/abc123",
+      accessPeriodDays: null,
     });
     expect(quote.creator?.handle).toBe("maya");
     expect(quote.creator?.image).toBe("https://example.com/maya.png");
@@ -218,6 +266,88 @@ describe("quoteIntent", () => {
   it("the daily purchase limit stops a new payment", async () => {
     state.countedToday = 20;
     expect((await quoteIntent(20, ID)).state).toBe("limit");
+  });
+});
+
+describe("quoteIntent: terminal and refused states", () => {
+  it("a paid intent quotes paid, never ready, even when the item was removed since", async () => {
+    state.rows = [intent({ status: "paid" })];
+    expect((await quoteIntent(20, ID)).state).toBe("paid");
+    state.settings = { ...state.settings, paymentsPaused: true };
+    expect((await quoteIntent(20, ID)).state).toBe("paid");
+    state.item = { ...sellable(), deletedAt: new Date() };
+    expect((await quoteIntent(20, ID)).state).toBe("paid");
+  });
+
+  it("refuses the mock provider in production", async () => {
+    state.appEnv = "production";
+    await expect(quoteIntent(20, ID)).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  });
+
+  it("refuses the mock provider on a mainnet payment chain", async () => {
+    state.testnetChain = false;
+    await expect(quoteIntent(20, ID)).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  });
+
+  it("quotes on AmpedPay once it is configured, in production too (CK-5)", async () => {
+    state.ampedPay = true;
+    state.appEnv = "production";
+    state.testnetChain = false;
+    expect((await quoteIntent(20, ID)).provider).toBe("ampedpay");
+  });
+});
+
+describe("quoteIntent: store policy (CK-5)", () => {
+  const version = (n: number) => ({
+    id: Buffer.alloc(16, n),
+    version: n,
+    mode: "standard",
+    settings: { sellerName: "Maya Lin" },
+  });
+
+  it("names the policy seller and stores the version on the intent at the first quote", async () => {
+    state.live = version(2);
+    const quote = await quoteIntent(20, ID);
+    expect(quote.policy).toEqual({ version: 2, sellerName: "Maya Lin", changed: false });
+    expect(state.rows[0]!.storePolicyVersionId).toEqual(Buffer.alloc(16, 2));
+    // A second quote reads the stored version and writes nothing
+    state.policyWrites = [];
+    expect((await quoteIntent(20, ID)).policy?.changed).toBe(false);
+    expect(state.policyWrites).toHaveLength(0);
+  });
+
+  it("reads changed when the creator publishes a new version after the first quote", async () => {
+    state.live = version(2);
+    await quoteIntent(20, ID);
+    state.live = version(3);
+    expect((await quoteIntent(20, ID)).policy).toEqual({
+      version: 3,
+      sellerName: "Maya Lin",
+      changed: true,
+    });
+  });
+
+  it("has no policy before the creator publishes one", async () => {
+    expect((await quoteIntent(20, ID)).policy).toBeNull();
+  });
+});
+
+describe("checkoutProvider (mock safety rail)", () => {
+  it("allows the mock only outside production and on a test chain", () => {
+    const env = (appEnv: string, testnetChain: boolean, ampedPay = false) => ({
+      appEnv,
+      testnetChain,
+      ampedPay,
+    });
+    expect(mockProviderAllowed(env("staging", true))).toBe(true);
+    expect(mockProviderAllowed(env("development", true))).toBe(true);
+    expect(mockProviderAllowed(env("production", true))).toBe(false);
+    expect(mockProviderAllowed(env("staging", false))).toBe(false);
+    expect(checkoutProvider(env("staging", true))).toBe("mock");
+    expect(checkoutProvider(env("production", false, true))).toBe("ampedpay");
+    expect(() => checkoutProvider(env("production", false))).toThrow(
+      "Checkout is not available yet."
+    );
   });
 });
 

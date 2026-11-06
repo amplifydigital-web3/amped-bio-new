@@ -144,6 +144,10 @@ const jobs = vi.hoisted(() => ({
 
 const limiter = vi.hoisted(() => ({ hits: new Map<string, number>() }));
 
+const libraryFanOut = vi.hoisted(() => ({
+  onContentPublished: vi.fn(async () => ({ alerts: 0, emails: 0 })),
+}));
+
 vi.mock("@repo/database", () => ({ prisma: db.prisma, Prisma: { JsonNull: "JsonNull" } }));
 vi.mock("../utils/auth", () => ({ auth: { api: {} } }));
 const safetyIntake = vi.hoisted(() => ({
@@ -176,6 +180,9 @@ vi.mock("../services/content/delivery", async importOriginal => ({
   buildCard: (item: any) => ({ publicId: item.publicId, title: item.title, cover: null }),
 }));
 vi.mock("../services/analytics/visitorIp", () => ({ getVisitorIp: () => ({ ip: "203.0.113.9" }) }));
+vi.mock("../services/library/newContent", () => ({
+  onContentPublished: libraryFanOut.onContentPublished,
+}));
 
 import { env } from "../env";
 import { contentRouter } from "../trpc/content";
@@ -235,6 +242,7 @@ beforeEach(() => {
   [...Object.values(cf), ...Object.values(quota), ...Object.values(jobs)].forEach(fn =>
     fn.mockClear()
   );
+  libraryFanOut.onContentPublished.mockClear();
   quotaState.taken = 0n;
   cf.r2ObjectExists.mockResolvedValue(false);
   Object.assign(env, {
@@ -260,6 +268,21 @@ describe("publish and unpublish", () => {
     expect(db.items[0]!.publishState).toBe("DRAFT");
     const again = await caller(OWNER).publish({ publicId: item.publicId });
     expect(again.publishedAt).toEqual(first);
+  });
+
+  it("runs the FL-6 fan out once, on the first publish only", async () => {
+    const item = addItem();
+    await caller(OWNER).publish({ publicId: item.publicId });
+    await Promise.resolve();
+    expect(libraryFanOut.onContentPublished).toHaveBeenCalledTimes(1);
+    expect(libraryFanOut.onContentPublished.mock.calls[0]![0]).toMatchObject({
+      publicId: item.publicId,
+      publishState: "PUBLISHED",
+    });
+    await caller(OWNER).unpublish({ publicId: item.publicId });
+    await caller(OWNER).publish({ publicId: item.publicId });
+    await Promise.resolve();
+    expect(libraryFanOut.onContentPublished).toHaveBeenCalledTimes(1);
   });
 
   it("refuses items still processing, in review or blocked, and other people's items", async () => {

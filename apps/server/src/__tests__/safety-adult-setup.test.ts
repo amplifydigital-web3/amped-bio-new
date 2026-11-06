@@ -27,6 +27,7 @@ const db = vi.hoisted(() => {
         !(value instanceof Date)
       ) {
         if ("in" in value) return value.in.some((v: any) => eq(row[key], v));
+        if ("not" in value) return value.not === null ? row[key] != null : !eq(row[key], value.not);
         if ("startsWith" in value) return String(row[key]).startsWith(value.startsWith);
       }
       return eq(row[key] ?? null, value);
@@ -84,7 +85,11 @@ const db = vi.hoisted(() => {
   return { prisma, s };
 });
 const identity = vi.hoisted(() => ({ checkIdentity: vi.fn() }));
-const edge = vi.hoisted(() => ({ hideItems: vi.fn(async () => ({ synced: [], pending: [] })) }));
+const edge = vi.hoisted(() => ({
+  hideItems: vi.fn(async () => ({ synced: [], pending: [] })),
+  syncEdge: vi.fn(async () => ({ applied: 0, unchanged: 0, failed: 0 })),
+  edgeDirty: vi.fn(() => ({ edgeDirtyAt: new Date() })),
+}));
 
 vi.mock("@repo/database", () => ({
   prisma: db.prisma,
@@ -138,6 +143,7 @@ beforeEach(() => {
   identity.checkIdentity.mockReset();
   identity.checkIdentity.mockResolvedValue(PASS);
   edge.hideItems.mockClear();
+  edge.syncEdge.mockClear();
   db.s.users!.push({ id: 7, name: "Maya", handle: "maya" });
   db.s.items!.push({
     id: ITEM,
@@ -168,6 +174,8 @@ describe("setup (5.1)", () => {
     await readyCreator();
     expect(await disableAdult(7)).toEqual({ unpublished: 1 });
     expect(db.s.items![0]!.publishState).toBe("DRAFT");
+    // The public page closes now; the loop's next reconcile is too late
+    expect(edge.syncEdge).toHaveBeenCalledWith(["item000000000001"]);
   });
 });
 
@@ -186,7 +194,8 @@ describe("releases (5.2)", () => {
     await signRelease({ token, options, legalName: "Sam Doe" }, 20);
     const person = db.s.people![0]!;
     expect(person).toMatchObject({ personUserId: 20, releaseVersion: "1" });
-    expect(person.releaseText).toContain("20 percent of the creator's share");
+    // The filled text names the performer, so it is encrypted like the legal name
+    expect(person.releaseText).not.toContain("Sam Doe");
     expect(person.releaseHash).toHaveLength(64);
     expect(person.releaseName).not.toContain("Sam");
     await expect(signRelease({ token, options, legalName: "Sam Doe" }, 20)).rejects.toMatchObject({
@@ -231,6 +240,17 @@ describe("items and review (5.3, 6.1)", () => {
     expect(db.s.cases!.filter(c => c.type === "ADULT_SETUP")).toHaveLength(1);
   });
 
+  it("does not let a blocked item back into review", async () => {
+    await readyCreator();
+    db.s.items![0]!.moderationState = "BLOCKED";
+    expect(await submitBlocker(7, "item000000000001")).toBe("item_blocked");
+    expect(await submitForReview(7, "item000000000001", true)).toEqual({
+      ok: false,
+      error: "item_blocked",
+    });
+    expect(db.s.items![0]!.moderationState).toBe("BLOCKED");
+  });
+
   it("allows a surface only when every tagged release allows it", async () => {
     await readyCreator();
     const ready = await readyPerson();
@@ -242,6 +262,9 @@ describe("items and review (5.3, 6.1)", () => {
     expect(await surfaceAllowed(ITEM, "store")).toBe(true);
     expect(await surfaceAllowed(ITEM, "memberships")).toBe(false);
     expect(await surfaceAllowed(ITEM, "content")).toBe(true);
+    // An older release version must be signed again before it allows anything
+    db.s.people!.find(person => person.releaseAt !== null)!.releaseVersion = "0";
+    expect(await surfaceAllowed(ITEM, "store")).toBe(false);
   });
 });
 
@@ -259,5 +282,8 @@ describe("withdraw consent (7.4)", () => {
     expect(edge.hideItems).toHaveBeenCalledWith(["item000000000001"], "withdrawn");
     expect(db.s.cases).toMatchObject([{ type: "TAKE_IT_DOWN" }]);
     expect(await surfaceAllowed(ITEM, "store")).toBe(false);
+    // A second tap withdraws nothing and opens no second case
+    expect(await withdrawRelease(20, ready)).toEqual({ hidden: 0 });
+    expect(db.s.cases).toHaveLength(1);
   });
 });

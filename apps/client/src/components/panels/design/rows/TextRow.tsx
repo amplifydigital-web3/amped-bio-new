@@ -5,8 +5,15 @@ import { ColorControl } from "../kit/ColorControl";
 import { CreatorBackdrop } from "../kit/CreatorArt";
 import { ContrastNotice } from "../kit/Notices";
 import { cardFill, formatRatio, useDesign } from "../kit/useDesign";
+import { isFeatureOn } from "../../../../config/featureFlags";
+import { FontCatalogPicker } from "./fonts/FontCatalogPicker";
+import { fontsValue } from "../kit/fontLook";
 
 // Screen Review 026. The Text row: Font, Text size, Text color.
+
+// Theme Engine v2 fonts (#28, phase 2b, board 02): the font catalog replaces
+// the eight faces while fontCatalog is on. It needs the v2 renderer.
+const fontCatalogOn = isFeatureOn("themeV2") && isFeatureOn("fontCatalog");
 
 // I03: eight faces, loaded from Google Fonts in index.html and the public page
 const FONTS = [
@@ -47,41 +54,51 @@ export function TextRow() {
     <DisclosureRow
       id="text"
       label="Text"
-      value={<span style={{ fontFamily: values.fontFamily }}>{values.fontFamily}</span>}
+      value={
+        fontCatalogOn ? (
+          <span>{`${fontsValue(config, values.fontFamily)}, ${SIZES.find(s => s.value === values.fontSize)?.label ?? "Base"}`}</span>
+        ) : (
+          <span style={{ fontFamily: values.fontFamily }}>{values.fontFamily}</span>
+        )
+      }
       warning={
         (cardContrast ? !cardContrast.passes : false) ||
         (buttonContrast ? !buttonContrast.passes : false)
       }
     >
       <div className="space-y-[21px]">
-        <div className="space-y-2">
-          <p className="text-prism-label font-semibold text-prism-ink">Font</p>
-          <OptionGrid label="Font" columns="four">
-            {FONTS.map((font, index) => (
-              <OptionTile
-                key={font}
-                label={font}
-                selected={index === selectedIndex}
-                focusable={selectedIndex === -1 ? index === 0 : index === selectedIndex}
-                disabled={locked}
-                onSelect={() => update({ fontFamily: font })}
-                onPreview={() => preview({ fontFamily: font })}
-                onPreviewEnd={endPreview}
-                artClassName="h-[89px]"
-                art={
-                  <CreatorBackdrop background={config.background}>
-                    <span
-                      className="flex h-full w-full items-center justify-center truncate px-2 text-[26px] leading-[33px]"
-                      style={{ ...cardFill(look), fontFamily: font, color: values.fontColor }}
-                    >
-                      {name}
-                    </span>
-                  </CreatorBackdrop>
-                }
-              />
-            ))}
-          </OptionGrid>
-        </div>
+        {fontCatalogOn ? (
+          <FontCatalogPicker />
+        ) : (
+          <div className="space-y-2">
+            <p className="text-prism-label font-semibold text-prism-ink">Font</p>
+            <OptionGrid label="Font" columns="four">
+              {FONTS.map((font, index) => (
+                <OptionTile
+                  key={font}
+                  label={font}
+                  selected={index === selectedIndex}
+                  focusable={selectedIndex === -1 ? index === 0 : index === selectedIndex}
+                  disabled={locked}
+                  onSelect={() => update({ fontFamily: font })}
+                  onPreview={() => preview({ fontFamily: font })}
+                  onPreviewEnd={endPreview}
+                  artClassName="h-[89px]"
+                  art={
+                    <CreatorBackdrop background={config.background}>
+                      <span
+                        className="flex h-full w-full items-center justify-center truncate px-2 text-[26px] leading-[33px]"
+                        style={{ ...cardFill(look), fontFamily: font, color: values.fontColor }}
+                      >
+                        {name}
+                      </span>
+                    </CreatorBackdrop>
+                  }
+                />
+              ))}
+            </OptionGrid>
+          </div>
+        )}
 
         <div className="space-y-2">
           <p className="text-prism-label font-semibold text-prism-ink">Text size</p>

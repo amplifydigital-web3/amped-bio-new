@@ -161,6 +161,36 @@ describe("Take It Down (7.2, 7.3)", () => {
     expect(await requestStatus(result.number, "x".repeat(32))).toBeNull();
   });
 
+  it("opens its own case for a second request on the same item", async () => {
+    await submitTakedown(takedown());
+    await submitTakedown(takedown());
+    expect(db.s.cases).toHaveLength(2);
+    expect(new Set(db.s.cases.map(c => c.number)).size).toBe(2);
+  });
+
+  it("restores the exact copies hidden at submit when a request is Not valid", async () => {
+    const first = await submitTakedown(takedown());
+    await decideTakedown(
+      { number: first.number, outcome: "not_valid", note: "Not the person shown" },
+      LEAD
+    );
+    expect(edge.restoreItems).toHaveBeenCalledWith(
+      expect.arrayContaining(["item000000000001", "item000000000002"])
+    );
+  });
+
+  it("decides once when another reviewer closes the request at the same moment", async () => {
+    const removed = await submitTakedown(takedown());
+    db.prisma.takedownRequest.updateMany.mockResolvedValueOnce({ count: 0 });
+    await expect(
+      decideTakedown(
+        { number: removed.number, outcome: "removed", note: "The person shown asked" },
+        LEAD
+      )
+    ).rejects.toMatchObject({ code: "conflict" });
+    expect(db.s.hashes).toHaveLength(0);
+  });
+
   it("issues a number but hides nothing when a part is missing", async () => {
     const result = await submitTakedown(
       takedown({ goodFaith: false, links: ["https://evil.test/x"] })
@@ -187,6 +217,9 @@ describe("Take It Down (7.2, 7.3)", () => {
     )!;
     expect(JSON.stringify(toCreator)).not.toContain("me@example.test");
     expect(db.s.requests![0]).toMatchObject({ outcome: "removed" });
+    // The owner of an exact copy is told too, never who asked
+    const recipients = mail.deliverEmail.mock.calls.map((call: any) => call[0].to[0]);
+    expect(recipients).toEqual(expect.arrayContaining(["maya@amped.test", "copy@amped.test"]));
 
     const other = await submitTakedown(takedown({ links: [link("item000000000003")] }));
     await decideTakedown(
@@ -216,6 +249,7 @@ describe("copyright (7.5)", () => {
     expect(db.s.cases).toMatchObject([
       { type: "COPYRIGHT", number: expect.stringMatching(/^CN-/) },
     ]);
+    expect(db.s.cases[0]!.number).toBe(result.number);
     await decideCopyright(
       { number: result.number, outcome: "removed", note: "Same photo, cropped" },
       LEAD
@@ -252,6 +286,7 @@ describe("copyright (7.5)", () => {
       now
     );
     expect(counter!.restoreFrom.toISOString()).toBe("2026-11-19T12:00:00.000Z");
+    expect(db.s.cases.at(-1)).toMatchObject({ number: counter!.number });
     await expect(restoreAfterCounter(counter!.number, LEAD, now)).rejects.toMatchObject({
       code: "bad_request",
     });
@@ -268,6 +303,7 @@ describe("reports (7.1)", () => {
       reporterUserId: 20,
     });
     expect(result.hidden).toBe(true);
+    expect(edge.hideItems).toHaveBeenCalledWith(["item000000000001"], "child_safety");
     expect(db.s.cases).toMatchObject([{ type: "CHILD_SAFETY", severity: 0 }]);
     expect(alert.sendChildSafetyAlert).toHaveBeenCalled();
     await intakeReport(db.s.items![2] as never, {

@@ -28,6 +28,22 @@ export const UPLOADING_TIMEOUT_MS = 24 * 60 * 60 * 1000;
 type ItemRef = Pick<ContentItem, "id" | "userId" | "totalBytes">;
 
 /**
+ * A blocklist write must never fail the processor callback: the item is already
+ * BLOCKED by the time this runs, so a retry sees a non PROCESSING item and is
+ * ignored, and the hash (or the child safety case behind it) would be lost.
+ */
+async function blockHashAfterBlock(input: Parameters<typeof blockHash>[0]): Promise<void> {
+  try {
+    await blockHash(input);
+  } catch (error) {
+    console.error("[safety] ALERT hash block failed", {
+      reason: input.reason,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
+/**
  * Moves an item from one of `from` to FAILED (or BLOCKED) and releases its reserved
  * bytes, once. Returns false when the item had already left those states.
  */
@@ -226,14 +242,16 @@ export async function applyProcessorCallback(
       });
       // Malware positives join the hash blocklist (spec 3.5 step 3)
       if (callback.step === "malware" && callback.sha256) {
-        await blockHash({ sha256: callback.sha256, reason: "malware" });
+        await blockHashAfterBlock({ sha256: callback.sha256, reason: "malware" });
       }
       // A CSAM match (#28 R1, adult content review 8.5): a Critical child safety case,
-      // the evidence copy and the alert, and the hash is blocked for good (8.7)
+      // the evidence copy and the alert, and the hash is blocked for good (8.7). The
+      // case runs first and does not depend on the blocklist write, so a database
+      // error there cannot drop the alert of a blocked item (the retry is ignored).
       if (callback.step === "csam") {
-        const sha256 = callback.sha256 ?? item.sha256;
-        if (sha256) await blockHash({ sha256, reason: "csam" });
         await onCsamMatch(item, callback.reason ?? null);
+        const sha256 = callback.sha256 ?? item.sha256;
+        if (sha256) await blockHashAfterBlock({ sha256, reason: "csam" });
       }
       return "applied";
 

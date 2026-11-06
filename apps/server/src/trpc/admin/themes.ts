@@ -329,15 +329,10 @@ export const themesRouter = router({
           });
         }
 
-        // Check if any users are currently using this theme
-        // This checks both the theme field (for theme name/identifier) and user-created themes
+        // Check if any users are currently using this theme (users.theme is
+        // an integer id since TE-4a; the name match it also ran never matched)
         const usersUsingTheme = await prisma.user.findMany({
-          where: {
-            OR: [
-              { theme: theme.name }, // Users using theme by name
-              { theme: id.toString() }, // Users using theme by ID
-            ],
-          },
+          where: { theme: id },
           select: {
             id: true,
             name: true,
