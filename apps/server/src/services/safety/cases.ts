@@ -119,10 +119,18 @@ export async function openCase(
 }
 
 /** Open, overdue and due today counts plus the oldest open Take It Down request (8.1 tiles). */
-export async function caseOverview(now: Date = new Date()) {
+export async function caseOverview(
+  now: Date = new Date(),
+  options: { lead?: boolean } = {}
+) {
   const endOfDay = new Date(now);
   endOfDay.setUTCHours(23, 59, 59, 999);
-  const open = { state: { in: [...OPEN_STATES] } };
+  // The queue hides child safety from moderators (8.8), so the tiles must not
+  // count them either: the count alone tells a moderator a case exists.
+  const open = {
+    state: { in: [...OPEN_STATES] },
+    ...(options.lead === false ? { type: { not: "CHILD_SAFETY" as const } } : {}),
+  };
   const [openCount, overdue, dueToday, byType, oldestTakedown] = await Promise.all([
     prisma.safetyCase.count({ where: open }),
     prisma.safetyCase.count({ where: { ...open, dueAt: { lt: now } } }),

@@ -29,10 +29,13 @@ When you create an account and build your page, we collect:
 - **Security:** two factor settings and backup codes (stored protected), and a record of each signed in session with its IP address and browser details.
 - **Your page:** handle, bio, photo, blocks, links, theme and anything else you publish. Your page is public by design.
 - **Uploads:** images and files you upload, stored with our storage provider.
+- **Promoter codes:** if you give someone a code that pays them a share of your sales, or if a creator gives you one, we record the code, both accounts, the share and the code's sales and earnings. A promoter sees how many sales their code brought and what they earned, never who bought.
 - **X import:** if you import from X, the profile details you choose to bring in.
 - **Browser check:** a proof of work check on sign up and sign in to stop automated abuse. It runs on our own service and sets no cookies.
 - **Messages to us:** what you send to support.
+- **Your Library:** when you are signed in, the items you save to your Library and when you saved them, and when you last opened each followed creator's section of your Library, so we can show what is new. Only you see them. Creators do not see what you saved or when you visited.
 - **Message notifications:** when you get a message on Amped.Bio, we add it to the bell in the app. If you allow notifications on a device, your browser gives us a push address for that device (a web address at your browser's push service and two keys that encrypt what we send) and the browser details it reports. We store them to notify you on that device. If a message is still unread after 30 minutes, we may email you a reminder that names the sender but never includes the message text. We store whether notifications and reminder emails are on, and which reminders we sent.
+- **New items from creators:** when a creator you follow, or whose pool you stake in, posts an item you can open, we may add it to the bell in the app. If you chose Email me updates when you followed a creator, we may send you at most one email a day listing that creator's new items you can open. We store whether these alerts are on, for every creator or for one, and which emails we sent.
 
 If you verify your identity with Authbase, we receive your verification status and badge, and only the attributes you choose to share with Amped.Bio: your name as checked on your ID, whether you are over 18, your gender and your country. We never receive your date of birth. Only you can see those shared attributes unless you choose to show one. You can show each attribute on your own, while you are verified, by turning it on in your page's RNS ID block. Anyone who views your page or your RNS name can then see it. Others see only your verification status, and only where you choose to show it, plus the attributes you turned on.
 
@@ -132,8 +135,10 @@ We do not sell your personal information. We do not use it for our own advertisi
 | Creator updates on Telegram | Telegram user ID and your delivery choice | Consent |
 | Messages between fans and creators, and reports on them | Message text, who sent it and when, reports | Contract, legitimate interests for reports |
 | Message notifications: the bell, notifications on your devices and reminder emails | Push address and keys, browser details, the sender's name and handle, a short preview of the message on your device, your email address, your notification choices | Contract |
+| New items from creators: bell alerts and the daily email | The creator's name and handle, item titles you can open, your email address, your alert and email choices | Contract for bell alerts, consent for the daily email |
 | ndau conversion records | Addresses, amounts, signatures, terms hash | Contract and legal obligation |
 | Send and receive USDC, show your activity | Wallet address, amounts, addresses, transaction IDs | Contract |
+| Pay promoter codes and show their sales and earnings | The code, the creator and promoter accounts, the share, the sales and earnings | Contract |
 | Buy USDC through Coinbase | Wallet address, IP address, amount, region, random reference, Coinbase's order record, the encrypted Coinbase token | Contract |
 | Screen addresses against sanctions and risk lists | Wallet addresses, the vendor's result | Legal obligation and legitimate interests |
 | Written summaries for creators | Page totals, top sources, devices, visitor counts and up to 10 link names | Legitimate interests |
@@ -158,6 +163,7 @@ We do not sell your personal information. We do not use it for our own advertisi
 | Your browser's push service: Google (Chrome and most Android browsers), Apple (Safari), Mozilla (Firefox) or Microsoft (Edge on Windows) | Your device's push address and each notification, encrypted so only your device can read it: the sender's handle and a short preview of the message, or "Sent you a message" for message requests and senders with 18+ content | Deliver notifications to your device, only if you allow them |
 | Telegram (United Arab Emirates and other locations) | Your Telegram user ID and the messages the bot sends you | Deliver what you asked for on Telegram |
 | The public, the Revolution Network and Base | Your public page, handle, wallet address, transactions, pools and the verification status you choose to show | Public by design |
+| Creators and promoters linked by a code | Each other's handle and name, the code, the share and what it earned | Pay a promoter code and show what it earned |
 | Authorities, advisers, a buyer of the business | What the law requires or a transaction needs | Legal duties, rights, a sale or merger |
 
 Creators see totals for their own page. They do not see your IP address, your Amped.Bio account, or your browser ID.
@@ -171,6 +177,7 @@ Creator pages and the public site set nothing in your browser until you choose, 
 | `amped_consent_v2` | Local storage | Amped.Bio | Remembers your privacy choices | You make a choice | 24 months |
 | `amped_vid` | Local storage | Amped.Bio | Random ID for return visits | You allow Return visits | 24 months or until withdrawn |
 | `amped_sid` | Session storage | Amped.Bio | Groups events in one visit | You allow Return visits | Until the tab closes |
+| `amped.library.recent.<account>` | Local storage | Amped.Bio | Remembers the words you searched in the Fan Library on this device, one list per account | You search the Fan Library | Until you clear the list or this site's data in your browser |
 | `amped_message_intent`, `amped_tg_link_prefs` | Session storage | Amped.Bio | Returns you to the creator you chose to message, with the Telegram choices you ticked | You tap Message me on Telegram | Until you return, or the tab closes |
 | `_ga`, `_ga_SK6H61G3S1` | Cookies | Google, for Amped.Bio | Recognise return visits in Google Analytics | You choose Accept all or allow Return visits | 24 months or until withdrawn |
 | Referral cookie | Cookie | Amped.Bio | Credits the creator if you sign up from their page | You tap Claim your own Amped.Bio | 30 days |
@@ -198,12 +205,14 @@ Creator pages and the public site set nothing in your browser until you choose, 
 | Messages between fans and creators | 12 months after the last message in the conversation |
 | Push subscriptions (push address, keys and browser details) | Until you turn notifications off on that device, the push service reports it ended, or you close your account |
 | Bell notifications and your notification choices | While your account is open, then deleted within 30 days of closing it |
-| Notification and reminder email records (who, which conversation, when, and the result) | 30 days after the notification is sent or skipped |
+| Notification and reminder email records (who, which conversation or creator, when, and the result) | 30 days after the notification is sent or skipped |
 | Telegram group membership records (Telegram user ID, decisions and removals) | Until the creator disconnects the group or closes their account |
 | Support messages | 2 years |
+| Promoter codes (both accounts, the code, the share, the sales and earnings) | While either account is open, then deleted within 30 days of closing it. A sale or membership keeps the code that referred it with the sale record |
 | Checkouts you started (the item, the creator, where you tapped Buy, any promoter code, and the status) | 30 days after the checkout ends, unless it became a purchase |
 | RNS name expiry reminders (your name, its expiry date, the reminder stage, the time of the reminder and how many sends failed) | While your account is open, then deleted within 30 days of closing it |
 | Locked item views and unlocks | 25 months |
+| Library saves and the time you last opened each creator's section | While your account is open, then deleted within 30 days of closing it |
 | Authbase age and seller check results (pass or fail, the reason and when the check ends) | While your account is open, then deleted within 30 days of closing it |
 | Under 18 reviews (that an age check showed under 18, and how we decided) | 5 years |
 
@@ -218,6 +227,7 @@ On chain records on the Revolution Network and Base are permanent. We cannot del
 - Remove connected apps in Account settings, under Connected apps.
 - Turn off name expiry reminders in Account settings, under Name reminders.
 - Turn off message notifications or message reminder emails in Account settings, under Messages, or turn off reminder emails from the link in any reminder email. You can also block notifications for Amped.Bio in your browser or device settings.
+- Turn off alerts for new items in Account settings, under Messages, or for one creator in their Library section. Turn off a creator's daily email in their Library section or from the link in the email.
 - Turn on two factor sign in.
 - Close your account by writing to privacy@amped.bio from the email on your account.
 
