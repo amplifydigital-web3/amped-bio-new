@@ -9,6 +9,7 @@ export { AdminOAuthClients } from "./AdminOAuthClients";
 export { AdminBroadcasts } from "./AdminBroadcasts";
 export { AdminTelegram } from "./AdminTelegram";
 export { AdminMessaging } from "./AdminMessaging";
+export { AdminSafety } from "./AdminSafety";
 export { AdminMoney } from "./AdminMoney";
 export { AdminFeatureFlags } from "./AdminFeatureFlags";
 export { PaymentsOverview } from "./payments/PaymentsOverview";

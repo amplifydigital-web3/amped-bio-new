@@ -724,6 +724,7 @@ Drafted for counsel. Nothing here is on a board as final text.
 
 ## Revision log
 
+- 2026-11-05: R1 built (`feat/safety-foundation`, on C7a). Section 10 tables, roles and the admin gate, SafetyEvent writer, Settings defaults, hash blocklist service, `preserveEvidence`, child safety alert (email and Twilio SMS), CSAM match and classifier hold intake. Handoff `docs/fixes/safety-foundation.md`.
 - 2026-11-05: A1 with R6 and C1 built (`feat/content-adult-access`). `adultContent` flag (off until R1 to R5); shelf and item shells at `/{handle}/adult`; statutory notices in constants with a byte test and `StatutoryNotice`. Handoff `docs/fixes/content-adult-access.md`.
 - 2026-11-05: F1 built (`fix/content-adult-unlabel`). `explicitAt` set from a new `explicit` flag on the classifier callback; unlabel refused while set, else a READY item is held with `adult_label_removed`. Handoff `docs/fixes/content-adult-unlabel.md`.
 - 2026-11-03: Q8 answered by Rob: Twilio sends child safety SMS alerts (8.5). Secrets and the privacy processor entry added.

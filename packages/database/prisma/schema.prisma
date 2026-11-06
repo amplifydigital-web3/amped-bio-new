@@ -1558,6 +1558,8 @@ model ContentItem {
   allowDownload    Boolean             @default(false) @map("allow_download")
   // Creator label 18+ (#28)
   adult            Boolean             @default(false)
+  // #28 R1 (adult content review 5.3): made or changed with AI. Null until the creator answers.
+  aiLabel          Boolean?            @map("ai_label")
   // Set when the classifier returns explicit or a reviewer labels the item 18+ (#28 F1).
   // While set, the owner can not turn the 18+ label off.
   explicitAt       DateTime?           @map("explicit_at")
@@ -1753,10 +1755,12 @@ model ContentReport {
   // C10: a report against a whole store (Report store, reason store_policy)
   storeUserId    Int?     @map("store_user_id")
   reporterUserId Int?     @map("reporter_user_id")
-  // copyright | csam | adult | harassment | malware | scam | other
+  // copyright | csam | adult | harassment | malware | scam | other | ncii | withdraw | store_policy
   reason         String   @db.VarChar(20)
   details        String?  @db.Text
   status         String   @default("open") @db.VarChar(20)
+  // #28 R1: the Safety case this report opened or joined
+  caseId         Bytes?   @map("case_id") @db.Binary(16)
   createdAt      DateTime @default(now()) @map("created_at")
 
   contentItem ContentItem? @relation(fields: [contentItemId], references: [id], onDelete: Cascade)
@@ -1788,12 +1792,19 @@ model CopyrightNotice {
 }
 
 model BlockedContentHash {
-  id        Bytes    @id @db.Binary(16)
-  sha256    String   @unique @db.Char(64)
-  // dmca | malware | policy
-  reason    String   @db.VarChar(20)
-  createdAt DateTime @default(now()) @map("created_at")
+  id        Bytes     @id @db.Binary(16)
+  sha256    String    @unique @db.Char(64)
+  // dmca (old rows) | copyright | malware | policy | ncii | csam | non_consent
+  reason    String    @db.VarChar(20)
+  // #28 R1 (adult content review 10): perceptual hash, the case and who added it.
+  // Unblock keeps the row for the record and sets removedAt.
+  phash     String?   @db.VarChar(64)
+  caseId    Bytes?    @map("case_id") @db.Binary(16)
+  addedById Int?      @map("added_by_id")
+  removedAt DateTime? @map("removed_at")
+  createdAt DateTime  @default(now()) @map("created_at")
 
+  @@index([phash])
   @@map("blocked_content_hashes")
 }
 
@@ -2346,6 +2357,195 @@ model CheckoutIntent {
   @@index([creatorUserId, createdAt])
   @@index([expiresAt])
   @@map("checkout_intents")
+}
+
+// ----------------------------------------------------------------------------
+// Adult content review and Safety (Build Board #28, docs/features/adult-content-review.md
+// section 10, PR R1). Admin only tables: never exported to the client. Kept 3 years
+// (SafetyCase, SafetyEvent, Strike); TakedownRequest contact fields are erased 1 year
+// after close; release records follow counsel's schedule (section 10, Retention).
+// ----------------------------------------------------------------------------
+
+model CreatorAdultProfile {
+  id               Bytes     @id @db.Binary(16)
+  userId           Int       @unique @map("user_id")
+  enabledAt        DateTime? @map("enabled_at")
+  policyVersion    String?   @map("policy_version") @db.VarChar(16)
+  // 2257 custodian of records: encrypted at rest, never public
+  custodianName    String?   @map("custodian_name") @db.Text
+  // Encrypted at rest, given only on lawful request
+  custodianAddress String?   @map("custodian_address") @db.Text
+  disabledAt       DateTime? @map("disabled_at")
+  // Admin user id; null when the creator turned 18+ off
+  disabledBy       Int?      @map("disabled_by")
+  disabledReason   String?   @map("disabled_reason") @db.VarChar(255)
+  createdAt        DateTime  @default(now()) @map("created_at")
+
+  @@map("creator_adult_profiles")
+}
+
+// One row is one release: one performer with one creator (SP-Q36). A re sign after
+// withdrawal or a required version is a new row.
+model AppearingPerson {
+  id                 Bytes     @id @db.Binary(16)
+  creatorUserId      Int       @map("creator_user_id")
+  // Set when the invite is accepted
+  personUserId       Int?      @map("person_user_id")
+  displayName        String    @map("display_name") @db.VarChar(80)
+  inviteHash         String?   @unique @map("invite_hash") @db.Char(64)
+  inviteExpires      DateTime? @map("invite_expires")
+  releaseVersion     String?   @map("release_version") @db.VarChar(16)
+  // Typed legal name, encrypted at rest
+  releaseName        String?   @map("release_name") @db.Text
+  // surfaces, otherPlatforms, faceShown, tagAllowed, payment kind, fixed amount, bps
+  releaseOptions     Json?     @map("release_options")
+  idGivenConfirmedAt DateTime? @map("id_given_confirmed_at")
+  releaseAt          DateTime? @map("release_at")
+  releaseText        String?   @map("release_text") @db.Text
+  releaseHash        String?   @map("release_hash") @db.Char(64)
+  checkReference     String?   @map("check_reference") @db.VarChar(64)
+  checkDate          DateTime? @map("check_date")
+  // Ready only when set
+  creatorSignedAt    DateTime? @map("creator_signed_at")
+  withdrawnAt        DateTime? @map("withdrawn_at")
+  createdAt          DateTime  @default(now()) @map("created_at")
+
+  @@index([creatorUserId])
+  @@index([personUserId])
+  @@map("appearing_people")
+}
+
+model ContentItemPerson {
+  contentItemId   Bytes @map("content_item_id") @db.Binary(16)
+  personId        Bytes @map("person_id") @db.Binary(16)
+  // The AppearingPerson row (signed release) that covers this person, set at tagging
+  releaseId       Bytes @map("release_id") @db.Binary(16)
+  // Recording dates for this item, listed as covered content
+  productionDates Json  @map("production_dates")
+
+  @@id([contentItemId, personId])
+  @@map("content_item_people")
+}
+
+enum SafetyCaseType {
+  CHILD_SAFETY
+  TAKE_IT_DOWN
+  AGE_RESULT
+  ADULT_REVIEW
+  CLASSIFIER_HOLD
+  STORE_POLICY
+  REPORT
+  APPEAL
+  ADULT_SETUP
+  COPYRIGHT
+}
+
+enum SafetyCaseState {
+  OPEN
+  CLAIMED
+  WAITING_CREATOR
+  DECIDED
+  CLOSED
+}
+
+model SafetyCase {
+  id                   Bytes           @id @db.Binary(16)
+  // SC-2026-000123 (CN- for copyright notices)
+  number               String          @unique @db.VarChar(20)
+  type                 SafetyCaseType
+  // 0 critical, 1 high, 2 normal
+  severity             Int
+  state                SafetyCaseState @default(OPEN)
+  contentItemId        Bytes?          @map("content_item_id") @db.Binary(16)
+  offerId              Bytes?          @map("offer_id") @db.Binary(16)
+  storePolicyVersionId Bytes?          @map("store_policy_version_id") @db.Binary(16)
+  creatorUserId        Int?            @map("creator_user_id")
+  requestId            Bytes?          @map("request_id") @db.Binary(16)
+  // Appeals
+  parentCaseId         Bytes?          @map("parent_case_id") @db.Binary(16)
+  assigneeId           Int?            @map("assignee_id")
+  claimedAt            DateTime?       @map("claimed_at")
+  dueAt                DateTime        @map("due_at")
+  // clear | label_clear | needs_change | removed | escalated | upheld | reversed | not_valid | kept | policy_removed
+  outcome              String?         @db.VarChar(24)
+  reasonCode           String?         @map("reason_code") @db.VarChar(32)
+  decidedById          Int?            @map("decided_by_id")
+  decidedAt            DateTime?       @map("decided_at")
+  createdAt            DateTime        @default(now()) @map("created_at")
+
+  @@index([state, dueAt])
+  @@index([creatorUserId, createdAt])
+  @@index([contentItemId])
+  @@map("safety_cases")
+}
+
+// Append only audit log: nothing updates or deletes a row
+model SafetyEvent {
+  id        Bytes    @id @db.Binary(16)
+  caseId    Bytes?   @map("case_id") @db.Binary(16)
+  // null for the system
+  actorId   Int?     @map("actor_id")
+  // claim | reveal | decide | strike | suspend_request | suspend_approve | contact_reveal | setting_change | export | case_open | evidence_preserved | alert_sent | hash_block | hash_unblock ...
+  action    String   @db.VarChar(32)
+  detail    Json?
+  note      String?  @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([caseId, createdAt])
+  @@index([actorId, createdAt])
+  @@map("safety_events")
+}
+
+model TakedownRequest {
+  id                  Bytes     @id @db.Binary(16)
+  // TD-2026-000123, CN- for copyright, CC- for counter notices
+  number              String    @unique @db.VarChar(20)
+  // ncii | copyright | counter
+  kind                String    @default("ncii") @db.VarChar(12)
+  // A counter notice points at its copyright notice
+  counterOfId         Bytes?    @map("counter_of_id") @db.Binary(16)
+  statusKeyHash       String    @map("status_key_hash") @db.Char(64)
+  // self | agent
+  relationship        String    @db.VarChar(16)
+  agentDetail         String?   @map("agent_detail") @db.VarChar(160)
+  // Encrypted
+  contactEmail        String    @map("contact_email") @db.Text
+  contactPhone        String?   @map("contact_phone") @db.Text
+  signature           String    @db.Text
+  statement           String?   @db.Text
+  workDescription     String?   @map("work_description") @db.Text
+  // Encrypted, copyright and counter only
+  postalAddress       String?   @map("postal_address") @db.Text
+  jurisdictionConsent Boolean?  @map("jurisdiction_consent")
+  // [{ url, publicId? }]
+  locations           Json
+  receivedAt          DateTime  @default(now()) @map("received_at")
+  // receivedAt + 48 hours (ncii)
+  dueAt               DateTime  @map("due_at")
+  // Counter notice: received + 10 and 14 business days
+  restoreFrom         DateTime? @map("restore_from")
+  restoreBy           DateTime? @map("restore_by")
+  suitFiledAt         DateTime? @map("suit_filed_at")
+  suitReference       String?   @map("suit_reference") @db.VarChar(120)
+  closedAt            DateTime? @map("closed_at")
+  // removed | not_valid | withdrawn
+  outcome             String?   @db.VarChar(16)
+
+  @@index([closedAt, dueAt])
+  @@index([kind, closedAt])
+  @@map("takedown_requests")
+}
+
+model Strike {
+  id         Bytes     @id @db.Binary(16)
+  userId     Int       @map("user_id")
+  caseId     Bytes     @map("case_id") @db.Binary(16)
+  reasonCode String    @map("reason_code") @db.VarChar(32)
+  createdAt  DateTime  @default(now()) @map("created_at")
+  reversedAt DateTime? @map("reversed_at")
+
+  @@index([userId, createdAt])
+  @@map("strikes")
 }
 
 /// A promoter code (content PR 12, C12; content spec 3.9 Promoters). A creator gives an

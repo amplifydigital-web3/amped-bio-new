@@ -49,4 +49,5 @@ export * from "./storeSales";
 export * from "./memberships";
 export * from "./compliance";
 export * from "./inAppBrowser";
+export * from "./safety";
 export * from "./promoters";
