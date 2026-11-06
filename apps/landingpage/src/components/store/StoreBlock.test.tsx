@@ -26,6 +26,7 @@ const card = {
   itemCount: 1,
   cover: null,
   itemKinds: ["video"],
+  alsoInMembership: false,
 };
 
 const store: StoreBioBlock = {

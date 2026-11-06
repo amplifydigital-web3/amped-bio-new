@@ -31,6 +31,7 @@ import { getVisitorIp } from "../services/analytics/visitorIp";
 import { publicCardsFor } from "../services/content/publicView";
 import { hasAdultItems } from "../services/content/adult";
 import { publicBlocksFor } from "../services/access/blocks";
+import { visibleBlockRows } from "../services/blocks/visibility";
 import type { ContentBlockConfig, ContentCard, StoreBioBlock } from "@repo/constants";
 import { storeForBio } from "../services/store/public";
 
@@ -212,11 +213,15 @@ const appRouter = router({
 
       // The RNS ID block (112) sets which identity fields the page asks for,
       // so the blocks are read before the identity
-      const blockRows = await prisma.block.findMany({
+      const storedRows = await prisma.block.findMany({
         where: {
           user_id: Number(user_id),
         },
       });
+      // Block settings (B0, BS1): hidden, expired and not yet live blocks never
+      // leave the server, for anyone. Everything below reads only the blocks a
+      // visitor may see, so no door, card or identity field is fetched for them.
+      const { shown: blockRows, countdowns } = visibleBlockRows(storedRows);
 
       const blockOptions = rnsIdBlockOptions(blockRows);
       const hasTelegramMessageBlock = blockRows.some(block => block.type === "telegram_message");
@@ -342,7 +347,8 @@ const appRouter = router({
           console.error("[getHandle] font links failed, showing fallback fonts:", error);
           return [] as string[];
         }),
-        blocks: publicBlocks,
+        // Countdown rows carry the label and start only (ScheduledBlockDto)
+        blocks: [...publicBlocks, ...countdowns].sort((a, b) => a.order - b.order),
         hasCreatorPool,
         creatorPoolAddress,
         trackingPixels: settledOrFallback(trackingPixelsResult, null, "tracking pixels"),

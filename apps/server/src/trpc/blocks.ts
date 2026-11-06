@@ -2,8 +2,11 @@ import { privateProcedure, publicProcedure, router } from "./trpc";
 import { prisma } from "@repo/database";
 import { TRPCError } from "@trpc/server";
 import {
+  ONE_ATTENTION_MESSAGE,
   SINGLETON_BLOCK_TYPES,
   addBlockSchema,
+  attentionCount,
+  hasAttention,
   blockIdParamSchema,
   blockSchema,
   blockSetAccessSchema,
@@ -22,6 +25,7 @@ import {
 } from "../services/access";
 import { isLockable } from "../services/access/blocks";
 import { isFeatureOn } from "../services/featureFlags";
+import { clearOtherAttention, settingsForSave } from "../services/blocks/settings";
 
 const ruleHex = (id: Uint8Array) => Buffer.from(id).toString("hex");
 
@@ -94,36 +98,42 @@ export const blocksRouter = router({
   editBlock: privateProcedure.input(blockSchema).mutation(async ({ ctx, input }) => {
     const userId = ctx.user!.sub;
     const { id, type, order } = input;
-    const config = await keepOwnedContentIds(userId, type, sanitizeBlockConfig(type, input.config));
+    const config = await keepOwnedContentIds(
+      userId,
+      type,
+      settingsForSave(sanitizeBlockConfig(type, input.config))
+    );
 
     try {
-      const block = await prisma.block.findUnique({
-        where: {
-          id: id,
-          user_id: userId,
-        },
-      });
-
-      if (block === null) {
-        const result = await prisma.block.create({
-          data: {
+      // BS2: a preset on this block clears it on the others, in one transaction
+      const result = await prisma.$transaction(async tx => {
+        const block = await tx.block.findUnique({
+          where: {
+            id: id,
             user_id: userId,
-            type,
-            order,
-            config,
           },
         });
 
-        return { result };
-      }
-
-      const result = await prisma.block.update({
-        where: { id: id },
-        data: {
-          type,
-          order,
-          config,
-        },
+        const saved =
+          block === null
+            ? await tx.block.create({
+                data: {
+                  user_id: userId,
+                  type,
+                  order,
+                  config,
+                },
+              })
+            : await tx.block.update({
+                where: { id: id },
+                data: {
+                  type,
+                  order,
+                  config,
+                },
+              });
+        if (hasAttention({ config })) await clearOtherAttention(tx, userId, saved.id);
+        return saved;
       });
 
       return { result };
@@ -139,14 +149,19 @@ export const blocksRouter = router({
   editBlocks: privateProcedure.input(editBlocksSchema).mutation(async ({ ctx, input }) => {
     const userId = ctx.user!.sub;
     const { blocks } = input;
+    // BS2: a batch that asks two blocks for attention is refused before any write
+    if (attentionCount(blocks.map(block => ({ config: settingsForSave(block.config) }))) > 1) {
+      throw new TRPCError({ code: "BAD_REQUEST", message: ONE_ATTENTION_MESSAGE });
+    }
 
     try {
+      let attentionId: number | null = null;
       for (let idx = 0; idx < blocks.length; idx++) {
         const { id, type } = blocks[idx];
         const config = await keepOwnedContentIds(
           userId,
           type,
-          sanitizeBlockConfig(type, blocks[idx].config)
+          settingsForSave(sanitizeBlockConfig(type, blocks[idx].config))
         );
 
         const block = await prisma.block.findUnique({
@@ -156,26 +171,28 @@ export const blocksRouter = router({
           },
         });
 
-        if (block === null) {
-          await prisma.block.create({
-            data: {
-              user_id: userId,
-              type,
-              order: idx,
-              config: config as any,
-            },
-          });
-        } else {
-          await prisma.block.update({
-            where: { id: id },
-            data: {
-              type,
-              order: idx,
-              config: config as any,
-            },
-          });
-        }
+        const saved =
+          block === null
+            ? await prisma.block.create({
+                data: {
+                  user_id: userId,
+                  type,
+                  order: idx,
+                  config: config as any,
+                },
+              })
+            : await prisma.block.update({
+                where: { id: id },
+                data: {
+                  type,
+                  order: idx,
+                  config: config as any,
+                },
+              });
+        if (hasAttention({ config })) attentionId = saved.id;
       }
+      // BS2: blocks outside the batch lose their attention to the one in it
+      if (attentionId !== null) await clearOtherAttention(prisma, userId, attentionId);
       return { message: "Blocks updated successfully" };
     } catch (error) {
       console.error("error editing blocks", error);
@@ -189,7 +206,11 @@ export const blocksRouter = router({
   addBlock: privateProcedure.input(addBlockSchema).mutation(async ({ ctx, input }) => {
     const userId = ctx.user!.sub;
     const { type } = input;
-    const config = await keepOwnedContentIds(userId, type, sanitizeBlockConfig(type, input.config));
+    const config = await keepOwnedContentIds(
+      userId,
+      type,
+      settingsForSave(sanitizeBlockConfig(type, input.config))
+    );
 
     try {
       const result = await prisma.$transaction(async tx => {
@@ -213,7 +234,7 @@ export const blocksRouter = router({
           }
         }
 
-        return await tx.block.create({
+        const created = await tx.block.create({
           data: {
             user_id: userId,
             type,
@@ -221,6 +242,8 @@ export const blocksRouter = router({
             config: config as any,
           },
         });
+        if (hasAttention({ config })) await clearOtherAttention(tx, userId, created.id);
+        return created;
       });
       return { message: "Block added successfully", result };
     } catch (error) {

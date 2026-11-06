@@ -19,10 +19,20 @@ import { StoreBlockPreview } from "./blocks/StoreBlockPreview";
 import { TelegramGroupPreview, TelegramMessagePreview } from "./blocks/TelegramMessageBlock";
 import { MessageBlockPreview } from "./blocks/MessageBlockPreview";
 import { isHTML } from "@/utils/htmlutils";
-import { type BlockType, DEFAULT_RNSID_CONFIG, safeHref, sanitizeRichHtml } from "@repo/constants";
+import {
+  type BlockType,
+  type ScheduledBlockDto,
+  DEFAULT_RNSID_CONFIG,
+  blockVisibility,
+  safeHref,
+  sanitizeRichHtml,
+  scheduledBlockDto,
+} from "@repo/constants";
 import { Theme, UserProfile } from "@/types/editor";
 import { trpcClient } from "@repo/ui";
 import {
+  BlockFrame,
+  CountdownRow,
   CreatorButton,
   CreatorPage,
   RnsIdentityChip,
@@ -70,6 +80,21 @@ const themeV2On = isFeatureOn("themeV2");
 const themeShowcaseOn = isFeatureOn("themeShowcase");
 // Theme Engine v2 fonts (2b): the preview loads catalog faces with the picker
 const fontCatalogOn = themeV2On && isFeatureOn("fontCatalog");
+// Block Review v2 B0 (#54): block frame motion and the countdown row in the preview
+const blocksV2On = isFeatureOn("blocksV2");
+
+/**
+ * BS1: the countdown row a visitor sees for this block, or null. The editor
+ * gets full rows, so a block before go live with Show a countdown is drawn
+ * the way the page draws it.
+ */
+function countdownOf(block: BlockType): Pick<ScheduledBlockDto, "config" | "scheduled"> | null {
+  if (block.scheduled) {
+    const label = (block.config as { label?: unknown }).label;
+    return { config: { label: typeof label === "string" ? label : "" }, scheduled: block.scheduled };
+  }
+  return blockVisibility(block) === "countdown" ? scheduledBlockDto(block) : null;
+}
 
 interface PreviewProps {
   isEditing: boolean;
@@ -336,11 +361,36 @@ export function Preview({
     // Hidden blocks render in neither the preview nor the page (036 I09)
     if (isHidden(block)) return null;
     const select = onBlockSelect ? () => onBlockSelect(block.id) : undefined;
-    if (blockNeed(block) !== null) {
+    // BS1: expired and not yet live blocks are off the page, so off the preview too.
+    // The page list marks them Scheduled or Expired.
+    if (!block.scheduled && blockVisibility(block) === "drop") return null;
+    const countdown = blocksV2On ? countdownOf(block) : null;
+    // A countdown row DTO carries no link or body: nothing to draw without the flag
+    if (!blocksV2On && block.scheduled) return null;
+    if (!countdown && blockNeed(block) !== null) {
       return isEditing ? <FixChip key={block.id} block={block} onFix={select} /> : null;
     }
     const fallback = isEditing ? <FixChip block={block} onFix={select} /> : null;
-    const inner = renderBlock(block, fallback);
+    const drawn = countdown ? (
+      <CountdownRow key={block.id} block={countdown} theme={themeConfig} />
+    ) : (
+      renderBlock(block, fallback)
+    );
+    // Block Review v2: the frame plays the entrance and attention; a changed
+    // setting replays in the preview so the creator sees it
+    const inner = blocksV2On ? (
+      <BlockFrame
+        key={block.id}
+        block={block}
+        theme={themeConfig}
+        paused={previewMotion.paused}
+        mode="preview"
+      >
+        {drawn}
+      </BlockFrame>
+    ) : (
+      drawn
+    );
     if (!isEditing) return inner;
     return (
       <div

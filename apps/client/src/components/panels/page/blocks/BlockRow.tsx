@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
@@ -23,9 +23,17 @@ import {
   UserPlus,
   UsersRound,
 } from "lucide-react";
-import { LOCKABLE_BLOCK_TYPES, type BlockType, safeHref } from "@repo/constants";
+import {
+  LOCKABLE_BLOCK_TYPES,
+  type BlockSettings,
+  type BlockType,
+  hasAttention,
+  safeHref,
+  scheduleState,
+} from "@repo/constants";
 import { isFeatureOn } from "@/config/featureFlags";
 import { BlockAccessFields } from "./BlockAccessFields";
+import { BlockSettingsFields, keepSettings, type AttentionHolder } from "./BlockSettingsFields";
 import {
   Menu,
   MenuContent,
@@ -77,6 +85,14 @@ function BlockIcon({ block }: { block: BlockType }) {
   return <Icon aria-hidden className="h-[21px] w-[21px] shrink-0 text-prism-ink-2" />;
 }
 
+function MetaChip({ children }: { children: ReactNode }) {
+  return (
+    <span className="shrink-0 whitespace-nowrap rounded-full bg-prism-nav-tint px-2 text-prism-meta font-semibold text-prism-nav">
+      {children}
+    </span>
+  );
+}
+
 export function BlockRow({
   block,
   open,
@@ -88,6 +104,8 @@ export function BlockRow({
   onMove,
   onDelete,
   onToggleHidden,
+  attentionHolder = null,
+  onClearAttention = () => undefined,
 }: {
   block: BlockType;
   open: boolean;
@@ -100,6 +118,10 @@ export function BlockRow({
   onMove: (to: number) => void;
   onDelete: () => void;
   onToggleHidden: () => void;
+  /** Block Review v2: the other block that asks for attention, if any */
+  attentionHolder?: AttentionHolder | null;
+  /** Block Review v2: clears attention on another block in the editor state */
+  onClearAttention?: (id: number) => void;
 }) {
   const sortable = useSortable({ id: String(block.id), disabled: draft });
   const headerRef = useRef<HTMLButtonElement>(null);
@@ -115,6 +137,16 @@ export function BlockRow({
     isFeatureOn("accessGating") &&
     (LOCKABLE_BLOCK_TYPES as readonly string[]).includes(block.type);
   const baseMeta = draft ? "Draft, not on your page yet" : blockMeta(block);
+  // Block Review v2 (#54): Block settings on saved blocks, and their chips in the list
+  const blocksV2 = isFeatureOn("blocksV2");
+  const settings = block.config as BlockSettings;
+  const schedule =
+    blocksV2 && !draft && (settings.schedule?.start || settings.schedule?.end)
+      ? scheduleState(settings.schedule) === "expired"
+        ? "Expired"
+        : "Scheduled"
+      : null;
+  const attention = blocksV2 && !draft && hasAttention(block);
   const meta = gated && lockable ? (baseMeta ? `Locked, ${baseMeta}` : "Locked") : baseMeta;
 
   // 036 I13: an opened row scrolls into view, 21 below the top bar
@@ -202,6 +234,8 @@ export function BlockRow({
               <span className="truncate">
                 {need ? NEED_LABEL[need] : hidden ? `Hidden${meta ? `, ${meta}` : ""}` : meta}
               </span>
+              {schedule && <MetaChip>{schedule}</MetaChip>}
+              {attention && <MetaChip>Attention</MetaChip>}
             </span>
           </span>
         </button>
@@ -273,9 +307,26 @@ export function BlockRow({
 
       {open && (
         <div className="prism-slab relative mt-2 p-[21px] motion-safe:animate-in motion-safe:fade-in motion-safe:duration-prism-control">
-          <BlockFields block={block} onValid={onChange} />
-          {lockable && (
-            <BlockAccessFields blockId={block.id} gated={gated} onGatedChange={setGated} />
+          <BlockFields
+            block={block}
+            // A block's own fields send their config without the settings; keep them
+            onValid={blocksV2 ? config => onChange(keepSettings(block.config, config)) : onChange}
+          />
+          {blocksV2 && !draft && block.id > 0 ? (
+            <BlockSettingsFields
+              block={block}
+              title={title}
+              onChange={onChange}
+              attentionHolder={attentionHolder}
+              onClearAttention={onClearAttention}
+              lockable={lockable}
+              gated={gated}
+              onGatedChange={setGated}
+            />
+          ) : (
+            lockable && (
+              <BlockAccessFields blockId={block.id} gated={gated} onGatedChange={setGated} />
+            )
           )}
         </div>
       )}

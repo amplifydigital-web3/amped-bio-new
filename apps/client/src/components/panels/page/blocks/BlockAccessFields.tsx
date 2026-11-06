@@ -17,13 +17,26 @@ export function BlockAccessFields({
   blockId,
   gated,
   onGatedChange,
+  open: openProp,
+  onOpenChange,
+  embedded = false,
 }: {
   blockId: number;
   gated: boolean;
   onGatedChange: (gated: boolean) => void;
+  /** Block settings (blocksV2): the parent keeps one row open at a time */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  /** Block settings (blocksV2): sits in the settings list, with no top rule */
+  embedded?: boolean;
 }) {
   const panelId = useId();
-  const [open, setOpen] = useState(gated);
+  const [ownOpen, setOwnOpen] = useState(gated);
+  const open = openProp ?? ownOpen;
+  const setOpen = (next: boolean) => {
+    if (openProp === undefined) setOwnOpen(next);
+    onOpenChange?.(next);
+  };
   const query = useQuery({
     ...trpc.blocks.getAccess.queryOptions({ id: blockId }),
     enabled: open,
@@ -38,7 +51,7 @@ export function BlockAccessFields({
   }
 
   return (
-    <div className="mt-[21px] border-t border-prism-line pt-[13px]">
+    <div className={embedded ? undefined : "mt-[21px] border-t border-prism-line pt-[13px]"}>
       <button
         type="button"
         aria-expanded={open}

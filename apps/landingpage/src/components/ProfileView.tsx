@@ -8,7 +8,9 @@ import { getPlatformIcon } from "@/lib/platforms";
 import { trpcClient } from "@/lib/trpc";
 import { normalizeHandle } from "@/lib/handle";
 import {
+  BlockFrame,
   Button,
+  CountdownRow,
   CreatorPage,
   RnsIdentityChip,
   RnsVerifiedMark,
@@ -236,6 +238,8 @@ export function ProfileView({
   const themeShowcase = useFeatureFlag("themeShowcase");
   // Theme Engine v2 fonts (2b): catalog faces load only while fontCatalog is on
   const fontCatalogOn = useFeatureFlag("fontCatalog");
+  // Block Review v2 B0 (#54): block frame motion and the countdown row
+  const blocksV2 = useFeatureFlag("blocksV2");
 
   // Pause motion (041 I02): read the remembered choice once on the client
   useEffect(() => {
@@ -454,9 +458,20 @@ export function ProfileView({
   // GQ2-2: the stake notice shows once on the page, under the first block behind a
   // stake rule, before any tap or refusal (decision D2: one block per section)
   const firstStakeBlockId = stakeNoticeBlockId(renderable);
-  const blockList = renderable.map(block => (
+  const renderBlock = (block: BlockType) => (
     <ErrorBoundary key={block.id} fallback={null} context={{ blockId: block.id, type: block.type }}>
-      {block.gated ? (
+      {block.scheduled ? (
+        // BS1: a block before go live with Show a countdown. Label and start only.
+        blocksV2 && (
+          <CountdownRow
+            block={{
+              config: { label: String((block.config as { label?: unknown }).label ?? "") },
+              scheduled: block.scheduled,
+            }}
+            theme={themeConfig}
+          />
+        )
+      ) : block.gated ? (
         <>
           <GatedBlock
             block={block}
@@ -565,7 +580,25 @@ export function ProfileView({
         <TextBlock block={block as any} theme={themeConfig as any} />
       )}
     </ErrorBoundary>
-  ));
+  );
+  // Block Review v2: each block sits in a BlockFrame (entrance and attention).
+  // Flag off, the list is exactly as before.
+  const blockList = renderable.map(block =>
+    blocksV2 ? (
+      <BlockFrame
+        key={block.id}
+        block={block}
+        theme={themeConfig}
+        paused={paused}
+        entranceKey={normalizedHandle}
+        mode="public"
+      >
+        {renderBlock(block)}
+      </BlockFrame>
+    ) : (
+      renderBlock(block)
+    )
+  );
   if (hasAdult) {
     blockList.push(
       <AdultItemsCard key="adult-items" handle={normalizedHandle} theme={themeConfig} />

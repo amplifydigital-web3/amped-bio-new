@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { allowedPlatforms, mediaPlataforms, PlatformId } from "./platforms";
 import { safeLinkUrlSchema, safeWebUrlSchema } from "./safeHref";
+import { withBlockSettings, type BlockSettings, type ScheduledBlockDto } from "./blockSettings";
 
 // TypeScript type definitions for block types
 type BaseBlockType =
@@ -23,8 +24,11 @@ export type BaseBlock<type extends BaseBlockType = any, T = any> = {
   user_id?: number;
   type: type;
   order: number;
-  /** `hidden` keeps a block off the page without deleting it (Screen Review 036 I09) */
-  config: T & { hidden?: boolean };
+  /**
+   * `hidden` keeps a block off the page without deleting it (Screen Review 036 I09).
+   * Block settings (Block Review v2, #54): schedule, attention and motion.
+   */
+  config: T & { hidden?: boolean } & BlockSettings;
   created_at?: string;
   updated_at?: string | null;
   /**
@@ -34,6 +38,12 @@ export type BaseBlock<type extends BaseBlockType = any, T = any> = {
    */
   gated?: true;
   gate?: BlockGate;
+  /**
+   * Block settings BS1: a block before go live with Show a countdown. The page
+   * gets the label and the start only (ScheduledBlockDto), never the link,
+   * text or embed, and draws a closed countdown row.
+   */
+  scheduled?: ScheduledBlockDto["scheduled"];
 };
 
 /** The public face of a block's rule: kind and summary, never params or an amount. */
@@ -328,40 +338,49 @@ export const SINGLETON_BLOCK_TYPES = [
  */
 export function blockCarriesFollow(block: BlockType): boolean {
   if ((block.config as { hidden?: boolean }).hidden) return false;
+  // A countdown row (BS1) is closed until go live; it carries no button
+  if (block.scheduled) return false;
   if (block.type === "follow") return true;
   return block.type === "followers" && block.config.followButton !== false;
 }
 
 // Define configuration schemas for each block type
-export const linkConfigSchema = z.object({
+export const linkConfigSchema = withBlockSettings(
+  z.object({
   platform: z.enum(allowedPlatforms),
   // D57: http, https, mailto or tel only. z.string().url() alone accepts javascript:
   url: safeLinkUrlSchema,
   label: z.string().min(1, "Label is required"),
   hidden: z.boolean().optional(),
-});
+  })
+);
 
-export const mediaConfigSchema = z.object({
+export const mediaConfigSchema = withBlockSettings(
+  z.object({
   platform: z.enum(mediaPlataforms),
   // D57: embeds take http or https only
   url: safeWebUrlSchema,
   label: z.string(),
   content: z.string().optional(),
   hidden: z.boolean().optional(),
-});
+  })
+);
 
-export const poolConfigSchema = z.object({
+export const poolConfigSchema = withBlockSettings(
+  z.object({
   address: z
     .string()
     .regex(/^0x[a-fA-F0-9]+$/, "Must be a valid blockchain address starting with 0x"),
   label: z.string().min(1, "Label is required"),
   hidden: z.boolean().optional(),
-});
+  })
+);
 
 // Define allowed HTML tags
 const allowedHtmlTags = ["p", "a", "span", "strong", "em", "u", "b", "i", "s"] as const;
 
-export const textConfigSchema = z.object({
+export const textConfigSchema = withBlockSettings(
+  z.object({
   content: z
     .string()
     .min(0, "Content is required")
@@ -404,16 +423,20 @@ export const textConfigSchema = z.object({
       }
     ),
   hidden: z.boolean().optional(),
-});
+  })
+);
 
-export const referralConfigSchema = z.object({ hidden: z.boolean().optional() });
+export const referralConfigSchema = withBlockSettings(z.object({ hidden: z.boolean().optional() }));
 
-export const followConfigSchema = z.object({
-  label: z.string().trim().min(1, "Label is required").max(FOLLOW_LABEL_MAX),
-  hidden: z.boolean().optional(),
-});
+export const followConfigSchema = withBlockSettings(
+  z.object({
+    label: z.string().trim().min(1, "Label is required").max(FOLLOW_LABEL_MAX),
+    hidden: z.boolean().optional(),
+  })
+);
 
-export const followersConfigSchema = z.object({
+export const followersConfigSchema = withBlockSettings(
+  z.object({
   title: z.string().trim().min(1, "Title is required").max(FOLLOWERS_TITLE_MAX),
   show: z.object({
     count: z.boolean().default(true),
@@ -427,9 +450,11 @@ export const followersConfigSchema = z.object({
   facesMax: z.union([z.literal(6), z.literal(12)]).default(6),
   followButton: z.boolean().default(true),
   hidden: z.boolean().optional(),
-});
+  })
+);
 
-export const rnsIdConfigSchema = z.object({
+export const rnsIdConfigSchema = withBlockSettings(
+  z.object({
   style: z.enum(["nameplate", "idcard", "proofstrip", "seal"]).default("nameplate"),
   label: z.string().trim().min(1, "Label is required").max(RNSID_LABEL_MAX).default("Identity"),
   tap: z.enum(["sheet", "inline", "none"]).default("sheet"),
@@ -453,22 +478,28 @@ export const rnsIdConfigSchema = z.object({
       country: false,
     }),
   hidden: z.boolean().optional(),
-});
+  })
+);
 
 const telegramLabelSchema = (fallback: string) =>
   z.string().trim().min(1, "Label is required").max(TELEGRAM_BLOCK_LABEL_MAX).default(fallback);
 
-export const telegramMessageConfigSchema = z.object({
+export const telegramMessageConfigSchema = withBlockSettings(
+  z.object({
   label: telegramLabelSchema(DEFAULT_TELEGRAM_MESSAGE_LABEL),
   hidden: z.boolean().optional(),
-});
+  })
+);
 
-export const telegramGroupConfigSchema = z.object({
+export const telegramGroupConfigSchema = withBlockSettings(
+  z.object({
   label: telegramLabelSchema(DEFAULT_TELEGRAM_GROUP_LABEL),
   hidden: z.boolean().optional(),
-});
+  })
+);
 
-export const messageBlockConfigSchema = z.object({
+export const messageBlockConfigSchema = withBlockSettings(
+  z.object({
   label: z
     .string()
     .trim()
@@ -476,9 +507,11 @@ export const messageBlockConfigSchema = z.object({
     .max(MESSAGE_BLOCK_LABEL_MAX)
     .default(DEFAULT_MESSAGE_BLOCK_LABEL),
   hidden: z.boolean().optional(),
-});
+  })
+);
 
-export const contentBlockConfigSchema = z.object({
+export const contentBlockConfigSchema = withBlockSettings(
+  z.object({
   label: z.string().trim().max(CONTENT_BLOCK_LABEL_MAX).default("Latest"),
   layout: z.enum(["featured", "grid", "list"]).default("featured"),
   publicIds: z
@@ -488,12 +521,15 @@ export const contentBlockConfigSchema = z.object({
     .transform(ids => [...new Set(ids)])
     .default([]),
   hidden: z.boolean().optional(),
-});
+  })
+);
 
-export const storeBlockConfigSchema = z.object({
+export const storeBlockConfigSchema = withBlockSettings(
+  z.object({
   label: z.string().trim().max(STORE_BLOCK_LABEL_MAX).default(DEFAULT_STORE_BLOCK_CONFIG.label),
   hidden: z.boolean().optional(),
-});
+  })
+);
 
 /** The config schema for a block type. Unknown types fall back to the union. */
 const CONFIG_SCHEMAS: Record<string, z.ZodTypeAny> = {

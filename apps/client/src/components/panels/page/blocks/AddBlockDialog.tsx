@@ -39,6 +39,7 @@ import { getPlatformIcon } from "@/utils/platforms";
 import { FieldError, LinkFields } from "./LinkFields";
 import { emptyLink, linkConfig, type LinkValue } from "./linkValue";
 import { isFeatureOn } from "../../../../config/featureFlags";
+import { AddBlockCatalog } from "./AddBlockCatalog";
 
 // Screen Review 034 and 035. One Add block dialog: the Link section first,
 // then MEDIA, UTILITY, PEOPLE and WEB3 tiles. Picking a tile closes the dialog
@@ -285,6 +286,8 @@ export function AddBlockDialog({
   const [submitted, setSubmitted] = useState(false);
   const [adding, setAdding] = useState(false);
   const [failed, setFailed] = useState(false);
+  // Block Review v2 (#54): the catalog replaces the sections below Link
+  const blocksV2 = isFeatureOn("blocksV2");
   const onPage = new Set(blocks.map(b => b.type).filter(isSingleton));
   const config = linkConfig(link);
   const duplicateOf = config
@@ -330,7 +333,13 @@ export function AddBlockDialog({
 
   return (
     <Dialog open={open} onOpenChange={close}>
-      <DialogContent className="max-h-[848px]">
+      <DialogContent
+        className={cn(
+          "max-h-[848px]",
+          // On phones the catalog is a full height sheet
+          blocksV2 && "sm:max-w-[640px] max-sm:h-[calc(100dvh-3rem)]"
+        )}
+      >
         <DialogHeader>
           <DialogTitle>Add block</DialogTitle>
         </DialogHeader>
@@ -389,17 +398,28 @@ export function AddBlockDialog({
 
           <hr className="border-prism-line" />
 
-          {SECTIONS.map(section => (
-            <div key={section.eyebrow} className="space-y-[13px]">
-              <Eyebrow>{section.eyebrow}</Eyebrow>
-              <TileGrid
-                label={section.eyebrow}
-                tiles={section.tiles}
-                onPage={onPage}
-                onPick={pick}
-              />
-            </div>
-          ))}
+          {blocksV2 ? (
+            <AddBlockCatalog
+              blocks={blocks}
+              onPick={pick}
+              onOpenExisting={id => {
+                close(false);
+                onOpenExisting(id);
+              }}
+            />
+          ) : (
+            SECTIONS.map(section => (
+              <div key={section.eyebrow} className="space-y-[13px]">
+                <Eyebrow>{section.eyebrow}</Eyebrow>
+                <TileGrid
+                  label={section.eyebrow}
+                  tiles={section.tiles}
+                  onPage={onPage}
+                  onPick={pick}
+                />
+              </div>
+            ))
+          )}
         </div>
 
         <DialogFooter className={cn("sm:justify-start")}>

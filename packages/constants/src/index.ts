@@ -14,6 +14,8 @@ export * from "./fonts/delivery";
 export * from "./collections";
 export * from "./errors";
 export * from "./blocks";
+export * from "./blockSettings";
+export * from "./blockCatalog";
 export * from "./banner";
 export * from "./reward-pool";
 export * from "./testnet";

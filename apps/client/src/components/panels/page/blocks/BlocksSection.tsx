@@ -26,6 +26,8 @@ import {
   DEFAULT_MESSAGE_BLOCK_CONFIG,
   DEFAULT_STORE_BLOCK_CONFIG,
   SINGLETON_BLOCK_TYPES,
+  attentionOf,
+  hasAttention,
   type BlockType,
 } from "@repo/constants";
 import { useQueryClient } from "@tanstack/react-query";
@@ -37,6 +39,7 @@ import { useOpenParam } from "@/hooks/useOpenParam";
 import { useOpenTelegramWizard } from "../../messages/shared";
 import { AddBlockDialog, type NewBlockKind } from "./AddBlockDialog";
 import { BlockRow } from "./BlockRow";
+import { mergeSettings, type AttentionHolder } from "./BlockSettingsFields";
 import { blockNeed, blockTitle } from "./blockInfo";
 
 // Screen Review 034 to 037. The Blocks section of Page: eyebrow with Add
@@ -294,6 +297,19 @@ export function BlocksSection() {
     });
   };
 
+  // Block Review v2 (#54): one block per page asks for attention. Rows learn
+  // which other block has it, and Move here clears it there in the same save.
+  const attentionHolderFor = (id: number): AttentionHolder | null => {
+    const holder = blocks.find(b => b.id !== id && hasAttention(b));
+    return holder
+      ? { id: holder.id, title: blockTitle(holder), preset: attentionOf(holder) }
+      : null;
+  };
+  const clearAttention = (id: number) => {
+    const holder = blocks.find(b => b.id === id);
+    if (holder) updateBlock(id, mergeSettings(holder.config, { attention: undefined }));
+  };
+
   const blocksRef = useRef(blocks);
   blocksRef.current = blocks;
 
@@ -375,6 +391,8 @@ export function BlocksSection() {
                     onChange={config => updateBlock(block.id, config)}
                     onMove={to => listTransition(() => reorderBlocks(arrayMove(blocks, index, to)))}
                     onDelete={() => remove(block)}
+                    attentionHolder={attentionHolderFor(block.id)}
+                    onClearAttention={clearAttention}
                     onToggleHidden={() =>
                       updateBlock(block.id, {
                         ...block.config,
@@ -406,6 +424,8 @@ export function BlocksSection() {
                 if (created) remove(created);
               }}
               onToggleHidden={() => undefined}
+              attentionHolder={attentionHolderFor(draftCreatedId ?? draft.id)}
+              onClearAttention={clearAttention}
             />
           )}
         </div>

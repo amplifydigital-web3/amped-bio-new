@@ -1,4 +1,5 @@
 import { prisma } from "@repo/database";
+import { visibleBlockRows } from "../blocks/visibility";
 import {
   DM_RULE_LABELS,
   TELEGRAM_BOT_STRINGS,
@@ -131,7 +132,9 @@ export async function buildMiniAppPage(
 
   let skipped = false;
   const blocks: MiniAppBlock[] = [];
-  for (const row of rows) {
+  // Block settings (B0): hidden, expired and not yet live blocks never reach the Mini App.
+  // It has no countdown row, so scheduled blocks wait for go live.
+  for (const row of visibleBlockRows(rows).shown) {
     // G3: a gated block never reaches the Mini App; it has no unlock step yet
     if (row.accessRuleId) continue;
     const block = {

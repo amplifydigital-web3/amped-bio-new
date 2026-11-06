@@ -306,6 +306,15 @@ export const FEATURE_FLAGS = {
     // A new flag: no environment fallback (AGENTS.md, feature flags)
     env: {},
   },
+  blocksV2: {
+    label: "Blocks v2",
+    description:
+      "Block Review v2 (#54): Block settings on every block (schedule, attention, entrance), the Add block catalog, and each v2 block as its wave ships. Needs Theme v2. Off, the server drops the settings on save; saved schedules still apply.",
+    scope: "public",
+    default: false,
+    // A new flag: no environment fallback (AGENTS.md, feature flags)
+    env: {},
+  },
   // Authbase storefront (Build Board #66, AB-6, M10): turn on after Rob sets the overrides for
   // creators selling today with Standard (open question 8)
   sellerRequiresEnhanced: {

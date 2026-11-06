@@ -221,6 +221,8 @@ export {
   type SectionFallback,
 } from "./creator/section-scope";
 export { UsdcAmount } from "./creator/usdc-amount";
+// Block Review v2 B0 (Build Board #54): block frame, countdown row, attention cadence
+export * from "./blocks";
 // Motion shared by the landing page and the creator page (spec 3.7)
 export {
   readMotionPaused,
