@@ -40,7 +40,8 @@ export type ParamSpec =
   | { kind: "choice"; options: readonly string[]; default: string; label: string }
   /** "theme" reads the creator's colors. */
   | { kind: "color"; default: "theme" | `#${string}`; label: string }
-  | { kind: "text"; maxLength: number; default: string; label: string };
+  /** hint: the line under the field (the Emoji field's line when unset). */
+  | { kind: "text"; maxLength: number; default: string; label: string; hint?: string };
 
 export type ParamValues = Readonly<Record<string, number | string>>;
 
@@ -75,6 +76,11 @@ export type EffectRender =
        */
       text?: "whole" | "letters" | "scramble";
       stagger?: number;
+      /**
+       * Press effects (phase 3e): "self" animates the button itself (Jelly
+       * press); unset draws one circle from the press point (Ripple).
+       */
+      target?: "self";
     }
   /** tsParticles options; phase 1c makes these color aware factories on v4 slim. */
   | {
@@ -82,12 +88,17 @@ export type EffectRender =
       options: (p: ParamValues, c: ThemeColors) => ParticlePreset;
       plugins: readonly string[];
     }
-  /** poster is the CSS gradient painted before the engine loads. */
+  /**
+   * program names the GLSL module in packages/ui/src/motion/shaders, loaded in
+   * its own chunk with the engine (phase 3b). poster is the CSS gradient
+   * painted before the engine loads; it reads the params so a custom palette
+   * shows in the poster too.
+   */
   | {
       kind: "webgl";
-      shader: string;
+      program: string;
       uniforms: (p: ParamValues, c: ThemeColors) => Readonly<Record<string, number | number[]>>;
-      poster: (c: ThemeColors) => string;
+      poster: (c: ThemeColors, p?: ParamValues) => string;
     }
   | { kind: "canvas"; module: string }
   /** Renders nothing. The none entry of every layer. */
@@ -131,4 +142,6 @@ export interface EffectEntry {
   addedIn: 1 | 2;
   /** Hidden from pickers. Kept so v1 rows that still hold the id render. */
   retired?: boolean;
+  /** Counts as this many heavy effects in the page cost (cursor.splash is 2, spec 3.7). */
+  costWeight?: 2;
 }

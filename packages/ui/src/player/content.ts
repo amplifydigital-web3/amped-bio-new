@@ -30,6 +30,21 @@ export function playbackToSource(playback: ContentPlayback): PlayerSource | null
   return null;
 }
 
+/**
+ * Thrown by a source resolver when the server refused the fan (Fan Library
+ * FL-6, spec 3.4): the player stops and shows Access ended instead of a retry.
+ */
+export class AccessEndedError extends Error {
+  constructor() {
+    super("Access ended");
+    this.name = "AccessEndedError";
+  }
+}
+
+export function isAccessEnded(error: unknown): boolean {
+  return error instanceof AccessEndedError || (error as Error | null)?.name === "AccessEndedError";
+}
+
 /** Throws when the item has nothing to play, so the player shows its error. */
 export function requirePlayerSource(playback: ContentPlayback | null | undefined): PlayerSource {
   const source = playback ? playbackToSource(playback) : null;

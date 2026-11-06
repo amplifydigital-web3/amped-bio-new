@@ -161,3 +161,12 @@ export function PayHandoffGate({ children }: { children: ReactNode }) {
   const path = checkoutIntentIdSchema.safeParse(intentId).success ? checkoutPayPath(intentId) : "/";
   return <InAppBrowserGate link={`${window.location.origin}${path}`}>{children}</InAppBrowserGate>;
 }
+
+/** MB-2: the join sheet gets the same in app browser handoff as the pay sheet. */
+export function JoinHandoffGate({ children }: { children: ReactNode }) {
+  const { handle = "" } = useParams();
+  if (!isFeatureOn("checkout")) return <>{children}</>;
+  const clean = handle.replace(/^@/, "").toLowerCase();
+  const path = /^[a-z0-9_.-]{1,64}$/.test(clean) ? `/join/@${clean}` : "/";
+  return <InAppBrowserGate link={`${window.location.origin}${path}`}>{children}</InAppBrowserGate>;
+}

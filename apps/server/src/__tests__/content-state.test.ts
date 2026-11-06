@@ -151,6 +151,8 @@ beforeEach(() => {
   cf.publishContentJob.mockResolvedValue(undefined);
   quota.releaseBytes.mockClear();
   quota.commitBytes.mockClear();
+  safety.onCsamMatch.mockClear();
+  safety.onReviewHold.mockClear();
 });
 
 describe("processor callback", () => {
@@ -238,6 +240,27 @@ describe("processor callback", () => {
       expect.objectContaining({ publicId: "abcdefghijklmnop" }),
       "csam_match"
     );
+  });
+
+  it("still opens the child safety case when the blocklist write fails (#28 R1)", async () => {
+    const item = seed();
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+    // The item is already BLOCKED here, so a thrown error would make the retry a no-op
+    // and the child safety case, evidence copy and alert would never run
+    db.prisma.blockedContentHash.findUnique.mockRejectedValueOnce(new Error("db down"));
+    expect(
+      await applyProcessorCallback({
+        ...base,
+        step: "csam",
+        outcome: "blocked",
+        reason: "csam_match",
+        sha256: "d".repeat(64),
+      })
+    ).toBe("applied");
+    expect(item).toMatchObject({ status: "BLOCKED", moderationReason: "csam_match" });
+    expect(safety.onCsamMatch).toHaveBeenCalledTimes(1);
+    expect(errors).toHaveBeenCalledWith("[safety] ALERT hash block failed", expect.anything());
+    errors.mockRestore();
   });
 
   it("opens a Classifier hold case when the classifier holds an item (#28 R1)", async () => {
