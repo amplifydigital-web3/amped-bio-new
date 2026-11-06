@@ -9,6 +9,7 @@ import { markRefunded } from "../store/sales";
 import { settlePendingJoinsOnce } from "../memberships/core";
 import { applyDuePayoutWallets } from "../merchants/payoutWallets";
 import { deliverDueWebhooks, emitMerchantEvent, purgePartnerData } from "../partners/webhooks";
+import { notifyMerchantOrder } from "../partners/orderEvents";
 import { isFeatureOn } from "../featureFlags";
 import {
   PREPARED_TTL_MS,
@@ -147,6 +148,8 @@ export async function indexPaymentLogsOnce(now = new Date()): Promise<number> {
       // C10: a final product sale also leaves its product's sales count
       const moved = await markRefunded(id, await occurredAt(event.log.blockNumber!));
       if (moved) console.log("[payments] purchase refunded", idHex);
+      // AB-3: the merchant voids any check not yet complete for this order
+      if (moved) await notifyMerchantOrder(id, ["order.refunded"]);
     }
   }
   const written = await recordPaymentLogs(events, occurredAt, contract as Address);

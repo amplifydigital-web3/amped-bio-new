@@ -78,7 +78,13 @@ export type CheckoutQuote = {
    * AB-2: set for a merchant's service offer. The sheet shows the service variant: seller line
    * with the merchant's policy link, the fee row with its percent, and Start verification.
    */
-  service?: { merchantName: string; storePolicyUrl: string | null; code: string | null } | null;
+  service?: {
+    merchantName: string;
+    storePolicyUrl: string | null;
+    code: string | null;
+    /** The RNS name the check is for; the sheet returns to its Identity tab */
+    rnsName?: string | null;
+  } | null;
 };
 
 /** Statuses that count against the daily purchase limits. */
@@ -177,6 +183,7 @@ export async function quoteIntent(viewerUserId: number, idHex: string): Promise<
       expiresAt: true,
       via: true,
       storePolicyVersionId: true,
+      rnsName: true,
     },
   });
   if (!row || row.userId !== viewerUserId) throw notFound();
@@ -293,13 +300,13 @@ export async function quoteIntent(viewerUserId: number, idHex: string): Promise<
     fee: fee.toString(),
     promoter: promoter ? { handle: promoter.handle } : null,
     service: resolved.extra.merchantId
-      ? await serviceInfo(resolved.extra.merchantId, row.targetId)
+      ? await serviceInfo(resolved.extra.merchantId, row.targetId, row.rnsName)
       : null,
   };
 }
 
 /** The merchant's name, policy URL and product code for the service sheet (AB-2). */
-async function serviceInfo(merchantIdHex: string, offerIdHex: string) {
+async function serviceInfo(merchantIdHex: string, offerIdHex: string, rnsName: string | null) {
   const [merchant, offer] = await Promise.all([
     prisma.merchant.findUnique({
       where: { id: Buffer.from(merchantIdHex, "hex") },
@@ -317,6 +324,7 @@ async function serviceInfo(merchantIdHex: string, offerIdHex: string) {
         merchantName: merchant.name,
         storePolicyUrl: merchant.storePolicyUrl,
         code: offer?.externalCode ?? null,
+        rnsName,
       }
     : null;
 }

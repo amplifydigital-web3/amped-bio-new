@@ -18,6 +18,7 @@ import { usePaymentChainSigner } from "@/components/panels/wallet/send/useUsdcSi
 import { USDC_FLAGS } from "@/config/usdc/flags";
 import { paymentChain } from "@/utils/paymentChain";
 import { CHECKOUT_ON } from "@/components/shell/CheckoutResumeBar";
+import { authbaseVerifyUrl } from "@/components/panels/wallet/rns/identity/catalog";
 import {
   createAmpedPayProvider,
   createMockProvider,
@@ -199,7 +200,13 @@ export function PayPage() {
     }
   }, [adultItem, ageCheck.isError, ageCheck.data, agePassed, intentId]);
   const theme = creator?.theme ?? null;
-  const pageHref = service ? "/wallet?tab=rns" : creator ? `${LANDING}/${creator.handle}` : LANDING;
+  const pageHref = service
+    ? service.rnsName
+      ? `/wallet?tab=rns&name=${encodeURIComponent(service.rnsName)}&view=identity`
+      : "/wallet?tab=rns"
+    : creator
+      ? `${LANDING}/${creator.handle}`
+      : LANDING;
   const payingLabel = service ? SERVICE_CHECKOUT_COPY.paying : undefined;
   // The seller of record: the store policy's seller name once the creator has published one
   const seller =
@@ -320,7 +327,14 @@ export function PayPage() {
         footer={
           <>
             {sellerLine}
-            <SheetButton theme={theme} href={pageHref}>
+            {/* AB-3: Start verification goes to Authbase with the order when it is known */}
+            <SheetButton
+              theme={theme}
+              href={
+                (checking.data?.purchaseId && authbaseVerifyUrl(checking.data.purchaseId)) ||
+                pageHref
+              }
+            >
               {SERVICE_CHECKOUT_COPY.startVerification}
             </SheetButton>
             <SheetButton theme={theme} href={pageHref} variant="secondary">
