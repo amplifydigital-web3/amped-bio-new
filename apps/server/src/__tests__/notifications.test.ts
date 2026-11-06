@@ -474,4 +474,23 @@ describe("broadcast bell rows", () => {
       expect.objectContaining({ title: "@maya", body: "New broadcast: New drop", tag: "bc-5" }),
     ]);
   });
+
+  it("leaves a muted creator's broadcast out of the bell and push", async () => {
+    fake.db.table("broadcast").push({ id: 6, creatorUserId: MAYA, title: "Muted drop" });
+    for (const userId of [JORDAN, SAM])
+      fake.db.table("broadcastDelivery").push({ broadcastId: 6, userId });
+    fake.db.table("notificationPreference").push({
+      userId: JORDAN,
+      creatorUserId: MAYA,
+      mutedUntil: later(60),
+    });
+    await device(JORDAN);
+    expect(await notifyBroadcastDelivered(6)).toBe(1);
+    expect(await listBell(JORDAN)).toHaveLength(0);
+    expect(await listBell(SAM)).toHaveLength(1);
+    await drainJobs();
+    expect(pushes.sent).toHaveLength(0);
+    // The inbox copy is still there, without the badge
+    expect(await bell(JORDAN).unseenCount()).toEqual({ count: 0 });
+  });
 });

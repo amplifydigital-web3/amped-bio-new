@@ -18,7 +18,7 @@ import {
   trpc,
   type RouterOutputs,
 } from "@repo/ui";
-import { BROADCAST_FOOTER } from "@repo/constants";
+import { BROADCAST_FOOTER, BROADCAST_UI } from "@repo/constants";
 
 type Item = RouterOutputs["admin"]["broadcasts"]["reviewQueue"][number];
 type Tab = "review" | "flagged" | "reported" | "senders";
@@ -58,8 +58,10 @@ function BroadcastCard({
           {flags.length > 0 && <Badge variant="destructive">Flagged: {flags.join(", ")}</Badge>}
         </div>
         <p className="text-sm text-gray-600">
-          {item.creator.name} (@{item.creator.handle ?? "no handle"}, {item.creator.email}), pool{" "}
-          {item.pool?.name ?? item.pool?.id ?? "none"}. {new Date(item.createdAt).toLocaleString()}.{" "}
+          {item.creator.name} (@{item.creator.handle ?? "no handle"}, {item.creator.email}),{" "}
+          {BROADCAST_UI.audience[item.audienceKind].line.toLowerCase()}
+          {item.pool ? ` (${item.pool.name ?? item.pool.id})` : ""}.{" "}
+          {new Date(item.createdAt).toLocaleString()}.{" "}
           {item.status === "SENT"
             ? `${item.recipientCount} recipients`
             : `about ${item.recipientEstimate} members`}
@@ -280,9 +282,9 @@ export function AdminBroadcasts() {
           <CardHeader>
             <CardTitle className="text-lg">Pilot senders</CardTitle>
             <p className="text-sm text-gray-600">
-              Pilot senders are recorded here for the launch list; sending is open to every pool
-              owner. The invitation must state the FTC disclosure rule for any post about early
-              access.
+              Pilot senders are recorded here for the launch list; sending is open to every creator,
+              to their followers and pool stakers. The invitation must state the FTC disclosure rule
+              for any post about early access.
             </p>
           </CardHeader>
           <CardContent className="space-y-4">

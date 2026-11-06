@@ -43,6 +43,8 @@ vi.mock("@repo/ui", async () => {
     ...base,
     ...sheet,
     ...scope,
+    // FL-5: the item menu's download state reads the signed in account
+    useAuth: () => ({ authUser: { id: 7 }, isPending: false }),
     queryClient: {
       invalidateQueries: vi.fn(),
       getQueryData: (key: unknown) => store.get(JSON.stringify(key)),
