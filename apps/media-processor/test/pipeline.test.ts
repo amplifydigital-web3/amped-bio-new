@@ -307,6 +307,30 @@ describe("documents and files", () => {
     expect(api.step("classifier")).toMatchObject({ outcome: "held", reason: "mock:explicit" });
   });
 
+  it("holds document pages when the classifier is required and none runs (production)", async () => {
+    const { id, api, toolbox, deps } = await setup({
+      kind: "document",
+      ext: "pdf",
+      mimeType: "application/pdf",
+    });
+    deps.classifier = createClassifier("none");
+    deps.classifierRequired = true;
+    toolbox.results["/scan"] = { ok: true, verdict: "clean" };
+    toolbox.results["/document"] = {
+      ok: true,
+      pageCount: 2,
+      assets: [r2Asset("PAGE_PREVIEW", `derived/${id}/page/1.webp`, { variant: "p1" })],
+      blur: null,
+      original: { role: "ORIGINAL", storage: "R2", r2Key: `originals/${id}/original.pdf`, size: 9 },
+      frames: [`derived/${id}/page/1.webp`, `derived/${id}/page/2.webp`],
+    };
+    await processMessage({ type: "r2", publicId: id }, deps);
+    expect(api.step("classifier")).toMatchObject({
+      outcome: "held",
+      reason: "classifier_unavailable",
+    });
+  });
+
   it("scans a PDF, keeps the cleaned file and reports pages", async () => {
     const { id, api, toolbox, deps, frames } = await setup({
       kind: "document",

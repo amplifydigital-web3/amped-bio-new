@@ -9,7 +9,7 @@
  *
  * R2 items (audio, image, document, file):
  *   hash -> malware (documents, files, downloads) -> normalize -> csam (images,
- *   documents) -> blur -> classifier (images) -> done -> delete incoming/
+ *   documents) -> blur -> classifier (images, document pages) -> done -> delete incoming/
  * Video items (after Stream reports ready):
  *   poster -> normalize (COVER) -> csam (keyframes) -> blur -> classifier -> done
  *
@@ -276,7 +276,8 @@ async function runFile(run: Run): Promise<Outcome> {
   // 6. Adult classifier: images, and document page renders (#28 R7, defect F2).
   // `file` items are never opened here; the API sends them to review for 18+ creators.
   if (job.kind === "image") await run.classify(frames);
-  if (job.kind === "document" && frames.length) await run.classify(spread(frames, CLASSIFIER_FRAMES));
+  if (job.kind === "document" && frames.length)
+    await run.classify(spread(frames, CLASSIFIER_FRAMES));
 
   // 7. Ready. The ORIGINAL row moves off incoming/ with this report.
   await run.ok("done", { assets: [original] });

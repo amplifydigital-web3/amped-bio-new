@@ -294,8 +294,10 @@ export async function applyProcessorCallback(
       // #28 R7 (defect F2): nothing reads inside a `file`, so a creator with 18+ on
       // gets every file reviewed before it can be published (decision D10)
       const fileReview =
-        item.kind === "FILE" && item.moderationState === "PENDING" && (await adultCreator(item.userId));
-      await prisma.$transaction(async tx => {
+        item.kind === "FILE" &&
+        item.moderationState === "PENDING" &&
+        (await adultCreator(item.userId));
+      const held = await prisma.$transaction(async tx => {
         if (callback.assets?.length) {
           await upsertAssets(item.id, item.publicId, callback.assets, tx);
         }
@@ -314,11 +316,13 @@ export async function applyProcessorCallback(
                 : {}),
           },
         });
-        if (ready.count !== 1) return;
+        if (ready.count !== 1) return false;
         const minutes = item.kind === "VIDEO" ? minutesForDuration(durationMs) : 0;
         await commitBytes(item.userId, item.totalBytes, minutes, tx);
+        return fileReview;
       });
-      if (fileReview) await onReviewHold(item, FILE_REVIEW_REASON);
+      // Only the callback that moved the item to READY opens the case
+      if (held) await onReviewHold(item, FILE_REVIEW_REASON);
       if (item.kind === "VIDEO") await finishVideo(item);
       return "applied";
   }
@@ -328,9 +332,12 @@ export async function applyProcessorCallback(
 export const FILE_REVIEW_REASON = "adult_file_review";
 
 async function adultCreator(userId: number): Promise<boolean> {
-  const profile = await prisma.creatorAdultProfile
-    .findUnique({ where: { userId }, select: { enabledAt: true, disabledAt: true } })
-    .catch(() => null);
+  // Fail closed: if the profile can not be read the callback retries, so no file
+  // of an 18+ creator is cleared without the review it needs
+  const profile = await prisma.creatorAdultProfile.findUnique({
+    where: { userId },
+    select: { enabledAt: true, disabledAt: true },
+  });
   return Boolean(profile?.enabledAt && !profile.disabledAt);
 }
 
