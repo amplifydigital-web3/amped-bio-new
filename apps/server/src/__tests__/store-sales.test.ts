@@ -135,6 +135,8 @@ describe("Sales list (board k2a)", () => {
     const page = await listSales(MAYA, undefined, NOW);
     const where = db.purchase.findMany.mock.calls[0][0].where;
     expect(where.creatorUserId).toBe(MAYA);
+    // AB-2: a merchant's order (creatorUserId is its Owner account) is not the creator's sale
+    expect(where.merchantId).toBeNull();
     expect(where.status.in).toEqual(["confirmed_soft", "confirmed", "refunded"]);
     const row = page.rows[0]!;
     expect(row).toMatchObject({

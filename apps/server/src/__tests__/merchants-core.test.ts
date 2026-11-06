@@ -255,6 +255,33 @@ describe("two person rule for status and fee (M1, M3)", () => {
     await approveMerchantChange({ userId: ADMIN_B, changeId: Buffer.from(change.id) });
     expect(tables.merchant![0]!.feeBps).toBe(1_500);
   });
+
+  it("closes a stale draft so it never blocks the next one", async () => {
+    const { merchantId } = await seedMerchant();
+    const change = await draftMerchantChange({
+      userId: ADMIN_A,
+      merchantId,
+      field: "fee_bps",
+      newValue: "1500",
+      reason: "Pilot rate",
+    });
+    // Another admin changed the fee after this draft was created
+    tables.merchant![0]!.feeBps = 1_200;
+    await expect(
+      approveMerchantChange({ userId: ADMIN_B, changeId: Buffer.from(change.id) })
+    ).rejects.toThrow("The value changed since the draft. Draft it again.");
+    expect(tables.adminChange![0]!.status).toBe("superseded");
+    // The superseded draft no longer holds the field open
+    await expect(
+      draftMerchantChange({
+        userId: ADMIN_B,
+        merchantId,
+        field: "fee_bps",
+        newValue: "1300",
+        reason: "Follow the new rate",
+      })
+    ).resolves.toMatchObject({ status: "draft" });
+  });
 });
 
 describe("payout wallet change (M2)", () => {

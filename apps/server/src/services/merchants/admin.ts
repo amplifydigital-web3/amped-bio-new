@@ -1,3 +1,4 @@
+import { getAddress, isAddress } from "viem";
 import { prisma, type Prisma } from "@repo/database";
 import {
   AMPEDPAY_CONTRACT,
@@ -7,7 +8,6 @@ import {
 } from "@repo/constants";
 import { uuidv7 } from "../../utils/uuid-v7";
 import { recordMerchantAudit } from "./audit";
-import { effectivePayoutWallet } from "./check";
 
 /**
  * Admin, Money, Merchants (board a1; docs/features/authbase-storefront.md 3.2 and 3.8).
@@ -175,7 +175,7 @@ export async function approveMerchantChange(input: {
   now?: Date;
 }) {
   const now = input.now ?? new Date();
-  return prisma.$transaction(async tx => {
+  const outcome = await prisma.$transaction(async tx => {
     const change = await tx.adminChange.findUnique({ where: { id: input.changeId } });
     if (!change || change.area !== AREA) throw new MerchantAdminError("Change not found.");
     if (change.status !== "draft") throw new MerchantAdminError("This change is no longer open.");
@@ -186,30 +186,43 @@ export async function approveMerchantChange(input: {
     const merchantId = Buffer.from(idHex!, "hex");
     const merchant = await tx.merchant.findUnique({ where: { id: merchantId } });
     if (!merchant) throw new MerchantAdminError("Merchant not found.");
-    const current = field === "status" ? merchant.status : String(merchant.feeBps);
-    if (current !== change.oldValue) {
-      await tx.adminChange.update({
-        where: { id: change.id },
+    // A stale draft is closed, not left open: otherwise it would block every new draft for
+    // this field. The transaction commits the supersede and the caller throws after it.
+    const supersede = () =>
+      tx.adminChange.updateMany({
+        where: { id: change.id, status: "draft" },
         data: { status: "superseded", decidedAt: now },
       });
-      throw new MerchantAdminError("The value changed since the draft. Draft it again.");
+    const current = field === "status" ? merchant.status : String(merchant.feeBps);
+    if (current !== change.oldValue) {
+      await supersede();
+      return { stale: true as const };
     }
     const value = validateValue(field as "status" | "fee_bps", change.newValue, merchant.businessCheck);
-    if (field === "status") {
-      await tx.merchant.update({
-        where: { id: merchantId },
-        data:
-          value === "active"
+    // Conditional on the old value: two approvals racing on the same draft apply once, and a
+    // draft never overwrites a value another admin changed in the meantime
+    const written = await tx.merchant.updateMany({
+      where:
+        field === "status"
+          ? { id: merchantId, status: change.oldValue }
+          : { id: merchantId, feeBps: Number(change.oldValue) },
+      data:
+        field === "status"
+          ? value === "active"
             ? { status: "active", approvedAt: merchant.approvedAt ?? now, suspendedAt: null }
-            : { status: "suspended", suspendedAt: now },
-      });
-    } else {
-      await tx.merchant.update({ where: { id: merchantId }, data: { feeBps: Number(value) } });
+            : { status: "suspended", suspendedAt: now }
+          : { feeBps: Number(value) },
+    });
+    if (written.count !== 1) {
+      await supersede();
+      return { stale: true as const };
     }
-    await tx.adminChange.update({
-      where: { id: change.id },
+    const marked = await tx.adminChange.updateMany({
+      where: { id: change.id, status: "draft" },
       data: { status: "applied", approvedById: input.userId, decidedAt: now, appliedAt: now },
     });
+    // Another approval won the draft between the read and this write: roll back and refuse
+    if (marked.count !== 1) throw new MerchantAdminError("This change is no longer open.");
     await recordMerchantAudit(
       merchantId,
       input.userId,
@@ -217,8 +230,12 @@ export async function approveMerchantChange(input: {
       { from: change.oldValue, to: value, draftedBy: change.draftedById },
       tx
     );
-    return { field, value };
+    return { stale: false as const, field, value };
   });
+  if (outcome.stale) {
+    throw new MerchantAdminError("The value changed since the draft. Draft it again.");
+  }
+  return { field: outcome.field, value: outcome.value };
 }
 
 export async function rejectMerchantChange(input: { userId: number; changeId: Buffer; note: string }) {
@@ -239,20 +256,36 @@ export async function listMerchants() {
     orderBy: { createdAt: "desc" },
     include: { members: { select: { userId: true, role: true } } },
   });
-  return Promise.all(
-    rows.map(async m => ({
-      id: Buffer.from(m.id).toString("hex"),
-      slug: m.slug,
-      name: m.name,
-      status: m.status,
-      feeBps: m.feeBps,
-      businessCheckComplete: businessCheckComplete(m.businessCheck),
-      payoutWallet: await effectivePayoutWallet(m.id),
-      members: m.members,
-      approvedAt: m.approvedAt?.toISOString() ?? null,
-      createdAt: m.createdAt.toISOString(),
-    }))
-  );
+  // One query for every effective wallet: the list can hold every merchant, so no N+1 here
+  const wallets = rows.length
+    ? await prisma.merchantPayoutWallet.findMany({
+        where: {
+          merchantId: { in: rows.map(m => Buffer.from(m.id)) },
+          status: "effective",
+        },
+        orderBy: { effectiveAt: "desc" },
+        select: { merchantId: true, address: true },
+      })
+    : [];
+  const effective = new Map<string, string>();
+  for (const wallet of wallets) {
+    const key = Buffer.from(wallet.merchantId).toString("hex");
+    if (!effective.has(key) && isAddress(wallet.address, { strict: false })) {
+      effective.set(key, getAddress(wallet.address));
+    }
+  }
+  return rows.map(m => ({
+    id: Buffer.from(m.id).toString("hex"),
+    slug: m.slug,
+    name: m.name,
+    status: m.status,
+    feeBps: m.feeBps,
+    businessCheckComplete: businessCheckComplete(m.businessCheck),
+    payoutWallet: effective.get(Buffer.from(m.id).toString("hex")) ?? null,
+    members: m.members,
+    approvedAt: m.approvedAt?.toISOString() ?? null,
+    createdAt: m.createdAt.toISOString(),
+  }));
 }
 
 export async function merchantDetail(merchantId: Buffer) {
