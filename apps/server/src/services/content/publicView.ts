@@ -1,0 +1,355 @@
+/**
+ * Public reads for content (Build Board #20, spec 3.7 and 3.10, PR 6): the cards
+ * a content block shows, the creator feed page, the item page, and the sitemap.
+ *
+ * Every read goes through PUBLIC_CREATOR_WHERE and, for cards, the feed and the
+ * item page, listedItemWhere(): PUBLIC_ITEM_WHERE while the accessGating flag is
+ * off, LISTED_ITEM_WHERE when it is on (content gating 3.2). A draft, a held or
+ * blocked item, an 18+ item, a deleted item or a suspended page never appears;
+ * a gated item appears locked, with the blur cover and its rule summary only.
+ * The sitemap and hasPublicContent keep PUBLIC_ITEM_WHERE. Items with a served asset that has not passed
+ * its scan are skipped as well. Outputs carry no email, wallet or numeric id.
+ */
+import { prisma, type ContentAsset, type ContentItem } from "@repo/database";
+import {
+  captionLabel,
+  type ContentCard,
+  type ContentFeedPage,
+  type ContentPublicItem,
+  type ContentUploadKind,
+} from "@repo/constants";
+import { getFileUrl } from "../../utils/fileUrlResolver";
+import { PUBLIC_CREATOR_WHERE, PUBLIC_ITEM_WHERE, servedAssetsClean } from "./access";
+import { buildCard, buildLockedCard, CARD_ASSET_ROLES } from "./delivery";
+import { gatesFor, listedItemWhere } from "./gate";
+import { toDbKind } from "./ids";
+
+export interface PublicCreator {
+  id: number;
+  handle: string;
+  name: string | null;
+  image: string | null;
+}
+
+/** The creator behind a public handle, or null when the page is not public. */
+export async function findPublicCreator(handle: string): Promise<PublicCreator | null> {
+  const user = await prisma.user.findFirst({
+    where: { handle: handle.toLowerCase(), ...PUBLIC_CREATOR_WHERE },
+    select: { id: true, handle: true, name: true, image: true, image_file_id: true },
+  });
+  if (!user?.handle) return null;
+  const image = await getFileUrl({
+    legacyImageField: user.image,
+    imageFileId: user.image_file_id,
+  }).catch(() => null);
+  return { id: user.id, handle: user.handle.toLowerCase(), name: user.name, image: image ?? null };
+}
+
+type AssetRow = Pick<
+  ContentAsset,
+  | "contentItemId"
+  | "role"
+  | "storage"
+  | "r2Key"
+  | "streamUid"
+  | "variant"
+  | "lang"
+  | "mimeType"
+  | "width"
+  | "height"
+  | "scanStatus"
+>;
+
+/** Ids per query, so a page with many blocks does not send one huge query. */
+const CARD_LOOKUP_CHUNK = 60;
+
+/** Ids one page can hold: the same ceiling the content sitemap uses for a page. */
+const CARD_LOOKUP_MAX = 1000;
+
+async function assetsByItem(itemIds: Uint8Array[], roles?: readonly string[]) {
+  const map = new Map<string, AssetRow[]>();
+  if (!itemIds.length) return map;
+  const rows: AssetRow[] = [];
+  for (let start = 0; start < itemIds.length; start += CARD_LOOKUP_CHUNK) {
+    const chunk = itemIds.slice(start, start + CARD_LOOKUP_CHUNK);
+    rows.push(
+      ...(await prisma.contentAsset.findMany({
+        where: {
+          contentItemId: { in: chunk.map(id => Buffer.from(id)) },
+          ...(roles ? { role: { in: roles as never } } : {}),
+        },
+      }))
+    );
+  }
+  for (const row of rows) {
+    const key = Buffer.from(row.contentItemId).toString("hex");
+    map.set(key, [...(map.get(key) ?? []), row]);
+  }
+  return map;
+}
+
+const hex = (id: Uint8Array) => Buffer.from(id).toString("hex");
+
+/** Gates for the items that carry a rule. Empty while every item is public. */
+async function gatesOf(items: ContentItem[]) {
+  return gatesFor(items.flatMap(item => (item.accessRuleId ? [item.accessRuleId] : [])));
+}
+
+/** The open card, or the locked one for a gated item. */
+function cardFor(
+  item: ContentItem,
+  rows: AssetRow[],
+  gates: Map<string, NonNullable<ContentCard["gate"]>>,
+  now: Date
+): ContentCard {
+  const gate = item.accessRuleId ? gates.get(hex(item.accessRuleId)) : undefined;
+  return gate ? buildLockedCard(item, rows, gate, now) : buildCard(item, rows, now);
+}
+
+/**
+ * Cards for a page's content blocks, keyed by publicId. Ids that are not the
+ * creator's public items are left out, so a block skips them (spec 3.7).
+ *
+ * The ids of every content block on the page are read, so they are looked up in
+ * chunks: a page with more ids than one query takes still shows all its cards.
+ */
+export async function publicCardsFor(
+  userId: number,
+  publicIds: string[],
+  now: Date = new Date()
+): Promise<Record<string, ContentCard>> {
+  const unique = [...new Set(publicIds)].slice(0, CARD_LOOKUP_MAX);
+  if (!unique.length) return {};
+  const items: ContentItem[] = [];
+  for (let start = 0; start < unique.length; start += CARD_LOOKUP_CHUNK) {
+    const chunk = unique.slice(start, start + CARD_LOOKUP_CHUNK);
+    items.push(
+      ...(await prisma.contentItem.findMany({
+        where: { userId, publicId: { in: chunk }, ...listedItemWhere() },
+      }))
+    );
+  }
+  // Every asset, so a dirty one keeps the item off the page
+  const [assets, gates] = await Promise.all([
+    assetsByItem(items.map(item => item.id)),
+    gatesOf(items),
+  ]);
+  const cards: Record<string, ContentCard> = {};
+  for (const item of items) {
+    const rows = assets.get(hex(item.id)) ?? [];
+    if (!servedAssetsClean(rows)) continue;
+    cards[item.publicId] = cardFor(item, rows, gates, now);
+  }
+  return cards;
+}
+
+/**
+ * Cards for items already read (the Fan Library lists, FL-2), keyed by publicId.
+ * Items with a served asset that has not passed its scan are left out, as on
+ * every public surface. Cards carry covers only, never a playback URL.
+ */
+export async function cardsForItems(
+  items: ContentItem[],
+  now: Date = new Date()
+): Promise<Map<string, ContentCard>> {
+  const assets = await assetsByItem(items.map(item => item.id));
+  const cards = new Map<string, ContentCard>();
+  for (const item of items) {
+    const rows = assets.get(hex(item.id)) ?? [];
+    if (!servedAssetsClean(rows)) continue;
+    const cardRows = rows.filter(row => (CARD_ASSET_ROLES as readonly string[]).includes(row.role));
+    cards.set(item.publicId, buildCard(item, cardRows, now));
+  }
+  return cards;
+}
+
+/**
+ * Locked cards for gated items already read (the Fan Library Shop, FL-6), keyed
+ * by publicId: the blur cover and the rule summary, never a cover, rendition or
+ * token (content criterion 9). Items without a rule, or with a served asset
+ * that has not passed its scan, are left out.
+ */
+export async function lockedCardsForItems(
+  items: ContentItem[],
+  now: Date = new Date()
+): Promise<Map<string, ContentCard>> {
+  const gatedItems = items.filter(item => item.accessRuleId);
+  const [assets, gates] = await Promise.all([
+    assetsByItem(gatedItems.map(item => item.id)),
+    gatesOf(gatedItems),
+  ]);
+  const cards = new Map<string, ContentCard>();
+  for (const item of gatedItems) {
+    const rows = assets.get(hex(item.id)) ?? [];
+    const gate = gates.get(hex(item.accessRuleId!));
+    if (!gate || !servedAssetsClean(rows)) continue;
+    cards.set(item.publicId, buildLockedCard(item, rows, gate, now));
+  }
+  return cards;
+}
+
+/** True when the creator has at least one public item (the feed page is indexable). */
+export async function hasPublicContent(userId: number): Promise<boolean> {
+  const count = await prisma.contentItem.count({
+    where: { userId, ...PUBLIC_ITEM_WHERE },
+  });
+  return count > 0;
+}
+
+/**
+ * Which items a read covers. "public": the listed filter, never 18+. "adult": the
+ * same filter with 18+ instead, only for the signed in shelf after an Over 18 pass
+ * (identity checks 4.4). Server HTML, sitemaps and share tags never use "adult".
+ */
+export type ItemScope = "public" | "adult";
+
+function scopeWhere(scope: ItemScope) {
+  return scope === "adult" ? { ...listedItemWhere(), adult: true } : listedItemWhere();
+}
+
+/** The creator feed page: listed items, newest first (spec 3.7, board cs6). */
+export async function publicFeed(
+  creator: PublicCreator,
+  options: { kind?: ContentUploadKind; cursor?: string; limit: number },
+  now: Date = new Date(),
+  scope: ItemScope = "public"
+): Promise<ContentFeedPage> {
+  let cursorOk = false;
+  if (options.cursor) {
+    const cursor = await prisma.contentItem.findUnique({
+      where: { publicId: options.cursor },
+      select: { userId: true },
+    });
+    cursorOk = cursor?.userId === creator.id;
+  }
+  const items: ContentItem[] = await prisma.contentItem.findMany({
+    where: {
+      userId: creator.id,
+      ...scopeWhere(scope),
+      ...(options.kind ? { kind: toDbKind(options.kind) } : {}),
+    },
+    orderBy: [{ publishedAt: "desc" }, { id: "desc" }],
+    ...(cursorOk ? { cursor: { publicId: options.cursor! }, skip: 1 } : {}),
+    take: options.limit + 1,
+  });
+  const page = items.slice(0, options.limit);
+  const [assets, gates] = await Promise.all([
+    assetsByItem(page.map(item => item.id)),
+    gatesOf(page),
+  ]);
+  const cards = page
+    .filter(item => servedAssetsClean(assets.get(hex(item.id)) ?? []))
+    .map(item =>
+      cardFor(
+        item,
+        (assets.get(hex(item.id)) ?? []).filter(row =>
+          (CARD_ASSET_ROLES as readonly string[]).includes(row.role)
+        ),
+        gates,
+        now
+      )
+    );
+  return {
+    creator: { handle: creator.handle, name: creator.name, image: creator.image },
+    items: cards,
+    nextCursor: items.length > options.limit ? page[page.length - 1]!.publicId : null,
+  };
+}
+
+/**
+ * The item page: one listed item of this creator, or null (spec 3.7). A gated
+ * item comes back locked: no description, chapters, captions or format.
+ */
+export async function publicItem(
+  creator: PublicCreator,
+  publicId: string,
+  now: Date = new Date(),
+  scope: ItemScope = "public"
+): Promise<ContentPublicItem | null> {
+  const item = await prisma.contentItem.findFirst({
+    where: { publicId, userId: creator.id, ...scopeWhere(scope) },
+  });
+  if (!item) return null;
+  const rows = (await assetsByItem([item.id])).get(hex(item.id)) ?? [];
+  if (!servedAssetsClean(rows)) return null;
+  const creatorView = { handle: creator.handle, name: creator.name, image: creator.image };
+  if (item.accessRuleId) {
+    const gates = await gatesOf([item]);
+    return {
+      ...cardFor(item, rows, gates, now),
+      description: null,
+      chapters: [],
+      captionLangs: [],
+      documentFormat: null,
+      creator: creatorView,
+    };
+  }
+  const chapters = Array.isArray(item.chapters)
+    ? (item.chapters as Array<{ startMs?: unknown; title?: unknown }>)
+        .filter(
+          (chapter): chapter is { startMs: number; title: string } =>
+            typeof chapter?.startMs === "number" && typeof chapter?.title === "string"
+        )
+        .map(chapter => ({ startMs: chapter.startMs, title: chapter.title }))
+    : [];
+  const captionLangs = rows
+    .filter(row => row.role === "CAPTION" && row.lang)
+    .map(row => row.lang!)
+    .sort();
+  const original = rows.find(row => row.role === "ORIGINAL");
+  const documentFormat =
+    item.kind !== "DOCUMENT"
+      ? null
+      : original?.mimeType === "application/epub+zip"
+        ? ("epub" as const)
+        : ("pdf" as const);
+  return {
+    ...buildCard(item, rows, now),
+    description: item.description,
+    chapters,
+    captionLangs,
+    documentFormat,
+    creator: creatorView,
+  };
+}
+
+/** Captions an item offers, for the page's track list. */
+export function captionTracks(langs: string[]) {
+  return langs.map(lang => ({ lang, label: captionLabel(lang) }));
+}
+
+// ----------------------------------------------------------------------------
+// Sitemap (spec decision 23): public items and the feed pages that hold them
+// ----------------------------------------------------------------------------
+
+const SITEMAP_WHERE = {
+  ...PUBLIC_ITEM_WHERE,
+  user: { ...PUBLIC_CREATOR_WHERE, handle: { not: null }, email_verified: true },
+};
+
+export async function contentSitemapCount(): Promise<number> {
+  return prisma.contentItem.count({ where: SITEMAP_WHERE });
+}
+
+export async function contentSitemapEntries(page: number, pageSize: number) {
+  const items = await prisma.contentItem.findMany({
+    where: SITEMAP_WHERE,
+    orderBy: { publishedAt: "asc" },
+    skip: page * pageSize,
+    take: pageSize,
+    select: {
+      publicId: true,
+      kind: true,
+      updatedAt: true,
+      publishedAt: true,
+      user: { select: { handle: true } },
+    },
+  });
+  return items
+    .filter(item => item.user.handle)
+    .map(item => ({
+      handle: item.user.handle!.toLowerCase(),
+      publicId: item.publicId,
+      lastModified: (item.updatedAt ?? item.publishedAt ?? new Date()).toISOString(),
+    }));
+}

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Copy, ExternalLink, HelpCircle, LogOut, Settings } from "lucide-react";
+import { ArrowLeftRight, Copy, ExternalLink, HelpCircle, LogOut, Settings } from "lucide-react";
 import {
   Menu,
   MenuContent,
@@ -13,6 +13,8 @@ import {
   useAuth,
 } from "@repo/ui";
 import { useEditor } from "@/contexts/EditorContext";
+import { useWalletContext } from "@/contexts/WalletContext";
+import { signInUrl } from "./ShellGate";
 import { toast } from "@/components/ui/toast";
 import { useShellNavigation } from "./ShellNavigation";
 import { HelpMenuItems } from "./HelpMenu";
@@ -24,8 +26,11 @@ import { PUBLISH_FIRST, usePageUnpublished } from "./pageVisibility";
 // header, Account settings, View my page, Help, Sign out. On mobile View page
 // and Copy page link are its first rows (003 I05). While the page is
 // unpublished (QA-008) those rows are disabled and name the reason.
+// Sign out and Switch account end the wallet session too, so the next
+// account in this browser never inherits the previous account's wallet.
 export function AccountMenu({ mobile = false }: { mobile?: boolean }) {
-  const { authUser, signOut } = useAuth();
+  const { authUser } = useAuth();
+  const { signOutEverywhere } = useWalletContext();
   const unpublished = usePageUnpublished();
   const { profile, setDefault, activePanel } = useEditor();
   // 098 I04: on Account no rail item is current; the avatar ring is the cue
@@ -64,17 +69,20 @@ export function AccountMenu({ mobile = false }: { mobile?: boolean }) {
     </span>
   );
 
-  const handleSignOut = async () => {
+  const handleSignOut = async (switching = false) => {
     try {
-      await signOut();
+      await signOutEverywhere();
       setDefault();
-      window.location.href = import.meta.env.VITE_LANDINGPAGE_URL;
+      // Switch account lands on sign in and returns to the app; Sign out goes home
+      window.location.href = switching
+        ? signInUrl(`${window.location.origin}/`)
+        : import.meta.env.VITE_LANDINGPAGE_URL;
     } catch {
       // I11: stay in the editor and offer Retry
       toast.add({
         type: "error",
-        title: "Sign out failed",
-        actionProps: { children: "Retry", onClick: () => void handleSignOut() },
+        title: switching ? "Switch account failed" : "Sign out failed",
+        actionProps: { children: "Retry", onClick: () => void handleSignOut(switching) },
       });
     }
   };
@@ -157,6 +165,10 @@ export function AccountMenu({ mobile = false }: { mobile?: boolean }) {
           </MenuSubContent>
         </MenuSub>
         <MenuSeparator />
+        <MenuItem onSelect={() => void handleSignOut(true)}>
+          <ArrowLeftRight aria-hidden />
+          Switch account
+        </MenuItem>
         <MenuItem onSelect={() => void handleSignOut()}>
           <LogOut aria-hidden />
           Sign out

@@ -31,7 +31,12 @@ import { cleanHandleInput } from "@/lib/handle";
 import { useCaptcha } from "@/hooks/useCaptcha";
 import { useReferralHandler } from "@/hooks/useReferralHandler";
 import { useHandleAvailability } from "@/hooks/useHandleAvailability";
-import { getPostAuthDestination, goTo, toAbsoluteUrl } from "@/lib/panel";
+import { authSwitchHref, getPostAuthDestination, goTo, toAbsoluteUrl } from "@/lib/panel";
+import {
+  SIGN_UP_UNCONFIRMED_BODY,
+  SIGN_UP_UNCONFIRMED_TITLE,
+  signInAfterLostSignUp,
+} from "@/lib/signUpRecovery";
 import { trackGAEvent } from "@/utils/ga";
 import { PRIVACY_POLICY_URL } from "@/components/layout/PublicFooter";
 import { PASSWORD_RULES, PasswordChecklist } from "./PasswordChecklist";
@@ -71,6 +76,9 @@ export function RegisterForm() {
   const emailRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
   const noticeRef = useRef<HTMLDivElement>(null);
+  // Set when a sign up attempt ended without a clear answer. The account may
+  // exist, so the next attempt signs in instead of reporting the email taken.
+  const lostSignUp = useRef(false);
 
   const referrerId = getReferrerId();
   const { data: referrer } = useQuery({
@@ -93,15 +101,41 @@ export function RegisterForm() {
   const handleProblem = (): string | undefined => {
     if (!handle) return "Choose your page URL.";
     if (urlStatus === "Unavailable") return `amped.bio/${handle} is taken. Pick another.`;
+    if (urlStatus === "Reserved") return `amped.bio/${handle} is reserved. Pick another.`;
     if (urlStatus === "TooShort") return `Use at least ${HANDLE_MIN_LENGTH} characters`;
     if (urlStatus === "Invalid") return "Use lowercase letters, numbers, hyphens or underscores";
     return undefined;
   };
 
+  const finishSignUp = () => {
+    lostSignUp.current = false;
+    if (referrerId) clearReferrerId();
+    goTo(getPostAuthDestination(params, { welcome: true }));
+  };
+
+  // True when the account turned out to exist and the person is now signed in
+  const recoverLostSignUp = async () => {
+    const outcome = await signInAfterLostSignUp(email, password, executeCaptcha, isCaptchaEnabled);
+    if (outcome === "signedIn") finishSignUp();
+    return outcome !== "failed";
+  };
+
+  const failOrRecover = async () => {
+    if (await recoverLostSignUp()) return;
+    lostSignUp.current = true;
+    setCardError("network");
+  };
+
   const submit = async () => {
     setCardError(null);
     setCaptchaFailed(false);
-    const nextHandle = handleProblem();
+    // After a lost attempt the handle may read as taken by this person's own
+    // new account; the server checks it again either way
+    const nextHandle = lostSignUp.current
+      ? handle
+        ? undefined
+        : "Choose your page URL."
+      : handleProblem();
     const nextEmail = validateEmail(email);
     const nextPassword = passwordOk ? undefined : "Meet every password rule below.";
     setHandleError(nextHandle);
@@ -132,20 +166,25 @@ export function RegisterForm() {
       if (response?.error) {
         const kind = classifyAuthError(response.error);
         const text = `${response.error.code ?? ""} ${response.error.message ?? ""}`;
-        if (/handle/i.test(text)) {
+        if (/reserved/i.test(text)) {
+          // Reserved handles (Build Board D2): the server's list is the full one
+          setHandleError(`amped.bio/${handle} is reserved. Pick another.`);
+          handleRef.current?.focus();
+        } else if (/handle/i.test(text)) {
           setHandleError(`amped.bio/${handle} is taken. Pick another.`);
           handleRef.current?.focus();
         } else if (kind === "emailTaken") {
+          // A retry after a lost attempt: the first one made the account
+          if (lostSignUp.current && (await recoverLostSignUp())) return;
           setEmailError(EMAIL_TAKEN);
           emailRef.current?.focus();
         } else if (kind === "captcha") setCaptchaFailed(true);
-        else setCardError("network");
+        else await failOrRecover();
         return;
       }
-      if (referrerId) clearReferrerId();
-      goTo(getPostAuthDestination(params, { welcome: true }));
+      finishSignUp();
     } catch {
-      setCardError("network");
+      await failOrRecover();
     } finally {
       setLoading(false);
     }
@@ -202,16 +241,13 @@ export function RegisterForm() {
               role="alert"
               variant="warning"
               className="outline-none"
-              title={cardError === "google" ? GOOGLE_FAILED_TITLE : "Your account was not created"}
+              title={cardError === "google" ? GOOGLE_FAILED_TITLE : SIGN_UP_UNCONFIRMED_TITLE}
             >
-              <p>
-                {cardError === "google"
-                  ? GOOGLE_FAILED_BODY
-                  : "Check your connection and try again."}
-              </p>
+              <p>{cardError === "google" ? GOOGLE_FAILED_BODY : SIGN_UP_UNCONFIRMED_BODY}</p>
               <Button
                 variant="ghost"
                 className="mt-2"
+                disabled={busy}
                 onClick={() => void (cardError === "google" ? google() : submit())}
               >
                 Retry
@@ -226,9 +262,7 @@ export function RegisterForm() {
             text="Already have an account?"
             action={
               <Button variant="ghost" asChild data-testid="switch-to-login">
-                <Link href={`/login${email ? `?email=${encodeURIComponent(email)}` : ""}`}>
-                  Sign in
-                </Link>
+                <Link href={authSwitchHref("/login", params, email)}>Sign in</Link>
               </Button>
             }
           />

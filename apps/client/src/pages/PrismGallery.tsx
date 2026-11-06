@@ -2,6 +2,10 @@ import { useState } from "react";
 import { Bell, Copy, FolderOpen, LogOut, Search, Settings, Share2, Trash2 } from "lucide-react";
 import {
   Badge,
+  CountBadge,
+  DayLabel,
+  MessageBubble,
+  TypingIndicator,
   BottomSheet,
   BottomSheetContent,
   BottomSheetTrigger,
@@ -197,6 +201,11 @@ function StakeFlowDemo() {
       </SidePanel>
     </>
   );
+}
+
+function GallerySwitch() {
+  const [on, setOn] = useState(true);
+  return <Switch checked={on} onChange={setOn} label="Read receipts" />;
 }
 
 export function PrismGallery() {
@@ -523,6 +532,43 @@ export function PrismGallery() {
             <Button variant="ghost">
               <Trash2 /> Remove block
             </Button>
+          </Row>
+        </Section>
+
+        {/* Prism 2.2 v1.1 additions for Amped Messages (approved 2 Nov 2026, board m9) */}
+        <Section id="v11-messages" title="v1.1 Messages">
+          <Row label="Count badge on an icon, in a tab, capped">
+            <span className="prism-icon-btn relative">
+              <Bell aria-hidden className="h-[21px] w-[21px] text-prism-ink-2" strokeWidth={1.5} />
+              <CountBadge count={3} onIcon />
+            </span>
+            <span className="inline-flex items-center gap-2 text-prism-label font-semibold">
+              Requests <CountBadge count={2} variant="tab" />
+            </span>
+            <CountBadge count={7} />
+            <CountBadge count={240} />
+          </Row>
+          <div className="prism-glass-clear max-w-[560px] space-y-1 p-5">
+            <DayLabel>Today</DayLabel>
+            <div className="flex flex-col gap-1">
+              <MessageBubble mine={false} tail={false}>
+                Loved the set last night.
+              </MessageBubble>
+              <MessageBubble mine={false}>When is the next one?</MessageBubble>
+              <div className="mt-3 flex flex-col items-end gap-1">
+                <MessageBubble mine>Friday at 9. I will post the link.</MessageBubble>
+                <p className="text-prism-meta text-prism-ink-2">Seen 2:14 PM</p>
+              </div>
+              <MessageBubble mine={false} removed>
+                Message removed
+              </MessageBubble>
+              <div className="mt-2">
+                <TypingIndicator label="Maya Lin is typing" />
+              </div>
+            </div>
+          </div>
+          <Row label="Switch (the existing Prism Switch, 108 D1)">
+            <GallerySwitch />
           </Row>
         </Section>
       </main>

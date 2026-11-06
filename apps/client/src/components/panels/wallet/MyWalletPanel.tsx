@@ -3,17 +3,20 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useRnsSubPage } from "./rns/useRnsRoute";
 import { RnsSubPage } from "./rns/RnsTab";
 import { WalletErrorCard, WalletSummary, useNoWalletTimeout } from "./summary/WalletSummary";
+import { USDC_FLAGS } from "@/config/usdc/flags";
+import { isFeatureOn } from "../../../config/featureFlags";
 
 // 062 I01: Send opens in the value panel at ?send=1 (D05, D12)
 const SendFlow = lazy(() => import("./send/SendFlow"));
+// Screen Review 137 (w3, w4, w6): the gasless USDC send at ?send=usdc
+const UsdcSendFlow = lazy(() => import("./send/UsdcSendFlow"));
+// Screen Review 138 (o1 to o7): Buy USDC through Coinbase at ?fund=usdc
+const BuyUsdcFlow = lazy(() => import("./buy/BuyUsdcFlow"));
 // Screen Review 059: Stakes replaces StakedPoolsSection on the Wallet
 const StakesCard = lazy(() => import("./stakes/StakesCard"));
 const ProfileTabs = lazy(() => import("./ProfileTabs"));
-// Screen Review 060: referral cards live in the Get tREVO section
-const InviteCard = lazy(() => import("./referral/InviteCard"));
-const RefereeCard = lazy(() => import("./referral/RefereeCard"));
-// Screen Review 053: the Testnet faucet card, first in the Get tREVO grid
-const FaucetCard = lazy(() => import("./faucet/FaucetCard"));
+// The Get tREVO cards moved to Home; the Wallet keeps one row that links there
+const GetTrevoRow = lazy(() => import("./faucet/GetTrevoRow"));
 const LaunchPoolAd = lazy(() => import("./LaunchPoolAd"));
 
 export function MyWalletPanel() {
@@ -71,7 +74,7 @@ function WalletContent() {
 
           {/* D19: Stakes sits right under the summary, above the tabs. It is
               not rendered with the pools flag off (059 I01). */}
-          {import.meta.env.VITE_SHOW_CREATOR_POOL === "true" && (
+          {isFeatureOn("creatorPool") && (
             <Suspense>
               <StakesCard />
             </Suspense>
@@ -81,30 +84,9 @@ function WalletContent() {
             <ProfileTabs />
           </Suspense>
 
-          {/* 053 I01, 060 I01: Get tREVO holds the referee card (only for
-              creators who joined through a link) across the full width, then
-              the Testnet faucet and Invite cards in two equal columns
-              (stacked, faucet first, below 1024). */}
-          <section aria-labelledby="get-trevo-title" className="space-y-[21px] font-prism">
-            <h2
-              id="get-trevo-title"
-              className="flex items-center gap-2 text-prism-eyebrow text-prism-ink-2"
-            >
-              <span aria-hidden className="h-[3px] w-[13px] rounded-full bg-prism-value" />
-              GET tREVO
-            </h2>
-            <Suspense>
-              <RefereeCard />
-            </Suspense>
-            <div className="grid items-start gap-[21px] lg:grid-cols-2">
-              <Suspense>
-                <FaucetCard />
-              </Suspense>
-              <Suspense>
-                <InviteCard />
-              </Suspense>
-            </div>
-          </section>
+          <Suspense>
+            <GetTrevoRow />
+          </Suspense>
 
           <Suspense>
             <LaunchPoolAd />
@@ -114,6 +96,16 @@ function WalletContent() {
       <Suspense>
         <SendFlow />
       </Suspense>
+      {USDC_FLAGS.wallet && (
+        <Suspense>
+          <UsdcSendFlow />
+        </Suspense>
+      )}
+      {USDC_FLAGS.onramp && (
+        <Suspense>
+          <BuyUsdcFlow />
+        </Suspense>
+      )}
     </div>
   );
 

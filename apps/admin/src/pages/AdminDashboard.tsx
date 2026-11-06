@@ -5,6 +5,7 @@ import { FaucetCard } from "../components/dashboard/FaucetCard";
 import { ReferralRewardsCard } from "../components/dashboard/ReferralRewardsCard";
 import { AnnouncementCard } from "../components/dashboard/AnnouncementCard";
 import { ContentRow } from "../components/dashboard/ContentRow";
+import { TakedownSyncCard } from "../components/dashboard/TakedownSyncCard";
 import { NewestUsers } from "../components/dashboard/NewestUsers";
 
 // Screen Review 087. The dashboard: Platform tiles, Operations (faucet and
@@ -23,6 +24,7 @@ export function AdminDashboard() {
         <div className="grid items-stretch gap-5 lg:grid-cols-2 [&>*]:min-w-0">
           <FaucetCard />
           <ReferralRewardsCard />
+          <TakedownSyncCard />
         </div>
       </section>
       <AnnouncementCard />

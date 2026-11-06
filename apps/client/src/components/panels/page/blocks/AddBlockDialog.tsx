@@ -3,9 +3,14 @@ import {
   Check,
   Coins,
   FileText,
+  IdCard,
+  Library,
   Link2,
   Loader2,
+  MessageCircle,
   Plus,
+  Send,
+  ShoppingBag,
   UserPlus,
   UsersRound,
   type LucideIcon,
@@ -13,7 +18,10 @@ import {
 import { BsTelegram } from "react-icons/bs";
 import type { IconType } from "react-icons/lib";
 import {
+  MESSAGE_UI,
   SINGLETON_BLOCK_TYPES,
+  STORE_COPY,
+  TELEGRAM_APP_STRINGS,
   TELEGRAM_LINK,
   type BlockType,
   type MediaBlockPlatform,
@@ -30,6 +38,7 @@ import {
 import { getPlatformIcon } from "@/utils/platforms";
 import { FieldError, LinkFields } from "./LinkFields";
 import { emptyLink, linkConfig, type LinkValue } from "./linkValue";
+import { isFeatureOn } from "../../../../config/featureFlags";
 
 // Screen Review 034 and 035. One Add block dialog: the Link section first,
 // then MEDIA, UTILITY, PEOPLE and WEB3 tiles. Picking a tile closes the dialog
@@ -43,7 +52,12 @@ export type NewBlockKind =
   | { type: "pool" }
   | { type: "referral" }
   | { type: "follow" }
-  | { type: "followers" };
+  | { type: "followers" }
+  | { type: "rnsid" }
+  | { type: "content" }
+  | { type: "store" }
+  | { type: "telegram_message" }
+  | { type: "message" };
 
 type SingletonType = (typeof SINGLETON_BLOCK_TYPES)[number];
 
@@ -51,11 +65,45 @@ function isSingleton(type: string): type is SingletonType {
   return (SINGLETON_BLOCK_TYPES as readonly string[]).includes(type);
 }
 
-const fanGraphOn = import.meta.env.VITE_FAN_GRAPH === "true";
+const fanGraphOn = isFeatureOn("fanGraph");
+const rnsOn = isFeatureOn("rns");
+// Content system (Build Board #20, spec 3.7): items from the creator's library
+const contentOn = isFeatureOn("content");
+// Messaging on Telegram (Build Board #2, row 115): Message me on Telegram in Utility
+// Amped Messages (#2 r4, M6): Message me replaces Message me on Telegram in the picker
+const messagesOn = isFeatureOn("messages");
+const telegramOn = !messagesOn && isFeatureOn("telegram");
 
-type Tile = { label: string; icon: LucideIcon | IconType; kind: NewBlockKind };
+type Tile = {
+  label: string;
+  icon: LucideIcon | IconType;
+  kind: NewBlockKind;
+  /** One line read as the tile's description and shown as its tooltip */
+  description?: string;
+};
 
 const SECTIONS: { eyebrow: string; tiles: Tile[] }[] = [
+  ...(contentOn
+    ? [
+        {
+          eyebrow: "Content",
+          tiles: [
+            {
+              label: "Content",
+              icon: Library,
+              kind: { type: "content" as const },
+              description: "Videos, tracks and files from your library",
+            },
+            {
+              label: STORE_COPY.block.name,
+              icon: ShoppingBag,
+              kind: { type: "store" as const },
+              description: STORE_COPY.block.description,
+            },
+          ],
+        },
+      ]
+    : []),
   {
     eyebrow: "Media",
     tiles: [
@@ -101,6 +149,26 @@ const SECTIONS: { eyebrow: string; tiles: Tile[] }[] = [
     tiles: [
       { label: "Text", icon: FileText, kind: { type: "text" } },
       { label: "Referral link", icon: Link2, kind: { type: "referral" } },
+      ...(messagesOn
+        ? [
+            {
+              label: MESSAGE_UI.blockFields.title,
+              icon: MessageCircle,
+              kind: { type: "message" as const },
+              description: MESSAGE_UI.blockFields.pickerLine,
+            },
+          ]
+        : []),
+      ...(telegramOn
+        ? [
+            {
+              label: TELEGRAM_APP_STRINGS.messageBlockTitle,
+              icon: Send,
+              kind: { type: "telegram_message" as const },
+              description: TELEGRAM_APP_STRINGS.blockPickerTile,
+            },
+          ]
+        : []),
     ],
   },
   ...(fanGraphOn
@@ -111,6 +179,15 @@ const SECTIONS: { eyebrow: string; tiles: Tile[] }[] = [
             { label: "Follow button", icon: UserPlus, kind: { type: "follow" as const } },
             { label: "Followers", icon: UsersRound, kind: { type: "followers" as const } },
           ],
+        },
+      ]
+    : []),
+  // Identity (Build Board #33, Screen Review 112): the RNS ID block, one per page
+  ...(rnsOn
+    ? [
+        {
+          eyebrow: "Identity",
+          tiles: [{ label: "RNS ID", icon: IdCard, kind: { type: "rnsid" as const } }],
         },
       ]
     : []),
@@ -169,6 +246,8 @@ function TileGrid({
             type="button"
             tabIndex={index === focus ? 0 : -1}
             onClick={() => onPick(tile.kind)}
+            title={tile.description}
+            aria-description={tile.description}
             className="prism-btn-secondary prism-focus flex h-touch min-w-0 items-center gap-2 rounded-prism-13 px-[13px] text-left text-prism-label font-semibold text-prism-ink"
           >
             <tile.icon aria-hidden className="h-[21px] w-[21px] shrink-0 text-prism-ink-2" />

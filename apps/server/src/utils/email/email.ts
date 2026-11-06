@@ -1,4 +1,3 @@
-import nodemailer from "nodemailer";
 import { render } from "@react-email/render";
 import verifyEmailTemplate from "./VerifyEmailTemplate";
 import resetPasswordTemplate from "./ResetPasswordTemplate";
@@ -6,8 +5,17 @@ import emailChangeTemplate from "./EmailChangeTemplate";
 import emailChangeNoticeTemplate from "./EmailChangeNoticeTemplate";
 import welcomeEmailTemplate from "./WelcomeEmailTemplate";
 import { env } from "../../env";
+import {
+  checkTransport,
+  deliverEmail,
+  describeTransport,
+  misconfiguredForDeployment,
+} from "./transport";
 
-const baseURL = env.APP_URL;
+// The /auth/verify-email and /auth/reset-password pages live on the landing
+// page, not the client app (which has no /auth routes and redirects the token
+// away). Email verification QA, 2026-10-10.
+const baseURL = env.LANDINGPAGE_URL;
 // Privacy Notice on the landing page of the current environment
 const privacyUrl = new URL("/privacy", env.LANDINGPAGE_URL).toString();
 
@@ -17,16 +25,23 @@ type EmailOptions = {
   subject: string;
 };
 
-// Create a nodemailer transporter
-const transporter = nodemailer.createTransport({
-  host: env.SMTP_HOST,
-  port: env.SMTP_PORT,
-  secure: env.SMTP_SECURE,
-  auth: {
-    user: env.SMTP_USER,
-    pass: env.SMTP_PASSWORD,
-  },
-});
+/**
+ * Checks the email transport once, without sending. Called at boot so a bad
+ * SMTP2GO key, user, password, port or sender setting shows up in the logs
+ * before the first sign up, and by the email:check script.
+ */
+export const verifySmtpTransport = async (): Promise<boolean> => {
+  const target = describeTransport();
+  const misconfigured = misconfiguredForDeployment();
+  if (misconfigured) {
+    console.error(`❌ Email is not configured for ${env.APP_ENV}: ${misconfigured}`);
+    return false;
+  }
+  const { ok, reason } = await checkTransport();
+  if (ok) console.log(`✅ Email transport ready: ${target}`);
+  else console.error(`❌ Email transport check failed for ${target}: ${reason}`);
+  return ok;
+};
 
 const sendEmail = async (options: EmailOptions) => {
   console.log("📧 Starting email sending process:", { to: options.to, subject: options.subject });
@@ -54,19 +69,17 @@ const sendEmail = async (options: EmailOptions) => {
   const recipients = Array.isArray(options.to) ? options.to : [options.to];
   console.log(`👥 Preparing email for ${recipients.length} recipient(s):`, recipients);
 
-  const mailOptions = {
-    from: env.SMTP_FROM_EMAIL || "noreply@amped.bio",
-    to: recipients.join(","),
-    subject: options.subject,
-    html: options.html_body,
-  };
-
-  console.log("📤 Attempting to send email via SMTP...");
+  console.log(`📤 Sending via ${describeTransport()}`);
   try {
-    const info = await transporter.sendMail(mailOptions);
-    console.log("✅ Email sent successfully:", {
-      messageId: info.messageId,
-      response: info.response,
+    const info = await deliverEmail({
+      to: recipients,
+      subject: options.subject,
+      html: options.html_body,
+    });
+    console.log("✅ Email accepted:", {
+      transport: info.transport,
+      id: info.id,
+      detail: info.detail,
       timestamp: new Date().toISOString(),
     });
     return info;
@@ -83,7 +96,7 @@ const sendEmail = async (options: EmailOptions) => {
 export const sendEmailVerification = async (email: string, token: string) => {
   console.log(`🔗 Generating verification URL for email: ${email}`);
   const url = `${baseURL}/auth/verify-email/${token}?email=${encodeURIComponent(email)}`;
-  console.log("🔗 Verification URL generated:", url);
+  console.log("🔗 Verification URL generated for", baseURL);
 
   console.log("🎨 Rendering email verification template...");
   const emailComponent = verifyEmailTemplate({ url, privacyUrl });
@@ -101,7 +114,7 @@ export const sendEmailVerification = async (email: string, token: string) => {
 export const sendPasswordResetEmail = async (email: string, token: string) => {
   console.log(`🔑 Generating password reset URL for email: ${email}`);
   const url = `${baseURL}/auth/reset-password/${token}`;
-  console.log("🔗 Password reset URL generated:", url);
+  console.log("🔗 Password reset URL generated for", baseURL);
 
   console.log("🎨 Rendering password reset template...");
   const emailComponent = resetPasswordTemplate({ url, privacyUrl });

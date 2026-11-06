@@ -6,7 +6,7 @@ import { promisify } from "util";
 import { fileURLToPath } from "url";
 
 // Import the videos list from backgrounds.ts
-// Note: This script needs to be compiled with ts-node to import .ts files
+// Note: This script runs with tsx to import .ts files
 import { videos } from "../src/utils/backgrounds";
 
 const execAsync = promisify(exec);

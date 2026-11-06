@@ -58,15 +58,16 @@ export const useWeb3AuthWallet = () => {
   const connectInFlightRef = useRef(false);
   const { web3Auth } = dataWeb3Auth;
 
-  const getTokenAndConnect = useCallback(async () => {
+  /** Resolves true only when this call opened a session with this user's wallet token. */
+  const getTokenAndConnect = useCallback(async (): Promise<boolean> => {
     // Web3Auth throws `WalletLoginError: Failed to connect with wallet. Already
     // connected` when a connection is attempted while a session is still active.
     // This happens on rehydration, when the core session is restored before the
     // React status reflects it, so guard against redundant attempts here.
     const coreStatus = web3Auth?.status;
-    if (connectInFlightRef.current) return;
+    if (connectInFlightRef.current) return false;
     if (coreStatus === CONNECTOR_STATUS.CONNECTED || coreStatus === CONNECTOR_STATUS.CONNECTING) {
-      return;
+      return false;
     }
 
     connectInFlightRef.current = true;
@@ -84,14 +85,17 @@ export const useWeb3AuthWallet = () => {
         console.error("Error decoding token expiration:", error);
       }
 
-      await connectTo(WALLET_CONNECTORS.AUTH, {
+      // connectTo catches its own errors and resolves without a provider on failure
+      const provider = await connectTo(WALLET_CONNECTORS.AUTH, {
         authConnection: AUTH_CONNECTION.CUSTOM,
         authConnectionId: import.meta.env.VITE_WEB3AUTH_AUTH_CONNECTION_ID,
         idToken: walletToken.token,
         extraLoginOptions: { isUserIdCaseSensitive: false },
       });
+      return !!provider;
     } catch (err) {
       console.error("Error fetching wallet token:", err);
+      return false;
     } finally {
       connectInFlightRef.current = false;
     }

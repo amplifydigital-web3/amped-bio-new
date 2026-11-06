@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import toast from "react-hot-toast";
 import { useAccount } from "wagmi";
 import { isForceMetamask } from "@/utils/auth";
+import { appChainId } from "@/utils/appChain";
 
 export function useFundWalletDialog(params: {
   open: boolean;
@@ -11,7 +12,12 @@ export function useFundWalletDialog(params: {
 }) {
   const wallet = useWalletContext();
   const { open, onOpenChange } = params;
-  const { address: walletAddress, isConnected, chainId } = useAccount();
+  const { address: walletAddress, isConnected } = useAccount();
+  // The faucet lives on the app network, never the wallet's chain (038 I06):
+  // a USDC send temporarily switches the wallet to the payment chain, and a
+  // live useAccount().chainId here would query the faucet against a chain the
+  // server does not serve it for.
+  const chainId = Number(appChainId());
 
   // Dialog state
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
@@ -66,7 +72,12 @@ export function useFundWalletDialog(params: {
           hasWallet: result.hasWallet,
           hasSufficientFunds: result.hasSufficientFunds,
           faucetEnabled: result.faucetEnabled,
-          requirements: result.requirements ?? { photo: false, background: false, bio: false, minLinks: false },
+          requirements: result.requirements ?? {
+            photo: false,
+            background: false,
+            bio: false,
+            minLinks: false,
+          },
         });
       } catch (error: any) {
         console.error("Failed to fetch faucet amount or status:", error);

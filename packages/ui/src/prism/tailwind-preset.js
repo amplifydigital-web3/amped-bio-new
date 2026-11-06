@@ -14,6 +14,7 @@
 // nothing on screen until a component uses a prism class.
 
 import { prismMotion, prismStagger } from "./motion-tokens.js";
+import { effectAnimations, effectKeyframes } from "./effect-keyframes.js";
 
 /** Section 3. Color tokens. */
 export const prismColors = {
@@ -162,6 +163,11 @@ const motionBase = {
   "@keyframes prism-pulse": {
     "40%": { transform: "scale(1.8)", opacity: "0.5" },
   },
+  // v1.1 typing indicator (Amped Messages): dots fade 0.4 to 1 in sequence over 1.2 s
+  "@keyframes prism-typing": {
+    "0%, 80%, 100%": { opacity: "0.4" },
+    "40%": { opacity: "1" },
+  },
 
   // View Transitions (section 3.4). The shell stays put; only named parts move.
   // Names go on while a transition runs (motion.ts), so glass keeps its blur.
@@ -260,6 +266,8 @@ function prismComponents({ addComponents, addBase }) {
       "--prism-stagger": prismStagger,
     },
     ...motionBase,
+    // Theme effect keyframes, one copy for every app (Theme Engine v2, spec 3.4)
+    ...effectKeyframes,
     ".prism-font": {
       fontFamily: '"Figtree", ui-sans-serif, system-ui, sans-serif',
       fontVariantNumeric: "tabular-nums",
@@ -318,6 +326,13 @@ function prismComponents({ addComponents, addBase }) {
       borderRadius: prismRadius[21],
       boxShadow:
         "inset 0 2px 0 #FFFFFF, inset 2px 0 0 rgba(255,255,255,0.75), inset 5px 5px 13px rgba(255,255,255,0.55), inset 0 -3px 0 rgba(86,80,162,0.16), inset -5px -8px 21px rgba(48,47,93,0.12), 0 0 0 4px rgba(86,80,162,0.14), 0 3px 8px rgba(22,21,43,0.08), 13px 34px 68px rgba(48,47,93,0.32)",
+    },
+
+    // Section 5. G3 lens fill: the lens shading alone, for a card that keeps
+    // the clear glass border and elevation (the USDC tile beside tREVO).
+    ".prism-lens-fill": {
+      background:
+        "linear-gradient(180deg, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0) 34%), linear-gradient(rgba(86,80,162,0.10), rgba(86,80,162,0.10)), rgba(255,255,255,0.62)",
     },
 
     // Section 5. G3 value panel: the commitment region's focused object.
@@ -636,6 +651,8 @@ const prismPreset = {
       ringColor: {
         "prism-focus": prismColors["create-ink"],
       },
+      // Theme effect animations (Theme Engine v2, spec 3.4); keyframes in addBase
+      animation: effectAnimations,
     },
   },
   plugins: [prismComponents],

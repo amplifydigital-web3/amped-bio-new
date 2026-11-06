@@ -34,6 +34,7 @@ import { ScanQr, useHasCamera } from "./ScanQr";
 import { recipientLine, recipientTitle, sameAddress, shortAddress, type Recipient } from "./model";
 import { useRecentRecipients } from "./useRecentRecipients";
 import { TrustCard, TrustChip } from "./TrustCard";
+import { AssetChips } from "./AssetChips";
 import { useRecipientTrust } from "./useRecipientTrust";
 
 type Step = "select" | "scan" | "review" | "confirm" | "result" | "failed";
@@ -290,29 +291,34 @@ export default function SendFlow() {
     footer = <TestnetLine />;
   } else if (step === "select" && !recipient) {
     body = (
-      <RecipientPicker
-        ownAddress={wallet.address}
-        initialQuery={query || toParam}
-        recent={{
-          data: recent.data,
-          isPending: recent.isPending,
-          isError: recent.isError,
-          refetch: () => void recent.refetch(),
-          enabled: !!wallet.address && !!chain?.blockExplorers?.default.apiUrl,
-        }}
-        hasCamera={hasCamera}
-        inputRef={inputRef}
-        onScan={() => setStep("scan")}
-        onSelect={(next, typed) => {
-          setQuery(typed);
-          setRecipient(next);
-        }}
-      />
+      <>
+        {/* Spec 3.6, w3: the asset chip row when USDC is on */}
+        <AssetChips current="native" nativeSymbol={symbol} />
+        <RecipientPicker
+          ownAddress={wallet.address}
+          initialQuery={query || toParam}
+          recent={{
+            data: recent.data,
+            isPending: recent.isPending,
+            isError: recent.isError,
+            refetch: () => void recent.refetch(),
+            enabled: !!wallet.address && !!chain?.blockExplorers?.default.apiUrl,
+          }}
+          hasCamera={hasCamera}
+          inputRef={inputRef}
+          onScan={() => setStep("scan")}
+          onSelect={(next, typed) => {
+            setQuery(typed);
+            setRecipient(next);
+          }}
+        />
+      </>
     );
     footer = <TestnetLine />;
   } else if (step === "select" && recipient) {
     body = (
       <>
+        <AssetChips current="native" nativeSymbol={symbol} />
         {/* 062 I08: the chosen person, locked, with Change */}
         <div className="prism-slab flex min-h-commit items-center gap-3 !rounded-prism-21 px-4 py-2">
           <RecipientAvatar recipient={recipient} />

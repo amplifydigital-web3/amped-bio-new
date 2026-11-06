@@ -4,9 +4,10 @@ import { Button, ChipGroup, TESTNET_NOTICE } from "@repo/ui";
 import { formatRnsName } from "@repo/web3";
 import { RNS_COPY } from "@/config/rns/copy";
 import { NameTile, VerifiedChip } from "../shared";
-import { AUTHBASE_URL } from "./catalog";
+import { AUTHBASE_VERIFY_URL } from "./catalog";
 import { IdEyebrow, SoonPill } from "./parts";
 import { NOT_VERIFIED_SHARING_LINE } from "./SharedAttributes";
+import { IdentityStorefront, STOREFRONT_ON } from "./IdentityStorefront";
 
 /**
  * 103 I08: benefit tiles render only when the surface they promise ships.
@@ -54,10 +55,10 @@ const PLANS = [
 type Currency = "usd" | "trevo";
 
 function AuthbaseLink({ children, size }: { children: React.ReactNode; size?: "lg" }) {
-  if (!AUTHBASE_URL) return null;
+  if (!AUTHBASE_VERIFY_URL) return null;
   return (
     <Button asChild size={size} className="max-sm:w-full">
-      <a href={AUTHBASE_URL} target="_blank" rel="noopener noreferrer">
+      <a href={AUTHBASE_VERIFY_URL} target="_blank" rel="noopener noreferrer">
         <ShieldCheck aria-hidden />
         {children}
         <ExternalLink aria-hidden />
@@ -113,9 +114,19 @@ export function IdentityPromo({
               : `Verification links your ${RNS_COPY.firstMention} name to a real, checked identity. People who send to your RNS name can see that the owner is verified.`}
           </p>
           <div className="flex flex-wrap items-center gap-2 pt-1">
-            <AuthbaseLink size="lg">
-              {linked ? "Continue on Authbase" : "Verify with Authbase"}
-            </AuthbaseLink>
+            {STOREFRONT_ON ? (
+              // AB-2: the check is bought here first; Authbase runs it after payment
+              <Button asChild size="lg" className="max-sm:w-full">
+                <a href="#rns-choose-check">
+                  <ShieldCheck aria-hidden />
+                  Choose a check
+                </a>
+              </Button>
+            ) : (
+              <AuthbaseLink size="lg">
+                {linked ? "Continue on Authbase" : "Verify with Authbase"}
+              </AuthbaseLink>
+            )}
             <Button asChild variant="ghost">
               <a href="#rns-how-it-works">How verification works</a>
             </Button>
@@ -182,59 +193,69 @@ export function IdentityPromo({
         </ul>
       </section>
 
+      {/* AB-2 (boards s1 to s4): Authbase's checks for USDC. The old cards stay while the flag is off */}
+      {STOREFRONT_ON && <IdentityStorefront rnsName={fullName} />}
+
       {/* P07 to P09 choose a check */}
-      <section aria-labelledby="rns-choose-check" className="space-y-[13px]">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div id="rns-choose-check">
-            <IdEyebrow as="h3">Choose a check</IdEyebrow>
+      {!STOREFRONT_ON && (
+        <section aria-labelledby="rns-choose-check" className="space-y-[13px]">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div id="rns-choose-check">
+              <IdEyebrow as="h3">Choose a check</IdEyebrow>
+            </div>
+            <ChipGroup<Currency>
+              label="Show prices in"
+              value={currency}
+              onChange={setCurrency}
+              options={[
+                { value: "trevo", label: "tREVO" },
+                { value: "usd", label: "USD" },
+              ]}
+            />
           </div>
-          <ChipGroup<Currency>
-            label="Show prices in"
-            value={currency}
-            onChange={setCurrency}
-            options={[
-              { value: "trevo", label: "tREVO" },
-              { value: "usd", label: "USD" },
-            ]}
-          />
-        </div>
-        <ul className="grid gap-[13px] md:grid-cols-2">
-          {PLANS.map(plan => (
-            <li key={plan.key} className="prism-glass-clear flex flex-col p-[21px]">
-              <div className="flex flex-wrap items-center gap-2">
-                <h4 className="text-[20px] font-bold leading-[23px] text-prism-ink">{plan.name}</h4>
-                {"badge" in plan && (
-                  <span className="inline-flex h-[26px] items-center rounded-prism-8 bg-white/90 px-2 text-prism-meta font-semibold text-prism-ink shadow-[inset_0_0_0_1px_rgba(22,21,43,0.12)]">
-                    {plan.badge}
+          <ul className="grid gap-[13px] md:grid-cols-2">
+            {PLANS.map(plan => (
+              <li key={plan.key} className="prism-glass-clear flex flex-col p-[21px]">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h4 className="text-[20px] font-bold leading-[23px] text-prism-ink">
+                    {plan.name}
+                  </h4>
+                  {"badge" in plan && (
+                    <span className="inline-flex h-[26px] items-center rounded-prism-8 bg-white/90 px-2 text-prism-meta font-semibold text-prism-ink shadow-[inset_0_0_0_1px_rgba(22,21,43,0.12)]">
+                      {plan.badge}
+                    </span>
+                  )}
+                </div>
+                <p className="mt-1 text-prism-label text-prism-ink-2">{plan.sub}</p>
+                <ul className="mt-3 flex-1 space-y-1">
+                  {plan.includes.map(item => (
+                    <li
+                      key={item}
+                      className="flex items-start gap-2 text-prism-body text-prism-ink"
+                    >
+                      <Check
+                        aria-hidden
+                        className="mt-0.5 h-[21px] w-[21px] shrink-0 text-prism-success"
+                      />
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+                <div className="mt-[21px] border-t border-prism-line pt-3">
+                  <span className="inline-flex h-[26px] items-center rounded-prism-8 border-[1.5px] border-dashed border-prism-ink-2 px-2 text-prism-meta font-semibold text-prism-ink-2">
+                    {currency === "usd" ? "USD price from Authbase" : "tREVO price from Authbase"}
                   </span>
-                )}
-              </div>
-              <p className="mt-1 text-prism-label text-prism-ink-2">{plan.sub}</p>
-              <ul className="mt-3 flex-1 space-y-1">
-                {plan.includes.map(item => (
-                  <li key={item} className="flex items-start gap-2 text-prism-body text-prism-ink">
-                    <Check
-                      aria-hidden
-                      className="mt-0.5 h-[21px] w-[21px] shrink-0 text-prism-success"
-                    />
-                    {item}
-                  </li>
-                ))}
-              </ul>
-              <div className="mt-[21px] border-t border-prism-line pt-3">
-                <span className="inline-flex h-[26px] items-center rounded-prism-8 border-[1.5px] border-dashed border-prism-ink-2 px-2 text-prism-meta font-semibold text-prism-ink-2">
-                  {currency === "usd" ? "USD price from Authbase" : "tREVO price from Authbase"}
-                </span>
-              </div>
-            </li>
-          ))}
-        </ul>
-        <p className="text-prism-meta text-prism-ink-2">
-          You choose the check and see the price on Authbase before you pay. USD is charged by card
-          through Authbase checkout (Stripe). tREVO payment opens on mainnet.{" "}
-          <span className="font-semibold text-prism-ink">{TESTNET_NOTICE}</span>
-        </p>
-      </section>
+                </div>
+              </li>
+            ))}
+          </ul>
+          <p className="text-prism-meta text-prism-ink-2">
+            You choose the check and see the price on Authbase before you pay. USD is charged by
+            card through Authbase checkout (Stripe). tREVO payment opens on mainnet.{" "}
+            <span className="font-semibold text-prism-ink">{TESTNET_NOTICE}</span>
+          </p>
+        </section>
+      )}
 
       {/* P10 and P11 */}
       <div className="grid gap-[13px] lg:grid-cols-2">

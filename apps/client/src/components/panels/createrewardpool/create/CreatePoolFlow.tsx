@@ -196,7 +196,7 @@ export function CreatePoolFlow({
   poolLink?: string;
   staleNotice: boolean;
   onDismissStale: () => void;
-  // 065 I06: Wallet with the Get tREVO section (D19)
+  // 065 I06: Home with the Daily faucet card (the faucet moved off Wallet)
   onGetTrevo: () => void;
 }) {
   const {

@@ -1,0 +1,18 @@
+{
+  "name": "amped-media-toolbox",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Container image for the media processor: ffmpeg, sharp, ClamAV, poppler, qpdf. Not a workspace package; built by wrangler from the Dockerfile.",
+  "type": "module",
+  "main": "src/server.mjs",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node src/server.mjs",
+    "test": "CLAMAV_MODE=clamscan node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "sharp": "0.34.5"
+  }
+}

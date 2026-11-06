@@ -11,22 +11,25 @@ import { RNS_FLAGS } from "@/config/rns/flags";
 import { Eyebrow } from "../../explore/pool-panel/sections";
 import { useRnsAvatars, useRnsChain } from "./hooks";
 import { formatRnsDate } from "./format";
-import { NameRow, RowBadge, RowsSkeleton, VerifiedChip } from "./shared";
+import { NameCard, RegisterTile, RowBadge, RowsSkeleton, VerifiedChip } from "./shared";
 
 type Sort = "expiry" | "name";
 const DAY = 86_400;
 
 /**
- * Screen Review 101 I10 to I13: My RNS names as G0 rows on the room, soonest
- * expiry first, with Primary, Verified, expiring and grace badges from the
- * registration expiry. Names past the grace end are not listed. Verified
- * marks every name of a verified wallet (verification is per wallet).
+ * Screen Review 101 I10 to I13, redesigned: My RNS names as cards, soonest
+ * expiry first. Each card carries a visible Manage button (the name page:
+ * profile, identity, renewal, transfer) so opening a name is never hidden
+ * behind a tap on the row. Expiring and grace names get a warning band and an
+ * Extend or Renew action; unverified names offer Verify when identity is on.
+ * Names past the grace end are not listed. Verified marks every name of a
+ * verified wallet (verification is per wallet).
  */
 export function MyRnsNames({
   onOpenName,
   onSearch,
 }: {
-  onOpenName: (label: string) => void;
+  onOpenName: (label: string, options?: { flow?: "extend"; view?: "identity" }) => void;
   onSearch: () => void;
 }) {
   const wallet = useWalletContext();
@@ -94,35 +97,53 @@ export function MyRnsNames({
     );
   } else {
     body = (
-      <ul className="divide-y divide-prism-line">
+      <ul className="grid gap-[21px] md:grid-cols-2">
         {rows.map(row => {
+          const isPrimary = row.label === primaryLabel;
           const badges = [
+            isPrimary ? <RowBadge key="primary">Primary</RowBadge> : null,
             verified ? <VerifiedChip key="verified" /> : null,
-            row.label === primaryLabel ? <RowBadge key="primary">Primary</RowBadge> : null,
-            row.state === "expiring" ? (
-              <RowBadge key="expiring" tone="warning">
-                Expires in {Math.max(1, Math.ceil((row.expiry - now) / DAY))}{" "}
-                {Math.ceil((row.expiry - now) / DAY) === 1 ? "day" : "days"}
-              </RowBadge>
-            ) : null,
-            row.state === "grace" ? (
-              <RowBadge key="grace" tone="warning">
-                In grace period until {formatRnsDate(row.expiry + RNS_GRACE_PERIOD_SECONDS)}
-              </RowBadge>
-            ) : null,
           ].filter(Boolean);
+          const daysLeft = Math.max(1, Math.ceil((row.expiry - now) / DAY));
+          const band =
+            row.state === "expiring"
+              ? {
+                  tone: "warning" as const,
+                  text: `Expires in ${daysLeft} ${daysLeft === 1 ? "day" : "days"}`,
+                }
+              : row.state === "grace"
+                ? {
+                    tone: "urgent" as const,
+                    text: `Expired. Renew by ${formatRnsDate(row.expiry + RNS_GRACE_PERIOD_SECONDS)} or it is released.`,
+                  }
+                : null;
+          const secondary =
+            row.state === "grace"
+              ? {
+                  label: "Renew now",
+                  commit: true,
+                  onClick: () => onOpenName(row.label, { flow: "extend" }),
+                }
+              : row.state === "expiring"
+                ? { label: "Extend", onClick: () => onOpenName(row.label, { flow: "extend" }) }
+                : RNS_FLAGS.identity && !verified && identity.isSuccess
+                  ? { label: "Verify", onClick: () => onOpenName(row.label, { view: "identity" }) }
+                  : null;
           return (
-            <NameRow
+            <NameCard
               key={row.label}
               label={row.label}
               chainId={chain.id}
               avatar={avatars[row.label]}
               meta={`${row.state === "grace" ? "Expired" : "Expires"} ${formatRnsDate(row.expiry)}`}
               badges={badges.length ? badges : undefined}
-              onOpen={() => onOpenName(row.label)}
+              band={band}
+              onManage={() => onOpenName(row.label)}
+              secondary={secondary}
             />
           );
         })}
+        <RegisterTile onClick={onSearch} />
       </ul>
     );
   }
@@ -132,7 +153,7 @@ export function MyRnsNames({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div id="my-rns-title" className="flex items-center gap-2">
           <Eyebrow>
-            My RNS names{" "}
+            Your RNS names{" "}
             {address && rows.length > 0 && <span className="tabular-nums">{rows.length}</span>}
           </Eyebrow>
         </div>
@@ -148,6 +169,12 @@ export function MyRnsNames({
           />
         )}
       </div>
+      {address && rows.length > 0 && (
+        <p className="text-prism-body text-prism-ink-2">
+          Select <span className="font-bold text-prism-ink">Manage</span> on a name to edit its
+          profile, verify your identity, extend it or transfer it.
+        </p>
+      )}
       {address && rows.length > 0 && (
         <p className="prism-glass-clear !rounded-prism-13 flex items-start gap-3 p-3 text-prism-body text-prism-ink">
           <Info aria-hidden className="mt-0.5 h-[21px] w-[21px] shrink-0 text-prism-nav" />

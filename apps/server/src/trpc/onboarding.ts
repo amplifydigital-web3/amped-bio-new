@@ -2,6 +2,7 @@ import { z } from "zod";
 import { privateProcedure, router } from "./trpc";
 import { prisma } from "@repo/database";
 import { uuidv7 } from "../utils/uuid-v7";
+import { graceEndsAt } from "../utils/verificationGrace";
 
 /**
  * First run setup checklist on Home (Screen Review 015 I08). The URL, share,
@@ -46,6 +47,7 @@ async function readStatus(userId: number) {
         handle: true,
         email: true,
         email_verified: true,
+        created_at: true,
         image: true,
         image_file_id: true,
         theme: true,
@@ -78,6 +80,9 @@ async function readStatus(userId: number) {
     handle: user?.handle ?? "",
     email: user?.email ?? "",
     emailVerified: !!user?.email_verified,
+    // Verification grace (Rob, 2026-10-10): when an unverified account must
+    // verify to keep using gated features. Null once verified.
+    verifyBy: user && !user.email_verified ? graceEndsAt(user).toISOString() : null,
     steps,
     dismissed: !!record.checklist_dismissed_at,
     // True only on the visit that finished the last step; later visits hide it
@@ -88,6 +93,8 @@ async function readStatus(userId: number) {
     // the checklist. Not now hides the card for PUBLISH_CARD_SNOOZE_DAYS.
     pageStatus: user?.page_status ?? "PUBLISHED",
     publishCardDismissed: isPublishCardSnoozed(record.publish_card_dismissed_at),
+    // Messaging on Telegram (#2), checklist item 6: set when wizard A step 3 completes
+    telegramSetup: !!record.telegram_setup_at,
   };
 }
 
@@ -98,6 +105,7 @@ const markInput = z.object({
     "checklistDismissed",
     "analyticsCardDismissed",
     "publishCardDismissed",
+    "telegramSetup",
   ]),
   // Undo of Hide checklist clears the moment instead of setting it
   clear: z.boolean().optional(),
@@ -109,6 +117,7 @@ const COLUMN = {
   checklistDismissed: "checklist_dismissed_at",
   analyticsCardDismissed: "analytics_card_dismissed_at",
   publishCardDismissed: "publish_card_dismissed_at",
+  telegramSetup: "telegram_setup_at",
 } as const;
 
 export const onboardingRouter = router({

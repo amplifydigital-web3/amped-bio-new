@@ -20,6 +20,8 @@ export default function robots(): MetadataRoute.Robots {
           "/sign",
           "/i/ndau-conversion/receipt/",
           "/i/pools/*/debug",
+          // 18+ shells (adult content review 9): never crawled
+          "/*/adult",
         ],
       },
     ],

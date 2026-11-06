@@ -15,6 +15,7 @@ import crypto from "crypto";
 import { JWTPayload, SignJWT } from "jose";
 import type { EnrichedUser } from "../types/auth-helpers";
 import { uuidv7 } from "./uuid-v7";
+import { checkSignUpHandle, refuseHandleUpdate } from "./handleHooks";
 
 // === jwt private key generation  ===
 const pk = crypto.createPrivateKey({
@@ -74,8 +75,26 @@ const trustedOAuthClientIds = env.OAUTH_TRUSTED_CLIENT_IDS.split(",")
 const asBetterAuthPlugin = <T>(plugin: T) => plugin as unknown as BetterAuthPlugin & T;
 
 // ================ better-auth configuration ==================
+/**
+ * Admin plugin endpoints closed over HTTP. Each one bypasses an Amped.Bio flow
+ * that must run instead: impersonation has no audit trail or privacy notice
+ * basis; remove-user skips the account deletion job (Restrict keys, message
+ * anonymization); create-user and update-user skip sign up rules (handle,
+ * captcha, consent); set-user-password skips the reset email and two factor.
+ * Role, ban, session revoke and list stay open to the "admin" role.
+ */
+export const ADMIN_PLUGIN_DISABLED_PATHS = [
+  "/admin/impersonate-user",
+  "/admin/stop-impersonating",
+  "/admin/remove-user",
+  "/admin/create-user",
+  "/admin/update-user",
+  "/admin/set-user-password",
+];
+
 export const auth = betterAuth({
   basePath: "",
+  disabledPaths: ADMIN_PLUGIN_DISABLED_PATHS,
   trustedOrigins: [
     env.APP_URL,
     env.LANDINGPAGE_URL,
@@ -129,7 +148,7 @@ export const auth = betterAuth({
     // /auth/admin, all gated to the "admin" role by the plugin itself. The role
     // column on users and the tRPC adminProcedure (trpc/trpc.ts) keep working
     // unchanged, so the admin panel does not depend on the new endpoints.
-    admin(),
+    admin({ adminRoles: ["admin"] }),
 
     captcha({
       provider: "hcaptcha",
@@ -193,7 +212,17 @@ export const auth = betterAuth({
         advertisedMetadata: {
           claims_supported: ["wallet"],
         },
-        customUserInfoClaims: async ({ user, scopes, requestedClaims, jwt }: { user: any; scopes: string[]; requestedClaims: string[]; jwt?: any }) => {
+        customUserInfoClaims: async ({
+          user,
+          scopes,
+          requestedClaims,
+          jwt,
+        }: {
+          user: any;
+          scopes: string[];
+          requestedClaims: string[];
+          jwt?: any;
+        }) => {
           const claims: Record<string, unknown> = {};
 
           if (requestedClaims.includes("wallet") || scopes.includes("profile")) {
@@ -264,8 +293,19 @@ export const auth = betterAuth({
   },
   databaseHooks: {
     user: {
+      // Reserved handles (Build Board D2, spec 4.8): /update-user never sets a handle
+      update: {
+        before: async (data: any) => {
+          refuseHandleUpdate(data);
+        },
+      },
       create: {
         before: async (user: any, context: any) => {
+          // Reserved handles (Build Board D2, spec 4.4): a handle the person
+          // sent passes the same format and reserved rules as Public URL
+          const supplied = await checkSignUpHandle(user.handle);
+          if (supplied) user.handle = supplied;
+
           if ((!user.handle || user.handle === "") && user.email) {
             user.handle = await processEmailToUniqueHandle(user.email);
           }
@@ -320,9 +360,17 @@ export const auth = betterAuth({
     },
   },
   emailVerification: {
-    sendVerificationEmail: async ({ user, url, token }: { user: any; url: any; token: any }) => {
-      console.info("Sending email verification to:", JSON.stringify({ user, url, token }));
-      sendEmailVerification(user.email, token);
+    sendVerificationEmail: async ({ user, token }: { user: any; url: any; token: any }) => {
+      console.info("Sending email verification to:", user.email);
+      // Not awaited: Better Auth runs this inside the sign up request, after
+      // the user row is written. Waiting on SMTP there let a slow relay hold
+      // the response until a proxy timed it out, and the sign up card said
+      // the account was not created when it was. The catch keeps a failure
+      // logged instead of an unhandled rejection; the person can resend from
+      // Home or Account.
+      void sendEmailVerification(user.email, token).catch((error: any) => {
+        console.error("Email verification send failed for", user.email, error?.message ?? error);
+      });
     },
     sendOnSignUp: true,
     autoSignInAfterVerification: true,
@@ -376,8 +424,8 @@ export const auth = betterAuth({
       hash: hashPassword,
       verify: verifyPassword,
     },
-    sendResetPassword: async ({ user, url, token }: { user: any; url: any; token: any }) => {
-      console.info("Sending password reset email to:", JSON.stringify({ user, url, token }));
+    sendResetPassword: async ({ user, token }: { user: any; url: any; token: any }) => {
+      console.info("Sending password reset email to:", user.email);
       await sendPasswordResetEmail(user.email, token);
     },
   },

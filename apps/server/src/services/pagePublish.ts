@@ -2,7 +2,8 @@ import { TRPCError } from "@trpc/server";
 import { Prisma, prisma } from "@repo/database";
 import { uuidv7 } from "../utils/uuid-v7";
 import { enforceRateLimits } from "../utils/rateLimit";
-import { assertHandleAvailable, HANDLE_TAKEN_MESSAGE } from "./pageHandle";
+import { changeHandle, HANDLE_TAKEN_MESSAGE } from "./pageHandle";
+import { markCreatorItemsDirty, syncCreatorEdge } from "./content/edge";
 
 /**
  * QA-008: an account made from Follow starts with an unpublished page. Its
@@ -44,7 +45,7 @@ export async function publishPage(userId: number, handle?: string): Promise<Page
   await limitVisibilityWrites(userId);
 
   try {
-    return await prisma.$transaction(async tx => {
+    const result = await prisma.$transaction(async (tx): Promise<PageVisibilityResult> => {
       const user = await tx.user.findUnique({
         where: { id: userId },
         select: { handle: true, page_status: true },
@@ -58,16 +59,18 @@ export async function publishPage(userId: number, handle?: string): Promise<Page
       }
 
       const handleChanges = next !== current;
-      if (handleChanges) await assertHandleAvailable(tx, next, userId);
 
       if (user.page_status === "PUBLISHED" && !handleChanges) {
         return { handle: next, pageStatus: "PUBLISHED", changed: false };
       }
 
-      await tx.user.update({
-        where: { id: userId },
-        data: { page_status: "PUBLISHED", ...(handleChanges ? { handle: next } : {}) },
-      });
+      // Reserved handles (Build Board D2): a new handle goes through the one
+      // handle write, which checks reserved and taken words
+      if (handleChanges) {
+        await changeHandle(tx, userId, next, { page_status: "PUBLISHED" });
+      } else {
+        await tx.user.update({ where: { id: userId }, data: { page_status: "PUBLISHED" } });
+      }
 
       const record = await tx.userOnboarding.findUnique({
         where: { user_id: userId },
@@ -84,8 +87,12 @@ export async function publishPage(userId: number, handle?: string): Promise<Page
         });
       }
 
+      // A live page opens its public items at the edge (takedown 4.3)
+      await markCreatorItemsDirty(userId, tx);
       return { handle: next, pageStatus: "PUBLISHED", changed: true };
     });
+    if (result.changed) await syncCreatorEdge(userId);
+    return result;
   } catch (error) {
     // Two accounts raced for the same handle: the unique index decides
     if (isUniqueViolation(error)) {
@@ -111,6 +118,11 @@ export async function unpublishPage(userId: number): Promise<PageVisibilityResul
   if (user.page_status === "UNPUBLISHED") {
     return { handle: user.handle ?? "", pageStatus: "UNPUBLISHED", changed: false };
   }
-  await prisma.user.update({ where: { id: userId }, data: { page_status: "UNPUBLISHED" } });
+  await prisma.$transaction(async tx => {
+    await tx.user.update({ where: { id: userId }, data: { page_status: "UNPUBLISHED" } });
+    // Old public links to this creator's items stop working (takedown 4.3)
+    await markCreatorItemsDirty(userId, tx);
+  });
+  await syncCreatorEdge(userId);
   return { handle: user.handle ?? "", pageStatus: "UNPUBLISHED", changed: true };
 }

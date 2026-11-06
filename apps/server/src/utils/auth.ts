@@ -18,6 +18,8 @@ import { JWTPayload, SignJWT } from "jose";
 import type { EnrichedUser } from "../types/auth-helpers";
 import { uuidv7 } from "./uuid-v7";
 import { createOnboardingRecord } from "./onboarding";
+import { checkSignUpHandle, refuseHandleUpdate } from "./handleHooks";
+import { matchReserved } from "../services/reservedHandles";
 
 /**
  * Google sign up from the register card sends the claimed handle and the
@@ -26,9 +28,9 @@ import { createOnboardingRecord } from "./onboarding";
  * validated and checked for availability again; anything else is ignored.
  */
 async function readSocialSignUpState(
- options: { checkAvailable?: boolean } = {}
+  options: { checkAvailable?: boolean } = {}
 ): Promise<{ handle?: string; referrerId?: number; fanSignUp?: boolean }> {
- const { checkAvailable = true } = options;
+  const { checkAvailable = true } = options;
   try {
     const state = await getOAuthState<{
       handle?: unknown;
@@ -39,7 +41,13 @@ async function readSocialSignUpState(
     const result: { handle?: string; referrerId?: number; fanSignUp?: boolean } = {};
     if (state.intent === "follow") result.fanSignUp = true;
     const handle = typeof state.handle === "string" ? state.handle.trim().toLowerCase() : "";
-    if (handle.length >= HANDLE_MIN_LENGTH && HANDLE_REGEX.test(handle)) {
+    // Reserved handles (Build Board D2): a reserved word in the state is dropped,
+    // so the account falls back to a generated handle
+    if (
+      handle.length >= HANDLE_MIN_LENGTH &&
+      HANDLE_REGEX.test(handle) &&
+      !(await matchReserved(handle)).reserved
+    ) {
       // After the account exists the handle is its own, so the after hook skips this
       const taken = checkAvailable
         ? await prisma.user.findFirst({ where: { handle }, select: { id: true } })
@@ -119,8 +127,26 @@ const trustedOAuthClientIds = env.OAUTH_TRUSTED_CLIENT_IDS.split(",")
 const asBetterAuthPlugin = <T>(plugin: T) => plugin as unknown as BetterAuthPlugin & T;
 
 // ================ better-auth configuration ==================
+/**
+ * Admin plugin endpoints closed over HTTP. Each one bypasses an Amped.Bio flow
+ * that must run instead: impersonation has no audit trail or privacy notice
+ * basis; remove-user skips the account deletion job (Restrict keys, message
+ * anonymization); create-user and update-user skip sign up rules (handle,
+ * captcha, consent); set-user-password skips the reset email and two factor.
+ * Role, ban, session revoke and list stay open to the "admin" role.
+ */
+export const ADMIN_PLUGIN_DISABLED_PATHS = [
+  "/admin/impersonate-user",
+  "/admin/stop-impersonating",
+  "/admin/remove-user",
+  "/admin/create-user",
+  "/admin/update-user",
+  "/admin/set-user-password",
+];
+
 export const auth = betterAuth({
   basePath: "/auth",
+  disabledPaths: ADMIN_PLUGIN_DISABLED_PATHS,
   trustedOrigins: [
     env.APP_URL,
     env.LANDINGPAGE_URL,
@@ -175,7 +201,7 @@ export const auth = betterAuth({
     // /auth/admin, all gated to the "admin" role by the plugin itself. The role
     // column on users and the tRPC adminProcedure (trpc/trpc.ts) keep working
     // unchanged, so the admin panel does not depend on the new endpoints.
-    admin(),
+    admin({ adminRoles: ["admin"] }),
 
     captcha({
       // Cap exposes a reCAPTCHA-shaped `/siteverify` endpoint, so the hCaptcha
@@ -356,8 +382,19 @@ export const auth = betterAuth({
   },
   databaseHooks: {
     user: {
+      // Reserved handles (Build Board D2, spec 4.8): /update-user never sets a handle
+      update: {
+        before: async (data: any) => {
+          refuseHandleUpdate(data);
+        },
+      },
       create: {
         before: async (user: any, context: any) => {
+          // Reserved handles (Build Board D2, spec 4.4): a handle the person
+          // sent passes the same format and reserved rules as Public URL
+          const supplied = await checkSignUpHandle(user.handle);
+          if (supplied) user.handle = supplied;
+
           // Fan Graph (#22): sign up from Follow makes a fan account. Its handle
           // comes from the name, never the email, and it publishes no page.
           const fanSignUp =
@@ -447,9 +484,16 @@ export const auth = betterAuth({
   },
   // Required to send the verification email. Top-level since Better Auth 1.7.
   emailVerification: {
-    sendVerificationEmail: async ({ user, url, token }: { user: any; url: any; token: any }) => {
-      console.info("Sending email verification to:", JSON.stringify({ user, url, token }));
-      sendEmailVerification(user.email, token);
+    sendVerificationEmail: async ({ user, token }: { user: any; url: any; token: any }) => {
+      console.info("Sending email verification to:", user.email);
+      // Awaited so an SMTP failure is logged here instead of becoming an
+      // unhandled rejection. It is not rethrown: sign up still completes and
+      // the person can resend from Home or Account.
+      try {
+        await sendEmailVerification(user.email, token);
+      } catch (error: any) {
+        console.error("Email verification send failed for", user.email, error?.message ?? error);
+      }
     },
     sendOnSignUp: true,
     autoSignInAfterVerification: true,
@@ -513,8 +557,8 @@ export const auth = betterAuth({
       hash: hashPassword,
       verify: verifyPassword,
     },
-    sendResetPassword: async ({ user, url, token }: { user: any; url: any; token: any }) => {
-      console.info("Sending password reset email to:", JSON.stringify({ user, url, token }));
+    sendResetPassword: async ({ user, token }: { user: any; url: any; token: any }) => {
+      console.info("Sending password reset email to:", user.email);
       await sendPasswordResetEmail(user.email, token);
     },
   },

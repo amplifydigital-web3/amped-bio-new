@@ -14,13 +14,13 @@ describe("uuidv7", () => {
   it("marks the version nibble as 0b0111 (version 7)", () => {
     const id = uuidv7();
     // Byte 6, high 4 bits should be 0b0111 = 0x70
-    expect((id[6] & 0xf0)).toBe(0x70);
+    expect(id[6] & 0xf0).toBe(0x70);
   });
 
   it("marks the variant as RFC 9562 (high 2 bits of byte 8 = 0b10)", () => {
     const id = uuidv7();
     // Byte 8, high 2 bits should be 0b10 = 0x80
-    expect((id[8] & 0xc0)).toBe(0x80);
+    expect(id[8] & 0xc0).toBe(0x80);
   });
 
   it("is time-ordered: later calls produce lexicographically larger buffers", () => {
@@ -28,13 +28,19 @@ describe("uuidv7", () => {
     for (let i = 1; i < ids.length; i++) {
       // Extract the 48-bit timestamp from bytes 0-5
       const tsPrev =
-        (ids[i - 1][0] * 2 ** 40) + (ids[i - 1][1] * 2 ** 32) +
-        (ids[i - 1][2] * 2 ** 24) + (ids[i - 1][3] * 2 ** 16) +
-        (ids[i - 1][4] * 2 ** 8) + ids[i - 1][5];
+        ids[i - 1][0] * 2 ** 40 +
+        ids[i - 1][1] * 2 ** 32 +
+        ids[i - 1][2] * 2 ** 24 +
+        ids[i - 1][3] * 2 ** 16 +
+        ids[i - 1][4] * 2 ** 8 +
+        ids[i - 1][5];
       const tsCurr =
-        (ids[i][0] * 2 ** 40) + (ids[i][1] * 2 ** 32) +
-        (ids[i][2] * 2 ** 24) + (ids[i][3] * 2 ** 16) +
-        (ids[i][4] * 2 ** 8) + ids[i][5];
+        ids[i][0] * 2 ** 40 +
+        ids[i][1] * 2 ** 32 +
+        ids[i][2] * 2 ** 24 +
+        ids[i][3] * 2 ** 16 +
+        ids[i][4] * 2 ** 8 +
+        ids[i][5];
 
       // Timestamps must never go backwards
       expect(tsCurr).toBeGreaterThanOrEqual(tsPrev);
@@ -65,10 +71,21 @@ describe("uuidv7", () => {
 
     // Extract the 48-bit timestamp from bytes 0-5
     const extracted =
-      (id[0] * 2 ** 40) + (id[1] * 2 ** 32) + (id[2] * 2 ** 24) +
-      (id[3] * 2 ** 16) + (id[4] * 2 ** 8) + id[5];
+      id[0] * 2 ** 40 +
+      id[1] * 2 ** 32 +
+      id[2] * 2 ** 24 +
+      id[3] * 2 ** 16 +
+      id[4] * 2 ** 8 +
+      id[5];
 
     expect(extracted).toBeGreaterThanOrEqual(before);
     expect(extracted).toBeLessThanOrEqual(after + 5); // 5ms tolerance
+  });
+
+  it("is strictly increasing within a process, also inside one millisecond (M5 replay)", () => {
+    const ids = Array.from({ length: 5000 }, () => uuidv7());
+    for (let i = 1; i < ids.length; i++) {
+      expect(ids[i].compare(ids[i - 1])).toBe(1);
+    }
   });
 });

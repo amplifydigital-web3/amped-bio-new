@@ -6,6 +6,7 @@ import StakedPoolRow from "./StakedPoolRow";
 import { useEditor } from "../../../contexts/EditorContext";
 import { useStakedPools } from "./hooks/useStakedPools";
 import { useWalletContext } from "@/contexts/WalletContext";
+import { isFeatureOn } from "../../../config/featureFlags";
 
 export default function StakedPoolsSection() {
   const {
@@ -58,7 +59,7 @@ export default function StakedPoolsSection() {
   };
 
   // Check if creator pool feature is enabled
-  const showCreatorPool = import.meta.env.VITE_SHOW_CREATOR_POOL === "true";
+  const showCreatorPool = isFeatureOn("creatorPool");
 
   const handleViewAllPools = () => {
     if (showCreatorPool) {
@@ -161,7 +162,7 @@ export default function StakedPoolsSection() {
   }
 
   if (!allStakedPools || allStakedPools.length === 0) {
-    const showCreatorPool = import.meta.env.VITE_SHOW_CREATOR_POOL === "true";
+    const showCreatorPool = isFeatureOn("creatorPool");
 
     return (
       <div

@@ -12,6 +12,8 @@ const state = vi.hoisted(() => ({
   statusCalls: [] as string[],
   publicAttributes: false,
   status: "VERIFIED" as string,
+  // The wallet owner's block rows, or null for a wallet with no Amped.Bio account
+  ownerBlocks: null as { type: string; config: unknown }[] | null,
 }));
 
 vi.mock("../utils/auth", () => ({ auth: { api: { getSession: vi.fn(async () => null) } } }));
@@ -30,11 +32,15 @@ vi.mock("../services/authbase", async () => {
         status: state.status,
         verified,
         hasBadge: false,
-        attributes: { name: "Maya Lin", country: "United States", legal_id: "X123" },
+        attributes: { name: "Maya Lin", country: "US", gender: "F", legal_id: "X123" },
       };
     }),
   };
 });
+// The owner's block switches come from rnsIdentity; its chain reads stay out
+vi.mock("../services/rns", () => ({}));
+vi.mock("../services/rnsSummary", () => ({}));
+vi.mock("../utils/cache", () => ({ cache: {} }));
 vi.mock("../env", () => ({
   env: {
     get RNS_PUBLIC_ATTRIBUTES() {
@@ -46,6 +52,11 @@ vi.mock("@repo/database", () => {
   const key = (where: { user_id: number; feature: string }) => `${where.user_id}:${where.feature}`;
   return {
     prisma: {
+      userWallet: {
+        findUnique: vi.fn(async () =>
+          state.ownerBlocks ? { user: { blocks: state.ownerBlocks } } : null
+        ),
+      },
       featureInterest: {
         findUnique: vi.fn(
           async ({
@@ -90,6 +101,9 @@ beforeEach(() => {
   state.statusCalls.length = 0;
   state.publicAttributes = false;
   state.status = "VERIFIED";
+  state.ownerBlocks = [
+    { type: "rnsid", config: { show: { nameOnId: true, country: true, gender: false } } },
+  ];
 });
 
 describe("authbase router", () => {
@@ -99,15 +113,24 @@ describe("authbase router", () => {
     expect(JSON.stringify(result)).not.toContain("Maya Lin");
   });
 
-  it("079 D2 on: a Verified wallet returns only the labeled attributes", async () => {
+  it("079 D2 on: a Verified wallet returns only what its owner's block shows", async () => {
     state.publicAttributes = true;
     const result = await authbaseRouter.createCaller(ctx()).getWalletStatus({ address: WALLET });
-    expect(result?.attributes).toEqual({ name: "Maya Lin", country: "United States" });
+    expect(result?.attributes).toEqual({ name: "Maya Lin", country: "US" });
     expect(JSON.stringify(result)).not.toContain("X123");
     expect(await authbaseRouter.createCaller(ctx()).isConfigured()).toEqual({
       configured: true,
       publicAttributes: true,
     });
+  });
+
+  it("079 D2 on: no Amped.Bio account, or a hidden block, returns no attributes", async () => {
+    state.publicAttributes = true;
+    state.ownerBlocks = null;
+    const caller = authbaseRouter.createCaller(ctx());
+    expect((await caller.getWalletStatus({ address: WALLET }))?.attributes).toEqual({});
+    state.ownerBlocks = [{ type: "rnsid", config: { show: { nameOnId: true }, hidden: true } }];
+    expect((await caller.getWalletStatus({ address: WALLET }))?.attributes).toEqual({});
   });
 
   it("079 D2 on: Not verified and Not linked never return attributes", async () => {
@@ -124,7 +147,8 @@ describe("authbase router", () => {
     expect(state.statusCalls).toEqual([WALLET]);
     expect(result?.attributes).toEqual({
       name: "Maya Lin",
-      country: "United States",
+      country: "US",
+      gender: "F",
       legal_id: "X123",
     });
   });

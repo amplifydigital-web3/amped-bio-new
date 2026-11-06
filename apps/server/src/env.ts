@@ -32,6 +32,10 @@ function portSchema(fallback: number) {
 }
 
 // ================ environment schema ================
+// The product flags listed in packages/constants/src/feature-flags.ts
+// (CHECKOUT_ENABLED, USDC_ENABLED, ...) are only fallbacks: an admin's
+// site_settings row wins. Read them with isFeatureOn (services/featureFlags.ts),
+// never as env.X, and add new product flags to that registry, not here.
 const envSchema = z.object({
   // The environment the app is running in
   APP_ENV: z.enum(["development", "production", "testing", "staging"]).default("development"),
@@ -41,11 +45,12 @@ const envSchema = z.object({
 
   // Port for the server to listen on
   PORT: portSchema(43000),
-  // URL for the client app (apps/client)
-  APP_URL: z.string().default("http://localhost:5173"),
+  // URL for the client app (apps/client). Required: without an explicit value a
+  // misconfigured deployment would silently redirect to the localhost default.
+  APP_URL: z.string(),
   // URL for the public landing page (apps/landingpage). Its origin is the `aud`
   // of the wallet token handed to Web3Auth.
-  LANDINGPAGE_URL: z.string().default("http://localhost:3000"),
+  LANDINGPAGE_URL: z.string(),
   // Cookie domain for cross-subdomain auth (e.g. .amped.bio). Leave empty for localhost.
   COOKIE_DOMAIN: z.string().default(""),
   // Comma-separated list of allowed CORS origins
@@ -58,11 +63,22 @@ const envSchema = z.object({
   // a subnet ("10.0.0.0/8") or a comma-separated list. Empty disables trust.
   TRUST_PROXY: z.string().default(""),
 
-  // New SMTP variables with MailDev defaults
-  // SMTP server host
-  SMTP_HOST: z.string().default("localhost"), // Default for MailDev
-  // SMTP server port
-  SMTP_PORT: portSchema(1025), // Default for MailDev
+  // Analytics visitor location (MaxMind GeoLite2 City, IPv4 and IPv6).
+  // Either point GEOIP_DB_PATH at an .mmdb kept current by geoipupdate, or set
+  // a free GeoLite account ID and license key and the server downloads and
+  // refreshes the database itself. With neither, only IPv4 is located, from
+  // data bundled with the fast-geoip package.
+  GEOIP_DB_PATH: z.string().default(""),
+  MAXMIND_ACCOUNT_ID: z.string().default(""),
+  MAXMIND_LICENSE_KEY: z.string().default(""),
+  // Where the downloaded database is cached (defaults to the OS temp dir)
+  GEOIP_CACHE_DIR: z.string().default(""),
+  // MaxMind publishes GeoLite2 twice a week; daily checks stay well inside
+  // the 30 downloads a day GeoLite accounts allow
+  GEOIP_REFRESH_HOURS: z.coerce.number().int().min(1).default(24),
+
+  SMTP_HOST: z.string(),
+  SMTP_PORT: z.preprocess(value => Number(value), z.number().int().min(1).max(65535)),
   // Whether to use secure connection (TLS)
   SMTP_SECURE: boolSchema(false),
   // SMTP authentication username
@@ -71,6 +87,15 @@ const envSchema = z.object({
   SMTP_PASSWORD: z.string().default(""), // MailDev doesn't require authentication
   // Email address to use as sender
   SMTP_FROM_EMAIL: z.string().default("noreply@amped.bio"),
+  // ---------- Email delivery (SMTP2GO) ----------
+  // auto: the SMTP2GO API when SMTP2GO_API_KEY is set, SMTP otherwise
+  EMAIL_TRANSPORT: z.enum(["auto", "smtp", "smtp2go-api"]).default("auto"),
+  // SMTP2GO API key (Sending > API Keys), needs the Email send permission
+  SMTP2GO_API_KEY: z.string().default(""),
+  // SMTP2GO API base. Regional: https://us-api.smtp2go.com/v3, eu-api, au-api
+  SMTP2GO_API_URL: z.string().url().default("https://api.smtp2go.com/v3"),
+  // Display name on the From line
+  SMTP_FROM_NAME: z.string().default("Amped.Bio"),
 
   // Faucet configuration
   // Private key for the faucet wallet to send tokens from
@@ -148,13 +173,44 @@ const envSchema = z.object({
   // Enable TLS connection for Redis (required for Upstash)
   REDIS_TLS: boolSchema(false),
 
-  // Creator Pool Broadcast (Build Board #1). While true, only pool owners an
-  // admin has invited can send. Defaults to true in production for the pilot
-  // and to false everywhere else, so staging can test sends (QA-056, below).
-  BROADCAST_INVITE_ONLY: boolSchema(true),
-
   // URL for the RNS subgraph to validate name ownership and expiry
   SUBGRAPH_URL: z.string().default(""),
+  // RNS name expiry emails (30, 7 and 1 day before expiry, and on grace). The
+  // hourly sweep reads SUBGRAPH_URL; off when false or when the subgraph is unset.
+  RNS_EXPIRY_EMAILS: boolSchema(true),
+
+  // Access gating engine (Build Board #21, G1). The access router answers only
+  // when true. The engine itself stays callable by server code.
+  ACCESS_GATING_ENABLED: boolSchema(false),
+  // Creator user ids (comma separated) whose stake rules (Pool fans, Fans with a
+  // minimum stake) are live while securities counsel reviews. Empty: none.
+  ACCESS_STAKE_KINDS_ALLOWLIST: z.string().default(""),
+
+  // Identity checks (Build Board #47): where an under 18 review case alert goes
+  // until the Safety queue ships (identity checks spec 4.5). Empty logs a warning.
+  SAFETY_ALERT_EMAIL: z.string().default(""),
+  // Safety (Build Board #28, adult content review 8.5, PR R1). Child safety alerts go
+  // by SMS through a Twilio Messaging Service (Q8, Rob 3 Nov). Empty: SMS is skipped
+  // and logged; the email still goes.
+  TWILIO_ACCOUNT_SID: z.string().default(""),
+  TWILIO_AUTH_TOKEN: z.string().default(""),
+  TWILIO_MESSAGING_SERVICE_SID: z.string().default(""),
+  // The admin origin for case links in alerts (https://admin.amped.bio)
+  ADMIN_URL: z.string().default(""),
+  // Evidence bucket (8.5, content system 3.11): its own R2 token, Object Read and Write on
+  // EVIDENCE_R2_BUCKET only, bucket lock retention 1 year (REPORT Act 2024). Never shared
+  // with the content token; no URL or token for it ever leaves the server.
+  EVIDENCE_R2_ACCESS_KEY_ID: z.string().default(""),
+  EVIDENCE_R2_SECRET_ACCESS_KEY: z.string().default(""),
+  EVIDENCE_R2_BUCKET: z.string().default("amped-evidence"),
+  // Encrypts custodian, release names and request contacts at rest (section 10).
+  // Falls back to BETTER_AUTH_SECRET when empty.
+  SAFETY_DATA_SECRET: z.string().default(""),
+  // The company postal address for commercial email footers (CAN-SPAM; bulk email AC-Q11).
+  // The Fan Library daily email (FL-6) sends nothing while it is empty.
+  BULK_FOOTER_ADDRESS: z.string().default(""),
+  // Mobile checkout (Build Board #49, CK-1): the checkout router answers only when true
+  CHECKOUT_ENABLED: boolSchema(false),
 
   // Authbase identity verification API (wallet KYC status lookups)
   AUTHBASE_BASE_URL: z.string().default(""),
@@ -184,6 +240,159 @@ const envSchema = z.object({
   TRACKING_TOKEN_SECRET: z.string().default(""),
   // Meta Graph API version used for the Conversions API
   META_GRAPH_API_VERSION: z.string().default("v24.0"),
+
+  // Messaging on Telegram (Build Board #2), spec 3.14. Secrets never live in committed .env files.
+  // Master switch: starts the sender loop and accepts webhook updates. Off everywhere until the
+  // staging bot exists.
+  TELEGRAM_ENABLED: boolSchema(false),
+  // Bot token from BotFather (@AmpedBioStagingBot on staging, @AmpedBioBot in production)
+  TELEGRAM_BOT_TOKEN: z.string().default(""),
+  // Optional override for the bot username. The runtime resolves it from the Bot
+  // API getMe() (services/telegram/client.ts), so it always matches the token in
+  // use; set this only in tests or a split environment the token cannot reach.
+  TELEGRAM_BOT_USERNAME: z.string().default(""),
+  // Value passed as secret_token to setWebhook; the webhook route rejects requests without it.
+  // The server registers https://API_HOST/webhooks/telegram with it on startup.
+  TELEGRAM_WEBHOOK_SECRET: z.string().default(""),
+  // Log In with Telegram (OIDC) client credentials from BotFather, Login Widget
+  TELEGRAM_OIDC_CLIENT_ID: z.string().default(""),
+  TELEGRAM_OIDC_CLIENT_SECRET: z.string().default(""),
+  // Encrypts username, firstName and photoUrl on telegram_accounts. Falls back to BETTER_AUTH_SECRET.
+  TELEGRAM_SECRET_BOX_KEY: z.string().default(""),
+  // Fallback of the `messages` feature flag (admin Feature flags) when it has no row.
+  // Off makes every Inbox read only (spec 7.1).
+  MESSAGING_ENABLED: boolSchema(true),
+  // Fallback of the `telegramGroups` feature flag (admin Feature flags) when it has no row.
+  // Gated creator groups (phase 2).
+  TELEGRAM_GROUPS: boolSchema(false),
+  // Fallback of the `telegramMiniApp` feature flag (admin Feature flags) when it has no row.
+  // The Mini App page endpoint, follow and share (phase 3). Counsel confirms TON safe mode first.
+  TELEGRAM_MINIAPP: boolSchema(false),
+
+  // Amped Messages (Build Board #2 r4), spec docs/features/messaging.md 4.4 and 7.1.
+  // Encrypts direct message bodies and report snapshots. Falls back to BETTER_AUTH_SECRET.
+  // Set once per environment: rotating it makes stored messages unreadable.
+  MESSAGES_SECRET_BOX_KEY: z.string().default(""),
+  // Web Push for Amped Messages (PR M4, spec 7.4). Generate once per environment with
+  // `npx web-push generate-vapid-keys`. Empty keys turn push off; the bell and email work.
+  VAPID_PUBLIC_KEY: z.string().default(""),
+  VAPID_PRIVATE_KEY: z.string().default(""),
+  // A mailto: or https: contact the push services can reach about abuse
+  VAPID_SUBJECT: z.string().default("mailto:support@amped.bio"),
+
+  // USDC in the wallet (Build Board #29), spec docs/features/usdc-wallet-onramp.md 3.3 and 3.4.
+  // Master switch for gasless sends and the indexer. Off until the CDP relayer account exists.
+  USDC_ENABLED: boolSchema(false),
+  // "base" in production; anything else is Base Sepolia
+  PAYMENT_CHAIN: z.string().default("base-sepolia"),
+  // CDP Node RPC for Base in production; empty uses the chain's public endpoint (staging)
+  BASE_RPC_URL: z.string().default(""),
+  // CDP Server Wallet relayer (Coinbase holds the key). API key id and secret, Wallet Secret,
+  // and the account name created once per environment in the CDP Portal.
+  CDP_API_KEY_ID: z.string().default(""),
+  CDP_API_KEY_SECRET: z.string().default(""),
+  CDP_WALLET_SECRET: z.string().default(""),
+  CDP_RELAYER_ACCOUNT: z.string().default(""),
+  // Relayer ETH on Base, in ETH: alarm below the first, sends pause below the second
+  RELAYER_GAS_ALARM_ETH: z.string().default("0.05"),
+  RELAYER_GAS_STOP_ETH: z.string().default("0.01"),
+  // Circle Compliance Engine standalone address screening, once Circle grants access
+  CIRCLE_API_KEY: z.string().default(""),
+  // Circle's chain enum for an EVM address screen. The API lists no Base value; ETH screens the same address.
+  CIRCLE_SCREENING_CHAIN: z.string().default("ETH"),
+  // Chainalysis sanctions oracle on Base (0x3A91A31cB3dC49b4db9Ce721F50a9D076c8D739B). Not deployed on Base Sepolia.
+  CHAINALYSIS_ORACLE: z.string().default(""),
+  // Comma separated addresses always refused. Staging uses it for the screening acceptance test.
+  USDC_SCREEN_DENYLIST: z.string().default(""),
+  // When no screening vendor is configured: refuse every send (production) or allow and record unscreened (staging)
+  USDC_SCREENING_REQUIRED: boolSchema(true),
+  // Buy USDC through Coinbase (Build Board #5), spec 3.5 and 3.12. Server switch for the
+  // onramp.* procedures and the webhook. The CDP API key above signs Onramp calls too.
+  ONRAMP_ENABLED: boolSchema(false),
+  // Secret from the CDP webhook subscription for onramp.transaction.* events
+  CDP_ONRAMP_WEBHOOK_SECRET: z.string().default(""),
+  // Coinbase sandbox: partnerUserRef gets the sandbox- prefix, orders never charge and deliver
+  // nothing on chain, so arrival follows the webhook. On by default outside production.
+  ONRAMP_SANDBOX: boolSchema(false),
+  // Apple Pay and Google Pay (Headless Onramp, USDC-5): the domain the Coinbase payment frame is
+  // embedded on. Must be on the CDP Onramp domain allowlist. Empty means the APP_URL host.
+  ONRAMP_DOMAIN: z.string().default(""),
+  // Key for the stored Coinbase userAuthToken (AES-256-GCM). Falls back to BETTER_AUTH_SECRET.
+  ONRAMP_DATA_KEY: z.string().default(""),
+  // Authbase storefront (Build Board #66, AB-4): encrypts merchant webhook secrets at rest
+  MERCHANT_SECRET_BOX_KEY: z.string().default(""),
+  // AmpedPay (Build Board #50), spec docs/features/ampedpay.md 3.3 and 6.1. Master switch for
+  // payments. While false the admin Payments pages still show and change every setting, so
+  // values are ready before launch; fans see nothing.
+  PAYMENTS_ENABLED: boolSchema(false),
+  // AmpedPay proxy and the environment's Safe, from the deploy script output. Empty until the
+  // contract is deployed (PAY-1 on Base Sepolia). The admin shows "Not deployed" until then.
+  AMPEDPAY_ADDRESS: z.string().default(""),
+  AMPEDPAY_SAFE: z.string().default(""),
+  // AmpedMemberships proxy (PAY-3 deploy output, MB-1). Empty until deployed: joins refuse
+  // with paused and the renewal job does nothing.
+  AMPEDMEMBERSHIPS_ADDRESS: z.string().default(""),
+  // PAY-A2: Coinbase Server Wallet accounts by name (Build Board #53, B3). The pauser may only
+  // call pause() on AmpedPay; the Safe proposer is a Safe delegate that signs proposals and
+  // nothing else; the split signer is shown on Overview and used by PAY-2.
+  CDP_PAUSER_ACCOUNT: z.string().default(""),
+  CDP_SAFE_PROPOSER_ACCOUNT: z.string().default(""),
+  CDP_SPLIT_SIGNER_ACCOUNT: z.string().default(""),
+  // Safe Transaction Service API key (developer.safe.global). Without it, or without the
+  // proposer, an approved on chain change shows the Safe transaction for an owner to submit.
+  SAFE_API_KEY: z.string().default(""),
+  // Optional override for a self hosted Transaction Service, ending in /api
+  SAFE_TX_SERVICE_URL: z.string().default(""),
+  // Content system (Build Board #20), PR 2. Spec 3.17. Secrets never live in committed .env files.
+  // Master switch for uploads. Off everywhere until the Cloudflare setup checklist is done.
+  // Turning it off during an incident stops new uploads; items already stored keep working.
+  CONTENT_UPLOADS_ENABLED: boolSchema(false),
+  // Cloudflare account that owns the R2 buckets and the Stream library (one account for staging and production)
+  CF_ACCOUNT_ID: z.string().default(""),
+  // R2 API token (S3 compatible), Object Read and Write on R2_BUCKET only
+  R2_ACCESS_KEY_ID: z.string().default(""),
+  R2_SECRET_ACCESS_KEY: z.string().default(""),
+  // amped-content (production) or amped-content-staging
+  R2_BUCKET: z.string().default(""),
+  // Stream API token: Stream Edit on this account
+  CF_STREAM_API_TOKEN: z.string().default(""),
+  // Stream signing key from POST /stream/keys: the key id and the PEM (base64 as Cloudflare returns it, or raw PEM)
+  CF_STREAM_KEY_ID: z.string().default(""),
+  CF_STREAM_KEY_PEM: z.string().default(""),
+  // Secret Cloudflare returns when the Stream webhook URL is set
+  CF_STREAM_WEBHOOK_SECRET: z.string().default(""),
+  // Hostnames Stream accepts playback from, comma separated (amped.bio,app.amped.bio on production)
+  CF_STREAM_ALLOWED_ORIGINS: z.string().default(""),
+  // Media gateway origin, e.g. https://usercontent.amped.bio (PR 3 deploys the Worker)
+  MEDIA_GATEWAY_ORIGIN: z.string().default(""),
+  // kid:base64urlSecret,kid:base64urlSecret. The first signs; all verify (rotation, spec 3.6)
+  MEDIA_TOKEN_KEYS: z.string().default(""),
+  // Shared with the processor Worker (PR 4): signs POST /internal/content/processed and /job
+  CONTENT_PROCESSOR_SECRET: z.string().default(""),
+  // Queues HTTP publish (PR 4): API token with Queues Edit, and the content-ingest queue id
+  CF_QUEUES_API_TOKEN: z.string().default(""),
+  CF_CONTENT_QUEUE_ID: z.string().default(""),
+  // Stream customer code for thumbnail URLs (customer-{code}.cloudflarestream.com). Optional:
+  // read from the video when empty
+  CF_STREAM_CUSTOMER_CODE: z.string().default(""),
+  // Content takedown (C7a, content-takedown.md 4.9). The TAKEDOWN KV namespace id the
+  // media gateway reads (takedown, takedown-staging) and a token with Workers KV
+  // Storage Edit on that account. Without both, edge sync logs an alert and waits.
+  CF_TAKEDOWN_NAMESPACE_ID: z.string().default(""),
+  CF_KV_API_TOKEN: z.string().default(""),
+  // Zone id of amped.bio (holds both media hosts) and a token with Zone Cache Purge.
+  // Optional: purge is cleanup only; the KV key already stops delivery.
+  CF_MEDIA_ZONE_ID: z.string().default(""),
+  CF_CACHE_PURGE_TOKEN: z.string().default(""),
+  // Per kind upload limits in MB (spec 3.2)
+  UPLOAD_LIMIT_CONTENT_VIDEO_MB: numSchema(2048),
+  UPLOAD_LIMIT_CONTENT_AUDIO_MB: numSchema(500),
+  UPLOAD_LIMIT_CONTENT_IMAGE_MB: numSchema(25),
+  UPLOAD_LIMIT_CONTENT_DOCUMENT_MB: numSchema(100),
+  UPLOAD_LIMIT_CONTENT_FILE_MB: numSchema(500),
+  // Default per creator quota (spec 3.2, decision 5)
+  CONTENT_QUOTA_DEFAULT_MB: numSchema(5120),
+  CONTENT_QUOTA_VIDEO_MINUTES: numSchema(300),
 });
 
 // ================ parse & export ================
@@ -201,8 +410,13 @@ if (!result.success) {
 
 export const env = result.data;
 
-// QA-056: the pilot gate is on by default in production only. Staging, testing
-// and local runs open Broadcast to every pool owner unless the variable is set.
-if (process.env.BROADCAST_INVITE_ONLY === undefined && env.APP_ENV !== "production") {
-  env.BROADCAST_INVITE_ONLY = false;
+// USDC sends fail closed without a screening vendor in production only. Base Sepolia has no
+// Chainalysis oracle, so staging records sends as unscreened unless the variable is set.
+if (process.env.USDC_SCREENING_REQUIRED === undefined && env.APP_ENV !== "production") {
+  env.USDC_SCREENING_REQUIRED = false;
+}
+
+// Buy USDC uses Coinbase's sandbox everywhere but production unless the variable is set.
+if (process.env.ONRAMP_SANDBOX === undefined && env.APP_ENV !== "production") {
+  env.ONRAMP_SANDBOX = true;
 }

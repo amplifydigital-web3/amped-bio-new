@@ -47,6 +47,49 @@ export interface ActivityItem {
   token: { name: string; symbol: string; iconURL: string | null; native: boolean } | null;
   /** Mint, Internal and other non plain transfer types (058 I04) */
   transferType: string | null;
+  /** Explorer for this row when it is not the Libertas explorer (USDC rows link to Base) */
+  explorerUrl?: string;
+  /** A named sender instead of an address, for example Coinbase on a Buy USDC delivery */
+  counterpartyLabel?: string;
+}
+
+/** One USDC transfer from wallet.usdc.activity (Build Board #29, spec 3.6). */
+export type UsdcActivityRow = {
+  txHash: string;
+  logIndex: number;
+  direction: "in" | "out";
+  from: string;
+  to: string;
+  amount: string;
+  occurredAt: string;
+  /** Buy USDC (#5): coinbase when the transfer is a Coinbase delivery */
+  source?: "coinbase" | null;
+};
+
+export function fromUsdcEvent(row: UsdcActivityRow, explorerUrl: string | undefined): ActivityItem {
+  return {
+    key: `usdc:${row.txHash.toLowerCase()}:${row.logIndex}`,
+    hash: row.txHash,
+    time: row.occurredAt,
+    status: "included",
+    kind: row.direction === "in" ? "received" : "sent",
+    counterparty: row.direction === "in" ? row.from : row.to,
+    poolAddress: null,
+    poolNameHint: null,
+    direction: row.direction,
+    amount: BigInt(row.amount),
+    decimals: 6,
+    symbol: "USDC",
+    // Paid by Amped.Bio: the fan's row never carries a network fee
+    fee: null,
+    from: row.from,
+    to: row.to,
+    selector: null,
+    token: { name: "USD Coin", symbol: "USDC", iconURL: null, native: false },
+    transferType: null,
+    explorerUrl,
+    counterpartyLabel: row.source === "coinbase" ? "Coinbase" : undefined,
+  };
 }
 
 export const STAKING_KINDS: ActivityKind[] = ["staked", "unstaked", "claimed", "createdPool"];

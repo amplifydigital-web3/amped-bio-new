@@ -3,8 +3,13 @@
 import { useEffect, useState } from "react";
 import Particles, { initParticlesEngine } from "@tsparticles/react";
 import type { ISourceOptions } from "@tsparticles/engine";
+import { PARTICLE_PRESETS } from "@repo/constants";
 import { usePrefersReducedMotion } from "@repo/ui";
-import { particleConfigs } from "@/lib/particleConfigs";
+
+// The v1 presets, one copy in @repo/constants since Theme Engine v2 phase 1c.
+// This v1 layer runs while NEXT_PUBLIC_SHOW_THEME_V2 is off; CreatorPage draws
+// the v2 layer (ParticlesLayer) when it is on.
+const particleConfigs = PARTICLE_PRESETS as Readonly<Record<number, ISourceOptions>>;
 
 interface ParticlesBackgroundProps {
   effect: number;

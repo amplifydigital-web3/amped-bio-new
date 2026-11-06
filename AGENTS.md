@@ -33,9 +33,50 @@ ALWAYS create new branches from 'development' (our staging environment) and ALWA
 
 If the user asks to branch from or open a PR against 'main', you MUST first warn them that 'main' is the production branch and that the standard flow is to go through 'development' (staging). Only proceed with 'main' after the user explicitly confirms they are aware of this and still want it.
 
+### Migration Label - MANDATORY
+
+Whenever you create a Pull Request that includes a Prisma migration (any new file under `packages/database/prisma/migrations/`), you MUST apply the `migration` label to that PR on GitHub as part of PR creation:
+
+```bash
+gh pr edit <pr-number> --add-label migration
+```
+
+The `migration` label is purple (`#7C3AED`). Apply it immediately after opening the PR — do not wait for a follow-up request. If the label does not exist in the repository, create it first:
+
+```bash
+gh label create migration --color 7C3AED --description "PR includes a Prisma database migration"
+```
+
 ## VALIDATION REQUIREMENTS - MANDATORY
 
 ALWAYS run typecheck and build commands to validate your modifications before claiming completion. NO EXCEPTIONS. Failure to do so will result in immediate rejection of your work.
+
+Validate ONLY the workspaces your branch touches (plus the ones that depend on them), never the whole monorepo:
+
+```bash
+git fetch origin development
+pnpm run typecheck:affected
+pnpm run build:affected
+pnpm run test:affected
+```
+
+These run Turborepo's `--affected` against `origin/development` (override with `TURBO_SCM_BASE=<ref>`), so a server-only branch checks only `@repo/server`, while a change in `packages/constants` also checks every app that imports it. `test:affected` runs the server's `test:unit` (no staging/OAuth integration files). Do NOT run `pnpm run typecheck` / `pnpm run build` across all workspaces or hand-pick `--filter` lists for validation, and never run several of these heavy validations in parallel on the same machine — run them one after another.
+
+## FEATURE FLAGS - SITE SETTINGS, NOT ENV VARS - MANDATORY
+
+Product on/off switches live in the database (`site_settings` rows `feature_flag.<key>`) and are changed by an admin on the admin **Feature flags** page, with no rebuild or redeploy. NEVER add a new boolean `VITE_*`, `NEXT_PUBLIC_*` or server `*_ENABLED` / `*_ON` environment variable to show, hide or enable a feature.
+
+The single registry is `packages/constants/src/feature-flags.ts` (`FEATURE_FLAGS`). To add a flag:
+
+1. Add an entry to `FEATURE_FLAGS` with `label`, `description`, `scope` (`"public"` when any app reads it, `"server"` when only the API does) and `default: false`. Only set `env` when migrating an existing variable (it becomes the fallback); a brand new flag has `env: {}` and needs no env file change.
+2. Read it with the app's helper, never `import.meta.env.X === "true"`, `process.env.NEXT_PUBLIC_X` or `env.X`:
+   - Server: `isFeatureOn("key")` from `apps/server/src/services/featureFlags.ts` (synchronous, in-memory, reloaded every 15 s). Loops started in `bootstrap.ts` must check the flag on every tick, not only at start.
+   - Client (editor): `isFeatureOn("key")` from `apps/client/src/config/featureFlags.ts`. Flags load before the app is imported (`main.tsx`), so module level reads are fine.
+   - Landing (Next): `useFeatureFlag("key")` from `components/providers/FeatureFlagsProvider.tsx` in client components; `resolveLandingFlag("key", await getFeatureFlagOverrides())` from `lib/featureFlags.ts` in server components. When migrating a `NEXT_PUBLIC_` variable, add it to `LANDING_ENV` written out literally.
+3. Hiding UI is not a guard: a public flag that gates an action must also be checked on the server with `isFeatureOn`.
+4. Tests: server `__setFeatureFlagOverridesForTests`, client `setFeatureFlagOverridesForTests`, or stub the fallback env variable.
+
+Resolution order in every app: the admin's row → the app's fallback env variable from `env` → `default`. Environment variables stay for secrets, URLs, infrastructure, and safety rails that must never be one click away (for example "never use the mock payment provider in production" belongs in code).
 
 # CORE MANDATES
 
@@ -51,6 +92,7 @@ ALWAYS run typecheck and build commands to validate your modifications before cl
 - **Styling**: Use Tailwind CSS exclusively for all styling. Creating or modifying separate CSS files is prohibited.
 - **Icons**: Prefer `lucide-react` for icons. Only use `react-icons` as a fallback if the specific icon is unavailable in `lucide-react`.
 - **Schema Validation**: Implement `zod` for all schema definitions and data validations. No other validation libraries.
+- **TypeScript**: The repo uses a single TypeScript, version 7 (the native compiler), pinned once in the pnpm catalog (`pnpm-workspace.yaml`). Every workspace declares it as `"typescript": "catalog:"`; bump the version only in the catalog. TypeScript 7 does not ship the JavaScript compiler API, so never add a tool that needs it (typescript-eslint, ts-node, ts-add-js-extension, tsup `--dts`, ...). Use instead: `oxlint` for linting (root `.oxlintrc.json`), `tsx` to run TypeScript scripts, `tsc-alias --resolve-full-paths` to add `.js` extensions to Node builds, and `tsc --emitDeclarationOnly` for `.d.ts` files. TypeScript 7 no longer loads every `@types/*` package by default, so list global types in `compilerOptions.types` (e.g. `["node"]`) and import test helpers from `vitest` explicitly.
 - **Alerts & Warnings**: When implementing alerts or warnings, style them using Tailwind CSS classes and include an appropriate icon from `lucide-react`.
 - **Browser Automation**: When viewing or interacting with websites in the browser, use the `agent-browser` MCP exclusively. Do NOT use `playwright` or any other browser automation tool.
 

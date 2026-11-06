@@ -387,11 +387,26 @@ The pool panel lives in `apps/client/src/components/panels/explore/pool-panel`. 
 The old `ExplorePoolDetailsModal` body, the client `PoolDetailContent`, `StakeModal`, `UnstakeModal` and `PoolDetailsModalSkeleton`. Gone with them: the rate card and its popover, the hardcoded 0.01 REVO fee, the yellow notices and Claim button, the never closing claim toast, the Telegram link on results, and "Tokens have been returned". The public pool page (`apps/landingpage`, row 071) is unchanged here.
 
 
+## v1.1 additions: Amped Messages (2 Nov 2026)
+
+Rob Frasca approved four additions as v1.1 on 2 Nov 2026 (change log `claude/amped-prism-2.2-v1.1-changelog.md`, board m9). They reuse locked tokens only. Code: `packages/ui/src/prism/messages.tsx`; shown on `/_prism` under v1.1 Messages.
+
+| Component | Use |
+|---|---|
+| `CountBadge` | 20 high pill, padding 0 5, 13/16 700 tabular, white on nav (6.85:1), 99+ cap. `onIcon` puts it top right of a 44 icon with a 2px white ring; `variant="tab"` is ink nav-pressed on the nav tint, inside a tab. Decorative: the control's label carries the count |
+| `MessageBubble` | Theirs white 0.9 with a 1px line, ink 16/24; yours nav with white 16/24. Padding 8 13, r21, tail corner r5 on the sender side for the last bubble of a run, max width 72% (85% on phones). `removed` is the italic "Message removed" outline |
+| `TypingIndicator` | Three 8px ink-3 dots in a white 0.9 bubble, padding 13, r21. Dots fade 0.4 to 1 in sequence over 1.2 s (`prism-typing` keyframes in the preset); still under reduced motion. `role="status"` with the label |
+| `DayLabel` | 13/16 600 caps 0.08em ink-3 between message runs, on glass only |
+
+The switch in the approved change log is the existing Prism `Switch` (Screen Review 108 D1, 44 x 26 in a 44 row). It was already in the code as v1.1 when Messages started, so Messages uses it and no second switch exists. The change log's 52 x 32 values are superseded by it.
+
+Section 15 Testnet copy reads the canonical constant `TESTNET_NOTICE`: "Testnet only. Pool rewards come from the network, vary, and are not guaranteed." Counsel to confirm.
+
 ## Rules reviewers should enforce
 
 1. **Trust rule.** Spectacle falls as commitment rises. The Review and Confirm step uses `prism-value-panel-calm`, has no rim, uses a solid `prism-notice`, and has a required checkbox. The commit button is `value-deep`, followed by the wallet note.
 2. **Rates.** Never label a rate APY or APR. The figure is an instantaneous estimate, not a past average.
-3. **Testnet copy, verbatim:** "Testnet only. tREVO has no cash value. Pool rewards come from the network, vary, and are not guaranteed."
+3. **Testnet copy, verbatim:** "Testnet only. Pool rewards come from the network, vary, and are not guaranteed."
 4. **Contrast.** Text meets WCAG AA against the worst background under its glass: 4.5:1 for body, 3:1 for 24px and up and for non-text UI.
 5. **Creator pages.** The creator's theme outranks the system. Never force cyan, indigo or purple onto a creator page.
 

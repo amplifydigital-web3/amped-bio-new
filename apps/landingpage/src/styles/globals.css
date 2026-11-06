@@ -117,280 +117,186 @@
   background-size: 300% 300%;
   animation: gradient 8s ease infinite;
 }
-@keyframes gradient {
-  0% {
-    background-position: 0% 50%;
-  }
+/* Theme effect keyframes moved to the Prism preset (packages/ui/src/prism/effect-keyframes.js) */
 
-  50% {
-    background-position: 100% 50%;
-  }
+/* -------------------------------------------------------------------------- */
+/* Public site motion (Build Board #26, phase 2). Behind NEXT_PUBLIC_SHOW_MOTION. */
+/* Prism timing only: var(--prism-*) from the preset. Everything rests at its   */
+/* end state; motion plays only with no reduced motion and no Pause motion.     */
+/* -------------------------------------------------------------------------- */
 
-  100% {
-    background-position: 0% 50%;
-  }
+/* Hero poster: three Prism beams and the haze. Paints first; the shader fades in over it. */
+.motion-poster {
+  background:
+    radial-gradient(890px 610px at 100% 100%, rgba(86, 80, 162, 0.08), transparent 70%),
+    radial-gradient(610px 377px at 40% 0, rgba(255, 255, 255, 0.45), transparent 70%), #f4f3fa;
+}
+.motion-beam {
+  position: absolute;
+  top: -30%;
+  display: block;
+  height: 180%;
+  transform: rotate(34deg);
+  transform-origin: 50% 0;
+  filter: blur(72px);
+}
+.motion-haze {
+  position: absolute;
+  bottom: -30%;
+  left: -12%;
+  display: block;
+  width: 52%;
+  height: 70%;
+  border-radius: 50%;
+  background: #ffb38a;
+  opacity: 0.2;
+  filter: blur(110px);
 }
 
-@keyframes typewriter {
+/* Hero headline: words rise out of a mask, 377 ms each, 55 ms apart */
+.motion-word {
+  display: inline-block;
+  overflow: hidden;
+  vertical-align: bottom;
+  /* Room for descenders inside the mask, without changing line height */
+  padding-bottom: 0.2em;
+  margin-bottom: -0.2em;
+}
+.motion-word > span {
+  display: inline-block;
+}
+
+@keyframes motion-word-rise {
   from {
-    width: 0;
-  }
-
-  to {
-    width: 100%;
+    transform: translateY(105%);
   }
 }
-
-@keyframes blink {
-  50% {
-    border-color: transparent;
+@keyframes motion-clip-in {
+  from {
+    clip-path: inset(0 100% 0 0);
   }
 }
-
-@keyframes fadeIn {
+@keyframes motion-fade-in {
   from {
     opacity: 0;
-    transform: translateY(20px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
   }
 }
-
-@keyframes slideUp {
+@keyframes motion-fade-away {
   from {
-    opacity: 0;
-    transform: translateY(40px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes wave {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-
-  25% {
-    transform: translateY(-8px);
-  }
-
-  75% {
-    transform: translateY(8px);
-  }
-}
-
-@keyframes rainbow {
-  0% {
-    color: #ff0000;
-  }
-
-  17% {
-    color: #ff8000;
-  }
-
-  33% {
-    color: #ffff00;
-  }
-
-  50% {
-    color: #00ff00;
-  }
-
-  67% {
-    color: #0000ff;
-  }
-
-  84% {
-    color: #8000ff;
-  }
-
-  100% {
-    color: #ff0000;
-  }
-}
-/* Used Animations for FloatingPills Component */
-@keyframes gentle-float {
-  0%,
-  100% {
-    transform: translateY(0px);
-  }
-  50% {
-    transform: translateY(-8px);
-  }
-}
-
-@keyframes subtle-fade {
-  0%,
-  100% {
-    opacity: 0.6;
-  }
-  50% {
-    opacity: 0.9;
-  }
-}
-
-@keyframes soft-glow {
-  0%,
-  100% {
-    filter: brightness(1);
-  }
-  50% {
-    filter: brightness(1.2);
-  }
-}
-
-@keyframes gentle-sway {
-  0%,
-  100% {
-    transform: translateX(0px);
-  }
-  25% {
-    transform: translateX(-5px);
-  }
-  75% {
-    transform: translateX(5px);
-  }
-}
-
-@keyframes breath {
-  0%,
-  100% {
-    transform: scale(1);
-    opacity: 0.7;
-  }
-  50% {
-    transform: scale(1.05);
-    opacity: 0.85;
-  }
-}
-
-@keyframes zoom-text {
-  0%,
-  100% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.1);
-  }
-}
-
-/* Subtle pulse animation for random floating names - with smooth steps */
-@keyframes subtle-pulse {
-  0%,
-  100% {
-    transform: scale(1);
-    font-weight: 400;
-    opacity: 0.6;
-  }
-  20% {
-    transform: scale(1.02);
-    font-weight: 420;
-    opacity: 0.65;
-  }
-  40% {
-    transform: scale(1.04);
-    font-weight: 440;
-    opacity: 0.7;
-  }
-  50% {
-    transform: scale(1.05);
-    font-weight: 450;
-    opacity: 0.75;
-  }
-  60% {
-    transform: scale(1.04);
-    font-weight: 440;
-    opacity: 0.7;
-  }
-  80% {
-    transform: scale(1.02);
-    font-weight: 420;
-    opacity: 0.65;
-  }
-}
-
-@keyframes explore-ping {
-  0% {
-    transform: scale(1);
     opacity: 1;
   }
-  25% {
-    transform: scale(2);
-    opacity: 0;
-  }
-  33% {
-    transform: scale(2);
-    opacity: 0;
-  }
-  66% {
-    transform: scale(2);
-    opacity: 0;
-  }
-
-  100% {
-    transform: scale(1);
+  to {
     opacity: 0;
   }
 }
-
-.animate-explore-ping {
-  animation: explore-ping 3s linear infinite;
-}
-
-@keyframes glitch {
+@keyframes motion-token-travel {
   0% {
-    text-shadow:
-      0.05em 0 0 #00fffc,
-      -0.03em -0.04em 0 #fc00ff,
-      0.025em 0.04em 0 #fffc00;
+    top: 22px;
+    opacity: 1;
+    transform: scale(1);
   }
-
-  15% {
-    text-shadow:
-      0.05em 0 0 #00fffc,
-      -0.03em -0.04em 0 #fc00ff,
-      0.025em 0.04em 0 #fffc00;
+  85% {
+    top: calc(100% - 34px);
+    opacity: 1;
+    transform: scale(1);
   }
-
-  16% {
-    text-shadow:
-      -0.05em -0.025em 0 #00fffc,
-      0.025em 0.035em 0 #fc00ff,
-      -0.05em -0.05em 0 #fffc00;
-  }
-
-  49% {
-    text-shadow:
-      -0.05em -0.025em 0 #00fffc,
-      0.025em 0.035em 0 #fc00ff,
-      -0.05em -0.05em 0 #fffc00;
-  }
-
-  50% {
-    text-shadow:
-      0.05em 0.035em 0 #00fffc,
-      0.03em 0 0 #fc00ff,
-      0 -0.04em 0 #fffc00;
-  }
-
-  99% {
-    text-shadow:
-      0.05em 0.035em 0 #00fffc,
-      0.03em 0 0 #fc00ff,
-      0 -0.04em 0 #fffc00;
-  }
-
   100% {
-    text-shadow:
-      -0.05em 0 0 #00fffc,
-      -0.025em -0.04em 0 #fc00ff,
-      -0.04em -0.025em 0 #fffc00;
+    top: calc(100% - 34px);
+    opacity: 0;
+    transform: scale(0.4);
+  }
+}
+@keyframes motion-ring-in {
+  from {
+    box-shadow: inset 0 0 0 1px rgba(22, 21, 43, 0.18);
+  }
+}
+
+/* How it works stage: one scene shows at a time */
+.motion-scene {
+  transition:
+    opacity var(--prism-panel) var(--prism-ease),
+    transform var(--prism-panel) var(--prism-ease),
+    visibility 0s linear var(--prism-panel);
+}
+.motion-scene[data-scene-state="off"] {
+  visibility: hidden;
+  opacity: 0;
+  transform: translateY(13px);
+}
+.motion-scene[data-scene-state="play"] {
+  transition-delay: 0s;
+}
+
+/* End states (rest, reduced motion, Pause motion) */
+.motion-follow-a {
+  opacity: 0;
+}
+.motion-member {
+  box-shadow: inset 0 0 0 1.5px #17693f;
+}
+.motion-pick {
+  box-shadow:
+    inset 0 0 0 1px rgba(22, 21, 43, 0.18),
+    0 0 0 1.5px #5650a2;
+}
+.motion-token {
+  display: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html:not([data-motion-paused]) .motion-word > span {
+    animation: motion-word-rise var(--prism-panel) var(--prism-ease) both;
+    animation-delay: calc(var(--motion-i, 0) * var(--prism-stagger));
+  }
+
+  html:not([data-motion-paused]) [data-scene-state="play"] .motion-type {
+    display: inline-block;
+    animation: motion-clip-in var(--prism-room) steps(8, end) var(--prism-control) both;
+  }
+  html:not([data-motion-paused]) [data-scene-state="play"] .motion-after {
+    animation: motion-fade-in var(--prism-control) var(--prism-ease) 1100ms both;
+  }
+  html:not([data-motion-paused]) [data-scene-state="play"] .motion-pick {
+    animation: motion-ring-in var(--prism-control) var(--prism-ease) var(--prism-control) both;
+  }
+  html:not([data-motion-paused]) [data-scene-state="play"] .motion-theme-in {
+    animation: motion-fade-in var(--prism-room) var(--prism-ease) var(--prism-panel) both;
+  }
+  html:not([data-motion-paused]) [data-scene-state="play"] .motion-follow-a {
+    animation: motion-fade-away var(--prism-control) var(--prism-ease) 900ms both;
+  }
+  html:not([data-motion-paused]) [data-scene-state="play"] .motion-follow-b {
+    animation: motion-fade-in var(--prism-control) var(--prism-ease) 900ms both;
+  }
+  html:not([data-motion-paused]) [data-scene-state="play"] .motion-token {
+    position: absolute;
+    left: 50%;
+    display: block;
+    width: 13px;
+    height: 13px;
+    margin-left: -6.5px;
+    border-radius: 9999px;
+    background: #884d9e;
+    box-shadow: 0 0 0 4px rgba(136, 77, 158, 0.18);
+    animation: motion-token-travel 1600ms linear var(--prism-panel) both;
+  }
+  html:not([data-motion-paused]) [data-scene-state="play"] .motion-member {
+    animation: motion-ring-in var(--prism-panel) var(--prism-ease) 1900ms both;
+  }
+
+  /* Pools directory: cards rise once as they enter, CSS scroll timelines, no script */
+  @supports (animation-timeline: view()) {
+    html:not([data-motion-paused]) .motion-reveal {
+      animation: motion-reveal linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 60%;
+    }
+  }
+}
+@keyframes motion-reveal {
+  from {
+    opacity: 0.35;
+    transform: translateY(21px);
   }
 }

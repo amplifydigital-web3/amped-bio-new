@@ -3,20 +3,29 @@ import { getAddress, isAddress } from "viem";
 import { TRPCError } from "@trpc/server";
 import { privateProcedure, publicProcedure, router } from "./trpc";
 import { prisma } from "@repo/database";
+import type { AuthbaseAttributeKey } from "@repo/constants";
 import { getRnsAddressSummary } from "../services/rnsSummary";
 import { getRecipientTrust } from "../services/rnsTrust";
 import {
   computeRnsIdentity,
   listRnsNamesForWallet,
   parseRnsDisplay,
+  rnsIdBlockOptions,
 } from "../services/rnsIdentity";
 import { isAuthbaseConfigured } from "../services/authbase";
 import { env } from "../env";
+import { isFeatureOn } from "../services/featureFlags";
 
 async function accountRns(userId: number) {
   return prisma.user.findUnique({
     where: { id: userId },
-    select: { revo_name: true, rns_display: true, wallet: { select: { address: true } } },
+    select: {
+      revo_name: true,
+      rns_display: true,
+      created_at: true,
+      wallet: { select: { address: true } },
+      blocks: { select: { type: true, config: true } },
+    },
   });
 }
 
@@ -116,11 +125,14 @@ export const rnsRouter = router({
   getMyPageIdentity: privateProcedure.query(async ({ ctx }) => {
     const account = await accountRns(ctx.user!.sub);
     const display = parseRnsDisplay(account?.rns_display);
+    const blockOptions = rnsIdBlockOptions(account?.blocks ?? []);
     const result = await computeRnsIdentity(
       {
         storedName: account?.revo_name ?? null,
         wallet: account?.wallet?.address ?? null,
         display,
+        // 112: the RNS ID block's switches, so the preview equals the page
+        block: blockOptions,
       },
       { fresh: true }
     );
@@ -130,9 +142,19 @@ export const rnsRouter = router({
       nameState: result.nameState,
       expiry: result.expiry,
       display,
+      /** 112: the month the page joined, as getHandle returns it (only with a visible block) */
+      since:
+        blockOptions.visible && account?.created_at
+          ? account.created_at.toISOString().slice(0, 7)
+          : null,
+      /** 112 D1: the attributes the block can show (flag on and Authbase shared a value) */
+      sharedAttributes:
+        isFeatureOn("rnsPublicAttributes") && result.verification.state === "verified"
+          ? (Object.keys(result.verification.attributes ?? {}) as AuthbaseAttributeKey[])
+          : [],
       /** off: Authbase is not configured or the public identity flag is off; no badge row */
       verification:
-        isAuthbaseConfigured() && env.RNS_PUBLIC_IDENTITY
+        isAuthbaseConfigured() && isFeatureOn("rnsPublicIdentity")
           ? result.verification
           : { state: "off" as const },
       identity: result.identity,

@@ -44,6 +44,7 @@ export const EDITOR_PANELS = [
   "home",
   "analytics",
   "people",
+  "content",
   "explore",
   "page",
   "design",
@@ -53,6 +54,8 @@ export const EDITOR_PANELS = [
   "pay",
   "rns",
   "inbox",
+  // Fan Library (#26, FL-3): /library and its sub paths, behind fanLibrary
+  "library",
 ] as const;
 
 export type EditorPanelType = (typeof EDITOR_PANELS)[number];
