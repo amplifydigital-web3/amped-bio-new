@@ -1,12 +1,57 @@
-import { Address, createPublicClient, createWalletClient, http, parseEther } from "viem";
+import {
+  Address,
+  createPublicClient,
+  createWalletClient,
+  encodeFunctionData,
+  http,
+  keccak256,
+  parseEther,
+  TransactionNotFoundError,
+  TransactionReceiptNotFoundError,
+} from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { TRPCError } from "@trpc/server";
 import { getChainConfig, SIMPLE_BATCH_SEND_ABI } from "@repo/web3";
-import { AFFILIATES_CHAIN_ID } from "@repo/constants";
+import { AFFILIATES_CHAIN_ID, SITE_SETTINGS } from "@repo/constants";
 import { prisma } from "./DB";
 import { cache } from "../utils/cache";
 import { uuidv7 } from "../utils/uuid-v7";
 import { env } from "../env";
+
+/**
+ * An instant faucet send whose outcome is unknown: the node may have accepted
+ * the transaction before the connection failed. The router keeps the cooldown
+ * for this error, otherwise a retry could pay the fan twice.
+ */
+export class AirdropSendUnknownError extends Error {
+  constructor(cause: unknown) {
+    super("The faucet transaction may still reach the chain");
+    this.name = "AirdropSendUnknownError";
+    this.cause = cause;
+  }
+}
+
+/**
+ * Errors raised by the node or before the send that prove the transaction
+ * never left this server: configuration, balance, nonce and fee rejections.
+ * Timeouts and network errors are deliberately not included because they may
+ * have reached the chain.
+ */
+export function isPreBroadcastSendError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  const text = `${error.name} ${error.message}`.toLowerCase();
+  if (text.includes("insufficient funds") || text.includes("insufficientfunds")) return true;
+  if (text.includes("nonce")) return true;
+  if (
+    text.includes("underpriced") ||
+    text.includes("fee cap") ||
+    text.includes("max fee") ||
+    text.includes("replacement transaction")
+  ) {
+    return true;
+  }
+  return false;
+}
 
 /**
  * Process a daily airdrop claim for a user.
@@ -62,11 +107,18 @@ export async function processDailyAirdropClaim(
       hash = `0x${Array.from({ length: 64 }, () => "0123456789abcdef"[Math.floor(Math.random() * 16)]).join("")}`;
       await new Promise(resolve => setTimeout(resolve, 1000));
     } else {
-      hash = await walletClient.sendTransaction({
-        to: walletAddress,
-        value: amountInWei,
-        chain,
-      });
+      try {
+        hash = await walletClient.sendTransaction({
+          to: walletAddress,
+          value: amountInWei,
+          chain,
+        });
+      } catch (error) {
+        // A node rejection proves nothing was broadcast. A timeout or network
+        // error does not, so the router must keep the cooldown in that case.
+        if (isPreBroadcastSendError(error)) throw error;
+        throw new AirdropSendUnknownError(error);
+      }
     }
 
     return {
@@ -78,6 +130,15 @@ export async function processDailyAirdropClaim(
   }
 
   // ── QUEUE FOR BATCH ──
+  // Queue rows carry no chain: the batch always pays on AFFILIATES_CHAIN_ID,
+  // so a claim on another chain would be queued and later paid somewhere else.
+  if (chainId !== AFFILIATES_CHAIN_ID) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: `The daily batch pays on chain ${AFFILIATES_CHAIN_ID}. Switch networks to join the queue.`,
+    });
+  }
+
   const wallet = await prisma.userWallet.findFirst({ where: { userId } });
   if (!wallet) {
     throw new Error("Wallet not found");
@@ -123,30 +184,55 @@ export async function processDailyAirdropClaim(
   };
 }
 
-// Claim marker persisted before the real hash exists: "pending:{nonce}". The
-// batch is sent with that exact nonce, so a lost or timed out send can never be
-// paid twice: the chain accepts one transaction per nonce. The hash replaces
-// the marker as soon as the contract call returns.
+// A claim is marked "pending:{nonce}:{random}" before anything is signed. The
+// batch is built with that exact nonce, signed locally, and only then marked
+// "sent:{nonce}:{hash}" and broadcast. Persisting the hash before the broadcast
+// is what makes settlement safe: the batch is identified by its own signed
+// transaction, never by a nonce that an instant faucet send may also use.
 const TX_PENDING = "pending";
+const TX_SENT = "sent";
 // The random part keeps two workers that read the same nonce from sharing a marker
 const pendingMarker = (nonce: number) =>
   `${TX_PENDING}:${nonce}:${Math.random().toString(36).slice(2, 10)}`;
-const isPending = (txHash: string | null) => !!txHash && txHash.startsWith(TX_PENDING);
-const pendingNonce = (txHash: string): number | null => {
+const sentMarker = (nonce: number, hash: `0x${string}`) => `${TX_SENT}:${nonce}:${hash}`;
+const isPending = (txHash: string | null) => !!txHash && txHash.startsWith(`${TX_PENDING}:`);
+const markerNonce = (txHash: string): number | null => {
   const value = Number(txHash.split(":")[1]);
   return Number.isInteger(value) && value >= 0 ? value : null;
 };
+const markerHash = (txHash: string | null): `0x${string}` | null => {
+  if (!txHash) return null;
+  const parts = txHash.split(":");
+  // A bare hash is a row persisted by the previous format; it still settles.
+  const hash = parts[0] === TX_SENT ? parts[2] : txHash;
+  return hash?.startsWith("0x") ? (hash as `0x${string}`) : null;
+};
 
-/** Claims without a hash older than this belong to a dead worker (cron: 15 min). */
+/** A pending or dropped claim older than this belongs to a dead worker (cron: 15 min). */
 const CLAIM_STALE_MS = 15 * 60 * 1000;
+
+/** A node rejection of the signed transaction's nonce means it can never mine. */
+function isNonceError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  return /nonce/i.test(`${error.name} ${error.message}`);
+}
 
 /**
  * Send all pending airdrop queue entries via SIMPLE_BATCH_SEND.send().
  * Crash safe by design: an atomic lock and row claim admit exactly one worker,
- * the tx hash is persisted the moment the call returns, and the receipt
- * decides whether the queue is cleared. Entries are never resent on a timer.
+ * the signed transaction's hash is persisted before it is broadcast, and the
+ * receipt decides whether the queue is cleared. Entries are never resent blind.
  */
 export async function sendPendingBatch(): Promise<void> {
+  // Kill switch: the admin can pause the faucet between cron ticks.
+  const faucetStatus = await prisma.siteSettings.findUnique({
+    where: { setting_key: SITE_SETTINGS.FAUCET_ENABLED },
+  });
+  if (faucetStatus?.setting_value !== "true") {
+    console.log("[BATCH_SKIP_DISABLED] Faucet is disabled");
+    return;
+  }
+
   const lockKey = "daily_airdrop:batch_lock";
   const locked = await cache.setIfAbsent(lockKey, "1", 600);
   if (!locked) {
@@ -177,48 +263,107 @@ export async function sendPendingBatch(): Promise<void> {
       transport: http(chain.rpcUrls.default.http[0]),
     });
 
+    const account = privateKeyToAccount(env.FAUCET_PRIVATE_KEY as `0x${string}`);
+    const faucetAddress = account.address;
+
     let entries = await prisma.airdropQueueEntry.findMany({
       orderBy: { createdAt: "asc" },
       include: { userWallet: { select: { address: true } } },
     });
     if (entries.length === 0) return;
 
-    // Settle an interrupted batch first: a persisted hash means the send
-    // already left this server, so the receipt decides the queue, never a resend
-    const settleInFlight = async (settling: Array<{ id: Uint8Array; txHash: `0x${string}` }>) => {
-      const ids = settling.map(entry => entry.id);
+    // Settle an interrupted batch first: a persisted hash identifies the exact
+    // signed transaction, so its receipt decides the queue, never a resend.
+    const settleInFlight = async (
+      hash: `0x${string}`,
+      nonce: number | null,
+      claimedAt: Date | null,
+      ids: Uint8Array[]
+    ) => {
+      const isStale = claimedAt !== null && Date.now() - claimedAt.getTime() > CLAIM_STALE_MS;
+
+      let receipt: Awaited<ReturnType<typeof publicClient.getTransactionReceipt>> | null = null;
       try {
-        const receipt = await publicClient.waitForTransactionReceipt({ hash: settling[0].txHash });
+        receipt = await publicClient.getTransactionReceipt({ hash });
+      } catch (error) {
+        if (!(error instanceof TransactionReceiptNotFoundError)) {
+          console.error(
+            `[BATCH_SETTLE_FAILED] txid=${hash}: ${error instanceof Error ? error.message : "Unknown error"}`
+          );
+          return;
+        }
+      }
+
+      if (receipt) {
         if (receipt.status === "success") {
           await prisma.airdropQueueEntry.deleteMany({ where: { id: { in: ids } } });
-          console.log(`[BATCH_SETTLED] txid=${settling[0].txHash}, deleted=${ids.length}`);
+          console.log(`[BATCH_SETTLED] txid=${hash}, deleted=${ids.length}`);
         } else {
-          console.error(
-            `[BATCH_SETTLED_REVERTED] txid=${settling[0].txHash}, releasing ${ids.length} entries`
-          );
+          console.error(`[BATCH_SETTLED_REVERTED] txid=${hash}, releasing ${ids.length} entries`);
           await releaseClaim(ids);
         }
-      } catch (error) {
-        console.error(
-          `[BATCH_SETTLE_FAILED] txid=${settling[0].txHash}: ${error instanceof Error ? error.message : "Unknown error"}`
-        );
-        // Keep the persisted hash: the next run settles again
+        return;
       }
+
+      // No receipt yet: the transaction may still be waiting in the mempool.
+      let inMempool = false;
+      try {
+        inMempool = !!(await publicClient.getTransaction({ hash }));
+      } catch (error) {
+        if (!(error instanceof TransactionNotFoundError)) {
+          console.error(
+            `[BATCH_SETTLE_FAILED] txid=${hash}: ${error instanceof Error ? error.message : "Unknown error"}`
+          );
+          return;
+        }
+      }
+      if (inMempool) {
+        console.log(`[BATCH_SETTLE_IN_MEMPOOL] txid=${hash}: waiting for it to mine`);
+        return;
+      }
+
+      // The node does not know this signed transaction. If another transaction
+      // already used its nonce (for example an instant faucet send) this batch
+      // can never mine, so the rows are released, not marked paid. If the nonce
+      // is still free the signed tx was dropped: after CLAIM_STALE_MS the rows
+      // are released too, because rebuilding the batch reuses the same nonce
+      // and replaces the dropped transaction, so it still cannot pay twice.
+      const minedCount = await publicClient.getTransactionCount({
+        address: faucetAddress,
+        blockTag: "latest",
+      });
+      if (nonce !== null && minedCount > nonce) {
+        console.error(
+          `[BATCH_SETTLED_REPLACED] txid=${hash}, nonce=${nonce}: releasing ${ids.length} entries`
+        );
+        await releaseClaim(ids);
+        return;
+      }
+      if (!isStale) return;
+      console.log(`[BATCH_SETTLED_DROPPED] txid=${hash}: releasing ${ids.length} entries`);
+      await releaseClaim(ids);
     };
 
     // Group by hash: one interrupted send per hash, and only its own rows are
-    // settled by that receipt
-    const byHash = new Map<`0x${string}`, Array<{ id: Uint8Array; txHash: `0x${string}` }>>();
+    // settled by that transaction
+    const byHash = new Map<
+      `0x${string}`,
+      { nonce: number | null; claimedAt: Date | null; ids: Uint8Array[] }
+    >();
     for (const entry of entries) {
-      if (!entry.txHash || isPending(entry.txHash)) continue;
-      const hash = entry.txHash as `0x${string}`;
-      const group = byHash.get(hash) ?? [];
-      group.push({ id: entry.id, txHash: hash });
+      const hash = markerHash(entry.txHash);
+      if (!hash) continue;
+      const group = byHash.get(hash) ?? {
+        nonce: markerNonce(entry.txHash!),
+        claimedAt: entry.claimedAt,
+        ids: [],
+      };
+      group.ids.push(entry.id);
       byHash.set(hash, group);
     }
     if (byHash.size > 0) {
-      for (const settling of byHash.values()) {
-        await settleInFlight(settling);
+      for (const [hash, group] of byHash) {
+        await settleInFlight(hash, group.nonce, group.claimedAt, group.ids);
       }
       entries = await prisma.airdropQueueEntry.findMany({
         orderBy: { createdAt: "asc" },
@@ -227,40 +372,18 @@ export async function sendPendingBatch(): Promise<void> {
       if (entries.length === 0) return;
     }
 
-    // Claims without a hash belong to a worker that died or whose send call
-    // failed. The send may still have reached the chain, so the claim's nonce
-    // decides: used on chain means paid (delete), still in the mempool means
-    // wait, never used means release for this run. Never resend blind.
-    const faucetAddress = privateKeyToAccount(env.FAUCET_PRIVATE_KEY as `0x${string}`).address;
-    const stale = entries.filter(
+    // A pending marker has no signed transaction behind it: the worker died
+    // before signing. Nothing was broadcast, so the stale rows can safely go
+    // back to the queue without any risk of a double payment.
+    const stalePending = entries.filter(
       entry =>
         isPending(entry.txHash) &&
         entry.claimedAt !== null &&
         Date.now() - entry.claimedAt.getTime() > CLAIM_STALE_MS
     );
-    if (stale.length > 0) {
-      const [minedCount, pendingCount] = await Promise.all([
-        publicClient.getTransactionCount({ address: faucetAddress, blockTag: "latest" }),
-        publicClient.getTransactionCount({ address: faucetAddress, blockTag: "pending" }),
-      ]);
-      const byNonce = new Map<number | null, Uint8Array[]>();
-      for (const entry of stale) {
-        const nonce = pendingNonce(entry.txHash!);
-        byNonce.set(nonce, [...(byNonce.get(nonce) ?? []), entry.id]);
-      }
-      for (const [nonce, ids] of byNonce) {
-        if (nonce === null) {
-          // An old marker with no nonce: the outcome is unknown, so a person checks
-          console.error(`[BATCH_STALE_UNKNOWN] ${ids.length} entries need a manual check`);
-        } else if (nonce < minedCount) {
-          console.error(`[BATCH_STALE_MINED] nonce=${nonce}: treated as paid, deleting ${ids.length}`);
-          await prisma.airdropQueueEntry.deleteMany({ where: { id: { in: ids } } });
-        } else if (nonce < pendingCount) {
-          console.log(`[BATCH_STALE_IN_MEMPOOL] nonce=${nonce}: waiting for it to mine`);
-        } else {
-          await releaseClaim(ids);
-        }
-      }
+    if (stalePending.length > 0) {
+      console.log(`[BATCH_STALE_PENDING] releasing ${stalePending.length} entries`);
+      await releaseClaim(stalePending.map(entry => entry.id));
       entries = await prisma.airdropQueueEntry.findMany({
         orderBy: { createdAt: "asc" },
         include: { userWallet: { select: { address: true } } },
@@ -274,7 +397,7 @@ export async function sendPendingBatch(): Promise<void> {
       console.log("[BATCH_SKIP_CLAIMED] Entries are claimed by another worker");
       return;
     }
-    // The batch goes out with this nonce and no other (see TX_PENDING)
+    // The batch is built with this nonce and no other (see TX_PENDING)
     const nonce = await publicClient.getTransactionCount({
       address: faucetAddress,
       blockTag: "pending",
@@ -296,7 +419,6 @@ export async function sendPendingBatch(): Promise<void> {
     });
     const claimIds = claimable.map(entry => entry.id);
 
-    const account = privateKeyToAccount(env.FAUCET_PRIVATE_KEY as `0x${string}`);
     const walletClient = createWalletClient({
       account,
       chain,
@@ -318,9 +440,7 @@ export async function sendPendingBatch(): Promise<void> {
 
     const isMockMode = env.FAUCET_MOCK_MODE === "true";
 
-    let hash: `0x${string}`;
     if (isMockMode) {
-      hash = `0x${Array.from({ length: 64 }, () => "0123456789abcdef"[Math.floor(Math.random() * 16)]).join("")}`;
       console.log(
         `[BATCH_MOCK] Simulated batch send for ${claimable.length} recipients, total=${totalValue.toString()}`
       );
@@ -333,36 +453,62 @@ export async function sendPendingBatch(): Promise<void> {
       `[BATCH_SENDING] recipients=${recipients.length}, total=${totalValue.toString()}, contract=${contractAddress}`
     );
 
+    // Build and sign locally so the hash is known before the node sees the
+    // transaction. A failure here never reached the node, so release at once.
+    let serializedTransaction: `0x${string}`;
+    let hash: `0x${string}`;
     try {
-      hash = await walletClient.writeContract({
-        address: contractAddress,
-        abi: SIMPLE_BATCH_SEND_ABI,
-        functionName: "send",
-        args: [recipients, amounts],
+      const request = await walletClient.prepareTransactionRequest({
+        to: contractAddress as Address,
+        data: encodeFunctionData({
+          abi: SIMPLE_BATCH_SEND_ABI,
+          functionName: "send",
+          args: [recipients, amounts],
+        }),
         value: totalValue,
-        chain,
         nonce,
       });
+      // viem types the client against the union of supported chains; the
+      // request was prepared by this same client, so the cast is shape only.
+      serializedTransaction = await walletClient.signTransaction(
+        request as Parameters<typeof walletClient.signTransaction>[0]
+      );
+      hash = keccak256(serializedTransaction);
     } catch (error) {
-      // Nonce already used (an instant faucet send took it): nothing of this
-      // batch reached the chain, so the rows go back to the queue now
-      if (error instanceof Error && /nonce/i.test(error.message)) {
+      console.error(
+        `[BATCH_SIGN_FAILED] ${error instanceof Error ? error.message : "Unknown error"}`
+      );
+      await releaseClaim(claimIds);
+      return;
+    }
+
+    // Persist the signed hash before broadcasting: settlement identifies this
+    // exact batch by hash, never by a nonce that an instant send may reuse.
+    const persisted = await prisma.airdropQueueEntry.updateMany({
+      where: { id: { in: claimIds }, txHash: marker },
+      data: { txHash: sentMarker(nonce, hash) },
+    });
+    if (persisted.count === 0) {
+      console.log("[BATCH_SKIP_CLAIMED] Entries changed before broadcast");
+      return;
+    }
+
+    try {
+      await publicClient.sendRawTransaction({ serializedTransaction });
+    } catch (error) {
+      // The node rejected this exact signed transaction for its nonce, so it
+      // can never mine: return the rows to the queue for a later nonce.
+      if (isNonceError(error)) {
         console.error(`[BATCH_NONCE_TAKEN] nonce=${nonce}, releasing ${claimIds.length} entries`);
         await releaseClaim(claimIds);
         return;
       }
-      // Any other failure may have broadcast: the stale check settles it by nonce
+      // A timeout or network error may still have broadcast: the persisted
+      // hash lets the next run settle by receipt instead of resending.
       throw error;
     }
 
-    // Persist the tx hash before waiting for the receipt: a crash during the
-    // wait settles from the stored hash on the next run instead of resending
-    await prisma.airdropQueueEntry.updateMany({
-      where: { id: { in: claimIds } },
-      data: { txHash: hash },
-    });
-
-    const receipt = await publicClient.waitForTransactionReceipt({ hash });
+    const receipt = await publicClient.waitForTransactionReceipt({ hash, timeout: 30_000 });
     if (receipt.status !== "success") {
       console.error(`[BATCH_REVERTED] txid=${hash}, count=${claimable.length}`);
       await releaseClaim(claimIds);

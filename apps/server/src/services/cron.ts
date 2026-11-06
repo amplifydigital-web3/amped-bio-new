@@ -1,5 +1,6 @@
 import { schedule, ScheduledTask } from "node-cron";
 import { prisma } from "@repo/database";
+import { SITE_SETTINGS } from "@repo/constants";
 import { sendPendingBatch } from "./dailyAirdrop";
 import { env } from "../env";
 
@@ -16,6 +17,16 @@ export function startCronJobs(): void {
   // Run every 15 minutes
   cronJob = schedule("*/15 * * * *", async () => {
     try {
+      // The kill switch is read on every tick: an admin can pause the faucet
+      // without waiting for the next deploy or restart.
+      const faucetStatus = await prisma.siteSettings.findUnique({
+        where: { setting_key: SITE_SETTINGS.FAUCET_ENABLED },
+      });
+      if (faucetStatus?.setting_value !== "true") {
+        console.log("[CRON_SKIP_DISABLED] Faucet is disabled");
+        return;
+      }
+
       const entryCount = await prisma.airdropQueueEntry.count();
       if (entryCount === 0) return;
 

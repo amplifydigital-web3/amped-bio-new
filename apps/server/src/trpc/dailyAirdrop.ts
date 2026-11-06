@@ -7,7 +7,11 @@ import { getChainConfig } from "@repo/web3";
 import { prisma } from "../services/DB";
 import { SITE_SETTINGS, DAILY_AIRDROP_COOLDOWN_MS } from "@repo/constants";
 import Decimal from "decimal.js";
-import { processDailyAirdropClaim, calculateNextBatchTime, sendPendingBatch } from "../services/dailyAirdrop";
+import {
+  AirdropSendUnknownError,
+  processDailyAirdropClaim,
+  calculateNextBatchTime,
+} from "../services/dailyAirdrop";
 import {
   getFaucetRequirements,
   verifyWeb3AuthIdToken,
@@ -210,9 +214,20 @@ export const dailyAirdropRouter = router({
           throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid chain ID" });
         }
 
+        // Kill switch: refuse even when the client still shows the button.
+        const faucetStatus = await prisma.siteSettings.findUnique({
+          where: { setting_key: SITE_SETTINGS.FAUCET_ENABLED },
+        });
+        if (faucetStatus?.setting_value !== "true") {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "The faucet is currently disabled.",
+          });
+        }
+
         let wallet = await prisma.userWallet.findFirst({ where: { userId } });
-        // The cooldown value the fan had before this claim, restored when the
-        // send fails so an infrastructure error never locks the fan out
+        // The cooldown value before this claim, restored only when the send
+        // provably never reached the chain.
         let previousRequest: Date | null = null;
 
         if (!wallet) {
@@ -303,11 +318,22 @@ export const dailyAirdropRouter = router({
           }
         }
 
-        // Process the claim; a failed send gives the cooldown back
+        // Process the claim. Only a failure that proves nothing was broadcast
+        // gives the cooldown back: a timeout may have paid the fan already, so
+        // keeping the cooldown prevents a retry from paying twice.
         let result;
         try {
           result = await processDailyAirdropClaim(userId, walletAddress, input.chainId);
         } catch (error) {
+          if (error instanceof AirdropSendUnknownError) {
+            console.error("Airdrop send outcome unknown:", error.cause);
+            throw new TRPCError({
+              code: "INTERNAL_SERVER_ERROR",
+              message:
+                "Your reward may still arrive. Check your wallet before trying again.",
+            });
+          }
+
           await prisma.userWallet.update({
             where: { id: wallet.id },
             data: { last_airdrop_request: previousRequest, updated_at: new Date() },

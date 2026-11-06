@@ -6,6 +6,7 @@ import { createWalletClient, parseEther, Address, createPublicClient, keccak256 
 import { privateKeyToAccount } from "viem/accounts";
 import { getAddress } from "viem/utils";
 import { prisma } from "../services/DB";
+import { isPreBroadcastSendError } from "../services/dailyAirdrop";
 import { CREATOR_POOL_ABI, getChainConfig, getRpcTransport } from "@repo/web3";
 import * as jose from "jose";
 import Decimal from "decimal.js";
@@ -463,6 +464,17 @@ export const walletRouter = router({
           });
         }
 
+        // Kill switch: no faucet send while the feature is disabled.
+        const faucetStatus = await prisma.siteSettings.findUnique({
+          where: { setting_key: SITE_SETTINGS.FAUCET_ENABLED },
+        });
+        if (faucetStatus?.setting_value !== "true") {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "The faucet is currently disabled.",
+          });
+        }
+
         // Create wallet client for sending transactions
         const walletClient = createWalletClient({
           account,
@@ -527,6 +539,9 @@ export const walletRouter = router({
         let wallet = await prisma.userWallet.findFirst({
           where: { userId: userId },
         });
+        // The cooldown value before this request, restored only when the send
+        // provably never reached the chain.
+        let previousRequest: Date | null = null;
 
         // If user doesn't have a linked wallet yet, check if address is available
         if (!wallet) {
@@ -561,12 +576,14 @@ export const walletRouter = router({
             });
           }
 
-          // Check if user has requested faucet tokens in the last 24 hours
-          if (wallet.last_airdrop_request) {
-            const lastClaimTime = wallet.last_airdrop_request;
+          previousRequest = wallet.last_airdrop_request;
 
-            if (now.getTime() - lastClaimTime.getTime() < DAILY_AIRDROP_COOLDOWN_MS) {
-              const nextAvailableTime = new Date(lastClaimTime.getTime() + DAILY_AIRDROP_COOLDOWN_MS);
+          // Check if user has requested faucet tokens in the last 24 hours
+          if (previousRequest) {
+            if (now.getTime() - previousRequest.getTime() < DAILY_AIRDROP_COOLDOWN_MS) {
+              const nextAvailableTime = new Date(
+                previousRequest.getTime() + DAILY_AIRDROP_COOLDOWN_MS
+              );
 
               throw new TRPCError({
                 code: "TOO_MANY_REQUESTS",
@@ -579,14 +596,18 @@ export const walletRouter = router({
             }
           }
 
-          // Update the last airdrop request time
-          wallet = await prisma.userWallet.update({
-            where: { id: wallet.id },
-            data: {
-              last_airdrop_request: now,
-              updated_at: now,
-            },
+          // Conditional claim: exactly one concurrent request can win, so the
+          // old read-then-update race with claimDailyAirdrop is closed.
+          const claim = await prisma.userWallet.updateMany({
+            where: { id: wallet.id, last_airdrop_request: previousRequest },
+            data: { last_airdrop_request: now, updated_at: now },
           });
+          if (claim.count === 0) {
+            throw new TRPCError({
+              code: "CONFLICT",
+              message: "You can only request faucet tokens once per day",
+            });
+          }
         }
 
         try {
@@ -652,12 +673,21 @@ export const walletRouter = router({
         } catch (txError) {
           console.error("Failed to send transaction:", txError);
 
-          // Reset the last_airdrop_request since the transaction failed
-          // Only do this if we're not in mock mode (real transaction failed)
           if (env.FAUCET_MOCK_MODE !== "true" && wallet) {
+            if (!isPreBroadcastSendError(txError)) {
+              // The send may have reached the chain before the connection
+              // failed: keep the cooldown so a retry cannot pay twice.
+              throw new TRPCError({
+                code: "INTERNAL_SERVER_ERROR",
+                message:
+                  "Your reward may still arrive. Check your wallet before trying again.",
+              });
+            }
+
+            // A node rejection proves nothing was broadcast: give the cooldown back.
             await prisma.userWallet.update({
               where: { id: wallet.id },
-              data: { last_airdrop_request: null },
+              data: { last_airdrop_request: previousRequest, updated_at: new Date() },
             });
           }
 
