@@ -270,6 +270,6 @@ export const libraryRouter = router({
     .input(libraryDownloadsCheckSchema)
     .mutation(async ({ ctx, input }) => {
       const viewer = await begin(ctx, "read");
-      return checkDownloads(viewer.userId, input.device, input.ids);
+      return checkDownloads(viewer, input.device, input.ids);
     }),
 });

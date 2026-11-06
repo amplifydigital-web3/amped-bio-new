@@ -16,6 +16,9 @@ const db = vi.hoisted(() => {
     contentAsset: { findMany: fn() },
     viewerProgress: { findMany: fn() },
     savedItem: { findMany: fn() },
+    offerItem: { findMany: fn() },
+    purchase: { findMany: fn() },
+    membership: { findMany: fn() },
     downloadRecord: {
       create: fn(),
       findUnique: fn(),
@@ -27,6 +30,8 @@ const db = vi.hoisted(() => {
 });
 const limits = vi.hoisted(() => ({ hits: 1 }));
 const delivery = vi.hoisted(() => ({ reason: null as null | "no_download" | "not_ready" }));
+/** The gating engine's answer for gated items (accessGating on) */
+const engine = vi.hoisted(() => ({ allowed: false }));
 
 vi.mock("@repo/database", () => ({ prisma: db, Prisma: {} }));
 vi.mock("../utils/auth", () => ({ auth: { api: {} } }));
@@ -34,6 +39,25 @@ vi.mock("../utils/rateLimit", () => ({ hitRateLimit: vi.fn(async () => limits.hi
 vi.mock("../utils/fileUrlResolver", () => ({ getFileUrl: vi.fn(async () => null) }));
 vi.mock("../services/follow/poolFans", () => ({
   batchPoolFanCreatorIds: vi.fn(async () => new Set<number>()),
+}));
+vi.mock("../services/access/engine", () => ({
+  checkBatch: vi.fn(
+    async (_viewer: unknown, resources: Array<{ type: string; id: string }>) =>
+      new Map(
+        resources.map(resource => [
+          `${resource.type}:${resource.id}`,
+          {
+            allowed: engine.allowed,
+            reason: engine.allowed ? "rule_passed" : "not_pool_member",
+            hint: { action: "stake" },
+            rule: engine.allowed
+              ? { id: "1".repeat(32), kind: "pool_member", summary: "Pool fans" }
+              : null,
+            checkedAt: new Date().toISOString(),
+          },
+        ])
+      )
+  ),
 }));
 vi.mock("../services/content/publicView", () => ({
   cardsForItems: vi.fn(
@@ -105,6 +129,7 @@ function item(extra: Record<string, unknown> = {}) {
     accessRuleId: null,
     adult: false,
     deletedAt: null,
+    hiddenAt: null,
     allowDownload: true,
     user: publicCreator,
     ...extra,
@@ -124,11 +149,15 @@ beforeEach(() => {
   vi.clearAllMocks();
   limits.hits = 1;
   delivery.reason = null;
+  engine.allowed = false;
   __setFeatureFlagOverridesForTests({ fanLibrary: true });
   db.user.findMany.mockResolvedValue([mayaUser]);
   db.theme.findMany.mockResolvedValue([]);
   db.viewerProgress.findMany.mockResolvedValue([]);
   db.savedItem.findMany.mockResolvedValue([]);
+  db.offerItem.findMany.mockResolvedValue([]);
+  db.purchase.findMany.mockResolvedValue([]);
+  db.membership.findMany.mockResolvedValue([]);
   db.contentAsset.findMany.mockResolvedValue([{ role: "STREAM", scanStatus: "SKIPPED" }]);
   db.downloadRecord.create.mockResolvedValue({});
   db.downloadRecord.update.mockResolvedValue({});
@@ -177,6 +206,21 @@ describe("recordDownload", () => {
       fan.recordDownload({ publicId: "item000000000096", device: DEVICE })
     ).rejects.toThrow("This item is not available.");
     expect(db.downloadRecord.create).not.toHaveBeenCalled();
+  });
+
+  it("allows a gated item the fan can open and refuses one the engine refuses", async () => {
+    __setFeatureFlagOverridesForTests({ fanLibrary: true, accessGating: true });
+    const gated = item({ accessRuleId: Buffer.alloc(16, 3) });
+    db.contentItem.findUnique.mockResolvedValue(gated);
+    engine.allowed = true;
+    await expect(
+      fan.recordDownload({ publicId: gated.publicId, device: DEVICE })
+    ).resolves.toEqual(expect.objectContaining({ id: expect.any(String) }));
+
+    engine.allowed = false;
+    await expect(
+      fan.recordDownload({ publicId: gated.publicId, device: DEVICE })
+    ).rejects.toThrow("This item is not available.");
   });
 
   it("refuses an item whose files have not passed the scan", async () => {
@@ -287,6 +331,20 @@ describe("downloadsCheck", () => {
     );
     expect(closed.sort()).toEqual([lost, gone, off].map(r => hex(r.id)).sort());
     expect(result.checkedAt).toMatch(/^\d{4}-/);
+  });
+
+  it("keeps a gated copy the fan can still open and closes it when access ends", async () => {
+    __setFeatureFlagOverridesForTests({ fanLibrary: true, accessGating: true });
+    const kept = record(item({ accessRuleId: Buffer.alloc(16, 3) }));
+    db.downloadRecord.findMany.mockResolvedValue([kept]);
+    engine.allowed = true;
+    let result = await fan.downloadsCheck({ device: DEVICE, ids: [hex(kept.id)] });
+    expect(result.allowed).toEqual([hex(kept.id)]);
+    expect(db.downloadRecord.updateMany).not.toHaveBeenCalled();
+
+    engine.allowed = false;
+    result = await fan.downloadsCheck({ device: DEVICE, ids: [hex(kept.id)] });
+    expect(result.removed).toEqual([{ id: hex(kept.id), reason: "access" }]);
   });
 
   it("a copy kept on another device is not this app's", async () => {

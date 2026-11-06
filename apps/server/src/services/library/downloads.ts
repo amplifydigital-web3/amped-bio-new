@@ -27,7 +27,7 @@ import { hitRateLimit } from "../../utils/rateLimit";
 import { newDownloadJti } from "../cloudflare/mediaToken";
 import { servedAssetsClean } from "../content/access";
 import { buildDownload, DeliveryError } from "../content/delivery";
-import { libraryAccess, type LibraryViewer } from "./access";
+import { libraryDecisions, type LibraryViewer } from "./access";
 import { ITEM_CREATOR_SELECT, toLibraryItems, type ItemWithCreator } from "./library";
 
 const hex = (id: Uint8Array) => Buffer.from(id).toString("hex");
@@ -38,20 +38,22 @@ export class DownloadRefused extends Error {
   }
 }
 
-/** Why the fan may no longer keep a copy of this item, or null when they may. */
+/**
+ * Why the copy may no longer stay from the item alone, or null. Access is
+ * decided separately by the gating engine, the same rule the Library lists by.
+ */
 export function removalReason(
-  item: ItemWithCreator,
-  viewerId: number
-): Exclude<LibraryDownloadRemovedReason, "removed"> | null {
+  item: ItemWithCreator
+): Exclude<LibraryDownloadRemovedReason, "removed" | "access"> | null {
   if (
     item.deletedAt !== null ||
+    item.hiddenAt !== null ||
     item.status !== "READY" ||
     item.publishState !== "PUBLISHED" ||
     item.moderationState !== "CLEAR"
   ) {
     return "unavailable";
   }
-  if (!libraryAccess(item, item.user, viewerId)) return "access";
   if (!item.allowDownload) return "downloadsOff";
   return null;
 }
@@ -76,9 +78,11 @@ export async function recordDownload(
   const viewerId = viewer.userId;
   const item = await loadItem(publicId);
   if (!item) throw new DownloadRefused("notFound");
-  const reason = removalReason(item, viewerId);
+  const reason = removalReason(item);
   if (reason === "downloadsOff") throw new DownloadRefused("downloadsOff");
   if (reason) throw new DownloadRefused("notFound");
+  // The same decision the Library lists by, so gated items the fan can open
+  // (pool, follower, membership, purchase) can be kept offline too
   const [listed] = await toLibraryItems(viewer, [item], undefined, now);
   if (!listed) throw new DownloadRefused("notFound");
   if (!canKeepOffline(listed)) throw new DownloadRefused("downloadsOff");
@@ -197,11 +201,12 @@ export async function listDownloads(
  * fan's, or were removed already, come back removed so the app deletes the file.
  */
 export async function checkDownloads(
-  viewerId: number,
+  viewer: LibraryViewer,
   device: string,
   ids: string[],
   now: Date = new Date()
 ): Promise<LibraryDownloadsCheck> {
+  const viewerId = viewer.userId;
   const unique = [...new Set(ids)];
   const rows = unique.length
     ? await prisma.downloadRecord.findMany({
@@ -210,6 +215,21 @@ export async function checkDownloads(
       })
     : [];
   const byId = new Map(rows.map(row => [hex(row.id), row]));
+
+  // One engine batch for the records that pass the item checks, so a check of
+  // many copies stays a handful of queries (gated items included)
+  const openable = rows.filter(
+    row =>
+      row.userId === viewerId &&
+      row.device === device &&
+      !row.removedAt &&
+      !removalReason(row.contentItem as ContentItem & ItemWithCreator)
+  );
+  const decisions = await libraryDecisions(
+    viewer,
+    openable.map(row => row.contentItem as ContentItem & ItemWithCreator)
+  );
+
   const allowed: string[] = [];
   const removed: LibraryDownloadsCheck["removed"] = [];
   const toClose: { id: Buffer; reason: string }[] = [];
@@ -225,7 +245,10 @@ export async function checkDownloads(
       removed.push({ id, reason });
       continue;
     }
-    const reason = removalReason(row.contentItem as ContentItem & ItemWithCreator, viewerId);
+    const itemReason = removalReason(row.contentItem as ContentItem & ItemWithCreator);
+    const decision = decisions.get(row.contentItem.publicId);
+    const reason: LibraryDownloadRemovedReason | null =
+      itemReason ?? (decision && "open" in decision ? null : "access");
     if (reason) {
       removed.push({ id, reason });
       toClose.push({ id: Buffer.from(row.id), reason });
