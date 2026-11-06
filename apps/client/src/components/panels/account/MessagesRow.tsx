@@ -9,6 +9,7 @@ import {
   type MessageRuleKind,
 } from "@repo/constants";
 import { Button, ErrorCard, Notice, Switch, cn, trpc, trpcClient } from "@repo/ui";
+import { isFeatureOn } from "@/config/featureFlags";
 import { toast } from "@/components/ui/toast";
 import { DisclosureRow } from "../design/kit/DisclosureRow";
 import { FieldError } from "../page/blocks/LinkFields";
@@ -260,6 +261,17 @@ function NotificationSettings() {
     onSuccess: next => queryClient.setQueryData(trpc.notifications.messagePrefs.queryKey(), next),
     onError: () => toast.add({ type: "error", title: MESSAGE_UI.saveFailed }),
   });
+  // Fan Library new content alerts (FL-6, fl-q5), shown once the Library is on
+  const library = isFeatureOn("fanLibrary");
+  const newContent = useQuery({
+    ...trpc.notifications.newContent.queryOptions(),
+    enabled: library,
+  });
+  const setNewContent = useMutation({
+    mutationFn: (enabled: boolean) => trpcClient.notifications.setNewContent.mutate({ enabled }),
+    onSuccess: next => queryClient.setQueryData(trpc.notifications.newContent.queryKey(), next),
+    onError: () => toast.add({ type: "error", title: MESSAGE_UI.saveFailed }),
+  });
   const P = MESSAGE_UI.push;
   const ios = needsIosInstall();
 
@@ -303,6 +315,17 @@ function NotificationSettings() {
         label={S.emailLabel}
         description={S.emailHelp}
       />
+      {library && (
+        <Switch
+          checked={
+            setNewContent.isPending ? !!setNewContent.variables : (newContent.data?.enabled ?? true)
+          }
+          disabled={newContent.isLoading || setNewContent.isPending}
+          onChange={next => setNewContent.mutate(next)}
+          label={S.newContentLabel}
+          description={S.newContentHelp}
+        />
+      )}
     </section>
   );
 }

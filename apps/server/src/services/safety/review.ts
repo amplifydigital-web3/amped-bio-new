@@ -319,14 +319,28 @@ export async function claimCase(caseId: string, reviewer: Reviewer, now: Date = 
   ) {
     throw new SafetyActionError("conflict", "Someone else is on this case.");
   }
-  await prisma.safetyCase.update({
-    where: { id: safetyCase.id },
+  // Conditional claim: two reviewers who press at the same time, or a claim that
+  // lapsed between the read and the write, must not both take the case.
+  const lapseCutoff = new Date(now.getTime() - settings.claimIdleMinutes * 60_000);
+  const claimed = await prisma.safetyCase.updateMany({
+    where: {
+      id: safetyCase.id,
+      OR: [
+        { assigneeId: null },
+        { assigneeId: reviewer.id },
+        { claimedAt: null },
+        { claimedAt: { lt: lapseCutoff } },
+      ],
+    },
     data: {
       assigneeId: reviewer.id,
       claimedAt: now,
       ...(safetyCase.state === "OPEN" ? { state: "CLAIMED" as const } : {}),
     },
   });
+  if (claimed.count !== 1) {
+    throw new SafetyActionError("conflict", "Someone else is on this case.");
+  }
   await logSafetyEvent({ caseId: safetyCase.id, actorId: reviewer.id, action: "claim" });
 }
 
@@ -444,9 +458,33 @@ export async function decideCase(input: DecideInput, reviewer: Reviewer, now: Da
     ? await prisma.contentItem.findUnique({ where: { id: Buffer.from(safetyCase.contentItemId) } })
     : null;
   if (!item) throw new SafetyActionError("bad_request", "This case has no item to decide.");
+  if (input.outcome === "label_clear") {
+    const profile = await prisma.creatorAdultProfile.findUnique({ where: { userId: item.userId } });
+    if (!profile?.enabledAt || profile.disabledAt) {
+      throw new SafetyActionError(
+        "bad_request",
+        "Label 18+ needs the creator to have 18+ turned on."
+      );
+    }
+  }
 
   const reason = input.reasonCode ? SAFETY_REASON_CODES[input.reasonCode] : null;
-  let state: SafetyCase["state"] = "DECIDED";
+  const state: SafetyCase["state"] = input.outcome === "needs_change" ? "WAITING_CREATOR" : "DECIDED";
+  // One decision wins. Two reviewers (or a double click) can have the same case open,
+  // so the transition is conditional and the loser does nothing: no second strike,
+  // blocklist write, hide or creator email.
+  const claimed = await prisma.safetyCase.updateMany({
+    where: { id: safetyCase.id, state: { in: [...OPEN] } },
+    data: {
+      state,
+      outcome: input.outcome,
+      reasonCode: input.reasonCode ?? null,
+      decidedById: reviewer.id,
+      decidedAt: now,
+    },
+  });
+  if (claimed.count !== 1) throw new SafetyActionError("conflict", "This case is already decided.");
+
   switch (input.outcome) {
     case "clear":
       await prisma.contentItem.update({
@@ -456,16 +494,7 @@ export async function decideCase(input: DecideInput, reviewer: Reviewer, now: Da
       if (item.hiddenReason === "safety") await restoreItems([item.publicId]);
       else await syncEdge([item.publicId], now);
       break;
-    case "label_clear": {
-      const profile = item.userId
-        ? await prisma.creatorAdultProfile.findUnique({ where: { userId: item.userId } })
-        : null;
-      if (!profile?.enabledAt || profile.disabledAt) {
-        throw new SafetyActionError(
-          "bad_request",
-          "Label 18+ needs the creator to have 18+ turned on."
-        );
-      }
+    case "label_clear":
       await prisma.contentItem.update({
         where: { id: item.id },
         data: { adult: true, moderationState: "CLEAR", moderationReason: null },
@@ -473,9 +502,7 @@ export async function decideCase(input: DecideInput, reviewer: Reviewer, now: Da
       if (item.hiddenReason === "safety") await restoreItems([item.publicId]);
       else await syncEdge([item.publicId], now);
       break;
-    }
     case "needs_change":
-      state = "WAITING_CREATOR";
       await prisma.contentItem.update({
         where: { id: item.id },
         data: { moderationState: "HELD", moderationReason: `safety:${input.reasonCode}` },
@@ -520,16 +547,6 @@ export async function decideCase(input: DecideInput, reviewer: Reviewer, now: Da
       await noticeCreator(item.userId, item, "An item was removed", reason!.creator);
       break;
   }
-  await prisma.safetyCase.update({
-    where: { id: safetyCase.id },
-    data: {
-      state,
-      outcome: input.outcome,
-      reasonCode: input.reasonCode ?? null,
-      decidedById: reviewer.id,
-      decidedAt: now,
-    },
-  });
   await logSafetyEvent({
     caseId: safetyCase.id,
     actorId: reviewer.id,
@@ -553,10 +570,14 @@ export async function decideCase(input: DecideInput, reviewer: Reviewer, now: Da
  */
 export async function escalateCase(
   input: { caseId: string; kind: "child_safety" | "trafficking"; note: string },
-  reviewer: Reviewer
+  reviewer: Reviewer,
+  now: Date = new Date()
 ) {
   const safetyCase = await loadCase(input.caseId);
   requireAccess(safetyCase, reviewer);
+  if (!OPEN.includes(safetyCase.state as (typeof OPEN)[number])) {
+    throw new SafetyActionError("conflict", "This case is already decided.");
+  }
   if (input.note.trim().length < 10) {
     throw new SafetyActionError("bad_request", "Add a note of at least 10 characters.");
   }
@@ -566,6 +587,19 @@ export async function escalateCase(
         select: { id: true, publicId: true, userId: true },
       })
     : null;
+  // Claim the parent transition before the side effects: a double click, or two
+  // reviewers, must not open a second Critical case. A trafficking case has no item
+  // to join, so without this each call would number a new REPORT case.
+  const claimed = await prisma.safetyCase.updateMany({
+    where: { id: safetyCase.id, state: { in: [...OPEN] } },
+    data: {
+      state: "DECIDED",
+      outcome: "escalated",
+      decidedById: reviewer.id,
+      decidedAt: now,
+    },
+  });
+  if (claimed.count !== 1) throw new SafetyActionError("conflict", "This case is already decided.");
   if (input.kind === "child_safety" && item) {
     await hideItems([item.publicId], "child_safety");
   }
@@ -578,6 +612,7 @@ export async function escalateCase(
     actorId: reviewer.id,
     source: input.kind === "child_safety" ? "escalation" : "trafficking",
     note: input.note.trim(),
+    now,
   });
   if (input.kind === "child_safety" && item && !opened.joined) {
     await Promise.all([
@@ -591,15 +626,6 @@ export async function escalateCase(
       data: { reasonCode: "trafficking" },
     });
   }
-  await prisma.safetyCase.update({
-    where: { id: safetyCase.id },
-    data: {
-      state: "DECIDED",
-      outcome: "escalated",
-      decidedById: reviewer.id,
-      decidedAt: new Date(),
-    },
-  });
   await logSafetyEvent({
     caseId: safetyCase.id,
     actorId: reviewer.id,

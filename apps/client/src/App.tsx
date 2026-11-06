@@ -10,7 +10,7 @@ import { signInUrl } from "./components/shell/ShellGate";
 import { useReferralHandler } from "./hooks/useReferralHandler";
 import { ExternalRedirect, NewVersionDialog, ToastCard, useAuth } from "@repo/ui";
 import { ERROR_TOAST_DURATION } from "@/components/ui/toast";
-import { PayHandoffGate } from "@/components/checkout/HandoffCard";
+import { JoinHandoffGate, PayHandoffGate } from "@/components/checkout/HandoffCard";
 
 // Internal Prism component gallery for review (not linked in the app). Served in
 // development, testing and staging builds only, never in production.
@@ -25,6 +25,7 @@ const PayPage = lazy(() => import("./pages/Pay").then(module => ({ default: modu
 const AppearPage = lazy(() =>
   import("./pages/Appear").then(module => ({ default: module.AppearPage }))
 );
+const JoinPage = lazy(() => import("./pages/Join").then(module => ({ default: module.JoinPage })));
 const CheckoutReturnPage = lazy(() =>
   import("./pages/CheckoutReturn").then(module => ({ default: module.CheckoutReturnPage }))
 );
@@ -73,6 +74,19 @@ function AppRouter() {
             </ProtectedRoute>
           }
         />
+        {/* MB-2: join a creator's membership (mobile checkout 11, board c2) */}
+        <Route
+          path="/join/:handle"
+          element={
+            <JoinHandoffGate>
+              <ProtectedRoute>
+                <Suspense fallback={<div className="prism-room min-h-dvh" />}>
+                  <JoinPage />
+                </Suspense>
+              </ProtectedRoute>
+            </JoinHandoffGate>
+          }
+        />
         {/* CK-3: Coinbase returns here from a checkout. No session needed, nothing named */}
         <Route
           path="/r/:intentId"
@@ -94,6 +108,17 @@ function AppRouter() {
 
         {/* Amped Messages (#2 r4, M5): push and email links open /inbox/{conversationId} */}
         <Route path="/inbox/:conversationId" element={<InboxDeepLink />} />
+
+        {/* Fan Library (#26, FL-3): /library/search, /library/@handle and the item view.
+          The Editor keeps these sub paths; /library itself is the /:panel route */}
+        <Route
+          path="/library/*"
+          element={
+            <ProtectedRoute>
+              <Editor />
+            </ProtectedRoute>
+          }
+        />
 
         {/* The client only serves the dashboard of the logged-in user; the panel
           (home, gallery, wallet, ...) is the route */}

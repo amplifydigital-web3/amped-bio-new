@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { BookOpen, Download, MoreHorizontal, Upload } from "lucide-react";
+import { BookOpen, Download, Link2, MoreHorizontal, Upload } from "lucide-react";
 import {
   BottomSheet,
   BottomSheetContent,
@@ -30,6 +30,11 @@ import { toast } from "@/components/ui/toast";
 import { useThemeActions } from "./kit/useThemeActions";
 import { StyleTab, MotionTab } from "./StyleMotionTabs";
 import { ThemesTab } from "./themes/ThemesTab";
+import { ShareLookDialog } from "./share/ShareLookDialog";
+import { isFeatureOn } from "../../../config/featureFlags";
+
+// TE-4b: Copy share link joins the menu with looks and sharing (spec 3.15)
+const themeSharingOn = isFeatureOn("themeSharing");
 
 const TABS = ["themes", "style", "motion"] as const;
 
@@ -54,6 +59,13 @@ export function DesignPanel() {
   const [saveOpen, setSaveOpen] = useState(false);
   const [fileName, setFileName] = useState("");
   const locked = theme.user_id === null;
+  const [shareOpen, setShareOpen] = useState(false);
+  // Only the creator's own saved look has a link to share
+  const canShare = themeSharingOn && !locked && theme.id > 0;
+  const openShare = () => {
+    setSheetOpen(false);
+    setShareOpen(true);
+  };
 
   const defaultFileName = () =>
     themeFileName(
@@ -185,6 +197,11 @@ export function DesignPanel() {
                   <SheetRow icon={Upload} onClick={openImport}>
                     Import theme file
                   </SheetRow>
+                  {canShare && (
+                    <SheetRow icon={Link2} onClick={openShare}>
+                      Copy share link
+                    </SheetRow>
+                  )}
                   <hr className="my-2 border-prism-line" />
                   <SheetRow icon={BookOpen} onClick={openArticle}>
                     How theme files work
@@ -207,6 +224,12 @@ export function DesignPanel() {
                 <Upload aria-hidden />
                 Import theme file
               </MenuItem>
+              {canShare && (
+                <MenuItem onSelect={openShare}>
+                  <Link2 aria-hidden />
+                  Copy share link
+                </MenuItem>
+              )}
               <MenuSeparator />
               <MenuItem onSelect={openArticle}>
                 <BookOpen aria-hidden />
@@ -228,7 +251,7 @@ export function DesignPanel() {
       </div>
 
       <TabsContent value="themes" className="mt-0 px-4 pb-6 pt-[21px] md:px-6">
-        <ThemesTab onEditStyle={() => setTab("style")} />
+        <ThemesTab onEditStyle={() => setTab("style")} onJump={setTab} onImport={openImport} />
       </TabsContent>
       <TabsContent value="style" className="mt-0 px-4 pb-6 pt-[21px] md:px-6">
         <StyleTab />
@@ -236,6 +259,10 @@ export function DesignPanel() {
       <TabsContent value="motion" className="mt-0 px-4 pb-6 pt-[21px] md:px-6">
         <MotionTab />
       </TabsContent>
+
+      {canShare && (
+        <ShareLookDialog lookId={theme.id} open={shareOpen} onOpenChange={setShareOpen} />
+      )}
 
       <Dialog open={saveOpen} onOpenChange={setSaveOpen}>
         <DialogContent>

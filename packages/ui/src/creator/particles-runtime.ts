@@ -1,4 +1,4 @@
-import { tsParticles, type Container, type ISourceOptions } from "@tsparticles/engine";
+import { tsParticles, type Container, type Engine, type ISourceOptions } from "@tsparticles/engine";
 import { loadSlim } from "@tsparticles/slim";
 
 /**
@@ -7,6 +7,13 @@ import { loadSlim } from "@tsparticles/slim";
  * particle overlay, so pages without particles never download the engine.
  * tsParticles v4 with the slim bundle: every core overlay's shapes, links and
  * hover modes, without the full bundle the v1 layer loads.
+ *
+ * TE-3f: tsParticles v4 takes plugins only before an engine's first load, and
+ * the editor mounts slim scenes (tiles, the preview) before a creator picks
+ * Fireworks. So a scene that names plugins on its registry entry runs on a
+ * second engine that registers slim plus every scene plugin at once
+ * (particles-plugins.ts, its own chunk, about 15 KB gzip). Pages with only
+ * slim scenes never download it.
  */
 
 let slimReady: Promise<void> | null = null;
@@ -21,6 +28,28 @@ function ensureSlim(): Promise<void> {
   return slimReady;
 }
 
+let pluginEngine: Promise<Engine> | null = null;
+
+/** The second engine, created once, with slim and the scene plugins registered. */
+function ensurePluginEngine(): Promise<Engine> {
+  if (!pluginEngine) {
+    pluginEngine = import("./particles-plugins")
+      .then(async ({ registerScenePlugins }) => {
+        // The engine class is not exported; the shared instance's constructor is it
+        const EngineClass = tsParticles.constructor as new () => Engine;
+        const engine = new EngineClass();
+        await loadSlim(engine);
+        await registerScenePlugins(engine);
+        return engine;
+      })
+      .catch(error => {
+        pluginEngine = null;
+        throw error;
+      });
+  }
+  return pluginEngine;
+}
+
 let mounts = 0;
 
 /**
@@ -30,11 +59,14 @@ let mounts = 0;
  */
 export async function mountParticles(
   element: HTMLElement,
-  options: Record<string, unknown>
+  options: Record<string, unknown>,
+  plugins: readonly string[] = []
 ): Promise<Container | undefined> {
-  await ensureSlim();
+  let engine: Engine = tsParticles;
+  if (plugins.length > 0) engine = await ensurePluginEngine();
+  else await ensureSlim();
   mounts += 1;
-  return tsParticles.load({
+  return engine.load({
     id: `amped-particles-${mounts}`,
     element,
     options: options as ISourceOptions,

@@ -34,6 +34,7 @@ import { TelegramMessageBlock } from "@/components/blocks/TelegramMessageBlock";
 import { MessageBlock } from "@/components/blocks/MessageBlock";
 import { TelegramGroupBlock } from "@/components/blocks/TelegramGroupBlock";
 import { ContentBlock } from "@/components/content/ContentBlock";
+import { StoreBlock } from "@/components/store/StoreBlock";
 import { GatedBlock } from "@/components/blocks/GatedBlock";
 import { usePageDecisions } from "@/components/content/gating";
 import { FollowContext } from "@/components/follow/FollowContext";
@@ -189,6 +190,8 @@ export function ProfileView({
   const [blocks, setBlocks] = useState<BlockType[]>(initialData?.blocks ?? []);
   const [theme, setTheme] = useState<Theme | null>(initialData?.theme ?? null);
   const [contentCards, setContentCards] = useState(initialData?.contentCards ?? {});
+  const [fontLinks, setFontLinks] = useState<string[] | null>(initialData?.fonts ?? null);
+  const [storeBlock, setStoreBlock] = useState(initialData?.storeBlock ?? null);
   const [hasCreatorPool, setHasCreatorPool] = useState(initialData?.hasCreatorPool ?? false);
   const [creatorPoolAddress, setCreatorPoolAddress] = useState(
     initialData?.creatorPoolAddress ?? null
@@ -225,6 +228,10 @@ export function ProfileView({
   const messagesOn = useFeatureFlag("messages");
   // Theme Engine v2 (#28): the shared CreatorPage shell, staging first
   const themeV2 = useFeatureFlag("themeV2");
+  // Theme Engine v2 phase 3 (TE-3a): showcase engines, staging first
+  const themeShowcase = useFeatureFlag("themeShowcase");
+  // Theme Engine v2 fonts (2b): catalog faces load only while fontCatalog is on
+  const fontCatalogOn = useFeatureFlag("fontCatalog");
 
   // Pause motion (041 I02): read the remembered choice once on the client
   useEffect(() => {
@@ -339,6 +346,8 @@ export function ProfileView({
           setCreatorPoolAddress(data.creatorPoolAddress);
           setTrackingPixels(data.trackingPixels);
           setContentCards(data.contentCards);
+          setFontLinks(data.fonts);
+          setStoreBlock(data.storeBlock);
         }
       } catch {
         if (normalizedHandle === DEFAULT_HANDLE) {
@@ -536,6 +545,9 @@ export function ProfileView({
           handle={normalizedHandle}
           creatorName={profile.name || null}
         />
+      ) : block.type === "store" ? (
+        // Store block (st10): public stores only, from getHandle
+        <StoreBlock block={block} theme={themeConfig} store={storeBlock} />
       ) : (
         <TextBlock block={block as any} theme={themeConfig as any} />
       )}
@@ -723,6 +735,9 @@ export function ProfileView({
       bottomPadding={`calc(89px + env(safe-area-inset-bottom, 0px) + ${cardShowing ? cardHeight + 13 : 0}px)`}
       entranceKey={normalizedHandle}
       device={weakDevice ? "weak" : undefined}
+      showcase={themeShowcase}
+      loadFonts={fontCatalogOn}
+      fontLinks={fontCatalogOn ? fontLinks : null}
     />
   ) : (
     <div

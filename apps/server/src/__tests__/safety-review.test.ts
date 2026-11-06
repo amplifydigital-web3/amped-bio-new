@@ -20,17 +20,23 @@ const db = vi.hoisted(() => {
   const hex = (v: any) => (v ? Buffer.from(v).toString("hex") : null);
   const eq = (a: any, b: any) =>
     a instanceof Uint8Array || b instanceof Uint8Array ? hex(a) === hex(b) : a === b;
-  const match = (row: Row, where: Row = {}): boolean =>
-    Object.entries(where).every(([key, value]) => {
-      if (value && typeof value === "object" && !(value instanceof Uint8Array)) {
-        if ("in" in value) return value.in.some((v: any) => eq(row[key], v));
-        if ("not" in value) return !eq(row[key], value.not);
-        if ("lt" in value) return row[key] < value.lt;
-        if ("gte" in value) return row[key] >= value.gte;
-        if ("startsWith" in value) return String(row[key]).startsWith(value.startsWith);
-      }
-      return eq(row[key] ?? null, value);
-    });
+  const match = (row: Row, where: Row = {}): boolean => {
+    if (Array.isArray(where.OR) && !where.OR.some((clause: Row) => match(row, clause))) {
+      return false;
+    }
+    return Object.entries(where)
+      .filter(([key]) => key !== "OR")
+      .every(([key, value]) => {
+        if (value && typeof value === "object" && !(value instanceof Uint8Array)) {
+          if ("in" in value) return value.in.some((v: any) => eq(row[key], v));
+          if ("not" in value) return !eq(row[key], value.not);
+          if ("lt" in value) return row[key] < value.lt;
+          if ("gte" in value) return row[key] >= value.gte;
+          if ("startsWith" in value) return String(row[key]).startsWith(value.startsWith);
+        }
+        return eq(row[key] ?? null, value);
+      });
+  };
   const table = (rows: () => Row[]) => ({
     findUnique: vi.fn(async ({ where }: any) => rows().find(r => match(r, where)) ?? null),
     findFirst: vi.fn(async ({ where, orderBy }: any) => {
@@ -45,6 +51,13 @@ const db = vi.hoisted(() => {
         .slice(0, take)
     ),
     count: vi.fn(async ({ where }: any) => rows().filter(r => match(r, where)).length),
+    groupBy: vi.fn(async ({ where }: any) => {
+      const counts = new Map<string, number>();
+      for (const row of rows().filter(r => match(r, where))) {
+        counts.set(row.type, (counts.get(row.type) ?? 0) + 1);
+      }
+      return [...counts].map(([type, total]) => ({ type, _count: { _all: total } }));
+    }),
     create: vi.fn(async ({ data }: any) => {
       const row = { createdAt: new Date(), ...data };
       rows().push(row);
@@ -53,6 +66,11 @@ const db = vi.hoisted(() => {
     update: vi.fn(async ({ where, data }: any) =>
       Object.assign(rows().find(r => match(r, where))!, data)
     ),
+    updateMany: vi.fn(async ({ where, data }: any) => {
+      const found = rows().filter(r => match(r, where));
+      for (const row of found) Object.assign(row, data);
+      return { count: found.length };
+    }),
   });
   const prisma: any = {
     safetyCase: table(() => s.cases),
@@ -64,6 +82,7 @@ const db = vi.hoisted(() => {
     creatorAdultProfile: table(() => s.profiles),
     contentReport: { findMany: vi.fn(async () => []) },
     blockedContentHash: table(() => s.hashes),
+    takedownRequest: { findFirst: vi.fn(async () => null) },
     siteSettings: { findUnique: vi.fn(async () => null) },
   };
   for (const row of [s.cases]) void row;
@@ -111,7 +130,7 @@ vi.mock("../services/cloudflare/mediaToken", () => ({
   mediaUrl: (key: string, token: string) => `https://media.test/${key}?t=${token}`,
 }));
 
-import { openCase } from "../services/safety/cases";
+import { openCase, caseOverview } from "../services/safety/cases";
 import {
   claimCase,
   decideCase,
@@ -196,6 +215,18 @@ describe("queue (8.1)", () => {
     const child = lead.items.find(row => row.type === "CHILD_SAFETY")!;
     expect(child.thumb).toBeNull();
   });
+
+  it("keeps child safety out of the moderator summary tiles (#8.8)", async () => {
+    seedItem();
+    await open("CLASSIFIER_HOLD");
+    await open("CHILD_SAFETY");
+    const mod = await caseOverview(new Date(), { lead: false });
+    expect(mod.open).toBe(1);
+    expect(mod.byType.CHILD_SAFETY).toBeUndefined();
+    const lead = await caseOverview(new Date(), { lead: true });
+    expect(lead.open).toBe(2);
+    expect(lead.byType.CHILD_SAFETY).toBe(1);
+  });
 });
 
 describe("case view (8.2)", () => {
@@ -233,6 +264,15 @@ describe("case view (8.2)", () => {
     await expect(claimCase(hex(hold.id), LEAD, now)).rejects.toMatchObject({ code: "conflict" });
     await claimCase(hex(hold.id), LEAD, new Date(now.getTime() + 31 * 60_000));
     expect(db.s.cases[0]).toMatchObject({ assigneeId: 51, state: "CLAIMED" });
+  });
+
+  it("refuses a claim another reviewer took at the same moment", async () => {
+    seedItem();
+    const hold = await open("CLASSIFIER_HOLD");
+    // The other reviewer's claim lands between our read and our conditional update
+    db.prisma.safetyCase.updateMany.mockResolvedValueOnce({ count: 0 });
+    await expect(claimCase(hex(hold.id), MOD)).rejects.toMatchObject({ code: "conflict" });
+    expect(db.s.cases[0]).toMatchObject({ assigneeId: null });
   });
 });
 
@@ -334,6 +374,18 @@ describe("decisions (8.2)", () => {
     expect(db.s.cases[0]!.state).toBe("WAITING_CREATOR");
     expect(item.moderationState).toBe("HELD");
   });
+
+  it("does nothing when another reviewer decided the case at the same moment", async () => {
+    const item = seedItem();
+    const hold = await open("CLASSIFIER_HOLD");
+    // The conditional transition finds the case already moved and loses the race
+    db.prisma.safetyCase.updateMany.mockResolvedValueOnce({ count: 0 });
+    await expect(
+      decideCase({ caseId: hex(hold.id), outcome: "clear", note: "Not explicit, fine" }, MOD)
+    ).rejects.toMatchObject({ code: "conflict" });
+    expect(item.moderationState).toBe("HELD");
+    expect(side.deliverEmail).not.toHaveBeenCalled();
+  });
 });
 
 describe("escalate (8.5)", () => {
@@ -365,5 +417,15 @@ describe("escalate (8.5)", () => {
       severity: 0,
       reasonCode: "trafficking",
     });
+  });
+
+  it("refuses to escalate a case that is already decided", async () => {
+    seedItem();
+    const hold = await open("CLASSIFIER_HOLD");
+    await decideCase({ caseId: hex(hold.id), outcome: "clear", note: "Not explicit, fine" }, MOD);
+    await expect(
+      escalateCase({ caseId: hex(hold.id), kind: "trafficking", note: "Signs of coercion" }, MOD)
+    ).rejects.toMatchObject({ code: "conflict" });
+    expect(db.s.cases.filter(c => c.type === "REPORT")).toHaveLength(0);
   });
 });
