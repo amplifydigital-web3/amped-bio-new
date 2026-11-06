@@ -914,8 +914,12 @@ enum BroadcastStatus {
   FAILED
 }
 
+// Amped Messages M9 (bc-audience): pool stakers, followers, or both. ALL_MEMBERS rows
+// became POOL_MEMBERS in 20261105120000_broadcast_audiences
 enum BroadcastAudienceKind {
-  ALL_MEMBERS
+  POOL_MEMBERS
+  FOLLOWERS
+  POOL_AND_FOLLOWERS
 }
 
 enum BroadcastEmailStatus {
@@ -939,8 +943,9 @@ enum BroadcastReportReason {
 model Broadcast {
   id                Int                   @id @default(autoincrement())
   creatorUserId     Int
+  // Set only when the audience includes the pool (M9)
   poolId            Int?
-  audienceKind      BroadcastAudienceKind @default(ALL_MEMBERS)
+  audienceKind      BroadcastAudienceKind @default(POOL_MEMBERS)
   title             String                @db.VarChar(120)
   body              String                @db.Text // Markdown subset, rendered with an allowlist
   sendEmail         Boolean               @default(false) // email arrives in phase 2
