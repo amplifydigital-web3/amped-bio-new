@@ -1,0 +1,826 @@
+diff --git a/apps/server/src/__tests__/helpers/fakePoolsDb.ts b/apps/server/src/__tests__/helpers/fakePoolsDb.ts
+index b644520..9003179 100644
+--- a/apps/server/src/__tests__/helpers/fakePoolsDb.ts
++++ b/apps/server/src/__tests__/helpers/fakePoolsDb.ts
+@@ -8,7 +8,7 @@ export class FakeDecimal {
+   constructor(value: string | number | bigint) {
+     this.value = String(value);
+   }
+-  toFixed(): string {
++  toFixed(_digits?: number): string {
+     return this.value;
+   }
+   toString(): string {
+@@ -23,8 +23,6 @@ export interface FakePool {
+   name: string | null;
+   description: string | null;
+   poolAddress: string | null;
+-  revoStaked: string;
+-  fans: number;
+   hidden: boolean;
+   creatorStakeWei: FakeDecimal;
+   fanStakeWei: FakeDecimal;
+@@ -180,8 +178,6 @@ export function createFakePoolsDb() {
+       name: `Pool ${partial.id}`,
+       description: null,
+       poolAddress: `0x${partial.id.toString(16).padStart(40, "0")}`,
+-      revoStaked: "0",
+-      fans: 0,
+       hidden: false,
+       creatorStakeWei: new FakeDecimal(0),
+       fanStakeWei: new FakeDecimal(0),
+diff --git a/apps/server/src/__tests__/pool-stats.test.ts b/apps/server/src/__tests__/pool-stats.test.ts
+index ccb5f19..14c70e6 100644
+--- a/apps/server/src/__tests__/pool-stats.test.ts
++++ b/apps/server/src/__tests__/pool-stats.test.ts
+@@ -254,8 +254,9 @@ describe("backfillPoolStats", () => {
+       id: 30,
+       walletId: CREATOR,
+       name: null,
+-      revoStaked: (12n * E).toString(),
+-      fans: 3,
++      // Stats as stored before the backfill
++      totalStakeWei: new FakeDecimal(2n * E),
++      activeFans: 3,
+     });
+     db.current.addEvent({
+       userWalletId: CREATOR,
+@@ -278,6 +279,7 @@ describe("backfillPoolStats", () => {
+     const lines: string[] = [];
+     const rows = await backfillPoolStats({ apply: false, log: l => lines.push(l), ...reads });
+     expect(rows[0]).toMatchObject({
++      oldTotal: (2n * E).toString(),
+       newTotal: (12n * E).toString(),
+       oldFans: 3,
+       newFans: 1,
+diff --git a/apps/server/src/routes/mcp.ts b/apps/server/src/routes/mcp.ts
+index 94afe5d..075d1f0 100644
+--- a/apps/server/src/routes/mcp.ts
++++ b/apps/server/src/routes/mcp.ts
+@@ -297,12 +297,19 @@ mcpServer.registerTool(
+ 
+     const pools = await prisma.creatorPool.findMany({
+       where: { walletId: wallet.id },
+-      select: { chainId: true, poolAddress: true, name: true, revoStaked: true },
++      select: { chainId: true, poolAddress: true, name: true, totalStakeWei: true },
+       orderBy: { id: "desc" },
+       take: 25,
+     });
+ 
+-    return textResult(JSON.stringify(pools, null, 2));
++    // Total staked in wei, creator plus fans (pools list paging PL4)
++    return textResult(
++      JSON.stringify(
++        pools.map(pool => ({ ...pool, totalStakeWei: pool.totalStakeWei.toFixed(0) })),
++        null,
++        2
++      )
++    );
+   }
+ );
+ 
+diff --git a/apps/server/src/services/poolStatsBackfill.ts b/apps/server/src/services/poolStatsBackfill.ts
+index bca0c8e..5b865ed 100644
+--- a/apps/server/src/services/poolStatsBackfill.ts
++++ b/apps/server/src/services/poolStatsBackfill.ts
+@@ -4,8 +4,8 @@
+  *
+  * For every pool: createdAt from the launch event (else the earliest event),
+  * a null name from the chain, the creator's stake from the chain, then the
+- * stats columns. A dry run reports the changes and writes nothing. Running it
+- * again gives the same result.
++ * stats columns. A dry run reports the changes against the stored stats
++ * columns and writes nothing. Running it again gives the same result.
+  */
+ import { prisma, Prisma } from "@repo/database";
+ import { createPublicClient, type Address } from "viem";
+@@ -69,8 +69,8 @@ export async function backfillPoolStats(options: BackfillOptions): Promise<Backf
+       walletId: true,
+       name: true,
+       poolAddress: true,
+-      revoStaked: true,
+-      fans: true,
++      totalStakeWei: true,
++      activeFans: true,
+     },
+     orderBy: { id: "asc" },
+   });
+@@ -132,9 +132,9 @@ export async function backfillPoolStats(options: BackfillOptions): Promise<Backf
+       const row: BackfillRow = {
+         id: pool.id,
+         chainId: pool.chainId,
+-        oldTotal: toWei(pool.revoStaked).toString(),
++        oldTotal: pool.totalStakeWei.toFixed(0),
+         newTotal: stats.totalStakeWei.toString(),
+-        oldFans: pool.fans,
++        oldFans: pool.activeFans,
+         newFans: stats.activeFans,
+         nameFilled,
+       };
+diff --git a/apps/server/src/trpc/admin/pools.ts b/apps/server/src/trpc/admin/pools.ts
+index c2cfdbf..dd299ba 100644
+--- a/apps/server/src/trpc/admin/pools.ts
++++ b/apps/server/src/trpc/admin/pools.ts
+@@ -218,7 +218,7 @@ export const adminPoolsRouter = router({
+    *    Stake and Unstake events in parallel.
+    * 4. Decodes all events, batch-finds known wallets, and batch-checks already-indexed events.
+    * 5. Computes net balance changes per wallet and writes everything in a single DB transaction.
+-   * 6. Recalculates and saves the pool's revoStaked and fans counts.
++   * 6. Recalculates the pool's stats columns (recomputePoolStats) and bumps the list version.
+    *
+    * Returns a summary with processed/skipped/alreadyIndexed counts for each event type.
+    */
+@@ -807,14 +807,8 @@ export const adminPoolsRouter = router({
+         unstakesSkipped: summaryUnstakesSkipped,
+       }));
+ 
++      // The rebuild transaction already wrote the stats columns (recomputePoolStats)
+       try {
+-        await prisma.creatorPool.update({
+-          where: { id: pool.id },
+-          data: {
+-            revoStaked: totalStaked,
+-            fans: fansCount,
+-          },
+-        });
+         await bumpPoolsListVersion(pool.chainId);
+       } catch (error) {
+         console.error("[syncPool] Failed to update pool totals:", error);
+diff --git a/apps/server/src/trpc/pools/creator.ts b/apps/server/src/trpc/pools/creator.ts
+index bc7cabb..c389245 100644
+--- a/apps/server/src/trpc/pools/creator.ts
++++ b/apps/server/src/trpc/pools/creator.ts
+@@ -228,8 +228,9 @@ export const poolsCreatorRouter = router({
+                 }
+               : null,
+           name: poolName || `Pool ${pool.id}`,
+-          totalReward: BigInt(pool.revoStaked || "0"),
+-          stakedAmount: BigInt(pool.revoStaked || "0"),
++          // Creator plus fan stake from the stats columns (PL1 writer)
++          totalReward: BigInt(pool.totalStakeWei.toFixed(0)),
++          stakedAmount: BigInt(pool.totalStakeWei.toFixed(0)),
+           fans: stakedPoolsCount,
+           pendingRewards: userPendingRewards,
+           stakedByYou: userStakeAmount,
+@@ -357,7 +358,6 @@ export const poolsCreatorRouter = router({
+             data: {
+               description: input.description,
+               chainId: input.chainId,
+-              revoStaked: "0",
+               wallet: {
+                 connect: {
+                   id: wallet.id,
+@@ -495,7 +495,6 @@ export const poolsCreatorRouter = router({
+             chainId: input.chainId,
+             poolAddress,
+             name: poolName,
+-            revoStaked: "0",
+             ...(input.creationTxid && { creationTxid: input.creationTxid }),
+             wallet: {
+               connect: {
+diff --git a/apps/server/src/trpc/pools/fan.ts b/apps/server/src/trpc/pools/fan.ts
+index 8aeb43e..6c38517 100644
+--- a/apps/server/src/trpc/pools/fan.ts
++++ b/apps/server/src/trpc/pools/fan.ts
+@@ -16,13 +16,11 @@ import { s3Service } from "../../services/S3Service";
+ import {
+   cache,
+   getAPYCacheKey,
+-  getPoolsCacheKey,
+   getSystemStatsCacheKey,
+   CACHE_TTL,
+ } from "../../utils/cache";
+ import {
+   UserStakedPool,
+-  PoolTabRewardPool,
+   PoolDetailsForModal,
+   SlimPoolForUserStakedPool,
+ } from "@repo/constants";
+@@ -86,7 +84,7 @@ export const poolsFanRouter = router({
+           transport: getRpcTransport(chain),
+         });
+ 
+-        let totalStake: bigint = BigInt(pool.revoStaked);
++        let totalStake: bigint = BigInt(pool.totalStakeWei.toFixed(0));
+         let poolName = pool.name;
+         let creatorCut = 0;
+ 
+@@ -212,520 +210,6 @@ export const poolsFanRouter = router({
+       }
+     }),
+ 
+-  getPools: publicProcedure
+-    .input(
+-      z.object({
+-        chainId: z.string(),
+-        search: z.string().optional(),
+-        filter: z
+-          .enum(["all", "no-fans", "more-than-10-fans", "more-than-10k-stake"])
+-          .optional()
+-          .default("all"),
+-        sort: z
+-          .enum(["newest", "name-asc", "name-desc", "most-fans", "most-staked"])
+-          .optional()
+-          .default("newest"),
+-      })
+-    )
+-    .query(async ({ input }): Promise<PoolTabRewardPool[]> => {
+-      try {
+-        const chain = getChainConfig(parseInt(input.chainId));
+-
+-        if (!chain) {
+-          return [];
+-        }
+-
+-        const whereClause: any = {
+-          chainId: input.chainId, // Only fetch pools from the specified chain
+-          AND: [{ hidden: false }],
+-        };
+-
+-        if (input.search) {
+-          // Check if the search query looks like an Ethereum address (0x followed by 40 hex chars)
+-          const isAddress = /^0x[a-fA-F0-9]{40}$/.test(input.search.trim());
+-
+-          // Add search conditions to the AND array to properly combine with other filters
+-          const searchConditions: any = {};
+-
+-          if (isAddress) {
+-            // For address search, do exact match
+-            searchConditions.OR = [
+-              { poolAddress: { equals: input.search.toLowerCase() } }, // Exact match for address
+-            ];
+-          } else {
+-            // For text search, keep fuzzy matching
+-            searchConditions.OR = [
+-              { description: { contains: input.search } },
+-              { poolAddress: { contains: input.search } }, // Still allow partial address matches for text searches
+-              { wallet: { user: { name: { contains: input.search } } } }, // Search by creator's name
+-            ];
+-          }
+-
+-          whereClause.AND.push(searchConditions);
+-        }
+-
+-        // Build the pools query with the where clause
+-        const pools = await prisma.creatorPool.findMany({
+-          where: whereClause,
+-          select: {
+-            id: true,
+-            name: true,
+-            description: true,
+-            chainId: true,
+-            poolAddress: true,
+-            image_file_id: true,
+-            revoStaked: true,
+-            poolImage: {
+-              select: {
+-                s3_key: true,
+-              },
+-            },
+-            wallet: {
+-              select: {
+-                user: {
+-                  select: {
+-                    name: true,
+-                  },
+-                },
+-              },
+-            },
+-            stakedPools: {
+-              select: {
+-                stakeAmount: true,
+-                userWalletId: true,
+-                poolId: true,
+-              },
+-            },
+-          },
+-        });
+-
+-        const publicClient = createPublicClient({
+-          chain: chain,
+-          transport: getRpcTransport(chain),
+-        });
+-
+-        // Create a map to store contract data (from cache or blockchain)
+-        const blockchainStakeData = new Map<
+-          number,
+-          {
+-            creatorStaked: bigint;
+-            totalFanStaked: bigint;
+-            fans: number;
+-            totalStake: bigint;
+-            isCached: boolean;
+-          }
+-        >();
+-
+-        // Create a map to track which pools need blockchain data (cache miss)
+-        const poolsNeedingBlockchain = new Map<number, any>();
+-
+-        // Check cache for each pool before making blockchain calls
+-        for (const pool of pools) {
+-          if (pool.poolAddress) {
+-            const cacheKey = getPoolsCacheKey(parseInt(pool.chainId), pool.poolAddress as Address);
+-            const cachedData = await cache.get<{
+-              creatorStaked: string;
+-              totalStake: string;
+-              fans: number;
+-            }>(cacheKey);
+-
+-            if (cachedData) {
+-              // Cache hit: store full cached data — no need for a second cache lookup later
+-              const cachedTotalStake = cachedData.totalStake
+-                ? BigInt(cachedData.totalStake)
+-                : BigInt(0);
+-              blockchainStakeData.set(pool.id, {
+-                creatorStaked: cachedData.creatorStaked
+-                  ? BigInt(cachedData.creatorStaked)
+-                  : BigInt(0),
+-                totalFanStaked: BigInt(0), // not needed for cached pools; totalStake is used directly
+-                fans: cachedData.fans ?? 0,
+-                totalStake: cachedTotalStake,
+-                isCached: true,
+-              });
+-              console.log(
+-                `Cache hit for pool ${pool.id}: using cached totalStake=${cachedTotalStake}, fans=${cachedData.fans}`
+-              );
+-            } else {
+-              // Cache miss: mark pool for blockchain query
+-              poolsNeedingBlockchain.set(pool.id, pool);
+-            }
+-          }
+-        }
+-
+-        type MulticallRequest = {
+-          address: Address;
+-          abi: typeof CREATOR_POOL_ABI;
+-          functionName: "creatorStaked" | "totalFanStaked";
+-        };
+-
+-        // Create multicall requests only for pools that need blockchain data
+-        const multicallRequests: MulticallRequest[] = [];
+-
+-        poolsNeedingBlockchain.forEach(pool => {
+-          if (pool.poolAddress) {
+-            // Add creatorStaked request
+-            multicallRequests.push({
+-              address: pool.poolAddress as Address,
+-              abi: CREATOR_POOL_ABI,
+-              functionName: "creatorStaked" as const,
+-            });
+-
+-            // Add totalFanStaked request
+-            multicallRequests.push({
+-              address: pool.poolAddress as Address,
+-              abi: CREATOR_POOL_ABI,
+-              functionName: "totalFanStaked" as const,
+-            });
+-          }
+-        });
+-
+-        // Execute contract calls in batches of 5 pools (10 requests per batch)
+-        if (multicallRequests.length > 0) {
+-          console.log(
+-            `Fetching blockchain data for ${poolsNeedingBlockchain.size} uncached pools (skipping ${pools.length - poolsNeedingBlockchain.size} cached pools)`
+-          );
+-          try {
+-            const BATCH_SIZE = 5 * 2; // 5 pools * 2 requests per pool
+-            const allResults: any[] = [];
+-
+-            for (let i = 0; i < multicallRequests.length; i += BATCH_SIZE) {
+-              const batch = multicallRequests.slice(i, i + BATCH_SIZE);
+-              const batchResults = await publicClient.multicall({
+-                contracts: batch,
+-              });
+-              allResults.push(...batchResults);
+-            }
+-
+-            // Process the results, mapping them back to the correct pools
+-            // IMPORTANT: Only process pools that needed blockchain data (not cached)
+-            const poolsNeedingBlockchainArray = Array.from(poolsNeedingBlockchain.values());
+-            for (let i = 0; i < poolsNeedingBlockchainArray.length; i++) {
+-              const pool = poolsNeedingBlockchainArray[i];
+-              const creatorStakedIndex = i * 2; // creatorStaked is at every 2nd index (0, 2, 4, ...)
+-              const totalFanStakedIndex = i * 2 + 1; // totalFanStaked is at every 2nd + 1 index (1, 3, 5, ...)
+-
+-              const creatorStakedResult = allResults[creatorStakedIndex];
+-              const totalFanStakedResult = allResults[totalFanStakedIndex];
+-
+-              if (
+-                creatorStakedResult.status === "success" &&
+-                totalFanStakedResult.status === "success"
+-              ) {
+-                const creatorStaked = creatorStakedResult.result as bigint;
+-                const totalFanStaked = totalFanStakedResult.result as bigint;
+-
+-                blockchainStakeData.set(pool.id, {
+-                  creatorStaked,
+-                  totalFanStaked,
+-                  fans: 0,
+-                  totalStake: BigInt(0),
+-                  isCached: false,
+-                });
+-              } else {
+-                console.error(
+-                  `Error fetching data from contract for pool ${pool.id}:`,
+-                  creatorStakedResult.status === "failure" ? creatorStakedResult.error : null,
+-                  totalFanStakedResult.status === "failure" ? totalFanStakedResult.error : null
+-                );
+-              }
+-            }
+-          } catch (error) {
+-            console.error(`Multicall failed for chain ${input.chainId}:`, error);
+-          }
+-        }
+-
+-        // Arrays to collect updates for batch processing
+-        const poolsToUpdate: { id: number; revoStaked: string; creatorStaked: bigint }[] = [];
+-
+-        // Apply filtering logic after getting pool data from blockchain
+-        const results = await Promise.allSettled(
+-          pools.map(async pool => {
+-            // Initialize totalStake to current db value
+-            let totalStake: bigint = BigInt(pool.revoStaked);
+-
+-            // Check if this pool was cached using explicit isCached flag
+-            const isCached =
+-              blockchainStakeData.has(pool.id) &&
+-              blockchainStakeData.get(pool.id)?.isCached === true;
+-
+-            // Count only users with positive stake amounts for fans count
+-            let activeStakers = pool.stakedPools.filter(
+-              staked => BigInt(staked.stakeAmount) > 0n
+-            ).length;
+-
+-            // If pool was cached, use cached fans count and totalStake directly
+-            if (isCached && pool.poolAddress) {
+-              const stakeData = blockchainStakeData.get(pool.id);
+-              if (stakeData) {
+-                activeStakers = stakeData.fans;
+-                totalStake = stakeData.totalStake;
+-                console.log(
+-                  `Using cached fans count for pool ${pool.id}: ${activeStakers}, totalStake: ${totalStake}`
+-                );
+-              }
+-            } else {
+-              // Query the totalStaked from the pool contract if we have the necessary data
+-              if (pool.poolAddress && chain) {
+-                try {
+-                  console.log(
+-                    `Attempting to fetch creatorStaked and totalFanStaked from contract for pool ${pool.id} at address ${pool.poolAddress}`
+-                  );
+-
+-                  // Get the values from our batch results
+-                  const stakeData = blockchainStakeData.get(pool.id);
+-
+-                  if (stakeData) {
+-                    console.log(
+-                      `Successfully fetched creatorStaked from contract for pool ${pool.id}: ${stakeData.creatorStaked.toString()}`
+-                    );
+-                    console.log(
+-                      `Successfully fetched totalFanStaked from contract for pool ${pool.id}: ${stakeData.totalFanStaked.toString()}`
+-                    );
+-
+-                    // Calculate the total stake as sum of creatorStaked and totalFanStaked as instructed by colleague
+-                    const totalStakeValue = (stakeData.creatorStaked +
+-                      stakeData.totalFanStaked) as bigint;
+-
+-                    // Collect the update for batch processing later
+-                    poolsToUpdate.push({
+-                      id: pool.id,
+-                      revoStaked: totalStakeValue.toString(),
+-                      creatorStaked: stakeData.creatorStaked,
+-                    });
+-
+-                    totalStake = totalStakeValue;
+-
+-                    // Store in cache
+-                    const cacheKey = getPoolsCacheKey(
+-                      parseInt(pool.chainId),
+-                      pool.poolAddress as Address
+-                    );
+-                    await cache.set(
+-                      cacheKey,
+-                      {
+-                        creatorStaked: stakeData.creatorStaked.toString(),
+-                        totalStake: totalStake.toString(),
+-                        fans: activeStakers,
+-                      },
+-                      CACHE_TTL.POOL_DATA
+-                    );
+-                    console.log(
+-                      `Cached data for pool ${pool.id}: totalStake=${totalStake}, fans=${activeStakers}`
+-                    );
+-                  } else {
+-                    console.log(
+-                      `Could not fetch stake data from contract for pool ${pool.id}, using DB value`
+-                    );
+-                  }
+-                } catch (error) {
+-                  console.error(
+-                    `Error fetching totalStaked from contract for pool ${pool.id}:`,
+-                    error
+-                  );
+-                  // If contract query fails, we'll keep the db value
+-                }
+-              } else {
+-                console.log(
+-                  `Skipping contract query for pool ${pool.id} - missing poolAddress (${pool.poolAddress}) or chain (${chain})`
+-                );
+-              }
+-            }
+-
+-            // Get pool name from database, fallback to blockchain or ID if not available
+-            let poolName = pool.name;
+-
+-            // If not in database, try to fetch from blockchain
+-            if (!poolName && pool.poolAddress && chain) {
+-              try {
+-                poolName = await getPoolName(pool.poolAddress as Address, parseInt(pool.chainId));
+-
+-                // update on DB
+-                if (poolName) {
+-                  await prisma.creatorPool.update({
+-                    where: { id: pool.id },
+-                    data: { name: poolName },
+-                  });
+-                }
+-              } catch (error) {
+-                console.error(
+-                  `Error fetching pool name from blockchain for pool ${pool.id}:`,
+-                  error
+-                );
+-              }
+-            }
+-
+-            const rewardPool: PoolTabRewardPool = {
+-              id: pool.id,
+-              description: pool.description,
+-              chainId: pool.chainId,
+-              address: pool.poolAddress!,
+-              image:
+-                pool.image_file_id && pool.poolImage
+-                  ? {
+-                      id: pool.image_file_id,
+-                      url: s3Service.getFileUrl(pool.poolImage.s3_key),
+-                    }
+-                  : null,
+-              name: poolName ?? `Pool ${pool.id}`,
+-              stakedAmount: totalStake, // Return as wei (bigint)
+-              fans: activeStakers,
+-            };
+-            return rewardPool;
+-          })
+-        );
+-
+-        // Batch update all pools that need updating
+-        if (poolsToUpdate.length > 0) {
+-          try {
+-            // Build the SQL query for batch update in MySQL
+-            const poolIds = poolsToUpdate.map(update => update.id).join(",");
+-            const caseWhens = poolsToUpdate
+-              .map(update => `WHEN id = ${update.id} THEN '${update.revoStaked}'`)
+-              .join(" ");
+-
+-            await prisma.$executeRawUnsafe(`
+-              UPDATE creator_pools
+-              SET revoStaked = CASE
+-                ${caseWhens}
+-                ELSE revoStaked
+-              END
+-              WHERE id IN (${poolIds})
+-            `);
+-
+-            console.log(`Successfully batch updated revoStaked for ${poolsToUpdate.length} pools`);
+-            // Keep the list stats columns on the creator stake just read (D7 PL1)
+-            for (const update of poolsToUpdate) {
+-              await refreshPoolStatsQuietly(update.id, { creatorStaked: update.creatorStaked });
+-            }
+-          } catch (batchUpdateError) {
+-            console.error(`Error in batch update of revoStaked:`, batchUpdateError);
+-            // Continue anyway, as we still have the correct values in memory for the response
+-          }
+-        }
+-
+-        // Filter out rejected promises and return only successful results
+-        const processedPools = results
+-          .filter((result): result is PromiseFulfilledResult<any> => {
+-            if (result.status === "rejected") {
+-              console.error("Error processing pool:", result.reason);
+-              return false;
+-            }
+-            return true;
+-          })
+-          .map(result => result.value);
+-
+-        // Calculate APY for all pools in batch
+-        const poolAddresses = processedPools
+-          .map(pool => pool.address as Address)
+-          .filter(addr => addr !== undefined);
+-
+-        const apyMap = new Map<number, number | undefined>();
+-        if (poolAddresses.length > 0) {
+-          try {
+-            const cachedPools = new Map<Address, number>();
+-            const addressesToFetch: Address[] = [];
+-
+-            for (const poolAddress of poolAddresses) {
+-              const cacheKey = getAPYCacheKey(parseInt(input.chainId), poolAddress);
+-              const cachedAPY = await cache.get<number>(cacheKey);
+-
+-              if (cachedAPY !== null) {
+-                cachedPools.set(poolAddress, cachedAPY);
+-              } else {
+-                addressesToFetch.push(poolAddress);
+-              }
+-            }
+-
+-            if (addressesToFetch.length > 0) {
+-              console.log(
+-                `Fetching APY for ${addressesToFetch.length} uncached pools (skipping ${poolAddresses.length - addressesToFetch.length} cached pools)`
+-              );
+-              const freshAPYResults = await calculatePoolAPY(
+-                addressesToFetch,
+-                parseInt(input.chainId),
+-                publicClient as PublicClient
+-              );
+-
+-              for (const [poolAddress, apy] of Object.entries(freshAPYResults)) {
+-                if (apy !== null) {
+-                  const cacheKey = getAPYCacheKey(parseInt(input.chainId), poolAddress as Address);
+-                  await cache.set(cacheKey, apy, CACHE_TTL.APY);
+-                  cachedPools.set(poolAddress as Address, apy);
+-                }
+-              }
+-            }
+-
+-            for (const pool of processedPools) {
+-              if (pool.address) {
+-                const apy = cachedPools.get(pool.address);
+-                if (apy !== undefined) {
+-                  apyMap.set(pool.id, apy);
+-                }
+-              }
+-            }
+-          } catch (error) {
+-            console.error("Error calculating batch APY:", error);
+-          }
+-        }
+-
+-        // Add APY to processed pools
+-        const poolsWithAPY = processedPools.map(pool => ({
+-          ...pool,
+-          apy: apyMap.get(pool.id),
+-        }));
+-
+-        // Apply filters to the processed pools
+-        let filteredPools = poolsWithAPY;
+-        if (input.filter === "no-fans") {
+-          filteredPools = poolsWithAPY.filter(pool => pool.fans === 0);
+-        } else if (input.filter === "more-than-10-fans") {
+-          filteredPools = poolsWithAPY.filter(pool => pool.fans > 10);
+-        } else if (input.filter === "more-than-10k-stake") {
+-          // Convert 10k ether to wei for comparison: 10000 * 10^18
+-          const tenKEtherInWei = BigInt(10000) * BigInt(10) ** BigInt(18);
+-          filteredPools = poolsWithAPY.filter(pool => pool.stakedAmount > tenKEtherInWei);
+-        }
+-
+-        // Apply sorting
+-        switch (input.sort) {
+-          case "name-asc":
+-            filteredPools.sort((a, b) => a.name.localeCompare(b.name));
+-            break;
+-          case "name-desc":
+-            filteredPools.sort((a, b) => b.name.localeCompare(a.name));
+-            break;
+-          case "most-fans":
+-            filteredPools.sort((a, b) => b.fans - a.fans);
+-            break;
+-          case "most-staked":
+-            filteredPools.sort((a, b) => {
+-              const aStake = BigInt(a.stakedAmount);
+-              const bStake = BigInt(b.stakedAmount);
+-              if (aStake < bStake) return 1; // b should come before a for descending sort
+-              if (aStake > bStake) return -1; // a should come before b for descending sort
+-              return 0;
+-            });
+-            break;
+-          case "newest":
+-            // Since pools don't have a created_at field in the current model, we'll sort by ID
+-            filteredPools.sort((a, b) => b.id - a.id);
+-            break;
+-          default:
+-            break;
+-        }
+-
+-        return filteredPools;
+-      } catch (error) {
+-        console.error("Error fetching pools:", error);
+-        if (error instanceof TRPCError) throw error;
+-        throw new TRPCError({
+-          code: "INTERNAL_SERVER_ERROR",
+-          message: "Failed to fetch pools",
+-        });
+-      }
+-    }),
+-
+   getUserPoolStake: privateProcedure
+     .input(
+       z.object({
+@@ -1405,7 +889,7 @@ export const poolsFanRouter = router({
+               chainId: true,
+               poolAddress: true,
+               image_file_id: true,
+-              revoStaked: true,
++              totalStakeWei: true,
+               poolImage: {
+                 select: {
+                   s3_key: true,
+@@ -1441,7 +925,7 @@ export const poolsFanRouter = router({
+               chainId: true,
+               poolAddress: true,
+               image_file_id: true,
+-              revoStaked: true,
++              totalStakeWei: true,
+               poolImage: {
+                 select: {
+                   s3_key: true,
+@@ -1492,7 +976,7 @@ export const poolsFanRouter = router({
+         });
+ 
+         // Initialize totalStake to the current db value
+-        let totalStake: bigint = BigInt(pool.revoStaked);
++        let totalStake: bigint = BigInt(pool.totalStakeWei.toFixed(0));
+ 
+         // Get pool name from database, fallback to blockchain or ID if not available
+         let poolName = pool.name;
+@@ -1565,23 +1049,9 @@ export const poolsFanRouter = router({
+               if (totalFanStaked !== null && creatorStaked !== null) {
+                 const newTotalStake = (totalFanStaked + creatorStaked) as bigint;
+ 
+-                // Update the database with the value from the contract
+-                try {
+-                  await prisma.creatorPool.update({
+-                    where: { id: pool.id },
+-                    data: { revoStaked: newTotalStake.toString() },
+-                  });
+-                  await refreshPoolStatsQuietly(pool.id, { creatorStaked });
+-                  console.log(
+-                    `Successfully updated revoStaked in database for pool ${pool.id}: ${newTotalStake.toString()}`
+-                  );
+-                } catch (updateError) {
+-                  console.error(
+-                    `Error updating revoStaked in database for pool ${pool.id}:`,
+-                    updateError
+-                  );
+-                  // Continue anyway, we'll still return the blockchain value
+-                }
++                // The stats columns take the chain's creator stake (PL1 writer).
++                // It never throws, so the chain value is returned either way.
++                await refreshPoolStatsQuietly(pool.id, { creatorStaked });
+ 
+                 return { totalStake: newTotalStake };
+               } else {
+diff --git a/apps/server/src/trpc/pools/list.ts b/apps/server/src/trpc/pools/list.ts
+index 3c740d5..a8249d9 100644
+--- a/apps/server/src/trpc/pools/list.ts
++++ b/apps/server/src/trpc/pools/list.ts
+@@ -32,7 +32,7 @@ import {
+ 
+ /**
+  * Pool list paging (Build Board D7, PL2). Spec: docs/features/pools-list-paging.md section 4.
+- * pools.fan.getPools stays as it is until PL4, so builds deployed before PL3 keep working.
++ * The only pool list since PL4 removed the unpaged pools.fan.getPools.
+  */
+ 
+ const FIRST_PAGE_TTL_SECONDS = 60;
+@@ -68,12 +68,11 @@ interface ChainMiss {
+ 
+ /**
+  * Background refresh of the chain values behind the cards: APY, and the live
+- * total (creatorStaked plus totalFanStaked) cached under getPoolsCacheKey,
+- * which pools.fan.getPools wrote before PL4. One refresh per pool at a time
+- * across instances. The page never waits: a miss shows the column values and
+- * the next request after the refresh has the chain values. When the chain
+- * total differs from the column, the stats columns are rewritten with the
+- * chain's creator stake.
++ * total (creatorStaked plus totalFanStaked) cached under getPoolsCacheKey.
++ * One refresh per pool at a time across instances. The page never waits: a
++ * miss shows the column values and the next request after the refresh has the
++ * chain values. When the chain total differs from the column, the stats
++ * columns are rewritten with the chain's creator stake.
+  */
+ function scheduleChainRefresh(chainId: number, misses: ChainMiss[]) {
+   if (misses.length === 0) return;
+diff --git a/packages/database/prisma/schema.prisma b/packages/database/prisma/schema.prisma
+index 02c0143..a31ed52 100644
+--- a/packages/database/prisma/schema.prisma
++++ b/packages/database/prisma/schema.prisma
+@@ -278,8 +278,6 @@ model CreatorPool {
+   name          String?       @db.VarChar(255)
+   image_file_id Int?
+   description   String?       @db.LongText
+-  fans          Int           @default(0)
+-  revoStaked    String        @db.Text
+   poolAddress   String?       @unique
+   creationTxid  String?       @db.VarChar(66)
+   // Sum of RewardReceived amounts (wei) indexed from the pool contract (row 067)
