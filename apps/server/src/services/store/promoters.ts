@@ -91,7 +91,7 @@ async function assertScopeOwned(creatorUserId: number, scope: PromoterScope) {
   const ids = scope.map(id => Buffer.from(id, "hex"));
   const [offers, plans] = await Promise.all([
     prisma.offer.count({
-      where: { creatorUserId, id: { in: ids }, status: { not: "archived" } },
+      where: { creatorUserId, merchantId: null, id: { in: ids }, status: { not: "archived" } },
     }),
     prisma.membershipPlan.count({ where: { creatorUserId, id: { in: ids } } }),
   ]);

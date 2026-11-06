@@ -14,6 +14,8 @@ const state = vi.hoisted(() => ({
 }));
 
 function eq(a: unknown, b: unknown) {
+  // A column the fake row never set reads as null, like the database (merchantId, AB-2)
+  if (b === null) return a === null || a === undefined;
   if (Buffer.isBuffer(a) || a instanceof Uint8Array) {
     return (Buffer.isBuffer(b) || b instanceof Uint8Array) && Buffer.from(a).equals(Buffer.from(b));
   }

@@ -1673,6 +1673,19 @@ model Offer {
   // Authbase storefront (AB-1): set when a business seller sells this offer. creatorUserId is then
   // the merchant's first Owner account; checkMerchant replaces the creator's seller check
   merchantId       Bytes?    @map("merchant_id") @db.Binary(16)
+  // AB-2 service offers (spec 3.3): library | external. external = the merchant fulfills it
+  // after payment (Authbase runs the ID check); no Library entry
+  fulfillment      String    @default("library") @db.VarChar(12)
+  // The merchant's own product code, sent back on every order (STANDARD, ENHANCED)
+  externalCode     String?   @map("external_code") @db.VarChar(32)
+  // Where the offer shows: rns_identity (the Identity tab storefront)
+  placement        String?   @db.VarChar(32)
+  // Up to four feature lines on the card
+  features         Json?
+  // Short card tag: For fans, For creators
+  tag              String?   @db.VarChar(24)
+  // Orders the cards left to right
+  rank             Int       @default(0)
 
   creator  User        @relation(fields: [creatorUserId], references: [id], onDelete: Cascade)
   merchant Merchant?   @relation(fields: [merchantId], references: [id], onDelete: Restrict)
@@ -1680,6 +1693,7 @@ model Offer {
 
   @@unique([creatorUserId, slug])
   @@index([merchantId, status])
+  @@index([placement, status])
   @@index([creatorUserId, status, sortOrder])
   @@map("offers")
 }
@@ -2386,6 +2400,8 @@ model CheckoutIntent {
   // The store policy version the sheet showed (CK-5, store policy 3.6). Set at the first quote;
   // moved to the live version only when the fan accepts a changed policy
   storePolicyVersionId Bytes? @map("store_policy_version_id") @db.Binary(16)
+  // AB-2: the RNS name a service offer (the Identity tab check) is bought for
+  rnsName              String?   @map("rns_name") @db.VarChar(64)
   expiresAt     DateTime  @map("expires_at")
   claimedAt     DateTime? @map("claimed_at")
   createdAt     DateTime  @default(now()) @map("created_at")
@@ -2662,6 +2678,10 @@ model Purchase {
   storePolicyVersionId Bytes? @map("store_policy_version_id") @db.Binary(16)
   // AB-1: the business seller of a merchant offer; the Console and Partner API read by it
   merchantId       Bytes?    @map("merchant_id") @db.Binary(16)
+  // AB-2: external fulfillment progress (paid | started | in_review | verified | not_passed)
+  fulfillmentState String?   @map("fulfillment_state") @db.VarChar(16)
+  // AB-2: the RNS name the Identity tab check was bought for
+  rnsName          String?   @map("rns_name") @db.VarChar(64)
   receiptSentAt    DateTime? @map("receipt_sent_at")
   createdAt        DateTime  @default(now()) @map("created_at")
   updatedAt        DateTime  @updatedAt @map("updated_at")

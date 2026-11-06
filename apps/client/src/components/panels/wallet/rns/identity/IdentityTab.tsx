@@ -12,6 +12,7 @@ import { AUTHBASE_VERIFY_URL } from "./catalog";
 import { authbaseDate } from "./dates";
 import { IdentityPromo } from "./IdentityPromo";
 import { IdentityVerified } from "./IdentityVerified";
+import { IdentityStorefront, STOREFRONT_ON } from "./IdentityStorefront";
 import { IdEyebrow } from "./parts";
 import { SharedAttributes } from "./SharedAttributes";
 
@@ -167,6 +168,10 @@ function OwnerIdentity({
           status={status}
           explorer={explorer}
         />
+        {/* AB-2 (board s4): a Standard holder can buy Enhanced; Standard shows Your check */}
+        {STOREFRONT_ON && (status.badge?.tier ?? status.verification.type) === "STANDARD" && (
+          <IdentityStorefront rnsName={fullName} heldTier="STANDARD" />
+        )}
       </div>
     );
   }

@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import {
   CHECKOUT_COPY,
   PROMOTER_COPY,
+  SERVICE_CHECKOUT_COPY,
   STORE_COPY,
   checkoutIntentIdSchema,
   formatBps,
@@ -175,7 +176,13 @@ export function PayPage() {
 
   const q = quote.data;
   const item = q?.item;
-  const creator = q?.creator ?? null;
+  // AB-2: a merchant's service offer (an Authbase check). The sheet names the merchant, in the
+  // Amped.Bio look, and returns to the Identity tab
+  const service = q?.service ?? null;
+  const creator =
+    service && q?.creator
+      ? { ...q.creator, name: service.merchantName, image: null, theme: null }
+      : (q?.creator ?? null);
 
   // An 18+ item passes the Over 18 check first (spec 6, identity checks 4.2). The
   // stored result is read first, so a fan back from a pass is not sent round again.
@@ -192,9 +199,14 @@ export function PayPage() {
     }
   }, [adultItem, ageCheck.isError, ageCheck.data, agePassed, intentId]);
   const theme = creator?.theme ?? null;
-  const pageHref = creator ? `${LANDING}/${creator.handle}` : LANDING;
+  const pageHref = service ? "/wallet?tab=rns" : creator ? `${LANDING}/${creator.handle}` : LANDING;
+  const payingLabel = service ? SERVICE_CHECKOUT_COPY.paying : undefined;
   // The seller of record: the store policy's seller name once the creator has published one
-  const seller = q?.policy?.sellerName || creator?.name || (creator ? `@${creator.handle}` : "");
+  const seller =
+    service?.merchantName ||
+    q?.policy?.sellerName ||
+    creator?.name ||
+    (creator ? `@${creator.handle}` : "");
 
   const policy = useQuery({
     ...trpc.store.publicPolicy.queryOptions({
@@ -210,6 +222,20 @@ export function PayPage() {
   const sellerLine = creator ? (
     <p className="text-center text-[13px] leading-[18px] opacity-80">
       {CHECKOUT_COPY.soldBy(seller)}
+      {service?.storePolicyUrl && (
+        <>
+          {" "}
+          <a
+            href={service.storePolicyUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex min-h-touch items-center font-semibold underline underline-offset-2 outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--amped-font)]"
+          >
+            {CHECKOUT_COPY.storePolicy}
+            <span className="sr-only"> (opens in a new tab)</span>
+          </a>
+        </>
+      )}
       {q?.policy && (
         <>
           {" "}
@@ -265,7 +291,7 @@ export function PayPage() {
 
   if (intent.isPending || (quote.isPending && intent.data?.status !== "paid")) {
     return (
-      <SheetFrame creator={creator} closeHref={pageHref}>
+      <SheetFrame creator={creator} closeHref={pageHref} payingLabel={payingLabel}>
         <SheetMessage tone="busy" title="Opening checkout" />
       </SheetFrame>
     );
@@ -284,6 +310,38 @@ export function PayPage() {
     phase === "paid" ||
     q?.state === "paid" ||
     checkingResult?.result === "paid";
+  if (paid && service) {
+    return (
+      <SheetFrame
+        creator={creator}
+        closeHref={pageHref}
+        notes={notes}
+        payingLabel={payingLabel}
+        footer={
+          <>
+            {sellerLine}
+            <SheetButton theme={theme} href={pageHref}>
+              {SERVICE_CHECKOUT_COPY.startVerification}
+            </SheetButton>
+            <SheetButton theme={theme} href={pageHref} variant="secondary">
+              {SERVICE_CHECKOUT_COPY.done}
+            </SheetButton>
+          </>
+        }
+      >
+        <SheetMessage
+          tone="done"
+          title={
+            q ? SERVICE_CHECKOUT_COPY.paid(service.merchantName, usdcDollars(q.amount)) : "Paid."
+          }
+        >
+          <p className="text-[15px] leading-5 opacity-80">
+            {SERVICE_CHECKOUT_COPY.next(service.merchantName)}
+          </p>
+        </SheetMessage>
+      </SheetFrame>
+    );
+  }
   if (paid) {
     const itemHref = creator && item ? `${LANDING}${item.path}` : pageHref;
     return (
@@ -291,6 +349,7 @@ export function PayPage() {
         creator={creator}
         closeHref={pageHref}
         notes={notes}
+        payingLabel={payingLabel}
         footer={
           <>
             {sellerLine}
@@ -321,9 +380,13 @@ export function PayPage() {
       : state === "limit"
         ? CHECKOUT_COPY.limit
         : state === "seller" && creator
-          ? CHECKOUT_COPY.seller(creator.handle)
+          ? service
+            ? SERVICE_CHECKOUT_COPY.seller(service.merchantName)
+            : CHECKOUT_COPY.seller(creator.handle)
           : state === "removed"
-            ? CHECKOUT_COPY.removed
+            ? service
+              ? SERVICE_CHECKOUT_COPY.removed
+              : CHECKOUT_COPY.removed
             : // An 18+ item needs the Over 18 check (spec 6, identity checks 4.2). That check
               // has no screen in the app yet (A1), so the sheet fails closed instead of Pay
               item?.adult
@@ -335,6 +398,7 @@ export function PayPage() {
         creator={creator}
         closeHref={pageHref}
         notes={notes}
+        payingLabel={payingLabel}
         footer={
           state === "paused" ? (
             <SheetButton
@@ -363,10 +427,16 @@ export function PayPage() {
     (inFlight && provider.id === "ampedpay" && checking.data && !checkingResult);
   if (phase === "checking" || stillChecking || (inFlight && checking.isPending)) {
     return (
-      <SheetFrame creator={creator} closeHref={pageHref} notes={notes}>
+      <SheetFrame creator={creator} closeHref={pageHref} payingLabel={payingLabel} notes={notes}>
         <SheetMessage
           tone="busy"
-          title={phase === "pending" ? CHECKOUT_COPY.stillChecking : CHECKOUT_COPY.checking}
+          title={
+            phase === "pending"
+              ? service
+                ? SERVICE_CHECKOUT_COPY.stillChecking
+                : CHECKOUT_COPY.stillChecking
+              : CHECKOUT_COPY.checking
+          }
         />
       </SheetFrame>
     );
@@ -502,6 +572,7 @@ export function PayPage() {
       verified={q.state === "ready"}
       closeHref={pageHref}
       notes={notes}
+      payingLabel={payingLabel}
       footer={footer}
     >
       {failed && <SheetMessage tone="error" title={CHECKOUT_COPY.failed} />}

@@ -64,6 +64,14 @@ export const checkoutStartInputSchema = z.object({
   }),
   via: checkoutViaSchema.optional(),
   source: z.enum(CHECKOUT_SOURCES).default("other"),
+  /** AB-2: the RNS name a service offer (the Identity tab check) is bought for */
+  rnsName: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .regex(/^[a-z0-9][a-z0-9-]{0,62}(\.[a-z0-9-]{1,20})*$/)
+    .max(64)
+    .optional(),
 });
 export type CheckoutStartInput = z.infer<typeof checkoutStartInputSchema>;
 
@@ -200,6 +208,25 @@ export const CHECKOUT_COPY = {
   screening: "This payment can not go through. Nothing was taken from your wallet.",
   stillChecking:
     "Your payment is still on its way. You can close this page. The item opens in your Library when it lands.",
+} as const;
+
+/**
+ * Service variant of the pay sheet (Build Board #66, AB-2; boards c1 to c5). A merchant's
+ * service offer: Authbase sells an ID check that Authbase runs after payment. Counsel's seller
+ * line (soldBy) and every CK-5 state stay as they are. Fixes AB-Q20 to AB-Q22. No dashes.
+ */
+export const SERVICE_CHECKOUT_COPY = {
+  paying: "Paying",
+  feeIncluded: (percent: string) => `Includes the Amped.Bio fee (${percent})`,
+  next: (merchant: string) => `Next: verify your identity on ${merchant}`,
+  paid: (merchant: string, amount: string) => `You paid ${merchant} ${amount} USDC.`,
+  startVerification: "Start verification",
+  done: "Done",
+  seller: (merchant: string) =>
+    `${merchant} is not taking payments right now. Nothing was taken from your wallet.`,
+  removed: "This check is no longer for sale. Nothing was taken from your wallet.",
+  stillChecking:
+    "Your payment is still on its way. You can close this page. Start verification appears on the Identity tab when it lands.",
 } as const;
 
 /** The intent a return path points at, or null for any other path. */

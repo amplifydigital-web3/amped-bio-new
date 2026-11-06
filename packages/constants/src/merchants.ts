@@ -58,3 +58,72 @@ export function payoutWalletProofMessage(params: {
     "This wallet will receive this merchant's USDC sales on Amped.Bio.",
   ].join("\n");
 }
+
+// ------------------------------------------------------------- AB-2: service offers
+
+/** Where a merchant's service offer shows. rns_identity is the RNS Identity tab storefront. */
+export const OFFER_PLACEMENTS = ["rns_identity"] as const;
+export type OfferPlacement = (typeof OFFER_PLACEMENTS)[number];
+
+/** A paid order is good for this many days before the check must start (Authbase position 1). */
+export const SERVICE_ORDER_VALID_DAYS = 30;
+
+/** Progress of a check the merchant runs after payment (spec 3.9, partner spec 9.4). */
+export const FULFILLMENT_STATES = [
+  "paid",
+  "started",
+  "in_review",
+  "verified",
+  "not_passed",
+] as const;
+export type FulfillmentState = (typeof FULFILLMENT_STATES)[number];
+
+/** One card on the storefront (boards s1, s2, s4). */
+export type StorefrontOffer = {
+  id: string;
+  code: string | null;
+  title: string;
+  description: string | null;
+  features: string[];
+  tag: string | null;
+  amountUnits: string;
+  rank: number;
+};
+
+export type Storefront = {
+  merchant: { id: string; name: string; storePolicyUrl: string | null; takingPayments: boolean };
+  feeBps: number;
+  offers: StorefrontOffer[];
+  /** The viewer's latest order on this storefront, for the status line (board s3) */
+  latestOrder: {
+    purchaseId: string;
+    offerId: string;
+    code: string | null;
+    status: string;
+    fulfillmentState: FulfillmentState | null;
+    paidAt: string | null;
+  } | null;
+} | null;
+
+/** Identity tab storefront copy (boards s1 to s4, spec 3.4 and 3.12). No dashes. */
+export const IDENTITY_STOREFRONT_COPY = {
+  choose: "Choose a check",
+  buyNow: "Buy now",
+  yourCheck: "Your check",
+  loading: "Loading checks",
+  loadFailed: "We could not load the checks right now.",
+  loadFailedSub: "Your status is safe. Try again in a minute.",
+  notTaking: (merchant: string) => `${merchant} is not taking payments right now.`,
+  notTakingSub: "Nothing was taken from your wallet. Try again later.",
+  buyFailed: "Checkout did not open. Try again.",
+  footer: (merchant: string, percent: string) =>
+    `You pay in USDC from your wallet. ${merchant} runs the check. The price includes the Amped.Bio fee (${percent}).`,
+  status: {
+    checking: "Checking your payment. It can only go through once.",
+    paid: (merchant: string) => `Paid. Verify your identity on ${merchant}.`,
+    paidSub: "You sign in with your Amped.Bio account. It takes a few minutes. Have your ID ready.",
+    inReview: (merchant: string) => `${merchant} is reviewing your check.`,
+    creating: (merchant: string) => `${merchant} is creating your ID on chain.`,
+    notPassed: (merchant: string) => `${merchant} could not verify you.`,
+  },
+} as const;

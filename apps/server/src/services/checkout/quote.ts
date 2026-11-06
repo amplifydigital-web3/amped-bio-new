@@ -74,6 +74,11 @@ export type CheckoutQuote = {
   validUntil: string;
   /** C12: "Referred by @handle" when the intent carries an active, in scope promoter code */
   promoter: { handle: string } | null;
+  /**
+   * AB-2: set for a merchant's service offer. The sheet shows the service variant: seller line
+   * with the merchant's policy link, the fee row with its percent, and Start verification.
+   */
+  service?: { merchantName: string; storePolicyUrl: string | null; code: string | null } | null;
 };
 
 /** Statuses that count against the daily purchase limits. */
@@ -201,6 +206,7 @@ export async function quoteIntent(viewerUserId: number, idHex: string): Promise<
       amount: "0",
       fee: "0",
       promoter: null,
+      service: null,
     };
   }
 
@@ -221,7 +227,8 @@ export async function quoteIntent(viewerUserId: number, idHex: string): Promise<
         updatedAt: { gte: startOfUtcDay(now) },
       },
     }),
-    liveVersion(resolved.creatorUserId),
+    // A merchant sells under its own policy URL, not the Owner account's store policy (AB-2)
+    resolved.extra.merchantId ? Promise.resolve(null) : liveVersion(resolved.creatorUserId),
   ]);
   const policy = live ? await quotePolicy(row, live) : null;
 
@@ -285,5 +292,31 @@ export async function quoteIntent(viewerUserId: number, idHex: string): Promise<
     amount: amount.toString(),
     fee: fee.toString(),
     promoter: promoter ? { handle: promoter.handle } : null,
+    service: resolved.extra.merchantId
+      ? await serviceInfo(resolved.extra.merchantId, row.targetId)
+      : null,
   };
+}
+
+/** The merchant's name, policy URL and product code for the service sheet (AB-2). */
+async function serviceInfo(merchantIdHex: string, offerIdHex: string) {
+  const [merchant, offer] = await Promise.all([
+    prisma.merchant.findUnique({
+      where: { id: Buffer.from(merchantIdHex, "hex") },
+      select: { name: true, storePolicyUrl: true },
+    }),
+    /^[0-9a-f]{32}$/.test(offerIdHex)
+      ? prisma.offer.findUnique({
+          where: { id: Buffer.from(offerIdHex, "hex") },
+          select: { externalCode: true },
+        })
+      : Promise.resolve(null),
+  ]);
+  return merchant
+    ? {
+        merchantName: merchant.name,
+        storePolicyUrl: merchant.storePolicyUrl,
+        code: offer?.externalCode ?? null,
+      }
+    : null;
 }

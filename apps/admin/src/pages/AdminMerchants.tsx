@@ -448,6 +448,8 @@ function MerchantPanel({
         </div>
       )}
 
+      <MerchantProducts id={id} canChange={canChange} />
+
       <SlabTable label="Audit log">
         <thead>
           <tr>
@@ -470,6 +472,185 @@ function MerchantPanel({
           )}
         </tbody>
       </SlabTable>
+    </section>
+  );
+}
+
+// AB-2: the merchant's service offers (Identity tab storefront) until the Merchant Console (AB-5)
+// lets the merchant edit them. Amounts in USDC; the product code matches the merchant's check.
+function MerchantProducts({ id, canChange }: { id: string; canChange: boolean }) {
+  const queryClient = useQueryClient();
+  const offers = useQuery(trpc.admin.merchants.offers.queryOptions({ id }));
+  const empty = {
+    offerId: "",
+    code: "",
+    title: "",
+    description: "",
+    features: "",
+    tag: "",
+    price: "",
+    rank: "0",
+    status: "draft" as const,
+  };
+  const [form, setForm] = useState<{
+    offerId: string;
+    code: string;
+    title: string;
+    description: string;
+    features: string;
+    tag: string;
+    price: string;
+    rank: string;
+    status: "draft" | "active" | "paused" | "archived";
+  }>(empty);
+  const [code2fa, setCode2fa] = useState("");
+  const save = useMutation({
+    ...trpc.admin.merchants.upsertOffer.mutationOptions(),
+    onSuccess: () => {
+      toast.success("Product saved.");
+      setForm(empty);
+      setCode2fa("");
+      void queryClient.invalidateQueries({
+        queryKey: trpc.admin.merchants.offers.queryKey({ id }),
+      });
+    },
+    onError: error => toast.error(error.message),
+  });
+  const units = /^\d+(\.\d{1,2})?$/.test(form.price)
+    ? String(Math.round(Number(form.price) * 1_000_000))
+    : "";
+
+  return (
+    <section className="space-y-3" aria-labelledby="merchant-products">
+      <h3 id="merchant-products" className="font-bold">
+        Products
+      </h3>
+      <SlabTable label="Products">
+        <thead>
+          <tr>
+            <th className={thClass}>Code</th>
+            <th className={thClass}>Title</th>
+            <th className={thClass}>Price</th>
+            <th className={thClass}>Status</th>
+            <th className={thClass}>Sales</th>
+            <th className={thClass}>
+              <span className="sr-only">Actions</span>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {(offers.data ?? []).length === 0 ? (
+            <SlabMessageRow columns={6}>No products yet.</SlabMessageRow>
+          ) : (
+            (offers.data ?? []).map(o => (
+              <tr key={o.id} className={rowClass}>
+                <td className={`${tdClass} font-mono`}>{o.code}</td>
+                <td className={tdClass}>{o.title}</td>
+                <td className={tdClass}>${(Number(o.amountUnits) / 1_000_000).toFixed(2)} USDC</td>
+                <td className={tdClass}>{o.status}</td>
+                <td className={tdClass}>{o.salesCount}</td>
+                <td className={tdClass}>
+                  {canChange && (
+                    <Button
+                      variant="ghost"
+                      onClick={() =>
+                        setForm({
+                          offerId: o.id,
+                          code: o.code ?? "",
+                          title: o.title,
+                          description: o.description ?? "",
+                          features: o.features.join("\n"),
+                          tag: o.tag ?? "",
+                          price: (Number(o.amountUnits) / 1_000_000).toFixed(2),
+                          rank: String(o.rank),
+                          status: o.status as "draft" | "active" | "paused" | "archived",
+                        })
+                      }
+                    >
+                      Edit
+                    </Button>
+                  )}
+                </td>
+              </tr>
+            ))
+          )}
+        </tbody>
+      </SlabTable>
+      {canChange && (
+        <div className="prism-slab grid gap-3 p-[21px] sm:grid-cols-2">
+          {(
+            [
+              ["code", "Product code (STANDARD or ENHANCED)"],
+              ["title", "Title"],
+              ["description", "Short description"],
+              ["tag", "Tag (For fans, For creators)"],
+              ["price", "Price in USDC"],
+              ["rank", "Order (0 first)"],
+            ] as const
+          ).map(([key, label]) => (
+            <label key={key} className="flex flex-col gap-1 text-prism-label font-semibold">
+              {label}
+              <Input
+                value={form[key]}
+                onChange={e => setForm({ ...form, [key]: e.target.value })}
+                className="h-touch"
+              />
+            </label>
+          ))}
+          <label className="flex flex-col gap-1 text-prism-label font-semibold sm:col-span-2">
+            Feature lines (one per line, up to four)
+            <textarea
+              rows={4}
+              value={form.features}
+              onChange={e => setForm({ ...form, features: e.target.value })}
+              className="prism-focus rounded-[13px] p-3"
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-prism-label font-semibold">
+            Status
+            <select
+              className="prism-focus h-touch rounded-[13px] px-3"
+              value={form.status}
+              onChange={e => setForm({ ...form, status: e.target.value as typeof form.status })}
+            >
+              {["draft", "active", "paused", "archived"].map(v => (
+                <option key={v} value={v}>
+                  {v}
+                </option>
+              ))}
+            </select>
+          </label>
+          <CodeField value={code2fa} onChange={setCode2fa} />
+          <div className="sm:col-span-2">
+            <Button
+              disabled={
+                save.isPending || code2fa.length !== 6 || !units || !form.code || !form.title
+              }
+              onClick={() =>
+                save.mutate({
+                  id,
+                  ...(form.offerId ? { offerId: form.offerId } : {}),
+                  code: form.code,
+                  title: form.title,
+                  description: form.description || null,
+                  features: form.features
+                    .split("\n")
+                    .map(f => f.trim())
+                    .filter(Boolean)
+                    .slice(0, 4),
+                  tag: form.tag || null,
+                  amountUnits: units,
+                  rank: Number(form.rank) || 0,
+                  status: form.status,
+                  code2fa,
+                })
+              }
+            >
+              {form.offerId ? "Save product" : "Add product"}
+            </Button>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

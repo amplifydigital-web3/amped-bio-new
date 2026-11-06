@@ -15,6 +15,11 @@ import {
   recordBusinessCheck,
   rejectMerchantChange,
 } from "../../services/merchants/admin";
+import {
+  MerchantOfferError,
+  listMerchantOffers,
+  upsertMerchantOffer,
+} from "../../services/merchants/offers";
 
 /**
  * Admin, Money, Merchants (Build Board #66, AB-1; board a1; docs/features/authbase-storefront.md
@@ -41,7 +46,7 @@ const hexId = z
   .transform(value => Buffer.from(value, "hex"));
 
 function asTrpc(error: unknown): never {
-  if (error instanceof MerchantAdminError) {
+  if (error instanceof MerchantAdminError || error instanceof MerchantOfferError) {
     throw new TRPCError({ code: "BAD_REQUEST", message: error.message });
   }
   throw error;
@@ -148,6 +153,46 @@ export const merchantsAdminRouter = router({
     .mutation(async ({ ctx, input }) => {
       await assertTwoFactorCode(ctx.user!.sub, input.code, ctx.req.headers);
       return run(() => approveMerchantChange({ userId: ctx.user!.sub, changeId: input.changeId }));
+    }),
+
+  // AB-2: a merchant's products until the Merchant Console (AB-5) lets the merchant edit them
+  offers: adminProcedure
+    .input(z.object({ id: hexId }))
+    .query(({ input }) => listMerchantOffers(input.id)),
+
+  upsertOffer: paymentsAdminProcedure
+    .input(
+      z.object({
+        id: hexId,
+        offerId: hexId.optional(),
+        code: z.string().trim().max(32),
+        title: z.string().trim().max(80),
+        description: z.string().trim().max(500).nullable().optional(),
+        features: z.array(z.string().trim().max(120)).max(4),
+        tag: z.string().trim().max(24).nullable().optional(),
+        amountUnits: z.string().regex(/^[1-9]\d{0,12}$/),
+        rank: z.number().int().min(0).max(99),
+        status: z.enum(["draft", "active", "paused", "archived"]),
+        code2fa: code,
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      await assertTwoFactorCode(ctx.user!.sub, input.code2fa, ctx.req.headers);
+      return run(() =>
+        upsertMerchantOffer({
+          merchantId: input.id,
+          actorId: ctx.user!.sub,
+          ...(input.offerId ? { id: input.offerId } : {}),
+          code: input.code,
+          title: input.title,
+          description: input.description ?? null,
+          features: input.features,
+          tag: input.tag ?? null,
+          amountUnits: BigInt(input.amountUnits),
+          rank: input.rank,
+          status: input.status,
+        })
+      );
     }),
 
   reject: paymentsAdminProcedure
