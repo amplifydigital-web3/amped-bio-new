@@ -8,7 +8,7 @@ import { paymentSettings } from "./settings";
 import { markRefunded } from "../store/sales";
 import { settlePendingJoinsOnce } from "../memberships/core";
 import { applyDuePayoutWallets } from "../merchants/payoutWallets";
-import { deliverDueWebhooks, emitMerchantEvent } from "../partners/webhooks";
+import { deliverDueWebhooks, emitMerchantEvent, purgePartnerData } from "../partners/webhooks";
 import { notifyMerchantOrder } from "../partners/orderEvents";
 import { isFeatureOn } from "../featureFlags";
 import {
@@ -32,6 +32,8 @@ import {
 
 export const PAYMENTS_WORKER_TICK_MS = 10_000;
 const LOG_PASS_EVERY = 3;
+/** AB-4: six hours, for the Partner API retention sweep (30 days of deliveries, 7 of keys) */
+const PURGE_EVERY = 2_160;
 export const INITIAL_LOOKBACK = 5_000n;
 export const MAX_RANGE = 2_000n;
 /** A submitting row with no transaction hash this long after its split expired never left. */
@@ -231,6 +233,8 @@ export function startPaymentsWorker() {
       }
       // AB-4: signed webhooks to merchants, with retries (partner spec 8.4)
       if (isFeatureOn("partnerApi")) await deliverDueWebhooks();
+      // AB-4: retain deliveries 30 days and idempotency records 7 (privacy notice section 10)
+      if (ticks % PURGE_EVERY === 0) await purgePartnerData();
     } catch (error) {
       console.error("[payments worker] tick failed", error);
     } finally {
