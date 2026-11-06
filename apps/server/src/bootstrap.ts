@@ -1,4 +1,5 @@
 import { instrumentCaptchaVerification } from "./utils/captcha-observability";
+import { startCronJobs } from "./services/cron";
 import { verifySmtpTransport } from "./utils/email/email";
 import { startBroadcastSweeper } from "./services/broadcast";
 import { startTelegramLoop } from "./services/telegram/loop";
@@ -28,6 +29,7 @@ BigInt.prototype.toJSON = function () {
 };
 
 instrumentCaptchaVerification();
+startCronJobs();
 
 // Feature flags from site_settings: load the rows, then reload them every 15 seconds.
 // Until the first load answers, every flag reads its environment variable as before.

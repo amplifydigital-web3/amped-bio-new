@@ -225,6 +225,7 @@ export const dashboardRouter = router({
         clicksThisMonth,
         clicksLastMonth,
       },
+      dailyAirdropQueueCount: await prisma.airdropQueueEntry.count(),
     };
   }),
 

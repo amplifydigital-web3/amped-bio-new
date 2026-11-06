@@ -18,6 +18,7 @@ import { referralRouter } from "./referral";
 import { referralInviteRouter } from "./referralInvite";
 import { ndauConversionRouter } from "./ndauConversion";
 import { authbaseRouter } from "./authbase";
+import { dailyAirdropRouter } from "./dailyAirdrop";
 import { analyticsRouter } from "./analytics";
 import { trackingPixelsRouter } from "./trackingPixels";
 import { oauthAppsRouter } from "./oauthApps";
@@ -70,6 +71,7 @@ const mergedRouter = router({
   public: publicSettingsRouter,
   ndauConversion: ndauConversionRouter,
   authbase: authbaseRouter,
+  dailyAirdrop: dailyAirdropRouter,
   analytics: analyticsRouter,
   trackingPixels: trackingPixelsRouter,
   oauthApps: oauthAppsRouter,

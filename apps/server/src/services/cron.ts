@@ -1,0 +1,85 @@
+import { schedule, ScheduledTask } from "node-cron";
+import { prisma } from "@repo/database";
+import { SITE_SETTINGS } from "@repo/constants";
+import { sendPendingBatch } from "./dailyAirdrop";
+import { env } from "../env";
+
+let cronJob: ScheduledTask | null = null;
+
+export function startCronJobs(): void {
+  if (cronJob) {
+    console.log("[CRON] Already started");
+    return;
+  }
+
+  console.log("[CRON] Starting daily airdrop batch processor...");
+
+  // Run every 15 minutes
+  cronJob = schedule("*/15 * * * *", async () => {
+    try {
+      // The kill switch is read on every tick: an admin can pause the faucet
+      // without waiting for the next deploy or restart.
+      const faucetStatus = await prisma.siteSettings.findUnique({
+        where: { setting_key: SITE_SETTINGS.FAUCET_ENABLED },
+      });
+      if (faucetStatus?.setting_value !== "true") {
+        console.log("[CRON_SKIP_DISABLED] Faucet is disabled");
+        return;
+      }
+
+      const entryCount = await prisma.airdropQueueEntry.count();
+      if (entryCount === 0) return;
+
+      const firstEntry = await prisma.airdropQueueEntry.findFirst({
+        orderBy: { createdAt: "asc" },
+      });
+      if (!firstEntry) return;
+
+      const now = new Date();
+      // The admin panel writes these to site settings, so the cron reads them
+      // there first and falls back to the env defaults
+      const rows = await prisma.siteSettings.findMany({
+        where: {
+          setting_key: {
+            in: ["daily_airdrop_batch_hour", "daily_airdrop_min_entries", "daily_airdrop_max_wait_hours"],
+          },
+        },
+      });
+      const setting = (key: string, fallback: number): number => {
+        const value = Number(rows.find(row => row.setting_key === key)?.setting_value);
+        return Number.isFinite(value) ? value : fallback;
+      };
+      const batchHourUTC = setting("daily_airdrop_batch_hour", env.DAILY_AIRDROP_BATCH_HOUR ?? 14);
+      const minEntries = setting("daily_airdrop_min_entries", env.DAILY_AIRDROP_MIN_ENTRIES ?? 5);
+      const maxWaitHours = setting("daily_airdrop_max_wait_hours", env.DAILY_AIRDROP_MAX_WAIT_HOURS ?? 6);
+
+      // Only the configured UTC hour is the daily batch window. Using >= would
+      // send every queued entry for the rest of the day, one batch every tick.
+      const isBatchHour = now.getUTCHours() === batchHourUTC;
+      const hasMinEntries = entryCount >= minEntries;
+      const isOld =
+        now.getTime() - firstEntry.createdAt.getTime() > maxWaitHours * 3_600_000;
+
+      if (isBatchHour || hasMinEntries || isOld) {
+        console.log(
+          `[CRON_BATCH_TRIGGER] entries=${entryCount}, isBatchHour=${isBatchHour}, hasMinEntries=${hasMinEntries}, isOld=${isOld}`
+        );
+        await sendPendingBatch();
+      }
+    } catch (error) {
+      console.error(
+        `[CRON_ERROR] ${error instanceof Error ? error.message : "Unknown error"}`
+      );
+    }
+  });
+
+  console.log("[CRON] Daily airdrop batch processor started (every 15 min)");
+}
+
+export function stopCronJobs(): void {
+  if (cronJob) {
+    cronJob.stop();
+    cronJob = null;
+    console.log("[CRON] Stopped");
+  }
+}

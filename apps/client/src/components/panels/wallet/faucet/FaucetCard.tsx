@@ -187,12 +187,15 @@ export default function FaucetCard() {
   const blockCount = blocks?.length ?? 0;
 
   const submit = async () => {
-    const ok = await faucet.request();
+    const result = await faucet.request();
     // 053 I10: the toast is never the only confirmation; the card shows Request sent
-    if (ok) {
+    if (result) {
       toast.add({
         type: "info",
-        title: `Request sent. ${amount} tREVO arrives in your wallet within a few hours.`,
+        title:
+          result === "queued"
+            ? `Request sent. ${amount} tREVO arrives with the next daily batch.`
+            : `Request sent. ${amount} tREVO arrives in your wallet within a few minutes.`,
       });
     }
   };
@@ -345,7 +348,14 @@ export default function FaucetCard() {
     case "sent":
       body = (
         <Notice variant="info" role="status">
-          <p>Request sent. tREVO arrives in your wallet within a few hours.</p>
+          <p>
+            {faucet.arrivesBy
+              ? `Request sent. tREVO arrives with the next daily batch, by ${faucet.arrivesBy.toLocaleString(
+                  undefined,
+                  { weekday: "short", hour: "numeric", minute: "2-digit" }
+                )}.`
+              : "Request sent. tREVO arrives in your wallet within a few hours."}
+          </p>
         </Notice>
       );
       control = (
