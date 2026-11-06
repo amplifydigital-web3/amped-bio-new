@@ -223,7 +223,7 @@ Creator pages and the public site set nothing in your browser until you choose, 
 | Authbase age and seller check results (pass or fail, the reason and when the check ends) | While your account is open, then deleted within 30 days of closing it |
 | Business seller application and business check (business details, beneficial owners, sanctions result, who approved) | 5 years after the business stops selling, for legal and tax duties |
 | Business seller team, payout wallet changes and audit log | While the business sells, and 5 years after, for disputes and legal duties |
-| Business seller API keys (name, prefix and last use; never the key itself) | Until revoked or the business closes, then deleted within 30 days |
+| Business seller API keys (name, prefix and last use; never the key itself) | Until revoked |
 | Webhook deliveries to a business seller (event, order reference, response and time) | 30 days |
 | Partner API idempotency records (the key and the first answer to a write) | 7 days |
 | Under 18 reviews (that an age check showed under 18, and how we decided) | 5 years |
