@@ -10,6 +10,8 @@ export const LIBRARY_PATHS = {
   search: "/library/search",
   creators: "/library/creators",
   saved: "/library/saved",
+  downloads: "/library/downloads",
+  download: (publicId: string) => `/library/downloads/${publicId}`,
   /** FL-7: Memberships; `?m={id}` opens one membership's Manage sheet */
   memberships: "/library/memberships",
   creator: (handle: string) => `/library/@${handle}`,
@@ -21,6 +23,8 @@ export type LibraryRoute =
   | { view: "search" }
   | { view: "creators" }
   | { view: "saved" }
+  | { view: "downloads" }
+  | { view: "download"; publicId: string }
   | { view: "memberships" }
   | { view: "creator"; handle: string }
   | { view: "item"; handle: string; publicId: string };
@@ -34,6 +38,15 @@ export function parseLibraryPath(pathname: string): LibraryRoute | null {
   if (parts.length === 2 && second === "search") return { view: "search" };
   if (parts.length === 2 && second === "creators") return { view: "creators" };
   if (parts.length === 2 && second === "saved") return { view: "saved" };
+  if (parts.length === 2 && second === "downloads") return { view: "downloads" };
+  if (
+    parts.length === 3 &&
+    second === "downloads" &&
+    third &&
+    CONTENT_PUBLIC_ID_REGEX.test(third)
+  ) {
+    return { view: "download", publicId: third };
+  }
   if (parts.length === 2 && second === "memberships") return { view: "memberships" };
   if (!second?.startsWith("@")) return null;
   // A hand written link can carry a broken escape (`/library/@%`): decode can

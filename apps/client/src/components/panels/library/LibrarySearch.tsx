@@ -1,7 +1,7 @@
 /**
  * Library search (Build Board #26, FL-3, row 183; boards m2, fl-q7). Scope chips
  * (All creators, or the creator the fan came from), results grouped by creator,
- * recent searches, and a no results state. On this device joins with Downloads
+ * recent searches, and a no results state. On this device searches the downloads here (FL-5)
  * in FL-5. Searches titles and descriptions of items the fan can open.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -15,6 +15,7 @@ import { useDelayed } from "@/hooks/useDelayed";
 import { LIBRARY_COPY } from "./copy";
 import { LIBRARY_PATHS } from "./paths";
 import { ItemMenu } from "./ItemMenu";
+import { readIndex, useDownloadsVersion } from "./downloads/store";
 import { CreatorAvatar, ItemListSkeleton, ItemRow, ownerName } from "./parts";
 
 const C = LIBRARY_COPY;
@@ -66,8 +67,14 @@ export function LibrarySearch() {
   const { authUser } = useAuth();
   const [params, setParams] = useSearchParams();
   const fromHandle = params.get("handle");
-  const scope: "all" | "creator" =
-    params.get("scope") === "creator" && fromHandle ? "creator" : "all";
+  useDownloadsVersion();
+  const deviceIds = authUser ? readIndex(authUser.id).items.map(item => item.publicId) : [];
+  const scope: "all" | "creator" | "device" =
+    params.get("scope") === "creator" && fromHandle
+      ? "creator"
+      : params.get("scope") === "device" && deviceIds.length
+        ? "device"
+        : "all";
   // A shared or hand written link can carry a longer term than the server
   // accepts: start from the part it takes instead of showing a load error
   const [query, setQuery] = useState(() =>
@@ -87,6 +94,7 @@ export function LibrarySearch() {
         q: debounced,
         scope,
         handle: scope === "creator" ? (fromHandle ?? undefined) : undefined,
+        deviceIds: scope === "device" ? deviceIds : undefined,
       },
       { getNextPageParam: last => last.nextCursor ?? undefined }
     ),
@@ -106,7 +114,7 @@ export function LibrarySearch() {
     });
   }, [searching, results.isSuccess, count, debounced, storageKey]);
 
-  const setScope = (next: "all" | "creator") => {
+  const setScope = (next: "all" | "creator" | "device") => {
     const p = new URLSearchParams(params);
     p.set("scope", next);
     setParams(p, { replace: true });
@@ -257,14 +265,21 @@ export function LibrarySearch() {
           </button>
         )}
       </form>
-      {fromHandle && (
+      {(fromHandle || deviceIds.length > 0) && (
         <div role="group" aria-label={S.scope} className="flex flex-wrap gap-2">
           <Chip selected={scope === "all"} onClick={() => setScope("all")}>
             {S.all}
           </Chip>
-          <Chip selected={scope === "creator"} onClick={() => setScope("creator")}>
-            @{fromHandle}
-          </Chip>
+          {fromHandle && (
+            <Chip selected={scope === "creator"} onClick={() => setScope("creator")}>
+              @{fromHandle}
+            </Chip>
+          )}
+          {deviceIds.length > 0 && (
+            <Chip selected={scope === "device"} onClick={() => setScope("device")}>
+              {S.device}
+            </Chip>
+          )}
         </div>
       )}
       {body}

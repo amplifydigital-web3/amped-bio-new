@@ -125,6 +125,26 @@ export async function attachSource(
     };
   }
 
+  // FL-5: an offline MP4 plays as a plain file, with no HLS library
+  if (source.mp4) {
+    setTrackElements(media, source.captions);
+    media.src = source.mp4;
+    return {
+      async swap(next) {
+        if (next.kind !== "video") return;
+        const at = media.currentTime;
+        const resume = !media.paused;
+        media.src = next.mp4 ?? next.hls;
+        keepPlace(media, at, resume);
+      },
+      detach() {
+        media.removeAttribute("src");
+        setTrackElements(media, []);
+        media.load();
+      },
+    };
+  }
+
   if (canPlayHlsNatively(media)) {
     media.src = source.hls;
     return {
