@@ -39,26 +39,48 @@ export const contentPublicItemSchema = z.object({
   publicId: contentPublicIdSchema,
 });
 
-/** Report reasons, as ContentReport.reason stores them (spec 3.3). */
+/**
+ * Report reasons, as ContentReport.reason stores them, in the order fans see them
+ * (adult content review 7.1, R3; `csam` keeps its value). `store_policy` is offered
+ * on store pages only.
+ */
 export const CONTENT_REPORT_REASONS = [
-  "copyright",
+  "ncii",
+  "withdraw",
   "csam",
   "adult",
+  "copyright",
   "harassment",
-  "malware",
   "scam",
+  "malware",
   "other",
+  "store_policy",
 ] as const;
 export type ContentReportReason = (typeof CONTENT_REPORT_REASONS)[number];
 
+/** Reasons on an item's Report sheet (store pages add `store_policy`). */
+export const CONTENT_ITEM_REPORT_REASONS = CONTENT_REPORT_REASONS.filter(
+  reason => reason !== "store_policy"
+) as Exclude<ContentReportReason, "store_policy">[];
+
 export const CONTENT_REPORT_LABELS: Record<ContentReportReason, string> = {
-  copyright: "It uses my work without permission",
-  csam: "It sexualizes a child",
-  adult: "It is sexual or explicit and not labeled 18+",
-  harassment: "It harasses or threatens someone",
-  malware: "The file is harmful or a scam download",
-  scam: "It is a scam or misleading",
+  ncii: "This is me and I did not agree",
+  withdraw: "I appear in this and withdraw consent",
+  csam: "This shows a child",
+  adult: "Adult item not labeled",
+  copyright: "It copies my work",
+  harassment: "Harassment",
+  scam: "Scam or fraud",
+  malware: "The file is harmful",
   other: "Something else",
+  store_policy: "Store policy breaks the rules",
+};
+
+/** Reasons that continue on a public notice form instead of a report (7.1, 7.5). */
+export const CONTENT_REPORT_FORM: Partial<Record<ContentReportReason, "takedown" | "copyright">> = {
+  ncii: "takedown",
+  withdraw: "takedown",
+  copyright: "copyright",
 };
 
 export const contentReportSchema = z.object({
@@ -211,3 +233,66 @@ export type BlockReveal =
 
 /** checkPage answer, keyed `${type}:${id}` */
 export type AccessCheckPageResult = Record<string, AccessDecision>;
+
+// ----------------------------------------------------------------------------
+// 18+ shelf (identity checks 4.4, adult content review 9, PR A1 with R6)
+// ----------------------------------------------------------------------------
+
+export const contentAdultShelfSchema = z.object({
+  handle: contentHandleSchema,
+  cursor: contentPublicIdSchema.optional(),
+  limit: z.number().int().min(1).max(48).default(CONTENT_FEED_PAGE),
+});
+
+export const contentAdultItemSchema = contentPublicItemSchema;
+
+/**
+ * Why the shelf did not open. The Over 18 sheet states (identity checks 4.2) map
+ * from these: signed_out to Sign in, not_linked and not_verified (and no_wallet)
+ * to Verify, not_shared to Share, under_18 to the refusal, unavailable to Try again.
+ * `closed` is the adultContent flag off or a page with no 18+ items: the shelf
+ * answers as if it did not exist.
+ */
+export type ContentAdultRefusal =
+  | "signed_out"
+  | "no_wallet"
+  | "not_linked"
+  | "not_verified"
+  | "not_shared"
+  | "under_18"
+  | "unavailable"
+  | "closed";
+
+/** The signed in shelf call. No 18+ title, cover or count leaves the API before a pass. */
+export type ContentAdultShelf =
+  | { open: true; page: ContentFeedPage }
+  | { open: false; reason: ContentAdultRefusal };
+
+export type ContentAdultItem =
+  | { open: true; item: ContentPublicItem }
+  | { open: false; reason: ContentAdultRefusal };
+
+/** Fan side copy for the Adult items card, the shelf and the Over 18 sheet (identity checks 4.2). */
+export const ADULT_FAN_COPY = {
+  cardTitle: "Adult items",
+  cardBody: "For adults. Pass the Over 18 check to see them.",
+  shelfTitle: "Adult items",
+  chip: "18+",
+  checking: "Checking",
+  sheetTitle: "Over 18 check",
+  signedOut: "This is for adults. Sign in to continue.",
+  signIn: "Sign in",
+  verify: "Verify your age with Authbase. It takes a few minutes and you do it once.",
+  verifyAction: "Verify with Authbase",
+  share: "You are verified. Share Over 18 with Amped.Bio to open adult items.",
+  shareAction: "Share in Authbase",
+  under18: "This item is for adults only.",
+  unavailable: "We could not check your age right now. Try again in a minute.",
+  tryAgain: "Try again",
+  checkAction: "Open the Over 18 check",
+  close: "Close",
+  continue: "Continue",
+  empty: "Nothing here right now.",
+  backToPage: "Back to page",
+  notAvailable: "This item is not available.",
+} as const;

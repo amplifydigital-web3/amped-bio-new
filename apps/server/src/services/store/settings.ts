@@ -79,7 +79,10 @@ export async function goLiveChecklist(
     checkIdentity(userId, "seller", { fresh: opts.fresh }),
     adultSetupStep(userId),
   ]);
-  const state: Record<GoLiveStep, { state: GoLiveState; reason?: string | null }> = {
+  const state: Record<
+    GoLiveStep,
+    { state: GoLiveState; reason?: string | null; overrideUntil?: string | null }
+  > = {
     terms: { state: store.sellerTermsAcceptedAt ? "done" : "todo" },
     wallet: {
       state: user?.wallet?.address && isAddress(user.wallet.address) ? "done" : "todo",
@@ -89,6 +92,8 @@ export async function goLiveChecklist(
     seller: {
       state: seller.pass ? "done" : "todo",
       reason: seller.pass ? null : seller.reason,
+      // AB-6: selling with Standard, allowed by Amped.Bio until this date
+      overrideUntil: seller.pass ? (seller.overrideUntil?.toISOString() ?? null) : null,
     },
     policy: { state: store.livePolicyVersionId ? "done" : "todo" },
     adult: { state: adult },

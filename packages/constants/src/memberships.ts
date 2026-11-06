@@ -39,6 +39,8 @@ export const MEMBERSHIP_LIMITS = {
   readinessDays: 3,
   /** Access stays this many days after a missed charge (D7) */
   graceDays: 7,
+  /** One keeper tick of slack after a period end before an active row closes */
+  activeLapseMs: 60 * 60 * 1000,
   /** Reminder days inside the grace */
   reminderDays: [1, 3, 6] as readonly number[],
   /** A join table and the member's permit live this long */

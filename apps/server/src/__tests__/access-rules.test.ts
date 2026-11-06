@@ -8,6 +8,7 @@ import { __resetStakeKindsAllowlistCacheForTests } from "../services/access/allo
 const state = vi.hoisted(() => ({
   poolOwner: 10 as number | null,
   offer: null as null | { creatorUserId: number; status: string },
+  plan: null as null | { creatorUserId: number },
   created: [] as Array<Record<string, unknown>>,
   rule: { ownerUserId: 10, kind: "follower" } as null | { ownerUserId: number; kind: string },
   blocks: 0,
@@ -61,6 +62,7 @@ vi.mock("@repo/database", () => ({
       }),
     },
     offer: { findUnique: vi.fn(async () => state.offer) },
+    membershipPlan: { findUnique: vi.fn(async () => state.plan) },
     block: { count: vi.fn(async () => state.blocks) },
     contentItem: { count: vi.fn(async () => state.items) },
   },
@@ -72,6 +74,7 @@ beforeEach(() => {
   __resetStakeKindsAllowlistCacheForTests();
   state.poolOwner = 10;
   state.offer = null;
+  state.plan = null;
   state.created = [];
   state.rule = { ownerUserId: 10, kind: "follower" };
   state.blocks = 0;
@@ -236,5 +239,57 @@ describe("paid rules (G4)", () => {
       );
     }
     expect(state.created).toHaveLength(0);
+  });
+});
+
+describe("member rules (G5)", () => {
+  const planId = "ef".repeat(16);
+
+  it("stores the creator's own plan, draft or paused included", async () => {
+    state.plan = { creatorUserId: 10 };
+    await createRule(10, { kind: "member", params: { planId } });
+    expect(state.created[0]).toMatchObject({ kind: "member", params: { planId } });
+  });
+
+  it("refuses another creator's plan or a missing plan", async () => {
+    for (const plan of [{ creatorUserId: 11 }, null]) {
+      state.plan = plan;
+      await expect(createRule(10, { kind: "member", params: { planId } })).rejects.toThrow(
+        "Set up your membership first."
+      );
+    }
+    expect(state.created).toHaveLength(0);
+  });
+});
+
+describe("early access date (G6, delta 4)", () => {
+  const RULE = "ab".repeat(16);
+
+  it("stores tomorrow or later", async () => {
+    const tomorrow = new Date();
+    tomorrow.setUTCHours(0, 0, 0, 0);
+    tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+    await createRule(10, { kind: "follower", params: {}, opensToAllAt: tomorrow });
+    expect(state.created[0]!.opensToAllAt).toEqual(tomorrow);
+  });
+
+  it("refuses a past date from a direct caller, not only in the picker", async () => {
+    await expect(
+      createRule(10, {
+        kind: "follower",
+        params: {},
+        opensToAllAt: new Date(Date.now() - 1_000),
+      })
+    ).rejects.toThrow("Choose tomorrow or a later date.");
+    expect(state.created).toHaveLength(0);
+  });
+
+  it("clears the date and still checks a new one on update", async () => {
+    await updateRule(10, RULE, { opensToAllAt: null });
+    expect(state.updated[0]).toMatchObject({ opensToAllAt: null });
+    await expect(
+      updateRule(10, RULE, { opensToAllAt: new Date(Date.now() - 1_000) })
+    ).rejects.toThrow("Choose tomorrow or a later date.");
+    expect(state.updated).toHaveLength(1);
   });
 });

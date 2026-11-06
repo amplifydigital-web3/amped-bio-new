@@ -33,6 +33,7 @@ export {
   type PrismTransitionKind,
 } from "./prism/motion";
 export { SuccessMoment, DrawnCheck } from "./prism/moments/success-moment";
+export { StatutoryNotice } from "./prism/statutory-notice";
 // Prism 2.2 v1.1 additions for Amped Messages (2 Nov 2026)
 export { CountBadge, MessageBubble, TypingIndicator, DayLabel } from "./prism/messages";
 export {
