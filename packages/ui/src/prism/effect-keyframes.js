@@ -126,6 +126,23 @@ export const effectKeyframes = {
     "99%": { textShadow: GLITCH_C },
     "100%": { textShadow: GLITCH_D },
   },
+  // Theme Engine v2 phase 3d (TE-3d): Star border points travel along the
+  // top edge left to right and the bottom edge right to left; Spotlight
+  // drifts on phones. The cycle length is set inline from the Speed param.
+  "@keyframes amped-star-top": {
+    from: { left: "-34%" },
+    to: { left: "100%" },
+  },
+  "@keyframes amped-star-bottom": {
+    from: { right: "-34%" },
+    to: { right: "100%" },
+  },
+  "@keyframes amped-spot-drift": {
+    "0%, 100%": { transform: "translate(0, 0)" },
+    "25%": { transform: "translate(21%, 13%)" },
+    "50%": { transform: "translate(-13%, 34%)" },
+    "75%": { transform: "translate(-21%, 8%)" },
+  },
 };
 
 /** The animate-* utilities the effect maps use (theme.extend.animation). */

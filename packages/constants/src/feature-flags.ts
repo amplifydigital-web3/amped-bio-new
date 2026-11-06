@@ -104,6 +104,30 @@ export const FEATURE_FLAGS = {
     default: false,
     env: { client: "VITE_SHOW_THEME_V2", landing: "NEXT_PUBLIC_SHOW_THEME_V2" },
   },
+  themeShowcase: {
+    label: "Theme showcase",
+    description:
+      "Theme Engine v2 phase 3: WebGL scenes and the other showcase engines run on creator pages and in the editor. Off, a WebGL scene shows its still poster.",
+    scope: "public",
+    default: false,
+    env: {},
+  },
+  fontCatalog: {
+    label: "Font catalog",
+    description:
+      "The Text row font catalog: about 1,900 Google Fonts families, a Name font and a Body font, weight, italics and width and optical size sliders. Needs Theme v2. Staging only until font delivery ships, because catalog fonts still load from Google.",
+    scope: "public",
+    default: false,
+    env: {},
+  },
+  fontDelivery: {
+    label: "Font delivery",
+    description:
+      "Fonts load from Amped's own media host (decision 2): the API mirrors each stylesheet from Google Fonts to R2, and no visitor's browser contacts Google. Off keeps the Google Fonts link. Needs MEDIA_GATEWAY_ORIGIN and R2 on the API and the media gateway's fonts route.",
+    scope: "public",
+    default: false,
+    env: {},
+  },
   homeConversionCopy: {
     label: "Home conversion copy",
     description:
@@ -204,6 +228,14 @@ export const FEATURE_FLAGS = {
     default: false,
     env: {},
   },
+  libraryDigest: {
+    label: "Fan Library daily email",
+    description:
+      "Fan Library (FL-6): one email a day per creator with their new items, to followers who chose Email me updates. Needs BULK_FOOTER_ADDRESS (CAN-SPAM postal address) and counsel sign off on the digest as commercial email.",
+    scope: "server",
+    default: false,
+    env: {},
+  },
   contentUploads: {
     label: "Content uploads",
     description:
@@ -241,6 +273,14 @@ export const FEATURE_FLAGS = {
     default: false,
     env: { server: "PAYMENTS_ENABLED" },
   },
+  storeSales: {
+    label: "Store sales",
+    description:
+      "Creator stores and product pages are public and take payments. Off: a store renders for its owner in preview only (store catalog 2).",
+    scope: "public",
+    default: false,
+    env: {},
+  },
   accessGating: {
     label: "Access gating",
     description:
@@ -248,6 +288,15 @@ export const FEATURE_FLAGS = {
     scope: "public",
     default: false,
     env: { server: "ACCESS_GATING_ENABLED" },
+  },
+  themeSharing: {
+    label: "Theme sharing",
+    description:
+      "Theme Engine v2 phase 4: saved looks with history, share links and the amped.bio/t page, and the rebuilt Themes tab. Off, the share link page returns 404.",
+    scope: "public",
+    default: false,
+    // A new flag: no environment fallback (AGENTS.md, feature flags)
+    env: {},
   },
 } as const satisfies Record<string, FeatureFlagDefinition>;
 

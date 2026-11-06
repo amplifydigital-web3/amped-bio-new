@@ -55,7 +55,8 @@
     "e2e:test": "pnpm run --filter client e2e:test",
     "clear": "rm -rf .turbo && find . -name 'node_modules' -type d -prune -exec rm -rf '{}' + && find . -name 'dist' -type d -prune -exec rm -rf '{}' + && find . -name '.turbo' -type d -prune -exec rm -rf '{}' + && find . -name 'coverage' -type d -prune -exec rm -rf '{}' +",
     "clean": "turbo run clean",
-    "prepare": "git config core.hooksPath .githooks || exit 0"
+    "prepare": "git config core.hooksPath .githooks || exit 0",
+    "effects:thumbnails": "tsx scripts/effects/render-thumbnails.ts"
   },
   "devDependencies": {
     "oxlint": "1.90.0",

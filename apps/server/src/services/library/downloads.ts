@@ -27,7 +27,7 @@ import { hitRateLimit } from "../../utils/rateLimit";
 import { newDownloadJti } from "../cloudflare/mediaToken";
 import { servedAssetsClean } from "../content/access";
 import { buildDownload, DeliveryError } from "../content/delivery";
-import { libraryAccess } from "./access";
+import { libraryAccess, type LibraryViewer } from "./access";
 import { ITEM_CREATOR_SELECT, toLibraryItems, type ItemWithCreator } from "./library";
 
 const hex = (id: Uint8Array) => Buffer.from(id).toString("hex");
@@ -68,17 +68,18 @@ async function loadItem(publicId: string): Promise<ItemWithCreator | null> {
  * lived single use link the app fetches into its cache at once.
  */
 export async function recordDownload(
-  viewerId: number,
+  viewer: LibraryViewer,
   publicId: string,
   device: string,
   now: Date = new Date()
 ): Promise<LibraryDownloadGrant> {
+  const viewerId = viewer.userId;
   const item = await loadItem(publicId);
   if (!item) throw new DownloadRefused("notFound");
   const reason = removalReason(item, viewerId);
   if (reason === "downloadsOff") throw new DownloadRefused("downloadsOff");
   if (reason) throw new DownloadRefused("notFound");
-  const [listed] = await toLibraryItems(viewerId, [item], undefined, now);
+  const [listed] = await toLibraryItems(viewer, [item], undefined, now);
   if (!listed) throw new DownloadRefused("notFound");
   if (!canKeepOffline(listed)) throw new DownloadRefused("downloadsOff");
 
@@ -158,10 +159,11 @@ export async function removeDownload(
 
 /** The copies this app keeps, newest first, with each item as the Library lists it. */
 export async function listDownloads(
-  viewerId: number,
+  viewer: LibraryViewer,
   device: string,
   now: Date = new Date()
 ): Promise<{ items: LibraryDownloadRecord[] }> {
+  const viewerId = viewer.userId;
   const rows = await prisma.downloadRecord.findMany({
     where: { userId: viewerId, device, removedAt: null },
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
@@ -169,7 +171,7 @@ export async function listDownloads(
     include: { contentItem: { include: { user: { select: ITEM_CREATOR_SELECT } } } },
   });
   const items = await toLibraryItems(
-    viewerId,
+    viewer,
     rows.map(row => row.contentItem),
     undefined,
     now

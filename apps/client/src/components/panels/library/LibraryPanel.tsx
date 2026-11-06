@@ -6,7 +6,7 @@
 import { useEffect } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { ChevronLeft } from "lucide-react";
-import { Button } from "@repo/ui";
+import { Button, useAuth } from "@repo/ui";
 import { LIBRARY_COPY } from "./copy";
 import { LIBRARY_PATHS, parseLibraryPath } from "./paths";
 import { LibraryHome } from "./LibraryHome";
@@ -14,10 +14,11 @@ import { LibrarySearch } from "./LibrarySearch";
 import { YourCreatorsPage } from "./YourCreators";
 import { SavedPage } from "./SavedPage";
 import { ItemView } from "./ItemView";
-import { useAuth } from "@repo/ui";
 import { DownloadItemView, DownloadsPage } from "./downloads/DownloadsPage";
 import { downloadsApi } from "./downloads/api";
 import { useOnline } from "./downloads/OfflineDownloads";
+import { CreatorSection } from "./CreatorSection";
+import { MembershipsPage } from "./MembershipsPage";
 
 export function LibraryPanel() {
   const { pathname } = useLocation();
@@ -42,7 +43,8 @@ export function LibraryPanel() {
       {route.view === "download" && authUser && (
         <DownloadItemView account={authUser.id} publicId={route.publicId} online={online} />
       )}
-      {route.view === "creator" && <CreatorPublicRedirect handle={route.handle} />}
+      {route.view === "memberships" && <MembershipsPage />}
+      {route.view === "creator" && <CreatorSection handle={route.handle} />}
       {route.view === "item" && <ItemView handle={route.handle} publicId={route.publicId} />}
     </div>
   );
@@ -56,15 +58,4 @@ function BackToLibrary() {
       {LIBRARY_COPY.back}
     </Button>
   );
-}
-
-/**
- * The creator section is FL-4. Until it ships, /library/@handle opens the
- * creator's public page, the same place spec 3.2 sends a fan with no connection.
- */
-function CreatorPublicRedirect({ handle }: { handle: string }) {
-  useEffect(() => {
-    window.location.assign(`${import.meta.env.VITE_LANDINGPAGE_URL}/@${handle}`);
-  }, [handle]);
-  return null;
 }

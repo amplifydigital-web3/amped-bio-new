@@ -15,6 +15,8 @@ export interface CostPart {
   layer: string;
   label: string;
   cost: EffectCost;
+  /** 2 for cursor.splash, which counts as two heavy effects (spec 3.7). */
+  weight?: 2;
 }
 
 export interface PageCost {
@@ -32,7 +34,12 @@ export function pageCost(v2: ThemeConfigV2): PageCost {
   const add = (layer: string, id: string | undefined) => {
     const entry = id ? findEffect(id) : undefined;
     if (!entry || entry.retired || entry.cost === "still") return;
-    parts.push({ layer, label: entry.label, cost: entry.cost });
+    parts.push({
+      layer,
+      label: entry.label,
+      cost: entry.cost,
+      ...(entry.costWeight ? { weight: entry.costWeight } : {}),
+    });
   };
   const base = v2.scene.base;
   if (base.type === "gradient" && (base.drift || base.mesh)) {
@@ -46,7 +53,7 @@ export function pageCost(v2: ThemeConfigV2): PageCost {
   add("buttonPress", v2.buttonPress.id);
   add("name", v2.name.id);
   add("cursor", v2.cursor.id);
-  const points = parts.reduce((sum, part) => sum + POINTS[part.cost], 0);
+  const points = parts.reduce((sum, part) => sum + POINTS[part.cost] * (part.weight ?? 1), 0);
   const level = points === 0 ? "still" : points > PAGE_BUDGET ? "heavy" : "light";
   return { points, level, parts };
 }

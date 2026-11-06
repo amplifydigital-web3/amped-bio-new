@@ -28,6 +28,7 @@ const mocks = vi.hoisted(() => ({
   creators: vi.fn(),
   newest: vi.fn(),
   search: vi.fn(),
+  memberships: vi.fn(async () => ({ items: [] })),
   toast: vi.fn(),
 }));
 
@@ -70,6 +71,9 @@ vi.mock("@repo/ui", async () => {
         },
         newest: { infiniteQueryOptions: infiniteOptions("library.newest", mocks.newest) },
         search: { infiniteQueryOptions: infiniteOptions("library.search.inf", mocks.search) },
+        memberships: {
+          queryOptions: () => ({ queryKey: ["library.memberships"], queryFn: mocks.memberships }),
+        },
         save: { mutationOptions: mutation },
         unsave: { mutationOptions: mutation },
         markWatched: { mutationOptions: mutation },

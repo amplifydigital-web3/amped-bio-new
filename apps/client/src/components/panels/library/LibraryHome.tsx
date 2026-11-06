@@ -11,12 +11,17 @@ import {
   Bookmark,
   ChevronRight,
   Compass,
+  Crown,
   MessageCircle,
   Search,
   SlidersHorizontal,
   WifiOff,
 } from "lucide-react";
-import type { LibraryCreatorRow, LibraryItem } from "@repo/constants";
+import type {
+  LibraryCreatorRow,
+  LibraryItem,
+  LibraryMembershipCard,
+} from "@repo/constants";
 import {
   Button,
   EmptyState,
@@ -31,7 +36,7 @@ import { DownloadsTile } from "./downloads/DownloadsPage";
 import { readIndex, useDownloadsVersion } from "./downloads/store";
 import { useDelayed } from "@/hooks/useDelayed";
 import { isFeatureOn } from "@/config/featureFlags";
-import { LIBRARY_COPY } from "./copy";
+import { LIBRARY_COPY, LIBRARY_MONEY_COPY } from "./copy";
 import { LIBRARY_PATHS } from "./paths";
 import {
   ActiveFilterChip,
@@ -82,6 +87,11 @@ export function LibraryHome() {
   });
   const saved = useQuery({ ...trpc.library.saved.queryOptions({}), enabled: !filtered });
   const creators = useQuery({ ...trpc.library.creators.queryOptions({}), enabled: !filtered });
+  const memberships = useQuery({
+    ...trpc.library.memberships.queryOptions(),
+    enabled: !filtered,
+  });
+  const membershipCards = memberships.data?.items ?? [];
   const newest = useInfiniteQuery(
     trpc.library.newest.infiniteQueryOptions(
       {
@@ -181,6 +191,7 @@ export function LibraryHome() {
                 {downloadsOn && <DownloadsTile account={authUser?.id ?? null} />}
               </div>
               <CreatorsSection rows={creatorRows} loading={creators.isLoading} />
+              <MembershipsRow cards={membershipCards} />
             </div>
           )}
           <section aria-labelledby="library-newest" className="space-y-2">
@@ -236,6 +247,7 @@ export function LibraryHome() {
         {!filtered && (
           <aside className="hidden space-y-[34px] lg:block">
             <CreatorsSection rows={creatorRows} loading={creators.isLoading} />
+            <MembershipsRow cards={membershipCards} />
             <div className="space-y-2">
               <SavedTile
                 items={saved.data?.items ?? []}
@@ -305,7 +317,14 @@ export function ContinueCard({
     });
 
   return (
-    <div className="rounded-prism-13 bg-white/70 p-2 shadow-prism-e1">
+    <div
+      className={cn(
+        "rounded-prism-13 p-2",
+        inCreatorSection
+          ? "bg-[var(--c-surface)] text-[var(--c-surface-ink)]"
+          : "bg-white/70 shadow-prism-e1"
+      )}
+    >
       <div className="relative">
         <button
           type="button"
@@ -335,7 +354,11 @@ export function ContinueCard({
               })
             }
             className="prism-focus absolute bottom-3 left-2 flex h-touch w-touch items-center justify-center rounded-full text-white shadow-prism-e2"
-            style={{ background: accent }}
+            style={
+              inCreatorSection
+                ? { background: "var(--c-btn)", color: "var(--c-btnink)" }
+                : { background: accent }
+            }
           >
             <PlayGlyph />
           </button>
@@ -349,10 +372,20 @@ export function ContinueCard({
           tabIndex={-1}
           aria-hidden
         >
-          <span className="line-clamp-2 text-[16px] font-semibold leading-snug text-prism-ink">
+          <span
+            className={cn(
+              "line-clamp-2 text-[16px] font-semibold leading-snug",
+              inCreatorSection ? "text-[var(--c-surface-ink)]" : "text-prism-ink"
+            )}
+          >
             {item.title}
           </span>
-          <span className="mt-1 flex items-center gap-2 text-[13px] text-prism-ink-2">
+          <span
+            className={cn(
+              "mt-1 flex items-center gap-2 text-[13px]",
+              inCreatorSection ? "text-[var(--c-surface-muted)]" : "text-prism-ink-2"
+            )}
+          >
             {!inCreatorSection && <OwnerLine owner={item.owner} className="min-w-0" />}
             {left !== null && <span className="shrink-0 tabular-nums">{C.minutesLeft(left)}</span>}
           </span>
@@ -360,6 +393,48 @@ export function ContinueCard({
         <ItemMenu item={item} inContinue inCreatorSection={inCreatorSection} />
       </div>
     </div>
+  );
+}
+
+/**
+ * The Memberships row (FL-7, spec 2.2 item 1): count, and one line when a membership needs
+ * USDC. Hidden until the fan has a membership.
+ */
+function MembershipsRow({ cards }: { cards: LibraryMembershipCard[] }) {
+  const navigate = useNavigate();
+  const current = cards.filter(card => card.state !== "ended");
+  if (!current.length) return null;
+  const urgent = current.some(card => card.state === "past_due" || card.state === "not_covered");
+  return (
+    <section aria-labelledby="library-memberships">
+      <h2 id="library-memberships" className="sr-only">
+        {LIBRARY_MONEY_COPY.rowTitle}
+      </h2>
+      <button
+        type="button"
+        onClick={() => navigate(LIBRARY_PATHS.memberships)}
+        className="prism-focus flex min-h-[72px] w-full items-center gap-3 rounded-prism-13 bg-white/70 px-3 py-2 text-left shadow-prism-e1 transition-colors duration-prism-hover ease-prism hover:bg-white"
+      >
+        <span className="flex h-touch w-touch shrink-0 items-center justify-center rounded-full bg-prism-nav-tint">
+          <Crown aria-hidden className="h-5 w-5 text-prism-ink" strokeWidth={1.5} />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-[16px] font-semibold text-prism-ink">
+            {LIBRARY_MONEY_COPY.rowTitle}
+          </span>
+          <span
+            className={
+              urgent
+                ? "block text-[14px] font-semibold text-prism-warning-ink"
+                : "block text-[14px] text-prism-ink-2"
+            }
+          >
+            {urgent ? LIBRARY_MONEY_COPY.rowPastDue : LIBRARY_MONEY_COPY.rowCount(current.length)}
+          </span>
+        </span>
+        <ChevronRight aria-hidden className="h-5 w-5 shrink-0 text-prism-ink-3" />
+      </button>
+    </section>
   );
 }
 

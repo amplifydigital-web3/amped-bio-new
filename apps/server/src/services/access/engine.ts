@@ -12,6 +12,7 @@ import { prisma } from "@repo/database";
 import {
   ACCESS_RULE_SUMMARIES,
   LIVE_ACCESS_RULE_KINDS,
+  formatUsdcUnits,
   STAKE_ACCESS_RULE_KINDS,
   type AccessDecision,
   type AccessReason,
@@ -29,7 +30,7 @@ import { trustedEmailWhere } from "../../utils/verificationGrace";
 import { chainStakeWei, followState, loadPool, mirrorStakeWei } from "./facts";
 import { stakeKindsAllowed } from "./allowlist";
 import { hexToId, idToHex, loadRule, type LoadedRule } from "./rules";
-import type { Gate, Resolver, Viewer } from "./types";
+import type { Gate, PaymentVerifier, Resolver, Viewer } from "./types";
 
 type Intent = "render" | "open";
 export type CheckOptions = {
@@ -49,6 +50,14 @@ export function registerResolver(type: AccessResourceType, resolver: Resolver) {
 /** For tests only. */
 export function clearResolvers() {
   resolvers.clear();
+}
+
+// ── Payment verifier (spec 3.7, G4) ─────────────────────────────
+// Without one, `paid` refuses with kind_unavailable (default deny).
+let paymentVerifier: PaymentVerifier | null = null;
+
+export function registerPaymentVerifier(verifier: PaymentVerifier | null) {
+  paymentVerifier = verifier;
 }
 
 // ── Decisions ────────────────────────────────────────────────────
@@ -121,6 +130,44 @@ async function stakeWei(
   }
 }
 
+/**
+ * `paid` (spec 3.3, decision 5, G4). A final purchase passes with ok. A purchase on its
+ * first chain confirmation passes with purchase_pending: access is open while the sheet
+ * reads "Confirming payment". A purchase sent but not on chain refuses with
+ * purchase_pending and no action, so the fan is never asked to pay twice. Reorg,
+ * failure and refund close access, because the verifier reads the row every time.
+ *
+ * Buyers keep access when the seller check lapses or the product is paused (spec 3.4).
+ * A new sale needs an active product and a seller who passes the seller check now.
+ */
+async function evaluatePaid(
+  rule: LoadedRule,
+  owner: Owner,
+  viewer: Viewer & { userId: number },
+  intent: Intent
+): Promise<AccessDecision> {
+  if (!paymentVerifier) return refuse("kind_unavailable", { action: "unavailable" }, rule);
+  const offerId = rule.params.offerId as string;
+  const offer = await paymentVerifier.offer(offerId);
+  // Only the owner's own product counts, like the owner's own pool
+  if (!offer || offer.ownerUserId !== owner.id) {
+    return refuse("kind_unavailable", { action: "unavailable" }, rule);
+  }
+  const state = await paymentVerifier.verifyPurchase(viewer.userId, offerId);
+  if (state === "purchased") return allow("ok", rule);
+  if (state === "confirming") return allow("purchase_pending", rule);
+  if (state === "pending") return refuse("purchase_pending", { action: "none" }, rule);
+  if (offer.status !== "active") return refuse("not_purchased", { action: "unavailable" }, rule);
+  // Seller precondition (spec 3.4): open re-runs it fresh, render may use the cached row
+  const seller = await checkIdentity(owner.id, "seller", { fresh: intent === "open" });
+  if (!seller.pass) return refuse("kind_unavailable", { action: "unavailable" }, rule);
+  return refuse(
+    "not_purchased",
+    { action: "buy", offerId, priceDisplay: formatUsdcUnits(offer.amountUnits) },
+    rule
+  );
+}
+
 /** One leaf rule. Combinators call this for each leaf (depth 1). */
 async function evaluateLeaf(
   rule: LoadedRule,
@@ -137,6 +184,8 @@ async function evaluateLeaf(
   }
   if (viewer.userId === null) return refuse("not_signed_in", { action: "sign_in" }, rule);
   const signedIn = viewer as Viewer & { userId: number };
+
+  if (rule.kind === "paid") return evaluatePaid(rule, owner, signedIn, intent);
 
   if (rule.kind === "follower") {
     const state = await followState(owner.id, signedIn.userId);

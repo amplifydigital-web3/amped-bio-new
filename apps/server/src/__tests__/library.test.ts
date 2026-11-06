@@ -2,7 +2,7 @@
  * Fan Library API (Build Board #26, FL-2, spec 3.4 and 3.6). The rules that
  * matter: the Library lists only what the fan can open now, and says how;
  * a fan can not save what they can not open; the section records a visit only
- * for a connected fan; Shop is empty until gating; everything waits on the
+ * for a connected fan; Shop is empty while gating is off; everything waits on the
  * fanLibrary flag. The database is mocked.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -23,6 +23,19 @@ const limits = vi.hoisted(() => ({ hits: 1 }));
 
 vi.mock("@repo/database", () => ({ prisma: db, Prisma: {} }));
 vi.mock("../utils/auth", () => ({ auth: { api: {} } }));
+// FL-7 money reads are covered in library-money.test.ts
+vi.mock("../services/library/money", () => ({
+  moneyCreatorIds: vi.fn(async () => ({
+    members: new Set<number>(),
+    purchased: new Map<number, number>(),
+    pastDue: new Set<number>(),
+  })),
+  moneyLabels: vi.fn(async () => new Map()),
+  creatorMoneyStatus: vi.fn(async () => ({ membership: null, purchases: 0, plan: null })),
+  libraryMemberships: vi.fn(async () => []),
+  libraryMembership: vi.fn(async () => null),
+  libraryCreatorMoney: vi.fn(async () => ({ membership: null, receipts: [], purchases: [] })),
+}));
 vi.mock("../utils/rateLimit", () => ({ hitRateLimit: vi.fn(async () => limits.hits) }));
 vi.mock("../utils/fileUrlResolver", () => ({ getFileUrl: vi.fn(async () => null) }));
 vi.mock("../services/follow/poolFans", () => ({
@@ -152,7 +165,7 @@ describe("newest and search", () => {
   });
 
   it("answers an empty list for sources that need gating, without a query", async () => {
-    await expect(fan.newest({ source: "member" })).resolves.toEqual({
+    await expect(fan.newest({ source: "pool" })).resolves.toEqual({
       items: [],
       nextCursor: null,
     });
@@ -240,7 +253,7 @@ describe("creator section", () => {
     await expect(fan.creator({ handle: "maya" })).rejects.toMatchObject({ code: "NOT_FOUND" });
   });
 
-  it("returns an empty Shop until gating ships, and no media", async () => {
+  it("returns an empty Shop while accessGating is off, and no media", async () => {
     db.follow.findUnique.mockResolvedValue({ id: 1 });
     await expect(fan.creatorItems({ handle: "maya", seg: "shop" })).resolves.toEqual({
       items: [],

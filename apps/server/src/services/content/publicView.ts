@@ -163,6 +163,31 @@ export async function cardsForItems(
   return cards;
 }
 
+/**
+ * Locked cards for gated items already read (the Fan Library Shop, FL-6), keyed
+ * by publicId: the blur cover and the rule summary, never a cover, rendition or
+ * token (content criterion 9). Items without a rule, or with a served asset
+ * that has not passed its scan, are left out.
+ */
+export async function lockedCardsForItems(
+  items: ContentItem[],
+  now: Date = new Date()
+): Promise<Map<string, ContentCard>> {
+  const gatedItems = items.filter(item => item.accessRuleId);
+  const [assets, gates] = await Promise.all([
+    assetsByItem(gatedItems.map(item => item.id)),
+    gatesOf(gatedItems),
+  ]);
+  const cards = new Map<string, ContentCard>();
+  for (const item of gatedItems) {
+    const rows = assets.get(hex(item.id)) ?? [];
+    const gate = gates.get(hex(item.accessRuleId!));
+    if (!gate || !servedAssetsClean(rows)) continue;
+    cards.set(item.publicId, buildLockedCard(item, rows, gate, now));
+  }
+  return cards;
+}
+
 /** True when the creator has at least one public item (the feed page is indexable). */
 export async function hasPublicContent(userId: number): Promise<boolean> {
   const count = await prisma.contentItem.count({

@@ -14,6 +14,7 @@ import {
 import {
   Skeleton,
   cn,
+  AccessEndedError,
   requirePlayerSource,
   trpcClient,
   type PlayerItem,
@@ -43,13 +44,18 @@ export function isPlayable(item: Pick<ContentCard, "kind">) {
   return item.kind === "video" || item.kind === "audio";
 }
 
-/** Fresh signed URLs for an item, every time the player asks, or its offline copy. */
+/**
+ * Fresh signed URLs for an item, every time the player asks, or its offline copy.
+ * A refusal from the gating engine (the fan lost access since the list loaded)
+ * stops the player with Access ended (FL-6, spec 3.4).
+ */
 export function resolverFor(publicId: string): SourceResolver {
   return async () => {
     // FL-5: a copy on this device plays from the device, online or not
     const local = localSource(activeAccount(), publicId);
     if (local) return local;
     const result = await trpcClient.content.getReadUrl.query({ publicId });
+    if (result.decision && !result.decision.allowed) throw new AccessEndedError();
     return requirePlayerSource(result.playback);
   };
 }
@@ -234,13 +240,21 @@ export function ItemRow({
   item,
   onOpen,
   menu,
+  themed = false,
 }: {
   item: LibraryItem;
   onOpen: () => void;
   menu?: ReactNode;
+  /** Inside a creator section: the creator's card colors, and no owner line */
+  themed?: boolean;
 }) {
   return (
-    <div className="flex items-center gap-1 rounded-prism-13 transition-colors duration-prism-hover ease-prism hover:bg-white/60">
+    <div
+      className={cn(
+        "flex items-center gap-1 rounded-prism-13 transition-colors duration-prism-hover ease-prism",
+        themed ? "bg-[var(--c-surface)] text-[var(--c-surface-ink)]" : "hover:bg-white/60"
+      )}
+    >
       <button
         type="button"
         onClick={onOpen}
@@ -249,11 +263,21 @@ export function ItemRow({
       >
         <ItemCover item={item} sizes="128px" className="aspect-video w-[112px] rounded-prism-13" />
         <span className="flex min-w-0 flex-1 flex-col gap-1">
-          <span className="line-clamp-2 text-[16px] font-semibold leading-snug text-prism-ink">
+          <span
+            className={cn(
+              "line-clamp-2 text-[16px] font-semibold leading-snug",
+              themed ? "text-[var(--c-surface-ink)]" : "text-prism-ink"
+            )}
+          >
             {item.title}
           </span>
-          <OwnerLine owner={item.owner} className="text-[14px] text-prism-ink-2" />
-          <span className="flex min-w-0 items-center gap-2 text-[13px] text-prism-ink-2">
+          {!themed && <OwnerLine owner={item.owner} className="text-[14px] text-prism-ink-2" />}
+          <span
+            className={cn(
+              "flex min-w-0 items-center gap-2 text-[13px]",
+              themed ? "text-[var(--c-surface-muted)]" : "text-prism-ink-2"
+            )}
+          >
             <span className="truncate">{contentCardMeta(item)}</span>
             <AccessLabel item={item} />
           </span>

@@ -15,7 +15,8 @@ type BaseBlockType =
   | "telegram_message"
   | "telegram_group"
   | "content"
-  | "message";
+  | "message"
+  | "store";
 
 export type BaseBlock<type extends BaseBlockType = any, T = any> = {
   id: number;
@@ -266,6 +267,19 @@ export const DEFAULT_CONTENT_BLOCK_CONFIG: ContentBlockConfig = {
   publicIds: [],
 };
 
+// Store block (Build Board #20, store-catalog.md 6, board st10): up to 6 of the
+// creator's products and Visit store. The config holds the heading only: which
+// products show, and whether the block shows at all, come from the server at
+// render (store.listForBio). It is hidden while the store is not live or has no
+// active products, and never lists an 18+ product.
+export type StoreBlockConfig = {
+  /** Heading over the block, 0 to 40 characters. Empty shows the store name. */
+  label: string;
+};
+export type StoreBlock = BaseBlock<"store", StoreBlockConfig>;
+export const STORE_BLOCK_LABEL_MAX = 40;
+export const DEFAULT_STORE_BLOCK_CONFIG: StoreBlockConfig = { label: "" };
+
 export const FOLLOW_LABEL_MAX = 24;
 export const FOLLOWERS_TITLE_MAX = 40;
 
@@ -292,7 +306,8 @@ export type BlockType =
   | TelegramMessageBlock
   | TelegramGroupBlock
   | ContentBlock
-  | MessageBlock;
+  | MessageBlock
+  | StoreBlock;
 
 /** Block types a page holds at most once. The Add block dialog opens the existing row. */
 export const SINGLETON_BLOCK_TYPES = [
@@ -303,6 +318,7 @@ export const SINGLETON_BLOCK_TYPES = [
   "telegram_message",
   "telegram_group",
   "message",
+  "store",
 ] as const;
 
 /**
@@ -474,6 +490,11 @@ export const contentBlockConfigSchema = z.object({
   hidden: z.boolean().optional(),
 });
 
+export const storeBlockConfigSchema = z.object({
+  label: z.string().trim().max(STORE_BLOCK_LABEL_MAX).default(DEFAULT_STORE_BLOCK_CONFIG.label),
+  hidden: z.boolean().optional(),
+});
+
 /** The config schema for a block type. Unknown types fall back to the union. */
 const CONFIG_SCHEMAS: Record<string, z.ZodTypeAny> = {
   link: linkConfigSchema,
@@ -488,6 +509,7 @@ const CONFIG_SCHEMAS: Record<string, z.ZodTypeAny> = {
   telegram_group: telegramGroupConfigSchema,
   content: contentBlockConfigSchema,
   message: messageBlockConfigSchema,
+  store: storeBlockConfigSchema,
 };
 
 // The referral schema accepts any object, so it stays last in the fallback
