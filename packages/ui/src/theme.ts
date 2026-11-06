@@ -1,4 +1,10 @@
-import { ampedThemeImportSchema, type ThemeConfig } from "@repo/constants";
+import {
+  THEME_FILE_MAX_BYTES,
+  ampedThemeImportSchema,
+  themeFileConfig,
+  themeFileV2,
+  type ThemeConfig,
+} from "@repo/constants";
 
 export type { ThemeConfig };
 
@@ -24,8 +30,8 @@ export function themeFileName(name: string) {
  * Export the current theme configuration as an AmpedTheme file (.ampedtheme)
  */
 export function exportThemeConfigAsJson(theme: Theme, customFilename?: string) {
-  // Create a Blob containing just the config part of the theme as JSON data
-  const data = JSON.stringify(theme.config, null, 2);
+  // Spec 3.9: export writes a v2 file, the config under a header (themeFile.ts)
+  const data = JSON.stringify(themeFileV2(theme.name, null, new Date(), theme.config), null, 2);
   const blob = new Blob([data], { type: "application/json" });
 
   // Create a temporary URL for the Blob
@@ -53,8 +59,11 @@ export function exportThemeConfigAsJson(theme: Theme, customFilename?: string) {
  */
 export async function importThemeConfigFromJson(file: File): Promise<ThemeConfig> {
   try {
+    // Spec 3.11: files above 64 KB are refused
+    if (file.size > THEME_FILE_MAX_BYTES) throw new Error("Theme file too large");
     const text = await file.text();
-    const data = JSON.parse(text);
+    // TE-4b: a v2 file wraps the config with a header (themeFile.ts); v1 is bare
+    const data = themeFileConfig(JSON.parse(text));
 
     // Validate the imported data structure using the same schema as backend
     const validatedThemeConfig = ampedThemeImportSchema.parse(data);

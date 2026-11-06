@@ -206,6 +206,9 @@ const envSchema = z.object({
   // Encrypts custodian, release names and request contacts at rest (section 10).
   // Falls back to BETTER_AUTH_SECRET when empty.
   SAFETY_DATA_SECRET: z.string().default(""),
+  // The company postal address for commercial email footers (CAN-SPAM; bulk email AC-Q11).
+  // The Fan Library daily email (FL-6) sends nothing while it is empty.
+  BULK_FOOTER_ADDRESS: z.string().default(""),
   // Mobile checkout (Build Board #49, CK-1): the checkout router answers only when true
   CHECKOUT_ENABLED: boolSchema(false),
 
@@ -324,6 +327,9 @@ const envSchema = z.object({
   // contract is deployed (PAY-1 on Base Sepolia). The admin shows "Not deployed" until then.
   AMPEDPAY_ADDRESS: z.string().default(""),
   AMPEDPAY_SAFE: z.string().default(""),
+  // AmpedMemberships proxy (PAY-3 deploy output, MB-1). Empty until deployed: joins refuse
+  // with paused and the renewal job does nothing.
+  AMPEDMEMBERSHIPS_ADDRESS: z.string().default(""),
   // PAY-A2: Coinbase Server Wallet accounts by name (Build Board #53, B3). The pauser may only
   // call pause() on AmpedPay; the Safe proposer is a Safe delegate that signs proposals and
   // nothing else; the split signer is shown on Overview and used by PAY-2.

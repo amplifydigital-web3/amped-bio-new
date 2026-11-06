@@ -1,4 +1,4 @@
-import type { EffectEntry } from "./types";
+import type { EffectEntry, ParamSpec } from "./types";
 
 /**
  * Container surfaces. The v1 containerStyle values, class for class as both
@@ -11,7 +11,7 @@ const container = (
   id: string,
   label: string,
   description: string,
-  legacyId: number,
+  legacyId: number | undefined,
   className: string,
   extra: Partial<EffectEntry> = {}
 ): EffectEntry => ({
@@ -27,7 +27,7 @@ const container = (
   params: {},
   render: className ? { kind: "class", className } : { kind: "none" },
   preview: { sample: "card" },
-  legacyId,
+  ...(legacyId === undefined ? {} : { legacyId }),
   addedIn: 1,
   ...extra,
 });
@@ -98,5 +98,87 @@ export const CONTAINER_EFFECTS: readonly EffectEntry[] = [
     "A white card with a deep shadow",
     9,
     "bg-white rounded-3xl shadow-[0_35px_60px_-15px_rgba(0,0,0,0.2)]"
+  ),
+];
+
+// Phase 3d premium surfaces (spec 3.5, board 03, PR TE-3d). New in v2, no v1
+// integer: the editor stores them by id (containerStyleId) and keeps
+// containerStyle on the nearest v1 look for renderers without them. The class
+// is the surface; the moving part (edge light, sparks, stars, spotlight) is
+// drawn by SurfaceFx in packages/ui from the params.
+
+const SPEED: ParamSpec = {
+  kind: "range",
+  min: 0,
+  max: 100,
+  step: 1,
+  default: 50,
+  label: "Speed",
+};
+
+const premium = (
+  id: string,
+  label: string,
+  description: string,
+  className: string,
+  params: Readonly<Record<string, ParamSpec>>,
+  extra: Partial<EffectEntry> = {}
+): EffectEntry =>
+  container(id, label, description, undefined, className, {
+    tier: "plus",
+    cost: "light",
+    params,
+    addedIn: 2,
+    ...extra,
+  });
+
+export const PREMIUM_CONTAINER_EFFECTS: readonly EffectEntry[] = [
+  premium(
+    "liquid-glass",
+    "Liquid glass",
+    "Clear glass that bends the light at its edges",
+    "relative isolate bg-white/10 rounded-2xl border border-white/50 backdrop-blur-md shadow-[inset_0_1px_0_rgba(255,255,255,0.7),inset_0_-1px_0_rgba(255,255,255,0.2),0_8px_34px_rgba(0,0,0,0.12)]",
+    {
+      blur: { kind: "range", min: 4, max: 21, step: 1, default: 13, label: "Blur", unit: "px" },
+      refraction: { kind: "range", min: 0, max: 100, step: 1, default: 50, label: "Refraction" },
+    }
+  ),
+  premium(
+    "electric-border",
+    "Electric border",
+    "A crackling line of light around your card",
+    "relative isolate rounded-2xl",
+    {
+      intensity: { kind: "range", min: 0, max: 100, step: 1, default: 50, label: "Intensity" },
+      speed: SPEED,
+      color: { kind: "color", default: "theme", label: "Color" },
+    },
+    { loop: true }
+  ),
+  premium(
+    "star-border",
+    "Star border",
+    "Two points of light travel along the edges",
+    "relative isolate rounded-2xl border border-[color:color-mix(in_srgb,var(--amped-font,#000000)_16%,transparent)]",
+    { speed: SPEED },
+    { loop: true }
+  ),
+  premium(
+    "spotlight",
+    "Spotlight",
+    "A soft light follows the pointer, or drifts on phones",
+    "relative isolate overflow-hidden rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.1)]",
+    {
+      radius: {
+        kind: "range",
+        min: 89,
+        max: 377,
+        step: 1,
+        default: 233,
+        label: "Size",
+        unit: "px",
+      },
+    },
+    { loop: true }
   ),
 ];
