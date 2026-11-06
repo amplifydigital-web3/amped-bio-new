@@ -46,7 +46,7 @@ const stats: AccessRulesStats = {
       summary: "Followers",
       name: "Inner circle",
       uses: 3,
-      opensToAllAt: "2099-12-01T05:00:00.000Z",
+      opensToAllAt: "2099-12-01T23:30:00.000Z",
     },
     {
       ...row("under_5", 0, null),

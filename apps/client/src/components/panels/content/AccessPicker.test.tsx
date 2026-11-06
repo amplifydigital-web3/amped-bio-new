@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { ACCESS_STAKE_DISCLOSURE, TESTNET_NOTICE } from "@repo/constants";
 import { renderWithProviders } from "@/test/utils";
-import { AccessPicker } from "./AccessPicker";
+import { AccessPicker, dateInputToIso, isoToDateInput } from "./AccessPicker";
 
 // Content gating 4.1 (C8): the item editor's "Who can open this".
 
@@ -144,24 +144,31 @@ describe("AccessPicker", () => {
     const RULE = "ab".repeat(16);
     const inline = { ruleId: RULE, valid: true, kind: "follower", name: null, params: {} };
 
-    it("sets Open to everyone on for the item's own rule, as local midnight", async () => {
+    it("sets Open to everyone on for the item's own rule, as UTC midnight", async () => {
       renderWithProviders(<AccessPicker publicId={ID} access={inline} gating={allowed} />);
       const input = screen.getByLabelText("Open to everyone on");
       fireEvent.change(input, { target: { value: "2026-12-01" } });
       await waitFor(() =>
         expect(mocks.ruleUpdate).toHaveBeenCalledWith({
           id: RULE,
-          opensToAllAt: new Date("2026-12-01T00:00:00").toISOString(),
+          opensToAllAt: "2026-12-01T00:00:00.000Z",
         })
       );
       expect(await screen.findByText("Date saved.")).toBeInTheDocument();
+    });
+
+    it("keeps the creator's calendar day in UTC, whatever the browser timezone", () => {
+      expect(dateInputToIso("2026-12-01")).toBe("2026-12-01T00:00:00.000Z");
+      expect(isoToDateInput("2026-12-01T23:30:00.000Z")).toBe("2026-12-01");
+      expect(isoToDateInput("2026-12-01T00:00:00.000Z")).toBe("2026-12-01");
+      expect(dateInputToIso("")).toBeNull();
     });
 
     it("removes the date", async () => {
       renderWithProviders(
         <AccessPicker
           publicId={ID}
-          access={{ ...inline, opensToAllAt: new Date("2026-12-01T00:00:00").toISOString() }}
+          access={{ ...inline, opensToAllAt: "2026-12-01T00:00:00.000Z" }}
           gating={allowed}
         />
       );

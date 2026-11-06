@@ -31,7 +31,11 @@ const EYEBROW_NAV =
   "flex items-center gap-2 text-prism-eyebrow uppercase text-prism-ink-2 before:h-[3px] before:w-[13px] before:rounded-full before:bg-prism-nav before:content-['']";
 
 const numberFormat = new Intl.NumberFormat("en-US");
-const dayFormat = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" });
+const dayFormat = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+  timeZone: "UTC",
+});
 
 export function countText(value: AccessStatCount): string {
   return value === "under_5" ? C.under5 : numberFormat.format(value);

@@ -12,9 +12,10 @@
  * is no Redis. The report names resources only (`block:12`, `content:abc`), never a fan.
  */
 import { prisma } from "@repo/database";
-import { LOCKABLE_BLOCK_TYPES } from "@repo/constants";
+import { LOCKABLE_BLOCK_TYPES, type ContentCard } from "@repo/constants";
 import { getRedisClient } from "../../utils/cache";
 import { sanitizeBlockConfig } from "../../utils/sanitizeBlockConfig";
+import { isFeatureOn } from "../featureFlags";
 import { publicBlocksFor } from "./blocks";
 import { contentSitemapEntries, publicCardsFor } from "../content/publicView";
 
@@ -30,6 +31,8 @@ const PURGE_MAX_BATCHES = 200;
 export const LEAK_SCAN_MAX = 5_000;
 const SITEMAP_PAGE = 1_000;
 const SITEMAP_MAX_PAGES = 50;
+/** publicCardsFor reads at most this many ids per call */
+const CARD_SCAN_CHUNK = 1_000;
 /** A config value shorter than this is too generic to match on ("text", "x.com") */
 const SECRET_MIN_LENGTH = 8;
 export const LEAK_SCAN_SETTING_KEY = "access_leak_scan_last";
@@ -112,7 +115,14 @@ async function scanContent(leaks: LeakFinding[]) {
   const byUser = new Map<number, string[]>();
   for (const row of rows) byUser.set(row.userId, [...(byUser.get(row.userId) ?? []), row.publicId]);
   for (const [userId, publicIds] of byUser) {
-    const cards = await publicCardsFor(userId, publicIds);
+    // publicCardsFor caps one call; a creator with more than that is scanned in chunks
+    const cards: Record<string, ContentCard> = {};
+    for (let start = 0; start < publicIds.length; start += CARD_SCAN_CHUNK) {
+      Object.assign(
+        cards,
+        await publicCardsFor(userId, publicIds.slice(start, start + CARD_SCAN_CHUNK))
+      );
+    }
     for (const publicId of publicIds) {
       const card = cards[publicId];
       // Not public (draft, 18+, deleted, flag off): nothing to leak
@@ -198,37 +208,54 @@ export async function purgeAccessEvents(now = new Date()): Promise<number> {
   return deleted;
 }
 
-let lastLocalRun: string | null = null;
+const lastLocalRun: Record<"purge" | "scan", string | null> = { purge: null, scan: null };
 
-/** True once per UTC day across instances: Redis SET NX, or a per process date. */
-async function claimNight(day: string): Promise<boolean> {
+/** True once per UTC day and job across instances: Redis SET NX, or a per process date. */
+async function claimNight(job: "purge" | "scan", day: string): Promise<boolean> {
   const redis = getRedisClient();
   if (redis) {
     try {
-      const claimed = await redis.set(`access:nightly:${day}`, "1", "EX", 2 * 24 * 3600, "NX");
+      const claimed = await redis.set(
+        `access:nightly:${job}:${day}`,
+        "1",
+        "EX",
+        2 * 24 * 3600,
+        "NX"
+      );
       return claimed !== null;
     } catch {
       // fall through to the per process date
     }
   }
-  if (lastLocalRun === day) return false;
-  lastLocalRun = day;
+  if (lastLocalRun[job] === day) return false;
+  lastLocalRun[job] = day;
   return true;
 }
 
 export async function runAccessNightly(now = new Date()) {
   if (now.getUTCHours() < ACCESS_NIGHTLY_HOUR_UTC) return null;
   const day = now.toISOString().slice(0, 10);
-  if (!(await claimNight(day))) return null;
-  const purged = await purgeAccessEvents(now).catch(err => {
-    console.error("[access] event purge failed", { message: String(err) });
-    return 0;
-  });
-  const report = await scanLeaks(now).catch(err => {
-    console.error("[access] leak scan failed", { message: String(err) });
-    return null;
-  });
-  return { purged, report };
+  let ran = false;
+  let purged = 0;
+  if (await claimNight("purge", day)) {
+    ran = true;
+    purged = await purgeAccessEvents(now).catch(err => {
+      console.error("[access] event purge failed", { message: String(err) });
+      return 0;
+    });
+  }
+  // Retention runs whatever the flag says; the leak scan only means something while
+  // gating is on. The flag is read on every tick, so turning gating on after 03:00
+  // still scans the same day.
+  let report: LeakScanReport | null = null;
+  if (isFeatureOn("accessGating") && (await claimNight("scan", day))) {
+    ran = true;
+    report = await scanLeaks(now).catch(err => {
+      console.error("[access] leak scan failed", { message: String(err) });
+      return null;
+    });
+  }
+  return ran ? { purged, report } : null;
 }
 
 let ticker: NodeJS.Timeout | null = null;
@@ -243,7 +270,8 @@ export function startAccessNightly() {
 
 /** For tests only. */
 export function __resetAccessNightlyForTests() {
-  lastLocalRun = null;
+  lastLocalRun.purge = null;
+  lastLocalRun.scan = null;
   if (ticker) clearInterval(ticker);
   ticker = null;
 }

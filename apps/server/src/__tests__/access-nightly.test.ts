@@ -13,9 +13,11 @@ const state = vi.hoisted(() => ({
   saved: null as null | string,
   events: [] as Array<{ id: number; createdAt: Date }>,
   deletes: 0,
+  flag: true,
 }));
 
 vi.mock("../utils/cache", () => ({ getRedisClient: () => null }));
+vi.mock("../services/featureFlags", () => ({ isFeatureOn: () => state.flag }));
 vi.mock("../services/access/blocks", () => ({
   publicBlocksFor: vi.fn(async (blocks: Array<{ id: number }>) =>
     blocks
@@ -84,6 +86,7 @@ beforeEach(() => {
   state.saved = null;
   state.events = [];
   state.deletes = 0;
+  state.flag = true;
   __resetAccessNightlyForTests();
 });
 
@@ -162,5 +165,24 @@ describe("runAccessNightly", () => {
     expect(await runAccessNightly(now)).toMatchObject({ purged: 0, report: { leaks: [] } });
     expect(await runAccessNightly(new Date("2026-11-05T05:00:00Z"))).toBeNull();
     expect(await runAccessNightly(new Date("2026-11-06T03:10:00Z"))).not.toBeNull();
+  });
+
+  it("checks accessGating on every tick: no scan while off, but retention still runs", async () => {
+    state.events = [{ id: 1, createdAt: new Date("2024-01-01T00:00:00Z") }];
+    state.flag = false;
+    expect(await runAccessNightly(now)).toEqual({ purged: 1, report: null });
+    expect(state.saved).toBeNull();
+    // Still off later the same day: nothing new runs
+    expect(await runAccessNightly(new Date("2026-11-05T06:00:00Z"))).toBeNull();
+    // Gating turns on later the same day: the scan still runs on that tick
+    state.flag = true;
+    expect(await runAccessNightly(new Date("2026-11-05T10:00:00Z"))).toMatchObject({
+      purged: 0,
+      report: { leaks: [] },
+    });
+    // On the next day both jobs run again
+    expect(await runAccessNightly(new Date("2026-11-06T03:10:00Z"))).toMatchObject({
+      report: { leaks: [] },
+    });
   });
 });

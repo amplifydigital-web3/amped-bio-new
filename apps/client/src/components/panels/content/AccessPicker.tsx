@@ -48,19 +48,19 @@ function weiToWhole(wei: unknown): string {
 
 const WHOLE = /^[1-9]\d{0,20}$/;
 
-/** ISO time to the local "YYYY-MM-DD" a date input shows. */
+/** ISO time to the UTC "YYYY-MM-DD" a date input shows. */
 export function isoToDateInput(iso: string | null | undefined): string {
   if (!iso) return "";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "";
   const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`;
 }
 
-/** A date input's "YYYY-MM-DD" to the ISO time of that local midnight; "" is null. */
+/** A date input's "YYYY-MM-DD" to UTC midnight; "" is null. */
 export function dateInputToIso(value: string): string | null {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
-  const d = new Date(`${value}T00:00:00`);
+  const d = new Date(`${value}T00:00:00.000Z`);
   return Number.isNaN(d.getTime()) ? null : d.toISOString();
 }
 
@@ -433,7 +433,7 @@ function EarlyAccessRow({
 }) {
   const E = ACCESS_INSIGHTS_COPY.early;
   const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
+  tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
   return (
     <div className="space-y-1">
       <label htmlFor={id} className="text-prism-label font-semibold text-prism-ink">
