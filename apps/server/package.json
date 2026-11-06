@@ -18,6 +18,7 @@
     "typecheck": "tsc --noEmit",
     "email:check": "tsx -r dotenv/config scripts/email-check.ts",
     "usdc:records": "tsx -r dotenv/config scripts/usdc-records.ts",
+    "handles:reserved-audit": "tsx -r dotenv/config scripts/handles-reserved-audit.ts",
     "pools:backfill-stats": "tsx -r dotenv/config scripts/pools-backfill-stats.ts",
     "blocks:unsafe-urls": "tsx -r dotenv/config scripts/unsafe-block-urls.ts",
     "messages:copy-threads": "tsx -r dotenv/config scripts/messages-copy-threads.ts",

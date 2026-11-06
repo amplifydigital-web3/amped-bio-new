@@ -14,6 +14,7 @@ import { broadcastsAdminRouter } from "./broadcasts";
 import { telegramAdminRouter } from "./telegram";
 import { messagingAdminRouter } from "./messaging";
 import { moneyAdminRouter } from "./money";
+import { handlesAdminRouter } from "./handles";
 import { paymentsAdminRouter } from "./payments";
 import { merchantsAdminRouter } from "./merchants";
 import { sellerChecksAdminRouter } from "./sellerChecks";
@@ -61,6 +62,9 @@ export const adminRouter = router({
 
   // OAuth Applications
   oauthApps: oauthAppsAdminRouter,
+
+  // Reserved handles: the admin tier, notices, redirects and the log (Build Board D2)
+  handles: handlesAdminRouter,
 
   // USDC relayer, gas ledger, funding, screening and the send pause (Build Board #29)
   money: moneyAdminRouter,

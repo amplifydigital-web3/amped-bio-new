@@ -13,6 +13,7 @@ import { startMembershipRenewals } from "./services/memberships/renewals";
 import { startContentSweeper } from "./services/content/state";
 import { startEdgeSync } from "./services/content/edge";
 import { startOnrampTokenPurge } from "./services/onramp/sessions";
+import { startReservedHandlesSweeper } from "./services/handles/sweeper";
 import { startRnsExpirySweeper } from "./services/rnsExpiry";
 import { startSellerOverrideSweeper } from "./services/identity/sellerOverride";
 import { startCheckoutIntentPurge } from "./services/checkout/intents";
@@ -57,6 +58,8 @@ startContentSweeper();
 startEdgeSync();
 // Buy USDC: delete expired Coinbase userAuthTokens after their 60 day life
 startOnrampTokenPurge();
+// Reserved handles (Build Board D2): renames on the notice deadline, ends holds and redirects.
+startReservedHandlesSweeper();
 // RNS name expiry emails: an hourly sweep, one email per name and stage
 startRnsExpirySweeper();
 // AB-6: seller override reminders and end notices (Build Board #66)

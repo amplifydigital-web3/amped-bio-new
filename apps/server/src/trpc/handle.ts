@@ -25,7 +25,8 @@ import {
   type PublicRnsIdentity,
 } from "../services/rnsIdentity";
 import { changeHandle, newHandleSchema } from "../services/pageHandle";
-import { matchReserved } from "../services/reservedHandles";
+import { bumpReservedVersion, matchReserved } from "../services/reservedHandles";
+import { resolveHandleRedirect } from "../services/handles/redirects";
 import { enforceRateLimits } from "../utils/rateLimit";
 import { getVisitorIp } from "../services/analytics/visitorIp";
 import { publicCardsFor } from "../services/content/publicView";
@@ -132,6 +133,21 @@ const appRouter = router({
     }
   }),
 
+  // Reserved handles (Build Board D2, spec 7.7): the landing page asks this
+  // only when no account holds the handle. Returns the account's current
+  // handle while the redirect lives and its page is published, else null.
+  // The landing server calls it while rendering, so every visitor of a missing
+  // handle shares that server's address: the limit is higher than
+  // checkAvailability's and only slows a scan of old handles.
+  resolveRedirect: publicProcedure.input(handleParamSchema).query(async ({ ctx, input }) => {
+    const ip = getVisitorIp(ctx.req).ip || "unknown";
+    await enforceRateLimits(
+      [{ key: `handle-redirect:${ip}`, limit: 600, windowSeconds: 60 }],
+      "Too many requests. Try again in a minute."
+    );
+    return resolveHandleRedirect(input.handle);
+  }),
+
   // Redeem/change a user's handle
   redeem: privateProcedure
     .input(z.object({ newHandle: newHandleSchema }))
@@ -140,7 +156,10 @@ const appRouter = router({
       const userId = ctx.user!.sub;
 
       try {
-        await changeHandle(prisma, userId, newHandle);
+        const result = await prisma.$transaction(tx => changeHandle(tx, userId, newHandle));
+        // The account may have moved off a reserved word assigned to it: other
+        // instances must stop treating it as the holder before it can redeem it back
+        if (result.unassigned) await bumpReservedVersion();
 
         return {
           success: true,

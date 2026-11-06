@@ -8,6 +8,11 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 const db = vi.hoisted(() => ({
   user: { findFirst: vi.fn(), count: vi.fn(), update: vi.fn(), findUnique: vi.fn() },
   userOnboarding: { findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
+  // RH2: the admin tier is the seed until a test sets rows
+  reservedHandle: { findMany: vi.fn(), findUnique: vi.fn(), update: vi.fn() },
+  handleRedirect: { deleteMany: vi.fn(), upsert: vi.fn() },
+  handleNotice: { findFirst: vi.fn(), updateMany: vi.fn() },
+  adminAuditLog: { create: vi.fn() },
   $transaction: vi.fn(),
 }));
 
@@ -16,6 +21,7 @@ vi.mock("@repo/database", () => ({
   Prisma: { PrismaClientKnownRequestError: class PrismaClientKnownRequestError extends Error {} },
 }));
 vi.mock("../utils/auth", () => ({ auth: { api: {} } }));
+vi.mock("../utils/cache", () => ({ getRedisClient: () => null }));
 vi.mock("../utils/fileUrlResolver", () => ({ getFileUrl: vi.fn(async () => null) }));
 vi.mock("../trpc/trackingPixels", () => ({ getPublicTrackingPixels: vi.fn(async () => null) }));
 vi.mock("../services/rnsIdentity", () => ({
@@ -24,7 +30,9 @@ vi.mock("../services/rnsIdentity", () => ({
   rnsIdBlockOptions: vi.fn(() => ({ attributes: [], visible: false })),
 }));
 
+import { seedAdminRows } from "@repo/constants";
 import handleRouter from "../trpc/handle";
+import { resetReservedCache } from "../services/reservedHandles";
 import { publishPage } from "../services/pagePublish";
 
 let ipCounter = 0;
@@ -36,7 +44,7 @@ function caller(sub?: number, ip?: string) {
 
 describe("handle.checkAvailability", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetDb();
     db.user.count.mockResolvedValue(0);
   });
 
@@ -84,8 +92,26 @@ describe("handle.checkAvailability", () => {
   });
 });
 
+function seedRows() {
+  return seedAdminRows().map(row => ({
+    ...row,
+    id: Buffer.from(row.id.padEnd(16, "-").slice(0, 16)),
+  }));
+}
+
+function resetDb() {
+  vi.clearAllMocks();
+  resetReservedCache();
+  db.reservedHandle.findMany.mockResolvedValue(seedRows());
+  db.reservedHandle.findUnique.mockResolvedValue(null);
+  db.handleRedirect.deleteMany.mockResolvedValue({ count: 0 });
+  db.handleNotice.findFirst.mockResolvedValue(null);
+  db.handleNotice.updateMany.mockResolvedValue({ count: 0 });
+  db.$transaction.mockImplementation(async (fn: (tx: typeof db) => unknown) => fn(db));
+}
+
 describe("handle.redeem", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(resetDb);
 
   it("refuses a reserved word before writing", async () => {
     await expect(caller(7).redeem({ newHandle: "support" })).rejects.toThrow(
@@ -96,6 +122,7 @@ describe("handle.redeem", () => {
 
   it("writes a free handle", async () => {
     db.user.findFirst.mockResolvedValue(null);
+    db.user.findUnique.mockResolvedValue({ handle: "user4821" });
     db.user.update.mockResolvedValue({ id: 7 });
     await expect(caller(7).redeem({ newHandle: "mayalin" })).resolves.toMatchObject({
       success: true,
@@ -109,8 +136,7 @@ describe("handle.redeem", () => {
 
 describe("user.publishPage", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
-    db.$transaction.mockImplementation(async (fn: (tx: typeof db) => unknown) => fn(db));
+    resetDb();
     db.user.findUnique.mockResolvedValue({ handle: "user4821", page_status: "UNPUBLISHED" });
   });
 
