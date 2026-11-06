@@ -30,6 +30,16 @@ import {
 } from "../services/safety/review";
 import { BlocklistError, unblockHash } from "../services/safety/blocklist";
 import {
+  approveSuspend,
+  creatorProfile,
+  decideAppeal,
+  disableAdultByAmped,
+  exportLog,
+  listLog,
+  requestSuspend,
+  restoreAfterNotice,
+} from "../services/safety/creators";
+import {
   decideCopyright,
   decideTakedown,
   getRequest,
@@ -272,6 +282,73 @@ export const safetyRouter = router({
     restore: safetyLeadProcedure
       .input(z.object({ number: requestNumber }))
       .mutation(({ ctx, input }) => run(() => restoreAfterCounter(input.number, reviewerOf(ctx)))),
+  }),
+
+  creators: router({
+    /** The safety profile (8.4, board ad4). */
+    get: safetyProcedure
+      .input(z.object({ handle: z.string().trim().min(1).max(64) }))
+      .query(({ input }) => run(() => creatorProfile(input.handle))),
+    disableAdult: safetyProcedure
+      .input(z.object({ handle: z.string().trim().min(1).max(64), reason: noteSchema }))
+      .mutation(({ ctx, input }) =>
+        run(() => disableAdultByAmped(input.handle, input.reason, reviewerOf(ctx)))
+      ),
+    suspendRequest: safetyProcedure
+      .input(
+        z.object({
+          handle: z.string().trim().min(1).max(64),
+          reason: noteSchema,
+          immediate: z.boolean().optional(),
+        })
+      )
+      .mutation(({ ctx, input }) => run(() => requestSuspend(input, reviewerOf(ctx)))),
+    suspendApprove: safetyLeadProcedure
+      .input(z.object({ handle: z.string().trim().min(1).max(64) }))
+      .mutation(({ ctx, input }) => run(() => approveSuspend(input.handle, reviewerOf(ctx)))),
+  }),
+
+  appeals: router({
+    /** Uphold or Reverse; safety lead, not the first reviewer (8.6). */
+    decide: safetyLeadProcedure
+      .input(
+        z.object({ id: caseIdSchema, outcome: z.enum(["upheld", "reversed"]), note: noteSchema })
+      )
+      .mutation(({ ctx, input }) =>
+        run(() =>
+          decideAppeal(
+            { caseId: input.id, outcome: input.outcome, note: input.note },
+            reviewerOf(ctx)
+          )
+        )
+      ),
+    /** The Take It Down restore after the 2 business day notice (AD-D2). */
+    restore: safetyLeadProcedure
+      .input(z.object({ id: caseIdSchema }))
+      .mutation(({ ctx, input }) => run(() => restoreAfterNotice(input.id, reviewerOf(ctx)))),
+  }),
+
+  log: router({
+    list: safetyProcedure
+      .input(
+        z.object({
+          actorId: z.number().int().positive().optional(),
+          caseNumber: z
+            .string()
+            .regex(/^(SC|CN)-\d{4}-\d{6}$/)
+            .optional(),
+          action: z.string().max(32).optional(),
+        })
+      )
+      .query(({ ctx, input }) => listLog(input, reviewerOf(ctx))),
+    export: safetyLeadProcedure
+      .input(
+        z.object({
+          actorId: z.number().int().positive().optional(),
+          caseNumber: z.string().optional(),
+        })
+      )
+      .mutation(({ ctx, input }) => run(() => exportLog(input, reviewerOf(ctx)))),
   }),
 
   blocklist: router({

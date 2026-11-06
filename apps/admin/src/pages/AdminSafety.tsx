@@ -82,6 +82,10 @@ export function AdminSafety() {
         <TabsList>
           <TabsTrigger value="queue">Queue</TabsTrigger>
           <TabsTrigger value="requests">Requests</TabsTrigger>
+          <TabsTrigger value="creators">Creators</TabsTrigger>
+          <TabsTrigger value="appeals">Appeals</TabsTrigger>
+          <TabsTrigger value="log">Log</TabsTrigger>
+          {lead && <TabsTrigger value="settings">Settings</TabsTrigger>}
           <TabsTrigger value="blocked">Blocked files</TabsTrigger>
         </TabsList>
         <TabsContent value="queue">
@@ -90,6 +94,20 @@ export function AdminSafety() {
         <TabsContent value="requests">
           <Requests lead={lead} />
         </TabsContent>
+        <TabsContent value="creators">
+          <Creators lead={lead} />
+        </TabsContent>
+        <TabsContent value="appeals">
+          <Appeals lead={lead} />
+        </TabsContent>
+        <TabsContent value="log">
+          <SafetyLog lead={lead} />
+        </TabsContent>
+        {lead && (
+          <TabsContent value="settings">
+            <SafetySettingsForm />
+          </TabsContent>
+        )}
         <TabsContent value="blocked">
           <BlockedFiles lead={lead} />
         </TabsContent>
@@ -1065,5 +1083,366 @@ function RequestView({
         </section>
       )}
     </div>
+  );
+}
+
+// ----------------------------------------------------------------------------
+// Creators, Appeals, Log and Settings (boards ad4 to ad6, R5)
+// ----------------------------------------------------------------------------
+
+function Creators({ lead }: { lead: boolean }) {
+  const [input, setInput] = useState("");
+  const [handle, setHandle] = useState<string | null>(null);
+  const [reason, setReason] = useState("");
+  const client = useQueryClient();
+  const profile = useQuery({
+    ...trpc.safety.creators.get.queryOptions({ handle: handle ?? "" }),
+    enabled: !!handle,
+    retry: false,
+  });
+  const disable = useMutation(trpc.safety.creators.disableAdult.mutationOptions());
+  const suspend = useMutation(trpc.safety.creators.suspendRequest.mutationOptions());
+  const approve = useMutation(trpc.safety.creators.suspendApprove.mutationOptions());
+  const act = async (work: () => Promise<unknown>, done: string) => {
+    try {
+      await work();
+      toast.success(done);
+      void client.invalidateQueries({ queryKey: trpc.safety.creators.get.queryKey() });
+    } catch (error) {
+      toast.error(errorMessage(error));
+    }
+  };
+  const p = profile.data;
+  const reasonOk = reason.trim().length >= SAFETY_NOTE_MIN;
+  return (
+    <div className="space-y-[13px]">
+      <form
+        className="flex gap-2"
+        onSubmit={event => {
+          event.preventDefault();
+          setHandle(input.trim());
+        }}
+      >
+        <input
+          aria-label="Creator handle"
+          placeholder="@handle"
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          className="h-touch w-full max-w-[320px] rounded-prism-13 border border-prism-line bg-white px-3"
+        />
+        <Button type="submit" variant="outline">
+          Open
+        </Button>
+      </form>
+      {profile.isError && (
+        <p role="alert" className="text-prism-danger">
+          {errorMessage(profile.error)}
+        </p>
+      )}
+      {p && (
+        <section className="prism-slab space-y-[8px] p-[13px] text-prism-meta text-prism-ink">
+          <h2 className="text-prism-panel-title">@{p.handle}</h2>
+          <p>
+            Over 18: {p.checks.over18.pass ? "passed" : p.checks.over18.reason}. Seller:{" "}
+            {p.checks.seller.pass ? "passed" : p.checks.seller.reason}.
+          </p>
+          <p>
+            18+:{" "}
+            {p.adult.on
+              ? `on, policy ${p.adult.policyVersion}`
+              : p.adult.offByAmped
+                ? `off by Amped (${p.adult.offReason})`
+                : "off"}
+            . Custodian {p.adult.custodianNamed ? "named" : "not named"}.
+          </p>
+          <p>
+            People:{" "}
+            {p.people
+              .map(person => `${person.displayName} (${person.status.replace(/_/g, " ")})`)
+              .join(", ") || "none"}
+          </p>
+          <p>Strikes, 12 months: {p.strikes.filter(st => !st.reversed).length}</p>
+          <p>
+            {p.suspended
+              ? "Suspended"
+              : p.suspendPending
+                ? `Suspend waiting for approval since ${formatDayTime(p.suspendPending)}`
+                : "Active"}
+          </p>
+          <ul>
+            {p.cases.slice(0, 10).map(c => (
+              <li key={c.id}>
+                {c.number} · {SAFETY_CASE_LABELS[c.type as SafetyCaseType]} ·{" "}
+                {c.outcome ?? c.state.toLowerCase()}
+              </li>
+            ))}
+          </ul>
+          <Textarea
+            aria-label="Reason"
+            placeholder={`Reason, at least ${SAFETY_NOTE_MIN} characters`}
+            value={reason}
+            onChange={e => setReason(e.target.value)}
+          />
+          <div className="flex flex-wrap gap-2">
+            {p.adult.on && (
+              <Button
+                type="button"
+                variant="outline"
+                disabled={!reasonOk}
+                onClick={() =>
+                  act(() => disable.mutateAsync({ handle: p.handle!, reason }), "18+ turned off")
+                }
+              >
+                Turn off 18+
+              </Button>
+            )}
+            {!p.suspended && (
+              <Button
+                type="button"
+                variant="outline"
+                disabled={!reasonOk}
+                onClick={() =>
+                  act(() => suspend.mutateAsync({ handle: p.handle!, reason }), "Suspend requested")
+                }
+              >
+                Request suspend
+              </Button>
+            )}
+            {!p.suspended && (
+              <Button
+                type="button"
+                variant="destructive"
+                disabled={!reasonOk}
+                onClick={() =>
+                  act(
+                    () => suspend.mutateAsync({ handle: p.handle!, reason, immediate: true }),
+                    "Suspended"
+                  )
+                }
+              >
+                Suspend now
+              </Button>
+            )}
+            {lead && p.suspendPending && (
+              <Button
+                type="button"
+                onClick={() => act(() => approve.mutateAsync({ handle: p.handle! }), "Approved")}
+              >
+                Approve suspend
+              </Button>
+            )}
+          </div>
+        </section>
+      )}
+    </div>
+  );
+}
+
+function Appeals({ lead }: { lead: boolean }) {
+  const list = useQuery(trpc.safety.queue.list.queryOptions({ type: "APPEAL" }));
+  const decide = useMutation(trpc.safety.appeals.decide.mutationOptions());
+  const restore = useMutation(trpc.safety.appeals.restore.mutationOptions());
+  const client = useQueryClient();
+  const [note, setNote] = useState("");
+  const act = async (work: () => Promise<unknown>, done: string) => {
+    try {
+      await work();
+      toast.success(done);
+      void client.invalidateQueries({ queryKey: trpc.safety.queue.list.queryKey() });
+    } catch (error) {
+      toast.error(errorMessage(error));
+    }
+  };
+  return (
+    <div className="space-y-[13px]">
+      {lead && (
+        <Textarea
+          aria-label="Note for the log"
+          placeholder={`Note for the log, at least ${SAFETY_NOTE_MIN} characters`}
+          value={note}
+          onChange={e => setNote(e.target.value)}
+        />
+      )}
+      <ul className="prism-slab divide-y divide-prism-line">
+        {list.data?.items.map(row => (
+          <li key={row.id} className="flex flex-wrap items-center gap-2 p-[13px] text-prism-meta">
+            <span className="flex-1 font-semibold text-prism-ink">
+              {row.number} · {row.creator ? `@${row.creator}` : ""} · due {formatDayTime(row.dueAt)}
+            </span>
+            {lead && row.state !== "WAITING_CREATOR" && (
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={note.trim().length < SAFETY_NOTE_MIN}
+                  onClick={() =>
+                    act(() => decide.mutateAsync({ id: row.id, outcome: "upheld", note }), "Upheld")
+                  }
+                >
+                  Uphold
+                </Button>
+                <Button
+                  type="button"
+                  disabled={note.trim().length < SAFETY_NOTE_MIN}
+                  onClick={() =>
+                    act(
+                      () => decide.mutateAsync({ id: row.id, outcome: "reversed", note }),
+                      "Reversed"
+                    )
+                  }
+                >
+                  Reverse
+                </Button>
+              </>
+            )}
+            {lead && row.state === "WAITING_CREATOR" && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => act(() => restore.mutateAsync({ id: row.id }), "Restored")}
+              >
+                Restore after notice
+              </Button>
+            )}
+          </li>
+        ))}
+        {list.data?.items.length === 0 && (
+          <li className="p-[13px] text-prism-ink-2">No open appeals.</li>
+        )}
+      </ul>
+    </div>
+  );
+}
+
+function SafetyLog({ lead }: { lead: boolean }) {
+  const [caseNumber, setCaseNumber] = useState("");
+  const query = /^(SC|CN)-\d{4}-\d{6}$/.test(caseNumber.trim())
+    ? { caseNumber: caseNumber.trim() }
+    : {};
+  const log = useQuery(trpc.safety.log.list.queryOptions(query));
+  const exportCsv = useMutation(trpc.safety.log.export.mutationOptions());
+  return (
+    <div className="space-y-[13px]">
+      <div className="flex flex-wrap gap-2">
+        <input
+          aria-label="Case number"
+          placeholder="SC-2026-000123"
+          value={caseNumber}
+          onChange={e => setCaseNumber(e.target.value)}
+          className="h-touch rounded-prism-13 border border-prism-line bg-white px-3"
+        />
+        {lead && (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={async () => {
+              try {
+                const csv = await exportCsv.mutateAsync(query);
+                const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = "safety-log.csv";
+                a.click();
+                URL.revokeObjectURL(url);
+              } catch (error) {
+                toast.error(errorMessage(error));
+              }
+            }}
+          >
+            Export CSV
+          </Button>
+        )}
+      </div>
+      <SlabTable label="Safety log">
+        <SlabHead>
+          <th className={cn(thClass, stickyCell)}>When</th>
+          <th className={thClass}>Actor</th>
+          <th className={thClass}>Case</th>
+          <th className={thClass}>Action</th>
+          <th className={thClass}>Note</th>
+        </SlabHead>
+        <tbody>
+          {log.data?.map((row, i) => (
+            <tr key={i} className={rowClass}>
+              <td className={cn(tdClass, stickyCell)}>{formatDayTime(row.at)}</td>
+              <td className={tdClass}>{row.actorId ?? "System"}</td>
+              <td className={tdClass}>{row.caseNumber ?? ""}</td>
+              <td className={tdClass}>{row.action.replace(/_/g, " ")}</td>
+              <td className={tdClass}>{row.note ?? ""}</td>
+            </tr>
+          ))}
+        </tbody>
+      </SlabTable>
+    </div>
+  );
+}
+
+function SafetySettingsForm() {
+  const settings = useQuery(trpc.safety.settings.get.queryOptions());
+  const update = useMutation(trpc.safety.settings.update.mutationOptions());
+  const [onCall, setOnCall] = useState<string | null>(null);
+  if (!settings.data)
+    return <Skeleton delayMs={400} className="h-[233px] w-full rounded-prism-21" />;
+  const s = settings.data.settings;
+  const numbers: Array<[keyof typeof s, string]> = [
+    ["claimIdleMinutes", "Release a claim after (minutes)"],
+    ["breakAfterMinutes", "Break prompt after (minutes)"],
+    ["dailyCapMinutes", "Daily cap on 18+ and child safety (minutes)"],
+    ["strikesToSuspend", "Strikes in 12 months that suspend uploads"],
+    ["phashThreshold", "Perceptual hash threshold (bits)"],
+    ["classifierThreshold", "Classifier threshold (0 to 1)"],
+  ];
+  const save = async (patch: Record<string, unknown>) => {
+    try {
+      await update.mutateAsync(patch as never);
+      toast.success("Saved and logged");
+      void settings.refetch();
+    } catch (error) {
+      toast.error(errorMessage(error));
+    }
+  };
+  return (
+    <section className="prism-slab space-y-[13px] p-[13px] text-prism-meta text-prism-ink">
+      {numbers.map(([key, label]) => (
+        <label key={key} className="flex items-center justify-between gap-2">
+          {label}
+          <input
+            type="number"
+            step={key === "classifierThreshold" ? 0.01 : 1}
+            defaultValue={String(s[key])}
+            onBlur={e => void save({ [key]: Number(e.target.value) })}
+            className="h-touch w-[120px] rounded-prism-13 border border-prism-line px-3"
+          />
+        </label>
+      ))}
+      <label className="block">
+        On call for child safety alerts, one per line: name, email, +phone
+        <Textarea
+          value={
+            onCall ??
+            s.onCall.map(p => [p.name, p.email ?? "", p.phone ?? ""].join(", ")).join("\n")
+          }
+          onChange={e => setOnCall(e.target.value)}
+        />
+      </label>
+      <Button
+        type="button"
+        onClick={() =>
+          void save({
+            onCall: (onCall ?? "")
+              .split("\n")
+              .map(line => line.split(",").map(part => part.trim()))
+              .filter(parts => parts[0])
+              .map(([name, email, phone]) => ({
+                name: name!,
+                ...(email ? { email } : {}),
+                ...(phone ? { phone } : {}),
+              })),
+          })
+        }
+      >
+        Save on call list
+      </Button>
+    </section>
   );
 }
