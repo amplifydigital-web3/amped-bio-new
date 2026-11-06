@@ -724,6 +724,7 @@ Drafted for counsel. Nothing here is on a board as final text.
 
 ## Revision log
 
+- 2026-11-05: R4 built (`feat/adult-setup`, on R3). Setup checklist, People with invites, release signing and countersigning, withdraw (7.4), item people, AI label and recording dates, submit for review, `releaseAllowsSurface`. Handoff `docs/fixes/adult-setup.md`.
 - 2026-11-05: R3 built (`feat/takedown`, on R2). New report reasons and intake (child report hides with the abuse guard), Take It Down form, status and desk, copyright notice, counter notice and desk, footer links. Handoff `docs/fixes/takedown.md`.
 - 2026-11-05: R2 built (`feat/safety-queue`, on R1). Queue, case view with blur and 60 second reveal, decisions with keys, Block this file, strikes by safety lead, escalate (child safety and trafficking), delivery line Retry, Blocked files. Handoff `docs/fixes/safety-queue.md`.
 - 2026-11-05: R1 built (`feat/safety-foundation`, on C7a). Section 10 tables, roles and the admin gate, SafetyEvent writer, Settings defaults, hash blocklist service, `preserveEvidence`, child safety alert (email and Twilio SMS), CSAM match and classifier hold intake. Handoff `docs/fixes/safety-foundation.md`.

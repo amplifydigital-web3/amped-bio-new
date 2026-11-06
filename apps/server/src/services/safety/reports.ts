@@ -15,6 +15,7 @@ import { uuidv7 } from "../../utils/uuid-v7";
 import { hideItems } from "../content/edge";
 import { openCase } from "./cases";
 import { sendChildSafetyAlert } from "./alert";
+import { withdrawRelease } from "./adultSetup";
 
 /** Child reports by this account that a reviewer cleared, in the window. */
 export async function unfoundedChildReports(
@@ -44,8 +45,32 @@ export async function intakeReport(
   item: Pick<ContentItem, "id" | "publicId" | "userId">,
   report: { reason: ContentReportReason; details: string | null; reporterUserId: number | null },
   now: Date = new Date()
-): Promise<{ hidden: boolean }> {
+): Promise<{ hidden: boolean; withdrawn?: boolean }> {
   let hidden = false;
+  // "I appear in this and withdraw consent" from a person on the creator's list (7.1, R4)
+  if (report.reason === "withdraw" && report.reporterUserId !== null) {
+    const release = await prisma.appearingPerson.findFirst({
+      where: { creatorUserId: item.userId, personUserId: report.reporterUserId, withdrawnAt: null },
+      select: { id: true },
+    });
+    if (release) {
+      const result = await withdrawRelease(
+        report.reporterUserId,
+        Buffer.from(release.id).toString("hex"),
+        now
+      );
+      await prisma.contentReport.create({
+        data: {
+          id: uuidv7(),
+          contentItemId: item.id,
+          reporterUserId: report.reporterUserId,
+          reason: report.reason,
+          details: report.details,
+        },
+      });
+      return { hidden: result.hidden > 0, withdrawn: true };
+    }
+  }
   let caseId: Buffer | null = null;
   try {
     if (report.reason === "csam") {

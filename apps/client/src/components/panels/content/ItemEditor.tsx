@@ -29,6 +29,7 @@ import { CaptionsSection, ItemPreview } from "./ItemMedia";
 import { AccessPicker, type EditorAccess, type EditorGating } from "./AccessPicker";
 import { isFeatureOn } from "../../../config/featureFlags";
 import { PublishCard } from "./PublishCard";
+import { AdultItemSection } from "./adult/AdultItemSection";
 import { RetryProcessing } from "./RetryProcessing";
 import type { ContentUploadKind } from "@repo/constants";
 
@@ -480,6 +481,8 @@ export function ItemEditor({ publicId, onBack }: { publicId: string; onBack: () 
               }}
             />
           </div>
+          {/* #28 R4 (5.3): who appears, AI label, confirmation, submit for review */}
+          {adult && isFeatureOn("adultContent") && <AdultItemSection publicId={publicId} />}
         </div>
       </section>
 

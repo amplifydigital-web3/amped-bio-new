@@ -21,6 +21,10 @@ const PrismGallery = lazy(() =>
 
 // Mobile checkout (CK-2). Lazy, so the editor bundle carries none of it
 const PayPage = lazy(() => import("./pages/Pay").then(module => ({ default: module.PayPage })));
+// Release signing for people who appear (#28 R4, 5.2)
+const AppearPage = lazy(() =>
+  import("./pages/Appear").then(module => ({ default: module.AppearPage }))
+);
 // Over 18 check (identity checks 4.2, PR A1). Lazy, like checkout
 const AgeCheckPage = lazy(() =>
   import("./pages/AgeCheck").then(module => ({ default: module.AgeCheckPage }))
@@ -62,6 +66,16 @@ function AppRouter() {
                 </Suspense>
               </ProtectedRoute>
             </PayHandoffGate>
+          }
+        />
+        <Route
+          path="/appear/:token"
+          element={
+            <ProtectedRoute>
+              <Suspense fallback={<div className="prism-room min-h-dvh" />}>
+                <AppearPage />
+              </Suspense>
+            </ProtectedRoute>
           }
         />
         {/* Over 18 check sheet (A1). Signed out fans see its first state, so no ProtectedRoute */}
