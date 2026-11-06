@@ -1,4 +1,5 @@
 import { messageDoor } from "../services/messaging/messageDoor";
+import { publicFontLinks } from "../services/fonts/fontMirror";
 import { publicProcedure, privateProcedure, router } from "./trpc";
 import { TRPCError } from "@trpc/server";
 import { getFileUrl } from "../utils/fileUrlResolver";
@@ -30,7 +31,8 @@ import { getVisitorIp } from "../services/analytics/visitorIp";
 import { publicCardsFor } from "../services/content/publicView";
 import { hasAdultItems } from "../services/content/adult";
 import { publicBlocksFor } from "../services/access/blocks";
-import type { ContentBlockConfig, ContentCard } from "@repo/constants";
+import type { ContentBlockConfig, ContentCard, StoreBioBlock } from "@repo/constants";
+import { storeForBio } from "../services/store/public";
 
 export const SITEMAP_MAX_PAGE_SIZE = 10000;
 
@@ -229,6 +231,8 @@ const appRouter = router({
         .filter(block => block.type === "content")
         .flatMap(block => (block.config as Partial<ContentBlockConfig> | null)?.publicIds ?? [])
         .filter((id): id is string => typeof id === "string");
+      // Store block (st10): the creator's products, read only when the page carries it
+      const hasStoreBlock = blockRows.some(block => block.type === "store");
       const [
         themeResult,
         imageResult,
@@ -240,6 +244,7 @@ const appRouter = router({
         contentResult,
         messageDoorResult,
         adultResult,
+        storeBlockResult,
       ] = await Promise.allSettled([
         getPublicTheme(Number(theme_id)),
         getFileUrl({
@@ -271,6 +276,10 @@ const appRouter = router({
         user.page_status === "PUBLISHED" && user.block === "no"
           ? hasAdultItems(user_id)
           : Promise.resolve(false),
+        // Public stores only, never the owner's preview; a suspended page shows none
+        hasStoreBlock && user.handle && user.page_status === "PUBLISHED" && user.block === "no"
+          ? storeForBio({ id: user_id, handle: user.handle.toLowerCase(), name })
+          : Promise.resolve(null),
       ]);
 
       // The theme is the profile itself, so its failure is fatal
@@ -324,6 +333,15 @@ const appRouter = router({
           messageDoor: messageDoorResult.status === "fulfilled" ? messageDoorResult.value : null,
         },
         theme: themeResult.value,
+        // Theme Engine v2 fonts (2b PR 2): the mirrored font links on the media host,
+        // or null while fontDelivery is off (the page keeps the Google requests)
+        fonts: await publicFontLinks(themeResult.value?.config ?? null, {
+          name,
+          bio: description,
+        }).catch(error => {
+          console.error("[getHandle] font links failed, showing fallback fonts:", error);
+          return [] as string[];
+        }),
         blocks: publicBlocks,
         hasCreatorPool,
         creatorPoolAddress,
@@ -332,6 +350,12 @@ const appRouter = router({
           contentResult,
           {} as Record<string, ContentCard>,
           "content cards"
+        ),
+        // Store block (st10): null hides the block. Fails closed.
+        storeBlock: settledOrFallback(
+          storeBlockResult,
+          null as StoreBioBlock | null,
+          "store block"
         ),
         indexable: isUserIndexable(user, publicBlocks.length),
         // True when the page has a listed 18+ item and the adultContent flag is on. Fails closed.

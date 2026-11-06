@@ -572,15 +572,22 @@ describe("content.update access (3.5)", () => {
         access: { kind: "member", params: { planId: 1 } } as never,
       })
     ).rejects.toMatchObject({ code: "BAD_REQUEST" });
-    const paid = addRule("paid", { offerId: "a".repeat(32) }, "Paid");
+    const member = addRule("member", { planId: 1 }, "Members");
     await expect(
-      content(OWNER).update({ publicId: item.publicId, access: { ruleId: db.hex(paid) } })
+      content(OWNER).update({ publicId: item.publicId, access: { ruleId: db.hex(member) } })
     ).rejects.toMatchObject({ code: "BAD_REQUEST" });
     const other = addRule("follower", {}, "Theirs");
     db.rules.get(db.hex(other))!.ownerUserId = 99;
     await expect(
       content(OWNER).update({ publicId: item.publicId, access: { ruleId: db.hex(other) } })
     ).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
+
+  it("attaches a saved Paid rule (G4)", async () => {
+    const item = addItem();
+    const paid = addRule("paid", { offerId: "a".repeat(32) }, "Paid");
+    await content(OWNER).update({ publicId: item.publicId, access: { ruleId: db.hex(paid) } });
+    expect(db.hex(item.accessRuleId!)).toBe(db.hex(paid));
   });
 
   it("keeps a saved rule and an inline rule another item uses", async () => {

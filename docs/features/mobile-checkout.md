@@ -1,6 +1,6 @@
 # Mobile checkout
 
-Status: revision 3, 3 Nov 2026 (Full QA 2). CK-2, CK-3 and CK-4 are on `development`; CK-5 is next. This is CK-0: it records the 23 Oct mobile first review as amended by the 29 Oct Full QA and Rob's answers, and it carries the spec edits the PR plan lists for the content, USDC and memberships specs (section 16).
+Status: revision 3.2, 4 Nov 2026. CK-2, CK-3 and CK-4 are on `development`; CK-5 is open (`feat/checkout-live`, handoff `docs/fixes/checkout-live.md`). This is CK-0: it records the 23 Oct mobile first review as amended by the 29 Oct Full QA and Rob's answers, and it carries the spec edits the PR plan lists for the content, USDC and memberships specs (section 16).
 Owner: Rob Frasca. Drafted by Claude.
 Build Board: #49 Mobile checkout. Related cards: #18 Paid content, #25 Memberships, #50 AmpedPay, #28 Adult content, #5 On-ramp.
 Baseline: `development` at 0500800 (2 Nov 2026), which contains CK-1 (#399, merged 2 Nov).
@@ -294,6 +294,8 @@ These sections are superseded here rather than edited in place, as `docs/feature
 - Desktop pay sheet boards before C9.
 
 ## Revision log
+
+- 2026-11-04: Revision 3.2. CK-5 built on `feat/checkout-live`: the sheet pays through AmpedPay when the quote names it; the store policy link, sheet, version on the intent and Store policy changed; Checking on return to a signing or submitted intent; Verified chip, network fee row and the access line in place of "Yours to keep". Not in CK-5: the cover beside the title, the promoter line (C12) and the step up above 100 USDC.
 
 - 2026-11-03: Revision 3.1. Rob's decisions on the Full QA 2 list: CK-D1 (counsel sentences only, then the Store policy link), CK-D2 (no token in v1; CK-4b row removed), CK-D3 (bell as the third renewal channel), CK-D4 and CT-D1 (docks), AD-D1 (Alabama HB 164 Section 9 warnings and SAMHSA helpline on the 18+ steps, interim pending counsel). Boards c1, c4, c5, c6 and c9 updated.
 

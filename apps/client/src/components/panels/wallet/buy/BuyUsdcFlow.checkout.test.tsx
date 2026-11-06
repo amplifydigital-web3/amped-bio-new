@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   awaitFunds: vi.fn(async (_input: { id: string }) => ({ id: "", status: "awaiting_funds" })),
   status: null as unknown,
   minCents: 500,
+  checkoutOn: true,
 }));
 
 const mutation = (fn?: (input: never) => Promise<unknown>) => ({
@@ -70,6 +71,11 @@ vi.mock("@repo/ui", async importOriginal => ({
 }));
 vi.mock("@/contexts/WalletContext", () => ({ useWalletContext: () => ({ address: "0x1" }) }));
 vi.mock("../dialogs/ReceiveDialog", () => ({ default: () => null }));
+vi.mock("@/components/shell/CheckoutResumeBar", () => ({
+  get CHECKOUT_ON() {
+    return mocks.checkoutOn;
+  },
+}));
 
 import BuyUsdcFlow from "./BuyUsdcFlow";
 
@@ -83,6 +89,7 @@ function renderAt(path: string) {
 
 beforeEach(() => {
   mocks.awaitFunds.mockClear();
+  mocks.checkoutOn = true;
   mocks.status = null;
   mocks.minCents = 500;
 });
@@ -102,6 +109,13 @@ describe("Buy USDC from a checkout", () => {
     renderAt(`/wallet?fund=usdc&ci=${ID}&need=7250001`);
     expect(await screen.findByDisplayValue("7.26")).toBeInTheDocument();
     expect(screen.queryByText(/smallest purchase/)).toBeNull();
+  });
+
+  it("with checkout off the intent is not moved to awaiting_funds", async () => {
+    mocks.checkoutOn = false;
+    renderAt(`/wallet?fund=usdc&ci=${ID}&need=1000000`);
+    expect(await screen.findByDisplayValue("5")).toBeInTheDocument();
+    expect(mocks.awaitFunds).not.toHaveBeenCalled();
   });
 
   it("without a checkout nothing is prefilled and no intent moves", async () => {

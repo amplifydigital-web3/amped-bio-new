@@ -201,6 +201,19 @@ describe("processor callback", () => {
     expect(clean.explicitAt ?? null).toBeNull();
   });
 
+  it("holds an explicit item whose 18+ label came off mid-processing (#28 F1)", async () => {
+    // The job was queued with the label on, so the classifier still reports explicit
+    const item = seed({ adult: false });
+    await applyProcessorCallback({ ...base, step: "classifier", outcome: "ok", explicit: true });
+    expect(item).toMatchObject({
+      explicitAt: expect.any(Date),
+      moderationState: "HELD",
+      moderationReason: "adult_label_removed",
+    });
+    await applyProcessorCallback({ ...base, step: "done", outcome: "ok" });
+    expect(item).toMatchObject({ status: "READY", moderationState: "HELD" });
+  });
+
   it("fails an item and releases its bytes", async () => {
     const item = seed();
     await applyProcessorCallback({

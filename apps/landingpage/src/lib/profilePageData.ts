@@ -1,4 +1,10 @@
-import type { BlockType, ContentCard, PublicTrackingPixels, ThemeConfig } from "@repo/constants";
+import type {
+  BlockType,
+  ContentCard,
+  PublicTrackingPixels,
+  StoreBioBlock,
+  ThemeConfig,
+} from "@repo/constants";
 import type { RouterOutputs } from "../../../server/src/trpc";
 
 // Inferred directly from the tRPC router so the SSR page data can never drift
@@ -49,6 +55,13 @@ export interface ProfilePageData {
   contentCards: Record<string, ContentCard>;
   /** Identity checks 4.4: the page has 18+ items (no title, cover or count) */
   hasAdult: boolean;
+  /**
+   * Theme Engine v2 2b PR 2: the page's font stylesheets on Amped's media host,
+   * or null while fontDelivery is off (the page loads them from Google, as before)
+   */
+  fonts: string[] | null;
+  /** Store block (st10): null hides the block */
+  storeBlock: StoreBioBlock | null;
 }
 
 export const DEFAULT_HANDLE = "landingpage";
@@ -96,6 +109,8 @@ export const DEFAULT_PROFILE_DATA: ProfilePageData = {
   indexable: false,
   contentCards: {},
   hasAdult: false,
+  fonts: null,
+  storeBlock: null,
 };
 
 /**
@@ -114,6 +129,8 @@ export function mapGetHandleData(result: HandleOutput, handle: string): ProfileP
     indexable,
     contentCards,
     hasAdult,
+    fonts,
+    storeBlock,
   } = result;
   return {
     profile: {
@@ -139,5 +156,7 @@ export function mapGetHandleData(result: HandleOutput, handle: string): ProfileP
     indexable,
     contentCards: contentCards ?? {},
     hasAdult: hasAdult === true,
+    fonts: fonts ?? null,
+    storeBlock: storeBlock ?? null,
   };
 }

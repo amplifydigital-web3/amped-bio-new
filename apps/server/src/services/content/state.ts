@@ -18,6 +18,7 @@ import { publishContentJob } from "../cloudflare/queue";
 import { createStreamClip, enableStreamDownloads } from "../cloudflare/stream";
 import { env } from "../../env";
 import { purgeDeletedItems } from "./purge";
+import { edgeDirty } from "./edge";
 
 /** Items left in UPLOADING longer than this are failed and their bytes released. */
 export const UPLOADING_TIMEOUT_MS = 24 * 60 * 60 * 1000;
@@ -43,6 +44,8 @@ export async function failItem(
             moderationState: "BLOCKED",
             moderationReason: reason.slice(0, 255),
             processingStep: null,
+            // The edge loop applies BLOCKED within a minute (takedown 4.3)
+            ...edgeDirty(),
           }
         : { status: "FAILED", failureReason: reason.slice(0, 255), processingStep: null },
     });
@@ -122,6 +125,9 @@ export async function applyStreamWebhook(body: StreamWebhookBody): Promise<Strea
  * item is now BLOCKED. Anything but `applied` means stop.
  */
 export type ProcessorCallbackResult = "not_found" | "ignored" | "applied" | "blocked";
+
+/** Moderation reason when an item found explicit lost its 18+ label (#28 F1). */
+export const ADULT_LABEL_REMOVED = "adult_label_removed";
 
 /** R2 prefixes the processor may report; anything else is rejected (untrusted toolbox). */
 const ASSET_KEY_PREFIXES = ["originals", "audio", "derived"];
@@ -242,6 +248,7 @@ export async function applyProcessorCallback(
           processingStep: callback.step,
           moderationState: "HELD",
           moderationReason: (callback.reason ?? "classifier").slice(0, 255),
+          ...edgeDirty(),
         },
       });
       return "applied";
@@ -262,9 +269,25 @@ export async function applyProcessorCallback(
         }
       }
       if (callback.step !== "done") {
+        // #28 F1: the queued job carries the 18+ label from when it was enqueued, so
+        // a label taken off mid-processing still reports this item explicit. The
+        // unlabeled item is held for a reviewer instead of clearing to the public
+        // pages, and stays held when "done" arrives.
+        const unlabeledExplicit =
+          callback.step === "classifier" && callback.explicit === true && !item.adult;
         await prisma.contentItem.update({
           where: { id: item.id },
-          data: { ...metadata, processingStep: callback.step },
+          data: {
+            ...metadata,
+            processingStep: callback.step,
+            ...(unlabeledExplicit
+              ? {
+                  moderationState: "HELD" as const,
+                  moderationReason: ADULT_LABEL_REMOVED,
+                  ...edgeDirty(),
+                }
+              : {}),
+          },
         });
         return "applied";
       }
