@@ -21,6 +21,14 @@ vi.mock("@repo/ui", async importOriginal => ({
   ...(await importOriginal<typeof import("@repo/ui")>()),
   useAuth: () => ({ authUser: { id: 20, handle: "fan" }, isPending: false }),
   trpc: {
+    identity: {
+      myChecks: {
+        queryOptions: () => ({
+          queryKey: ["identity.myChecks"],
+          queryFn: () => ({ ageOver18: { pass: true }, seller: { pass: false } }),
+        }),
+      },
+    },
     checkout: {
       get: {
         queryOptions: (input: { id: string }) => ({

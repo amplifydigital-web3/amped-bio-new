@@ -253,6 +253,22 @@ function StorefrontView({ onOpen }: { onOpen: (tab: SubTab) => void }) {
                       {STORE_COPY.goLive.adultSub}
                     </span>
                   ) : null}
+                  {step === "seller" && !done && row.reason === "needs_enhanced" ? (
+                    <span className="block text-prism-caption text-prism-ink/70">
+                      {STORE_COPY.goLive.sellerNeedsEnhanced}
+                    </span>
+                  ) : null}
+                  {step === "seller" && done && row.overrideUntil ? (
+                    <span className="block text-prism-caption text-prism-ink/70">
+                      {STORE_COPY.goLive.sellerAllowedUntil(
+                        new Date(row.overrideUntil).toLocaleDateString(undefined, {
+                          day: "numeric",
+                          month: "short",
+                          year: "numeric",
+                        })
+                      )}
+                    </span>
+                  ) : null}
                 </span>
                 {!done && step === "terms" ? (
                   <Button
@@ -274,7 +290,15 @@ function StorefrontView({ onOpen }: { onOpen: (tab: SubTab) => void }) {
                     Check again
                   </Button>
                 ) : null}
-                {!done && action ? (
+                {!done && step === "seller" && row.reason === "needs_enhanced" ? (
+                  <a
+                    href="/wallet?tab=rns"
+                    className="inline-flex min-h-touch items-center text-prism-label font-bold text-prism-nav"
+                  >
+                    {STORE_COPY.goLive.sellerUpgrade}
+                  </a>
+                ) : null}
+                {!done && action && !(step === "seller" && row.reason === "needs_enhanced") ? (
                   action.tab ? (
                     <Button size="sm" variant="secondary" onClick={() => onOpen(action.tab!)}>
                       {action.label}

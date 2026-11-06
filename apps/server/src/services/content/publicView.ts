@@ -196,11 +196,23 @@ export async function hasPublicContent(userId: number): Promise<boolean> {
   return count > 0;
 }
 
+/**
+ * Which items a read covers. "public": the listed filter, never 18+. "adult": the
+ * same filter with 18+ instead, only for the signed in shelf after an Over 18 pass
+ * (identity checks 4.4). Server HTML, sitemaps and share tags never use "adult".
+ */
+export type ItemScope = "public" | "adult";
+
+function scopeWhere(scope: ItemScope) {
+  return scope === "adult" ? { ...listedItemWhere(), adult: true } : listedItemWhere();
+}
+
 /** The creator feed page: listed items, newest first (spec 3.7, board cs6). */
 export async function publicFeed(
   creator: PublicCreator,
   options: { kind?: ContentUploadKind; cursor?: string; limit: number },
-  now: Date = new Date()
+  now: Date = new Date(),
+  scope: ItemScope = "public"
 ): Promise<ContentFeedPage> {
   let cursorOk = false;
   if (options.cursor) {
@@ -213,7 +225,7 @@ export async function publicFeed(
   const items: ContentItem[] = await prisma.contentItem.findMany({
     where: {
       userId: creator.id,
-      ...listedItemWhere(),
+      ...scopeWhere(scope),
       ...(options.kind ? { kind: toDbKind(options.kind) } : {}),
     },
     orderBy: [{ publishedAt: "desc" }, { id: "desc" }],
@@ -251,10 +263,11 @@ export async function publicFeed(
 export async function publicItem(
   creator: PublicCreator,
   publicId: string,
-  now: Date = new Date()
+  now: Date = new Date(),
+  scope: ItemScope = "public"
 ): Promise<ContentPublicItem | null> {
   const item = await prisma.contentItem.findFirst({
-    where: { publicId, userId: creator.id, ...listedItemWhere() },
+    where: { publicId, userId: creator.id, ...scopeWhere(scope) },
   });
   if (!item) return null;
   const rows = (await assetsByItem([item.id])).get(hex(item.id)) ?? [];

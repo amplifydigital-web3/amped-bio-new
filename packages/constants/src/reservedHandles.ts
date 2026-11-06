@@ -27,6 +27,9 @@ export const SYSTEM_RESERVED_HANDLES: ReadonlySet<string> = new Set([
   "tg",
   // TE-4b: share links, amped.bio/t/<slug>
   "t",
+  // R3: Take It Down and copyright notice forms
+  "takedown",
+  "copyright",
   // routes on the board
   "pools",
   "pool",
