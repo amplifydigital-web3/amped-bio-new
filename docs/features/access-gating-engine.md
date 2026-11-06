@@ -216,7 +216,7 @@ bumpViewer(userId, reason)  // follow, unfollow, block, stake confirm, purchase,
 
 - `viewer` is always built from `ctx.user`. No endpoint accepts a wallet or user id from the client.
 - `open` runs `check` with `intent: "open"` and `fresh: true`, calls `reveal` only on a pass, and logs the event. It replaces v1's client held AccessGrant JWT for every in app reveal (decision 2).
-- `eligibleUserIds` serves broadcast audiences (messaging PR M9) and the Library new content fan out (FL-6). It reads the mirror and Follow tables; it never grants.
+- `eligibleUserIds` serves broadcast audiences (messaging PR M9) and the Library new content fan out (FL-6). It reads the mirror and Follow tables; it never grants. Broadcast audiences pass `stakeAllowlist: false`: the counsel pilot allowlist gates access to items, and a broadcast to pool stakers opens nothing (M9, pending Rob's confirmation).
 
 tRPC `access` router:
 

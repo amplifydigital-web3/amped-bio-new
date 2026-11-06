@@ -130,15 +130,34 @@ export async function notifyBroadcastDelivered(broadcastId: number, now = new Da
       where: { broadcastId },
       select: { userId: true },
     });
+    const recipients = deliveries.map(d => d.userId);
+    // Mute a creator's broadcasts: the inbox copy still arrives, but no bell row
+    // and no push (NotificationPreference per creator, spec 8.6 item 1)
+    const muted = new Set(
+      recipients.length
+        ? (
+            await prisma.notificationPreference.findMany({
+              where: {
+                userId: { in: recipients },
+                creatorUserId: broadcast.creatorUserId,
+                mutedUntil: { gt: now },
+              },
+              select: { userId: true },
+            })
+          ).map(row => row.userId)
+        : []
+    );
+    const audience = recipients.filter(id => !muted.has(id));
+    if (!audience.length) return 0;
     const existing = new Set(
       (
         await prisma.notification.findMany({
-          where: { groupKey, userId: { in: deliveries.map(d => d.userId) } },
+          where: { groupKey, userId: { in: audience } },
           select: { userId: true },
         })
       ).map(n => n.userId)
     );
-    const fresh = deliveries.map(d => d.userId).filter(id => !existing.has(id));
+    const fresh = audience.filter(id => !existing.has(id));
     for (let i = 0; i < fresh.length; i += 500) {
       await prisma.notification.createMany({
         data: fresh.slice(i, i + 500).map(userId => ({
@@ -232,7 +251,8 @@ async function broadcastPushPayload(payload: BroadcastJobPayload): Promise<PushP
   return {
     title: `@${creator.handle ?? "creator"}`,
     body: `New broadcast: ${broadcast.title}`.slice(0, 100),
-    url: `/inbox?tab=broadcast&id=${payload.broadcastId}`,
+    // M9: the spec route; the client turns it into /inbox?tab=broadcast&b={id}
+    url: `/inbox/broadcast/${payload.broadcastId}`,
     tag: `bc-${payload.broadcastId}`,
   };
 }
