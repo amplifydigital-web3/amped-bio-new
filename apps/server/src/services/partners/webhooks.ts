@@ -416,3 +416,23 @@ export async function deliverDueWebhooks(now = new Date(), batch = 20): Promise<
   }
   return sent;
 }
+
+/** Webhook deliveries are kept 30 days and idempotency records 7 (privacy notice section 10). */
+export const DELIVERY_RETENTION_MS = 30 * 86_400_000;
+export const IDEMPOTENCY_RETENTION_MS = 7 * 86_400_000;
+
+/**
+ * Deletes old webhook deliveries and Partner API idempotency rows. Run by the payments worker
+ * every six hours, so neither table grows without bound and the published retention holds.
+ */
+export async function purgePartnerData(now = new Date()) {
+  const [deliveries, idempotency] = await Promise.all([
+    prisma.webhookDelivery.deleteMany({
+      where: { createdAt: { lt: new Date(now.getTime() - DELIVERY_RETENTION_MS) } },
+    }),
+    prisma.partnerIdempotencyKey.deleteMany({
+      where: { createdAt: { lt: new Date(now.getTime() - IDEMPOTENCY_RETENTION_MS) } },
+    }),
+  ]);
+  return { deliveries: deliveries.count, idempotency: idempotency.count };
+}
