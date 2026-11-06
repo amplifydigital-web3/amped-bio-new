@@ -325,6 +325,12 @@ export const contentProcessedCallbackSchema = z.object({
    */
   outcome: z.enum(["ok", "failed", "blocked", "held"]),
   reason: z.string().max(255).optional(),
+  /**
+   * Classifier step only: the classifier returned explicit. Sent with "held" on an
+   * item not labeled 18+, and with "ok" on a labeled one, so the API can store
+   * `explicitAt` and lock the 18+ label on (#28 F1).
+   */
+  explicit: z.boolean().optional(),
   sha256: z
     .string()
     .regex(/^[0-9a-f]{64}$/)

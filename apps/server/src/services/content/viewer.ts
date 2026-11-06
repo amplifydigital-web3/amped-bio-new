@@ -9,7 +9,14 @@ import { prisma } from "@repo/database";
 import type { Request } from "express";
 import { hitRateLimit } from "../../utils/rateLimit";
 import { getVisitorIp } from "../analytics/visitorIp";
-import { isPublicItem, openDecision, ownerCanOpen, servedAssetsClean } from "./access";
+import {
+  isListedItem,
+  isPublicItem,
+  openDecision,
+  ownerCanOpen,
+  servedAssetsClean,
+} from "./access";
+import { canViewAdult } from "./adult";
 import type { DeliveryAccess } from "./delivery";
 
 export const VIEWER_MESSAGES = {
@@ -50,7 +57,18 @@ export async function loadItemForViewer(publicId: string, userId: number | null)
     include: { user: { select: { page_status: true, block: true, handle: true, name: true } } },
   });
   if (!item) throw new TRPCError({ code: "NOT_FOUND", message: VIEWER_MESSAGES.notFound });
-  const decision = openDecision(item, item.user, { userId });
+  let decision = openDecision(item, item.user, { userId });
+  // Identity checks 4.4 (A1): an ungated 18+ item opens to a viewer with an Over 18
+  // pass, on the private lifetimes. Only while the adultContent flag is on.
+  if (
+    !decision &&
+    item.adult &&
+    item.accessRuleId === null &&
+    isListedItem({ ...item, adult: false }, item.user) &&
+    (await canViewAdult(userId))
+  ) {
+    decision = "public";
+  }
   if (!decision) throw new TRPCError({ code: "NOT_FOUND", message: VIEWER_MESSAGES.notFound });
   const assets = await prisma.contentAsset.findMany({ where: { contentItemId: item.id } });
   if (!servedAssetsClean(assets)) {

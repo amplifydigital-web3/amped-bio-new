@@ -255,7 +255,10 @@ describe("image", () => {
       toolbox.results["/image"] = imageResult(id);
       expect(await processMessage({ type: "r2", publicId: id }, deps)).toBe("ready");
       expect(api.step("classifier")).toMatchObject(
-        adult ? { outcome: "ok" } : { outcome: "held", reason: "mock:explicit" }
+        // Both report explicit, so the API locks the 18+ label (#28 F1)
+        adult
+          ? { outcome: "ok", explicit: true }
+          : { outcome: "held", reason: "mock:explicit", explicit: true }
       );
       expect(api.steps().at(-1)).toBe("done:ok");
     }
