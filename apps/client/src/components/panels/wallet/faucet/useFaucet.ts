@@ -1,9 +1,10 @@
 import { useCallback, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useChainId } from "wagmi";
 import { trpcClient } from "@repo/ui";
 import { useWalletContext } from "@/contexts/WalletContext";
 import { isForceMetamask } from "@/utils/auth";
+import { appChainId } from "@/utils/appChain";
+import { DAILY_AIRDROP_COOLDOWN_MS } from "@repo/constants";
 
 export type FaucetRequirements = {
   photo: boolean;
@@ -12,9 +13,10 @@ export type FaucetRequirements = {
   minLinks: boolean;
 };
 
-// 053 I09: a request is Processing for 6 hours, then the cooldown runs to 24 hours
+// 053 I09: a request is Processing for 6 hours, then the cooldown runs to the next claim.
+// A claim queued for the daily batch stays Processing until the batch sends it.
 const PROCESSING_MS = 6 * 60 * 60 * 1000;
-const COOLDOWN_MS = 24 * 60 * 60 * 1000;
+const COOLDOWN_MS = DAILY_AIRDROP_COOLDOWN_MS;
 
 // 053 server gate errors, approved wording 18 (one line per missing step)
 const GATE_ERRORS: { match: RegExp; text: string }[] = [
@@ -24,7 +26,11 @@ const GATE_ERRORS: { match: RegExp; text: string }[] = [
   { match: /links|blocks/i, text: "Add 5 or more blocks to use the faucet." },
 ];
 
-type AirdropInput = Parameters<typeof trpcClient.wallet.requestAirdrop.mutate>[0];
+// #225: claims go through the daily airdrop router. A wallet with no tREVO gets
+// its first claim at once; later claims join the daily batch (SIMPLE_BATCH_SEND).
+type AirdropInput = Parameters<typeof trpcClient.dailyAirdrop.claimDailyAirdrop.mutate>[0];
+
+export type FaucetRequestResult = false | "instant" | "queued";
 
 export type FaucetState =
   | "loading"
@@ -45,14 +51,18 @@ export type FaucetState =
  */
 export function useFaucet() {
   const wallet = useWalletContext();
-  const chainId = useChainId();
+  // The faucet lives on the app network, never the wallet's chain (038 I06):
+  // a USDC send temporarily switches the wallet to the payment chain, and a
+  // live useChainId() here would re-fire this query against a chain the
+  // server does not serve the faucet for.
+  const chainId = Number(appChainId());
   const queryClient = useQueryClient();
   const queryKey = ["wallet", "faucet", chainId];
 
   const status = useQuery({
     queryKey,
     queryFn: async () => {
-      const result = await trpcClient.wallet.getFaucetAmount.query({ chainId });
+      const result = await trpcClient.dailyAirdrop.getDailyAirdropInfo.query({ chainId });
       return {
         ...result,
         lastRequestDate: result.lastRequestDate ? new Date(result.lastRequestDate) : null,
@@ -84,6 +94,8 @@ export function useFaucet() {
   else if (sending) state = "sending";
   // QA-042: a paused faucet comes back with amount 0 and every step unchecked
   else if (!data.faucetEnabled || !data.amount) state = "paused";
+  // A queued claim is sent with the next batch, whatever the hour
+  else if (data.userQueueStatus) state = "sent";
   else if (!data.canRequestNow && data.lastRequestDate) {
     const since = Date.now() - data.lastRequestDate.getTime();
     state = since < PROCESSING_MS ? "sent" : "cooldown";
@@ -95,7 +107,10 @@ export function useFaucet() {
     data?.nextAvailableDate ??
     (data?.lastRequestDate ? new Date(data.lastRequestDate.getTime() + COOLDOWN_MS) : null);
 
-  const request = useCallback(async (): Promise<boolean> => {
+  // When the queued claim is due to go out with the batch
+  const arrivesBy = data?.userQueueStatus ? new Date(data.userQueueStatus.estimatedTime) : null;
+
+  const request = useCallback(async (): Promise<FaucetRequestResult> => {
     setRequestError(null);
     if (!wallet.publicKey) {
       setRequestError("Sign out and sign in again to verify your wallet.");
@@ -115,7 +130,7 @@ export function useFaucet() {
         input.idToken = idToken;
       }
 
-      const result = await trpcClient.wallet.requestAirdrop.mutate(input);
+      const result = await trpcClient.dailyAirdrop.claimDailyAirdrop.mutate(input);
       if (!result.success) {
         setRequestError("The request did not go through. Try again.");
         return false;
@@ -129,11 +144,19 @@ export function useFaucet() {
               nextAvailableDate: new Date(now.getTime() + COOLDOWN_MS),
               canRequestNow: false,
               hasWallet: true,
+              userQueueStatus:
+                result.status === "queued" && result.estimatedTime
+                  ? {
+                      position: result.position ?? 0,
+                      totalInBatch: result.totalInBatch ?? 0,
+                      estimatedTime: result.estimatedTime,
+                    }
+                  : null,
             }
           : previous
       );
       wallet.updateBalanceDelayed();
-      return true;
+      return result.status === "queued" ? "queued" : "instant";
     } catch (error) {
       const err = error as { data?: { code?: string }; message?: string };
       const code = err.data?.code;
@@ -168,6 +191,7 @@ export function useFaucet() {
     requirements,
     doneCount,
     nextAvailable,
+    arrivesBy,
     requestError,
     request,
     retry,

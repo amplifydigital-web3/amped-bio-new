@@ -7,9 +7,16 @@ import cookieParser from "cookie-parser";
 import { trpcMiddleware } from "../trpc/router";
 import wellKnownRouter from "../routes/well-known";
 import blocksSchemasRouter from "../routes/blocks-schemas";
+import messageEmailRouter from "../routes/messageEmail";
 import healthRouter from "../routes/health";
 import analyticsRouter from "../routes/analytics";
 import telegramRouter from "../routes/telegram";
+import telegramOidcRouter from "../routes/telegramOidc";
+import { contentCallbackRouter, contentJobRouter, streamWebhookRouter } from "../routes/content";
+import { goRouter } from "../routes/go";
+import onrampWebhookRouter from "../routes/onramp";
+import partnersRouter from "../routes/partners";
+
 import mcpRouter from "../routes/mcp";
 
 const app: Application = express();
@@ -79,6 +86,10 @@ const apiCors = cors({
   },
 });
 
+// Amped Messages (#2 r4, M4): turn off message reminder emails from the footer link. Mounted
+// before CORS: its form posts from the API host itself, which is not an app origin.
+app.use("/email", express.urlencoded({ extended: false, limit: "4kb" }), messageEmailRouter);
+
 app.use(apiCors);
 
 // Model Context Protocol endpoint bound to the protected resource published at
@@ -90,14 +101,24 @@ app.use("/mcp", mcpRouter);
 // own body limit; it checks the secret header, dedupes and writes the update, nothing else.
 app.use("/webhooks/telegram", telegramRouter);
 
+// Content system (Build Board #20): Cloudflare Stream webhook and the processor
+// Worker callback and job read. All are signed over the raw body, so they parse it
+// themselves before the global JSON parser.
+app.use("/webhooks/cloudflare-stream", streamWebhookRouter);
+app.use("/internal/content/processed", contentCallbackRouter);
+app.use("/internal/content/job", contentJobRouter);
+
+// Buy USDC through Coinbase (Build Board #5): CDP Onramp webhook, signed over the raw body
+app.use("/webhooks/coinbase-onramp", onrampWebhookRouter);
+
+// Partner API for merchants (Build Board #66, AB-4). Bearer keys, no cookies; its own JSON parser
+app.use("/partners/v1", partnersRouter);
+
 // Protected resource metadata (RFC 9728) for MCP clients.
 // Tells clients that the authorization server is at auth.amped.bio.
 // This is served BEFORE the body parser because Better Auth needs the raw body.
 app.get(
-  [
-    "/.well-known/oauth-protected-resource",
-    "/.well-known/oauth-protected-resource/mcp",
-  ],
+  ["/.well-known/oauth-protected-resource", "/.well-known/oauth-protected-resource/mcp"],
   (req, res) => {
     const authOrigin = env.BETTER_AUTH_URL.replace(/\/+$/, "");
     // Redirect to the auth subdomain which serves the actual metadata
@@ -109,11 +130,22 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
+// Amped Messages realtime stream (PR M3, spec 7.3 item 2): proxies and Cloudflare must
+// neither buffer nor compress or cache the SSE response
+app.use("/trpc/realtime.events", (_req, res, next) => {
+  res.setHeader("X-Accel-Buffering", "no");
+  res.setHeader("Cache-Control", "no-cache, no-transform");
+  next();
+});
 app.use("/trpc", trpcMiddleware as any);
 app.use("/.well-known", wellKnownRouter);
 app.use("/api/blocks/schemas", blocksSchemasRouter);
 app.use("/health", healthRouter);
+// Gated link redirect (access gating G3); reads the session cookie
+app.use("/go", goRouter);
 app.use("/api/analytics", analyticsRouter);
+// Log In with Telegram callback (Build Board #2). After cookieParser: it reads the session.
+app.use("/telegram", telegramOidcRouter);
 
 app.get("/", (req, res) => {
   res.redirect(env.APP_URL);

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
@@ -13,12 +13,19 @@ import {
   Gift,
   GripVertical,
   IdCard,
+  Library,
+  Lock,
   MoreHorizontal,
+  MessageCircle,
+  Send,
+  ShoppingBag,
   Trash2,
   UserPlus,
   UsersRound,
 } from "lucide-react";
-import type { BlockType } from "@repo/constants";
+import { LOCKABLE_BLOCK_TYPES, type BlockType, safeHref } from "@repo/constants";
+import { isFeatureOn } from "@/config/featureFlags";
+import { BlockAccessFields } from "./BlockAccessFields";
 import {
   Menu,
   MenuContent,
@@ -58,7 +65,15 @@ function BlockIcon({ block }: { block: BlockType }) {
             ? UsersRound
             : block.type === "rnsid"
               ? IdCard
-              : getPlatformIcon(block.type === "text" ? "text" : block.config.platform);
+              : block.type === "message"
+                ? MessageCircle
+                : block.type === "telegram_message" || block.type === "telegram_group"
+                  ? Send
+                  : block.type === "content"
+                    ? Library
+                    : block.type === "store"
+                      ? ShoppingBag
+                      : getPlatformIcon(block.type === "text" ? "text" : block.config.platform);
   return <Icon aria-hidden className="h-[21px] w-[21px] shrink-0 text-prism-ink-2" />;
 }
 
@@ -92,7 +107,15 @@ export function BlockRow({
   const hidden = isHidden(block);
   const need = draft ? null : blockNeed(block);
   const title = blockTitle(block);
-  const meta = draft ? "Draft, not on your page yet" : blockMeta(block);
+  const [gated, setGated] = useState(Boolean((block as { gated?: boolean }).gated));
+  // G3: link, media and text blocks can carry a rule once the block exists
+  const lockable =
+    !draft &&
+    block.id > 0 &&
+    isFeatureOn("accessGating") &&
+    (LOCKABLE_BLOCK_TYPES as readonly string[]).includes(block.type);
+  const baseMeta = draft ? "Draft, not on your page yet" : blockMeta(block);
+  const meta = gated && lockable ? (baseMeta ? `Locked, ${baseMeta}` : "Locked") : baseMeta;
 
   // 036 I13: an opened row scrolls into view, 21 below the top bar
   useEffect(() => {
@@ -173,6 +196,9 @@ export function BlockRow({
                 />
               )}
               {hidden && !need && <EyeOff aria-hidden className="h-[13px] w-[13px] shrink-0" />}
+              {gated && lockable && !hidden && !need && (
+                <Lock aria-hidden className="h-[13px] w-[13px] shrink-0" />
+              )}
               <span className="truncate">
                 {need ? NEED_LABEL[need] : hidden ? `Hidden${meta ? `, ${meta}` : ""}` : meta}
               </span>
@@ -206,9 +232,10 @@ export function BlockRow({
               <MoreHorizontal aria-hidden className="h-[21px] w-[21px] text-prism-ink-2" />
             </MenuTrigger>
             <MenuContent align="end">
-              {block.type === "link" && block.config.url && (
+              {/* D57: only a safe link (http, https, mailto, tel) is offered to open */}
+              {block.type === "link" && safeHref(block.config.url) && (
                 <MenuItem asChild>
-                  <a href={block.config.url} target="_blank" rel="noopener noreferrer">
+                  <a href={safeHref(block.config.url)} target="_blank" rel="noopener noreferrer">
                     <ExternalLink aria-hidden />
                     Open link
                   </a>
@@ -247,6 +274,9 @@ export function BlockRow({
       {open && (
         <div className="prism-slab relative mt-2 p-[21px] motion-safe:animate-in motion-safe:fade-in motion-safe:duration-prism-control">
           <BlockFields block={block} onValid={onChange} />
+          {lockable && (
+            <BlockAccessFields blockId={block.id} gated={gated} onGatedChange={setGated} />
+          )}
         </div>
       )}
     </div>

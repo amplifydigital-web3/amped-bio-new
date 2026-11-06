@@ -1,5 +1,14 @@
-import { AtSign, ChevronRight, ShieldCheck } from "lucide-react";
-import { cn } from "@repo/ui";
+import {
+  AlertTriangle,
+  ArrowRight,
+  AtSign,
+  ChevronRight,
+  Clock,
+  Plus,
+  Settings,
+  ShieldCheck,
+} from "lucide-react";
+import { Button, cn } from "@repo/ui";
 import { getRnsSuffix } from "@repo/web3";
 
 // Shared parts of the Wallet RNS tab (Screen Review 101, 111).
@@ -127,5 +136,97 @@ export function RowsSkeleton({ rows = 3 }: { rows?: number }) {
         </li>
       ))}
     </ul>
+  );
+}
+
+/**
+ * My RNS names card. The name page holds the profile, identity, renewal and
+ * transfer, so every card carries a visible Manage button instead of relying
+ * on a tap on the name. Expiring and grace states sit in a warning band at
+ * the top of the card, with the renewal action next to Manage.
+ */
+export function NameCard({
+  label,
+  chainId,
+  avatar,
+  meta,
+  badges,
+  band,
+  onManage,
+  secondary,
+}: {
+  label: string;
+  chainId?: number;
+  avatar?: string | null;
+  meta: React.ReactNode;
+  badges?: React.ReactNode;
+  band?: { text: string; tone: "warning" | "urgent" } | null;
+  onManage: () => void;
+  secondary?: { label: string; onClick: () => void; commit?: boolean } | null;
+}) {
+  const fullName = `${label}${getRnsSuffix(chainId)}`;
+  return (
+    <li className="prism-glass-clear flex flex-col overflow-hidden !rounded-prism-21 font-prism transition-[transform,box-shadow] duration-prism-hover ease-prism hover:-translate-y-0.5 hover:shadow-[inset_0_2px_0_#ffffff,0_0_0_1.5px_#5650a2,13px_34px_68px_rgba(48,47,93,0.26)] motion-reduce:transition-none motion-reduce:hover:translate-y-0">
+      {band && (
+        <p className="flex items-center gap-2 bg-prism-warning-bg px-[21px] py-2 text-prism-meta font-bold text-prism-warning-ink shadow-[inset_0_-1px_0_rgba(122,79,0,0.28)]">
+          {band.tone === "urgent" ? (
+            <AlertTriangle aria-hidden className="h-4 w-4 shrink-0" />
+          ) : (
+            <Clock aria-hidden className="h-4 w-4 shrink-0" />
+          )}
+          {band.text}
+        </p>
+      )}
+      <div className="flex flex-1 flex-col gap-[13px] p-[21px]">
+        <div className="flex items-center gap-[13px]">
+          <NameTile src={avatar} size={55} />
+          <div className="min-w-0 flex-1">
+            <h3 className="truncate text-prism-panel-title text-prism-ink">
+              <RnsName label={label} chainId={chainId} />
+            </h3>
+            <p className="mt-1 text-prism-meta tabular-nums text-prism-ink-2">{meta}</p>
+          </div>
+        </div>
+        {badges && <div className="flex flex-wrap gap-1.5">{badges}</div>}
+        <div className={cn("mt-auto grid gap-2", secondary && "grid-cols-2")}>
+          <Button
+            type="button"
+            variant={secondary?.commit ? "secondary" : "default"}
+            onClick={onManage}
+          >
+            <Settings aria-hidden />
+            Manage
+            <span className="sr-only"> {fullName}</span>
+            {!secondary && <ArrowRight aria-hidden />}
+          </Button>
+          {secondary && (
+            <Button
+              type="button"
+              variant={secondary.commit ? "commit" : "secondary"}
+              onClick={secondary.onClick}
+            >
+              {secondary.label}
+              <span className="sr-only"> {fullName}</span>
+            </Button>
+          )}
+        </div>
+      </div>
+    </li>
+  );
+}
+
+/** The last tile of My RNS names: register another name. */
+export function RegisterTile({ onClick }: { onClick: () => void }) {
+  return (
+    <li className="flex">
+      <button
+        type="button"
+        onClick={onClick}
+        className="prism-focus flex min-h-[200px] flex-1 flex-col items-center justify-center gap-2 rounded-prism-21 bg-white/30 font-prism text-prism-label font-bold text-prism-nav shadow-[inset_0_0_0_1.5px_rgba(86,80,162,0.4)] hover:bg-white/50"
+      >
+        <Plus aria-hidden className="h-[34px] w-[34px]" />
+        Register another name
+      </button>
+    </li>
   );
 }

@@ -23,7 +23,7 @@ const themeConfigSchema = z.object({
     .optional(),
 });
 
-async function getFaucetRequirements(userId: number) {
+export async function getFaucetRequirements(userId: number) {
   const [user, linkBlockCount] = await Promise.all([
     prisma.user.findUnique({
       where: { id: userId },
@@ -95,7 +95,7 @@ const faucetResponseSchema = z.object({
 const JWKS = jose.createRemoteJWKSet(new URL("https://api-auth.web3auth.io/jwks"));
 
 // taken from https://web3auth.io/docs/authentication/id-token#using-jwks-endpoint
-async function verifyWeb3AuthIdToken(idToken: string, appPubKey: string) {
+export async function verifyWeb3AuthIdToken(idToken: string, appPubKey: string) {
   try {
     const { payload } = await jose.jwtVerify(idToken, JWKS, {
       algorithms: ["ES256"],
@@ -369,6 +369,8 @@ export const walletRouter = router({
         };
       } catch (error) {
         console.error("Error getting faucet amount:", error);
+
+        if (error instanceof TRPCError) throw error;
 
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",

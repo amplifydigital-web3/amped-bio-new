@@ -1,13 +1,22 @@
+import { messageDoor } from "../services/messaging/messageDoor";
+import { publicFontLinks } from "../services/fonts/fontMirror";
 import { publicProcedure, privateProcedure, router } from "./trpc";
 import { TRPCError } from "@trpc/server";
 import { getFileUrl } from "../utils/fileUrlResolver";
 import { ThemeConfig } from "@repo/constants";
 import { prisma } from "@repo/database";
 import { z } from "zod";
-import { HANDLE_MIN_LENGTH, HANDLE_REGEX, sanitizeRichText } from "@repo/constants";
+import {
+  HANDLE_MIN_LENGTH,
+  HANDLE_REGEX,
+  publicReservedReason,
+  sanitizeRichText,
+} from "@repo/constants";
 import { sanitizeBlockConfig } from "../utils/sanitizeBlockConfig";
 import { logger } from "better-auth";
 import { getPublicTrackingPixels } from "./trackingPixels";
+import { showsTelegramMark } from "../services/telegram/accounts";
+import { telegramDoor, telegramGroupDoor } from "../services/messaging/door";
 import { indexableUserWhere, isUserIndexable } from "../utils/indexable";
 import {
   computeRnsIdentity,
@@ -15,7 +24,15 @@ import {
   rnsIdBlockOptions,
   type PublicRnsIdentity,
 } from "../services/rnsIdentity";
-import { assertHandleAvailable, newHandleSchema } from "../services/pageHandle";
+import { changeHandle, newHandleSchema } from "../services/pageHandle";
+import { matchReserved } from "../services/reservedHandles";
+import { enforceRateLimits } from "../utils/rateLimit";
+import { getVisitorIp } from "../services/analytics/visitorIp";
+import { publicCardsFor } from "../services/content/publicView";
+import { hasAdultItems } from "../services/content/adult";
+import { publicBlocksFor } from "../services/access/blocks";
+import type { ContentBlockConfig, ContentCard, StoreBioBlock } from "@repo/constants";
+import { storeForBio } from "../services/store/public";
 
 export const SITEMAP_MAX_PAGE_SIZE = 10000;
 
@@ -68,26 +85,44 @@ function settledOrFallback<T>(result: PromiseSettledResult<T>, fallback: T, labe
 }
 
 const appRouter = router({
-  // Check if a handle is available for use
-  checkAvailability: publicProcedure.input(handleParamSchema).query(async ({ input }) => {
+  // Check if a handle is available for use. Reserved handles (Build Board D2,
+  // spec 4.3): a reserved word answers reason "reserved", or "taken" for
+  // partner and hold words (A5). The account lookup always runs, so reserved
+  // and free words take the same time. Limited per IP.
+  checkAvailability: publicProcedure.input(handleParamSchema).query(async ({ ctx, input }) => {
     const { handle } = input;
 
+    const ip = getVisitorIp(ctx.req).ip || "unknown";
+    await enforceRateLimits(
+      [{ key: `handle-check:${ip}`, limit: 60, windowSeconds: 60 }],
+      "Too many checks. Try again in a minute."
+    );
+
     try {
-      const count = await prisma.user.count({
-        where: {
-          OR: [
-            { handle: handle },
-            { handle: handle.toLowerCase() },
-            { handle: handle.toUpperCase() },
-          ],
-        },
-      });
+      const [count, match] = await Promise.all([
+        prisma.user.count({
+          where: {
+            OR: [
+              { handle: handle },
+              { handle: handle.toLowerCase() },
+              { handle: handle.toUpperCase() },
+            ],
+          },
+        }),
+        matchReserved(handle),
+      ]);
+
+      const reservedReason = publicReservedReason(match);
+      if (reservedReason) {
+        return { available: false, handle, reason: reservedReason };
+      }
 
       const available = count === 0;
 
       return {
         available,
         handle,
+        reason: available ? null : ("taken" as const),
       };
     } catch (error) {
       throw new TRPCError({
@@ -105,16 +140,7 @@ const appRouter = router({
       const userId = ctx.user!.sub;
 
       try {
-        await assertHandleAvailable(prisma, newHandle);
-
-        await prisma.user.update({
-          where: {
-            id: userId,
-          },
-          data: {
-            handle: newHandle,
-          },
-        });
+        await changeHandle(prisma, userId, newHandle);
 
         return {
           success: true,
@@ -163,7 +189,7 @@ const appRouter = router({
             where: {
               walletId: user.wallet.id,
               poolAddress: { not: null },
-              OR: [{ hidden: false }, { hidden: null }],
+              hidden: false,
             },
             orderBy: { id: "desc" },
             select: { poolAddress: true },
@@ -193,37 +219,87 @@ const appRouter = router({
       });
 
       const blockOptions = rnsIdBlockOptions(blockRows);
-      const [themeResult, imageResult, identityResult, trackingPixelsResult] =
-        await Promise.allSettled([
-          getPublicTheme(Number(theme_id)),
-          getFileUrl({
-            legacyImageField: image,
-            imageFileId: image_file_id,
-          }),
-          // 108 I02, 109 I01: the binding and the owner's limits are applied
-          // here, so a hidden field never reaches a visitor
-          computeRnsIdentity({
-            storedName: revo_name ?? null,
-            wallet: user.wallet?.address ?? null,
-            display: parseRnsDisplay(rns_display),
-            block: blockOptions,
-          }),
-          getPublicTrackingPixels(user_id),
-        ]);
+      const hasTelegramMessageBlock = blockRows.some(block => block.type === "telegram_message");
+      const hasTelegramGroupBlock = blockRows.some(block => block.type === "telegram_group");
+      // Amped Messages (M6): the Message me block's door, read only when the page carries it
+      // (a telegram_message row not yet migrated by 20261103020000 counts too)
+      const hasMessageBlock = blockRows.some(
+        block => block.type === "message" || block.type === "telegram_message"
+      );
+      // Content blocks (#20, spec 3.7): cards for the ids they hold, read once per page
+      const contentIds = blockRows
+        .filter(block => block.type === "content")
+        .flatMap(block => (block.config as Partial<ContentBlockConfig> | null)?.publicIds ?? [])
+        .filter((id): id is string => typeof id === "string");
+      // Store block (st10): the creator's products, read only when the page carries it
+      const hasStoreBlock = blockRows.some(block => block.type === "store");
+      const [
+        themeResult,
+        imageResult,
+        identityResult,
+        trackingPixelsResult,
+        telegramResult,
+        doorResult,
+        groupDoorResult,
+        contentResult,
+        messageDoorResult,
+        adultResult,
+        storeBlockResult,
+      ] = await Promise.allSettled([
+        getPublicTheme(Number(theme_id)),
+        getFileUrl({
+          legacyImageField: image,
+          imageFileId: image_file_id,
+        }),
+        // 108 I02, 109 I01: the binding and the owner's limits are applied
+        // here, so a hidden field never reaches a visitor
+        computeRnsIdentity({
+          storedName: revo_name ?? null,
+          wallet: user.wallet?.address ?? null,
+          display: parseRnsDisplay(rns_display),
+          block: blockOptions,
+        }),
+        getPublicTrackingPixels(user_id),
+        // Messaging on Telegram (#2): a mark only, never the creator's Telegram username (spec 3.8)
+        showsTelegramMark(user_id),
+        // Row 115: the Message me block's door, read only when the page carries the block
+        hasTelegramMessageBlock ? telegramDoor(user_id) : Promise.resolve(null),
+        // Board tg13: the Join group block's door, read only when the page carries the block
+        hasTelegramGroupBlock ? telegramGroupDoor(user_id) : Promise.resolve(null),
+        // Public items only; drafts, 18+ and deleted ids are left out, and a
+        // suspended page shows none, as getReadUrl would refuse them. Fails closed.
+        contentIds.length && user.page_status === "PUBLISHED" && user.block === "no"
+          ? publicCardsFor(user_id, contentIds)
+          : Promise.resolve({} as Record<string, ContentCard>),
+        hasMessageBlock ? messageDoor(user_id) : Promise.resolve(null),
+        // Identity checks 4.4: one "Adult items" card, no title, cover or count
+        user.page_status === "PUBLISHED" && user.block === "no"
+          ? hasAdultItems(user_id)
+          : Promise.resolve(false),
+        // Public stores only, never the owner's preview; a suspended page shows none
+        hasStoreBlock && user.handle && user.page_status === "PUBLISHED" && user.block === "no"
+          ? storeForBio({ id: user_id, handle: user.handle.toLowerCase(), name })
+          : Promise.resolve(null),
+      ]);
 
       // The theme is the profile itself, so its failure is fatal
       if (themeResult.status === "rejected") throw themeResult.reason;
 
-      const publicBlocks = blockRows.map(block => ({
-        id: block.id,
-        user_id: block.user_id,
-        type: block.type,
-        order: block.order,
-        clicks: block.clicks,
-        config: sanitizeBlockConfig(block.type, block.config),
-        created_at: block.created_at,
-        updated_at: block.updated_at,
-      }));
+      // G3: gated link, media and text blocks leave as the locked DTO (or not at all
+      // while the accessGating flag is off). Never the URL, body or embed.
+      const publicBlocks = await publicBlocksFor(
+        blockRows.map(block => ({
+          id: block.id,
+          user_id: block.user_id,
+          type: block.type,
+          order: block.order,
+          clicks: block.clicks,
+          config: sanitizeBlockConfig(block.type, block.config),
+          created_at: block.created_at,
+          updated_at: block.updated_at,
+        })),
+        blockRows
+      );
 
       // Any failure shows no chip (fails closed)
       const identity: PublicRnsIdentity =
@@ -246,15 +322,44 @@ const appRouter = router({
           // 112: the month the page joined, for the RNS ID block (day dropped).
           // A privacy record, not an accident: the month only leaves the server
           // when the page carries a visible RNS ID block that asks for it.
-          since:
-            blockOptions.visible && created_at ? created_at.toISOString().slice(0, 7) : null,
+          since: blockOptions.visible && created_at ? created_at.toISOString().slice(0, 7) : null,
+          // Messaging on Telegram (#2): "Messages on Telegram" beside the name. Fails closed.
+          telegramMark: telegramResult.status === "fulfilled" && telegramResult.value,
+          // Row 115: open, the rule kind and the bot. Null without the block. Fails closed.
+          telegramDoor: doorResult.status === "fulfilled" ? doorResult.value : null,
+          // Board tg13: open, the rule kind and the bot. Null without the block. Fails closed.
+          telegramGroupDoor: groupDoorResult.status === "fulfilled" ? groupDoorResult.value : null,
+          // Amped Messages (M6): open and the rule kind, never an amount. Null without the block.
+          messageDoor: messageDoorResult.status === "fulfilled" ? messageDoorResult.value : null,
         },
         theme: themeResult.value,
+        // Theme Engine v2 fonts (2b PR 2): the mirrored font links on the media host,
+        // or null while fontDelivery is off (the page keeps the Google requests)
+        fonts: await publicFontLinks(themeResult.value?.config ?? null, {
+          name,
+          bio: description,
+        }).catch(error => {
+          console.error("[getHandle] font links failed, showing fallback fonts:", error);
+          return [] as string[];
+        }),
         blocks: publicBlocks,
         hasCreatorPool,
         creatorPoolAddress,
         trackingPixels: settledOrFallback(trackingPixelsResult, null, "tracking pixels"),
+        contentCards: settledOrFallback(
+          contentResult,
+          {} as Record<string, ContentCard>,
+          "content cards"
+        ),
+        // Store block (st10): null hides the block. Fails closed.
+        storeBlock: settledOrFallback(
+          storeBlockResult,
+          null as StoreBioBlock | null,
+          "store block"
+        ),
         indexable: isUserIndexable(user, publicBlocks.length),
+        // True when the page has a listed 18+ item and the adultContent flag is on. Fails closed.
+        hasAdult: adultResult.status === "fulfilled" && adultResult.value,
       };
 
       return result;

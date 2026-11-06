@@ -1,6 +1,6 @@
 import { MessageCircle } from "lucide-react";
 import type { ThemeConfig } from "../../types/editor";
-import { TextBlock } from "@repo/constants";
+import { isSafeWebUrl, TextBlock } from "@repo/constants";
 
 interface TelegramBlockProps {
   block: TextBlock;
@@ -8,6 +8,9 @@ interface TelegramBlockProps {
 }
 
 export function TelegramBlock({ block, theme }: TelegramBlockProps) {
+  // D57: the same rule as the public page; only an https channel link renders
+  const href = block.config.content;
+  if (!isSafeWebUrl(href) || !/^https:\/\//.test(href)) return null;
   return (
     <div className="w-full p-6 rounded-lg bg-white/50 backdrop-blur-sm space-y-4">
       <div className="flex items-center space-x-2">
@@ -24,7 +27,7 @@ export function TelegramBlock({ block, theme }: TelegramBlockProps) {
       </div>
 
       <a
-        href={block.config.content}
+        href={href}
         target="_blank"
         rel="noopener noreferrer"
         className="block w-full px-4 py-3 bg-[#26A5E4] text-white rounded-lg hover:bg-[#229ED9] transition-colors text-center"

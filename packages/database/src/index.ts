@@ -54,12 +54,25 @@ const coerceObject = (value: unknown, intFields: Set<string>): unknown => {
   );
 };
 
+// Replaces Bytes values (Uint8Array) in a query result with base64 strings.
+const bytesToBase64 = (value: unknown): unknown => {
+  if (value instanceof Uint8Array) return Buffer.from(value).toString("base64");
+  if (Array.isArray(value)) return value.map(bytesToBase64);
+  if (value === null || typeof value !== "object" || Object.getPrototypeOf(value) !== Object.prototype)
+    return value;
+  return Object.fromEntries(Object.entries(value).map(([key, inner]) => [key, bytesToBase64(inner)]));
+};
+
 /**
  * Better Auth serializes every id and id reference as a string unless
  * `generateId` is "serial". Because we use a custom `generateId` (UUID v7 for
  * OAuth tables), lookups such as `account.findMany({ where: { userId: "1" } })`
  * reach Prisma with strings for Int columns. This extension converts numeric
  * strings back to numbers for Int fields in `where` and `data` arguments.
+ *
+ * The same `String(id)` turns a Binary(16) id into "1,161,99,...", which Prisma
+ * cannot read back. Results therefore return Bytes values as base64, a string
+ * that survives `String()` and that Prisma accepts as Bytes input.
  */
 export function withNumericIdCoercion(client: PrismaClient) {
   return client.$extends({
@@ -69,13 +82,13 @@ export function withNumericIdCoercion(client: PrismaClient) {
         async $allOperations({ model, args, query }: { model: string; args: unknown; query: (args: unknown) => unknown }) {
           const intFields = intFieldsByModel.get(model);
           if (!intFields || intFields.size === 0 || !args || typeof args !== "object")
-            return query(args);
+            return bytesToBase64(await query(args));
 
           const nextArgs: Record<string, unknown> = { ...(args as Record<string, unknown>) };
           for (const key of ["where", "data", "create", "update"]) {
             if (key in nextArgs) nextArgs[key] = coerceObject(nextArgs[key], intFields);
           }
-          return query(nextArgs as typeof args);
+          return bytesToBase64(await query(nextArgs as typeof args));
         },
       },
     },

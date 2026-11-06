@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { allowedPlatforms, mediaPlataforms, PlatformId } from "./platforms";
+import { safeLinkUrlSchema, safeWebUrlSchema } from "./safeHref";
 
 // TypeScript type definitions for block types
 type BaseBlockType =
@@ -10,7 +11,12 @@ type BaseBlockType =
   | "referral"
   | "follow"
   | "followers"
-  | "rnsid";
+  | "rnsid"
+  | "telegram_message"
+  | "telegram_group"
+  | "content"
+  | "message"
+  | "store";
 
 export type BaseBlock<type extends BaseBlockType = any, T = any> = {
   id: number;
@@ -21,7 +27,28 @@ export type BaseBlock<type extends BaseBlockType = any, T = any> = {
   config: T & { hidden?: boolean };
   created_at?: string;
   updated_at?: string | null;
+  /**
+   * Gated block (access gating G3, spec 3.9). Public pages get the locked DTO:
+   * the label and platform only, never the URL, body or embed. The body comes
+   * from access.openBlock, links open through /go/:blockId.
+   */
+  gated?: true;
+  gate?: BlockGate;
 };
+
+/** The public face of a block's rule: kind and summary, never params or an amount. */
+export type BlockGate = {
+  kind: string;
+  summary: string;
+  /** The rule reads a stake: show TESTNET_NOTICE and ACCESS_STAKE_DISCLOSURE */
+  stake: boolean;
+  /** The creator's public pool page, for Go to the pool */
+  poolAddress?: string | null;
+};
+
+/** Block types a creator can gate in G3. telegram_group keeps its own door (G2). */
+export const LOCKABLE_BLOCK_TYPES = ["link", "media", "text"] as const;
+export type LockableBlockType = (typeof LOCKABLE_BLOCK_TYPES)[number];
 
 export type LinkBlock = BaseBlock<"link", { platform: PlatformId; url: string; label: string }>;
 
@@ -110,6 +137,12 @@ export type RnsIdBlockConfig = {
     since: boolean;
     /** The name Authbase checked. Verified pages only, server applied (112 D1) */
     nameOnId: boolean;
+    /** Authbase's 18+ fact. Verified pages only, server applied */
+    ageOver18: boolean;
+    /** Gender from the Authbase ID check. Verified pages only, server applied */
+    gender: boolean;
+    /** Country from the Authbase ID check. Verified pages only, server applied */
+    country: boolean;
   };
 };
 
@@ -121,13 +154,131 @@ export const DEFAULT_RNSID_CONFIG: RnsIdBlockConfig = {
   style: "nameplate",
   label: "Identity",
   tap: "sheet",
-  show: { displayName: true, avatar: true, since: true, nameOnId: false },
+  show: {
+    displayName: true,
+    avatar: true,
+    since: true,
+    nameOnId: false,
+    ageOver18: false,
+    gender: false,
+    country: false,
+  },
 };
+
+/**
+ * The attributes Authbase shares with Amped.Bio, in display order. Mirrors
+ * `ConsentAttribute` in authbase-backend: values arrive only when the owner
+ * consented to share them and is Verified. Publishing one also needs the
+ * owner's RNS ID block switch below.
+ */
+export const AUTHBASE_ATTRIBUTE_KEYS = ["name", "age_over_18", "gender", "country"] as const;
+
+export type AuthbaseAttributeKey = (typeof AUTHBASE_ATTRIBUTE_KEYS)[number];
+
+/** The RNS ID block switch that shows each attribute */
+export const RNSID_ATTRIBUTE_SWITCH: Record<
+  AuthbaseAttributeKey,
+  "nameOnId" | "ageOver18" | "gender" | "country"
+> = {
+  name: "nameOnId",
+  age_over_18: "ageOver18",
+  gender: "gender",
+  country: "country",
+};
+
+export const AUTHBASE_ATTRIBUTE_LABELS: Record<AuthbaseAttributeKey, string> = {
+  name: "Name on ID",
+  age_over_18: "Over 18",
+  gender: "Gender",
+  country: "Country",
+};
+
+/** A shared value as people read it: "true" to Yes, "F" to Female, "US" to United States. */
+export function formatAuthbaseAttribute(key: AuthbaseAttributeKey, value: string): string {
+  if (key === "age_over_18") return value === "true" ? "Yes" : value === "false" ? "No" : value;
+  if (key === "gender") return value === "M" ? "Male" : value === "F" ? "Female" : value;
+  if (key === "country" && /^[A-Za-z]{2}$/.test(value)) {
+    try {
+      return new Intl.DisplayNames(["en"], { type: "region" }).of(value.toUpperCase()) ?? value;
+    } catch {
+      return value;
+    }
+  }
+  return value;
+}
 
 /** Which tap behaviours a style offers (112 D3) */
 export function rnsIdTapsFor(style: RnsIdBlockStyle): readonly RnsIdBlockTap[] {
   return style === "idcard" || style === "proofstrip" ? ["sheet", "inline"] : ["sheet", "none"];
 }
+
+// Messaging on Telegram (Build Board #2, spec decision 14, Screen Review 115):
+// Message me on Telegram and Join my Telegram group. One of each per page. The
+// config holds the label only: whether the door is open and its rule come from
+// the server (getHandle telegramDoor), so a creator never edits rule text and a
+// stake amount never reaches the page.
+export type TelegramMessageBlockConfig = { label: string };
+export type TelegramGroupBlockConfig = { label: string };
+export type TelegramMessageBlock = BaseBlock<"telegram_message", TelegramMessageBlockConfig>;
+export type TelegramGroupBlock = BaseBlock<"telegram_group", TelegramGroupBlockConfig>;
+
+export const TELEGRAM_BLOCK_LABEL_MAX = 40;
+export const DEFAULT_TELEGRAM_MESSAGE_LABEL = "Message me on Telegram";
+export const DEFAULT_TELEGRAM_GROUP_LABEL = "Join my Telegram group";
+export const DEFAULT_TELEGRAM_MESSAGE_CONFIG: TelegramMessageBlockConfig = {
+  label: DEFAULT_TELEGRAM_MESSAGE_LABEL,
+};
+export const DEFAULT_TELEGRAM_GROUP_CONFIG: TelegramGroupBlockConfig = {
+  label: DEFAULT_TELEGRAM_GROUP_LABEL,
+};
+
+// Amped Messages (Build Board #2 r4, PR M6, spec 8.4): the Message me block. It replaces
+// telegram_message; existing blocks move over in place with their label (migration
+// 20261103020000_message_block). The config holds the label only: whether the door is
+// open and its rule come from the server (getHandle messageDoor), never an amount.
+export type MessageBlockConfig = { label: string };
+export type MessageBlock = BaseBlock<"message", MessageBlockConfig>;
+export const MESSAGE_BLOCK_LABEL_MAX = 40;
+export const DEFAULT_MESSAGE_BLOCK_LABEL = "Message me";
+export const DEFAULT_MESSAGE_BLOCK_CONFIG: MessageBlockConfig = {
+  label: DEFAULT_MESSAGE_BLOCK_LABEL,
+};
+
+// Content block (Build Board #20, spec 3.7, board cs4): items from the
+// creator's library on the page. Featured plays the first item inline; grid and
+// list show cards that open the item page. The config holds ids only: titles,
+// covers and whether an item may show come from the server at render, so an
+// unpublished, deleted or 18+ item never reaches a visitor.
+export type ContentBlockLayout = "featured" | "grid" | "list";
+export type ContentBlockConfig = {
+  /** Heading over the block, 0 to 40 characters. Empty shows no heading. */
+  label: string;
+  layout: ContentBlockLayout;
+  /** Content publicIds in display order, 1 to 12 */
+  publicIds: string[];
+};
+export type ContentBlock = BaseBlock<"content", ContentBlockConfig>;
+
+export const CONTENT_BLOCK_LABEL_MAX = 40;
+export const CONTENT_BLOCK_ITEMS_MAX = 12;
+export const DEFAULT_CONTENT_BLOCK_CONFIG: ContentBlockConfig = {
+  label: "Latest",
+  layout: "featured",
+  publicIds: [],
+};
+
+// Store block (Build Board #20, store-catalog.md 6, board st10): up to 6 of the
+// creator's products and Visit store. The config holds the heading only: which
+// products show, and whether the block shows at all, come from the server at
+// render (store.listForBio). It is hidden while the store is not live or has no
+// active products, and never lists an 18+ product.
+export type StoreBlockConfig = {
+  /** Heading over the block, 0 to 40 characters. Empty shows the store name. */
+  label: string;
+};
+export type StoreBlock = BaseBlock<"store", StoreBlockConfig>;
+export const STORE_BLOCK_LABEL_MAX = 40;
+export const DEFAULT_STORE_BLOCK_CONFIG: StoreBlockConfig = { label: "" };
 
 export const FOLLOW_LABEL_MAX = 24;
 export const FOLLOWERS_TITLE_MAX = 40;
@@ -151,10 +302,24 @@ export type BlockType =
   | ReferralBlock
   | FollowBlock
   | FollowersBlock
-  | RnsIdBlock;
+  | RnsIdBlock
+  | TelegramMessageBlock
+  | TelegramGroupBlock
+  | ContentBlock
+  | MessageBlock
+  | StoreBlock;
 
 /** Block types a page holds at most once. The Add block dialog opens the existing row. */
-export const SINGLETON_BLOCK_TYPES = ["referral", "follow", "followers", "rnsid"] as const;
+export const SINGLETON_BLOCK_TYPES = [
+  "referral",
+  "follow",
+  "followers",
+  "rnsid",
+  "telegram_message",
+  "telegram_group",
+  "message",
+  "store",
+] as const;
 
 /**
  * Capsule rule (follow-blocks spec 3.8): a renderable block that carries its
@@ -170,14 +335,16 @@ export function blockCarriesFollow(block: BlockType): boolean {
 // Define configuration schemas for each block type
 export const linkConfigSchema = z.object({
   platform: z.enum(allowedPlatforms),
-  url: z.string().url("Must be a valid URL"),
+  // D57: http, https, mailto or tel only. z.string().url() alone accepts javascript:
+  url: safeLinkUrlSchema,
   label: z.string().min(1, "Label is required"),
   hidden: z.boolean().optional(),
 });
 
 export const mediaConfigSchema = z.object({
   platform: z.enum(mediaPlataforms),
-  url: z.string().url("Must be a valid URL"),
+  // D57: embeds take http or https only
+  url: safeWebUrlSchema,
   label: z.string(),
   content: z.string().optional(),
   hidden: z.boolean().optional(),
@@ -272,8 +439,59 @@ export const rnsIdConfigSchema = z.object({
       avatar: z.boolean().default(true),
       since: z.boolean().default(true),
       nameOnId: z.boolean().default(false),
+      ageOver18: z.boolean().default(false),
+      gender: z.boolean().default(false),
+      country: z.boolean().default(false),
     })
-    .default({ displayName: true, avatar: true, since: true, nameOnId: false }),
+    .default({
+      displayName: true,
+      avatar: true,
+      since: true,
+      nameOnId: false,
+      ageOver18: false,
+      gender: false,
+      country: false,
+    }),
+  hidden: z.boolean().optional(),
+});
+
+const telegramLabelSchema = (fallback: string) =>
+  z.string().trim().min(1, "Label is required").max(TELEGRAM_BLOCK_LABEL_MAX).default(fallback);
+
+export const telegramMessageConfigSchema = z.object({
+  label: telegramLabelSchema(DEFAULT_TELEGRAM_MESSAGE_LABEL),
+  hidden: z.boolean().optional(),
+});
+
+export const telegramGroupConfigSchema = z.object({
+  label: telegramLabelSchema(DEFAULT_TELEGRAM_GROUP_LABEL),
+  hidden: z.boolean().optional(),
+});
+
+export const messageBlockConfigSchema = z.object({
+  label: z
+    .string()
+    .trim()
+    .min(1, "Label is required")
+    .max(MESSAGE_BLOCK_LABEL_MAX)
+    .default(DEFAULT_MESSAGE_BLOCK_LABEL),
+  hidden: z.boolean().optional(),
+});
+
+export const contentBlockConfigSchema = z.object({
+  label: z.string().trim().max(CONTENT_BLOCK_LABEL_MAX).default("Latest"),
+  layout: z.enum(["featured", "grid", "list"]).default("featured"),
+  publicIds: z
+    .array(z.string().regex(/^[a-z0-9]{16}$/, "Invalid content id"))
+    .max(CONTENT_BLOCK_ITEMS_MAX)
+    // Keep the first of any repeat, in the creator's order
+    .transform(ids => [...new Set(ids)])
+    .default([]),
+  hidden: z.boolean().optional(),
+});
+
+export const storeBlockConfigSchema = z.object({
+  label: z.string().trim().max(STORE_BLOCK_LABEL_MAX).default(DEFAULT_STORE_BLOCK_CONFIG.label),
   hidden: z.boolean().optional(),
 });
 
@@ -287,6 +505,11 @@ const CONFIG_SCHEMAS: Record<string, z.ZodTypeAny> = {
   follow: followConfigSchema,
   followers: followersConfigSchema,
   rnsid: rnsIdConfigSchema,
+  telegram_message: telegramMessageConfigSchema,
+  telegram_group: telegramGroupConfigSchema,
+  content: contentBlockConfigSchema,
+  message: messageBlockConfigSchema,
+  store: storeBlockConfigSchema,
 };
 
 // The referral schema accepts any object, so it stays last in the fallback

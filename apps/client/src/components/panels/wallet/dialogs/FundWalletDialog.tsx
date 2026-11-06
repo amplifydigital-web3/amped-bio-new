@@ -1,8 +1,27 @@
-import { Gift, ArrowLeftRight, Zap, ArrowRight, Check, Clock, Send, ExternalLink, Loader2, Info } from "lucide-react";
+import {
+  Gift,
+  ArrowLeftRight,
+  Zap,
+  ArrowRight,
+  Check,
+  Clock,
+  Send,
+  ExternalLink,
+  Loader2,
+  Info,
+  CircleDollarSign,
+} from "lucide-react";
+import { ONRAMP_COPY } from "@repo/constants";
+import { TESTNET_NOTICE } from "@repo/ui";
+import { USDC_SYMBOL } from "@repo/web3";
+import { USDC_FLAGS } from "@/config/usdc/flags";
+import { paymentChain } from "@/utils/paymentChain";
+import type { ReceiveNetwork } from "./ReceiveDialog";
 import CoinbaseIcon from "@/assets/icons/coinbase.png";
 import MoonpayIcon from "@/assets/icons/moonpay.png";
 import OnRampIcon from "@/assets/icons/onramp.png";
 import { useState, useEffect } from "react";
+import { useLocation, useNavigate } from "react-router";
 import { useFundWalletDialog } from "../hooks/useFundWalletDialog";
 import { Dialog, DialogContent } from "@repo/ui";
 import { FaucetRequirementsChecklist } from "./FaucetRequirementsChecklist";
@@ -73,7 +92,8 @@ function BatchCountdown({ targetDate }: { targetDate: Date }) {
 interface FundWalletDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  openReceiveModal: () => void;
+  /** Opens Receive. Deposit USDC passes "payment" so it lands on the USDC chain (137 w5). */
+  openReceiveModal: (network?: ReceiveNetwork) => void;
 }
 
 function FundWalletDialog({ open, onOpenChange, openReceiveModal }: FundWalletDialogProps) {
@@ -120,6 +140,9 @@ function FundWalletDialog({ open, onOpenChange, openReceiveModal }: FundWalletDi
   };
 
   // Render the daily reward card content based on claim status
+  // The faucet pays testnet tREVO; the chain's own symbol names it
+  const currency = faucetAmount?.currency ?? "tREVO";
+
   const renderDailyRewardCard = () => {
     // ── INSTANT SUCCESS ──
     if (claimStatus === "instant") {
@@ -130,9 +153,9 @@ function FundWalletDialog({ open, onOpenChange, openReceiveModal }: FundWalletDi
               <Send className="w-5 h-5 text-green-600" />
             </div>
             <div>
-              <h3 className="font-semibold text-green-900">Daily REVO Received!</h3>
+              <h3 className="font-semibold text-green-900">{currency} sent</h3>
               <p className="text-sm text-green-700">
-                Your {faucetAmount?.amount} {faucetAmount?.currency} has arrived.
+                Your {faucetAmount?.amount} {currency} is on its way to your wallet.
               </p>
             </div>
           </div>
@@ -140,8 +163,8 @@ function FundWalletDialog({ open, onOpenChange, openReceiveModal }: FundWalletDi
             <div className="flex items-start gap-2">
               <Info className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
               <p className="text-xs text-green-800 leading-relaxed">
-                <strong>Instant delivery!</strong> Since this is your first REVO, we sent it
-                right away so you can start exploring. 🚀
+                Your first {currency} goes out at once so you can start exploring. Later
+                claims join the daily batch.
               </p>
             </div>
           </div>
@@ -189,9 +212,8 @@ function FundWalletDialog({ open, onOpenChange, openReceiveModal }: FundWalletDi
               <div className="flex items-start gap-2">
                 <Info className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
                 <p className="text-xs text-blue-800 leading-relaxed">
-                  <strong>Why batch?</strong> You already have REVO in your wallet, so your daily
-                  reward joins the next batch to save on network fees.{" "}
-                  <strong>New users receive their first REVO instantly.</strong>
+                  <strong>Why a batch?</strong> You already hold {currency}, so this claim goes out
+                  with the next daily batch in one network transaction.
                 </p>
               </div>
             </div>
@@ -209,10 +231,8 @@ function FundWalletDialog({ open, onOpenChange, openReceiveModal }: FundWalletDi
               <Check className="w-5 h-5 text-blue-600" />
             </div>
             <div>
-              <h3 className="font-semibold text-blue-900">Request Submitted</h3>
-              <p className="text-sm text-blue-700">
-                Your tokens are on the way!{" "}
-              </p>
+              <h3 className="font-semibold text-blue-900">Claimed today</h3>
+              <p className="text-sm text-blue-700">You can claim again after the timer ends.</p>
               {faucetInfo.nextAvailableDate && (
                 <p className="text-xs text-amber-600 font-medium mt-1">
                   Next claim in:{" "}
@@ -242,12 +262,20 @@ function FundWalletDialog({ open, onOpenChange, openReceiveModal }: FundWalletDi
               <h3 className="font-semibold text-green-900">
                 {isLoadingFaucetAmount
                   ? "Loading..."
-                  : "Daily Reward Available!"}
+                  : !faucetInfo.faucetEnabled
+                    ? "Faucet Temporarily Disabled"
+                    : !faucetInfo.hasSufficientFunds
+                      ? "Faucet Out of Funds"
+                      : "Daily Reward Available!"}
               </h3>
               <p className="text-sm text-green-700">
                 {isLoadingFaucetAmount
                   ? "Loading faucet amount..."
-                  : faucetAmount
+                  : !faucetInfo.faucetEnabled
+                    ? "The faucet is temporarily disabled. Please check back later."
+                    : !faucetInfo.hasSufficientFunds
+                      ? "The faucet is temporarily out of funds. Please check back later."
+                      : faucetAmount
                     ? `Get ${faucetAmount.amount} ${faucetAmount.currency} every day`
                     : "Get your free tokens every day"}
               </p>
@@ -309,15 +337,32 @@ function FundWalletDialog({ open, onOpenChange, openReceiveModal }: FundWalletDi
               }`}
             >
               {isInstant ? (
-                <>⚡ Instant — first REVO</>
+                <>Instant: your first {currency}</>
               ) : (
-                <>⏳ Batch — you already have REVO</>
+                <>Daily batch: you already hold {currency}</>
               )}
             </span>
           </div>
         )}
       </div>
     );
+  };
+
+  const navigate = useNavigate();
+  const location = useLocation();
+  // Screen Review 138 (o1): Buy USDC opens in the Wallet. From anywhere else the
+  // fan comes back to where they were once the USDC arrives (Back to the item).
+  const handleBuyUsdc = () => {
+    onOpenChange(false);
+    const here = `${location.pathname}${location.search}`;
+    const next = new URLSearchParams({ fund: "usdc" });
+    if (location.pathname !== "/wallet") next.set("return", here);
+    navigate(`/wallet?${next.toString()}`);
+  };
+
+  const handleUsdcDeposit = () => {
+    onOpenChange(false);
+    openReceiveModal("payment");
   };
 
   return (
@@ -334,6 +379,8 @@ function FundWalletDialog({ open, onOpenChange, openReceiveModal }: FundWalletDi
             <div className="space-y-4">
               {/* Daily Reward Notification Bar */}
               {renderDailyRewardCard()}
+              {/* BRIEF rule 2 (#446): wherever tREVO shows, the testnet line is TESTNET_NOTICE */}
+              <p className="text-xs text-gray-600">{TESTNET_NOTICE}</p>
 
               {/* Requirements */}
               {!isLoadingFaucetAmount && faucetInfo.faucetEnabled && claimStatus === "idle" && (
@@ -349,6 +396,50 @@ function FundWalletDialog({ open, onOpenChange, openReceiveModal }: FundWalletDi
                     ? "✓ Profile complete — faucet unlocked"
                     : "Complete your profile to unlock the faucet →"}
                 </button>
+              )}
+
+              {/* Buy USDC through Coinbase (Screen Review 138, board w5) */}
+              {USDC_FLAGS.onramp && (
+                <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 hover:shadow-md transition-shadow duration-200">
+                  <button
+                    onClick={handleBuyUsdc}
+                    className="w-full flex items-center justify-between"
+                  >
+                    <div className="flex items-center space-x-4">
+                      <div className="p-2 bg-blue-100 rounded-lg">
+                        <img src={CoinbaseIcon} alt="" aria-hidden className="w-6 h-6" />
+                      </div>
+                      <div className="text-left">
+                        <h3 className="font-semibold text-gray-900">Buy {USDC_SYMBOL}</h3>
+                        <p className="text-sm text-gray-600">{ONRAMP_COPY.fundRow}</p>
+                      </div>
+                    </div>
+                    <ArrowRight className="w-5 h-5 text-gray-400" />
+                  </button>
+                </div>
+              )}
+
+              {/* Deposit USDC (Screen Review 137, board w5): opens Receive on the payment chain */}
+              {USDC_FLAGS.wallet && (
+                <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 hover:shadow-md transition-shadow duration-200">
+                  <button
+                    onClick={handleUsdcDeposit}
+                    className="w-full flex items-center justify-between"
+                  >
+                    <div className="flex items-center space-x-4">
+                      <div className="p-2 bg-indigo-100 rounded-lg">
+                        <CircleDollarSign className="w-6 h-6 text-indigo-600" />
+                      </div>
+                      <div className="text-left">
+                        <h3 className="font-semibold text-gray-900">Deposit {USDC_SYMBOL}</h3>
+                        <p className="text-sm text-gray-600">
+                          From an exchange or another wallet, on {paymentChain.name}
+                        </p>
+                      </div>
+                    </div>
+                    <ArrowRight className="w-5 h-5 text-gray-400" />
+                  </button>
+                </div>
               )}
 
               {/* Bridge */}
@@ -395,29 +486,31 @@ function FundWalletDialog({ open, onOpenChange, openReceiveModal }: FundWalletDi
                 </button>
               </div>
 
-              {/* Coinbase */}
-              <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 hover:shadow-md transition-shadow duration-200">
-                <button
-                  disabled={true}
-                  className="w-full flex items-center justify-between opacity-50 cursor-not-allowed"
-                >
-                  <div className="flex items-center space-x-4">
-                    <div className="p-2 bg-blue-100 rounded-lg">
-                      <img src={CoinbaseIcon} alt="Coinbase" className="w-6 h-6" />
+              {/* Coinbase: replaced by Buy USDC when the on-ramp is on */}
+              {!USDC_FLAGS.onramp && (
+                <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 hover:shadow-md transition-shadow duration-200">
+                  <button
+                    disabled={true}
+                    className="w-full flex items-center justify-between opacity-50 cursor-not-allowed"
+                  >
+                    <div className="flex items-center space-x-4">
+                      <div className="p-2 bg-blue-100 rounded-lg">
+                        <img src={CoinbaseIcon} alt="Coinbase" className="w-6 h-6" />
+                      </div>
+                      <div className="text-left">
+                        <h3 className="font-semibold text-gray-900 flex items-center">
+                          Coinbase{" "}
+                          <span className="ml-2 px-2 py-1 text-xs font-semibold text-white bg-blue-500 rounded-full">
+                            Soon
+                          </span>
+                        </h3>
+                        <p className="text-sm text-gray-600">Instant · Fees 0.5 — 2.5%</p>
+                      </div>
                     </div>
-                    <div className="text-left">
-                      <h3 className="font-semibold text-gray-900 flex items-center">
-                        Coinbase{" "}
-                        <span className="ml-2 px-2 py-1 text-xs font-semibold text-white bg-blue-500 rounded-full">
-                          Soon
-                        </span>
-                      </h3>
-                      <p className="text-sm text-gray-600">Instant · Fees 0.5 — 2.5%</p>
-                    </div>
-                  </div>
-                  <ArrowRight className="w-5 h-5 text-gray-400" />
-                </button>
-              </div>
+                    <ArrowRight className="w-5 h-5 text-gray-400" />
+                  </button>
+                </div>
+              )}
 
               {/* Moonpay */}
               <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 hover:shadow-md transition-shadow duration-200">
@@ -486,13 +579,20 @@ function FundWalletDialog({ open, onOpenChange, openReceiveModal }: FundWalletDi
         </DialogContent>
       </Dialog>
 
-      {/* Requirements Checklist Modal */}
-      <FaucetRequirementsChecklist
-        open={showRequirementsModal}
-        onOpenChange={setShowRequirementsModal}
-        requirements={faucetInfo.requirements}
-        allRequirementsMet={allRequirementsMet}
-      />
+      {/* Requirements Modal */}
+      <Dialog open={showRequirementsModal} onOpenChange={setShowRequirementsModal}>
+        <DialogContent className="max-w-md rounded-xl p-0 bg-white">
+          <div className="flex items-center justify-between p-6 border-b border-gray-200">
+            <h2 className="text-xl font-bold text-gray-900">Profile Requirements</h2>
+          </div>
+          <div className="p-6">
+            <FaucetRequirementsChecklist
+              requirements={faucetInfo.requirements}
+              onActionClick={() => setShowRequirementsModal(false)}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

@@ -123,9 +123,19 @@ export async function processDailyAirdropClaim(
   };
 }
 
-// Claim marker persisted before the real hash exists; the hash replaces it as
-// soon as the contract call returns
+// Claim marker persisted before the real hash exists: "pending:{nonce}". The
+// batch is sent with that exact nonce, so a lost or timed out send can never be
+// paid twice: the chain accepts one transaction per nonce. The hash replaces
+// the marker as soon as the contract call returns.
 const TX_PENDING = "pending";
+// The random part keeps two workers that read the same nonce from sharing a marker
+const pendingMarker = (nonce: number) =>
+  `${TX_PENDING}:${nonce}:${Math.random().toString(36).slice(2, 10)}`;
+const isPending = (txHash: string | null) => !!txHash && txHash.startsWith(TX_PENDING);
+const pendingNonce = (txHash: string): number | null => {
+  const value = Number(txHash.split(":")[1]);
+  return Number.isInteger(value) && value >= 0 ? value : null;
+};
 
 /** Claims without a hash older than this belong to a dead worker (cron: 15 min). */
 const CLAIM_STALE_MS = 15 * 60 * 1000;
@@ -200,7 +210,7 @@ export async function sendPendingBatch(): Promise<void> {
     // settled by that receipt
     const byHash = new Map<`0x${string}`, Array<{ id: Uint8Array; txHash: `0x${string}` }>>();
     for (const entry of entries) {
-      if (!entry.txHash || entry.txHash === TX_PENDING) continue;
+      if (!entry.txHash || isPending(entry.txHash)) continue;
       const hash = entry.txHash as `0x${string}`;
       const group = byHash.get(hash) ?? [];
       group.push({ id: entry.id, txHash: hash });
@@ -217,33 +227,74 @@ export async function sendPendingBatch(): Promise<void> {
       if (entries.length === 0) return;
     }
 
-    // Claims without a hash belong to workers that died before submitting;
-    // past the stale window they are released for this run
-    const staleIds = entries
-      .filter(
-        entry =>
-          entry.txHash === TX_PENDING &&
-          entry.claimedAt !== null &&
-          Date.now() - entry.claimedAt.getTime() > CLAIM_STALE_MS
-      )
-      .map(entry => entry.id);
-    if (staleIds.length > 0) await releaseClaim(staleIds);
+    // Claims without a hash belong to a worker that died or whose send call
+    // failed. The send may still have reached the chain, so the claim's nonce
+    // decides: used on chain means paid (delete), still in the mempool means
+    // wait, never used means release for this run. Never resend blind.
+    const faucetAddress = privateKeyToAccount(env.FAUCET_PRIVATE_KEY as `0x${string}`).address;
+    const stale = entries.filter(
+      entry =>
+        isPending(entry.txHash) &&
+        entry.claimedAt !== null &&
+        Date.now() - entry.claimedAt.getTime() > CLAIM_STALE_MS
+    );
+    if (stale.length > 0) {
+      const [minedCount, pendingCount] = await Promise.all([
+        publicClient.getTransactionCount({ address: faucetAddress, blockTag: "latest" }),
+        publicClient.getTransactionCount({ address: faucetAddress, blockTag: "pending" }),
+      ]);
+      const byNonce = new Map<number | null, Uint8Array[]>();
+      for (const entry of stale) {
+        const nonce = pendingNonce(entry.txHash!);
+        byNonce.set(nonce, [...(byNonce.get(nonce) ?? []), entry.id]);
+      }
+      for (const [nonce, ids] of byNonce) {
+        if (nonce === null) {
+          // An old marker with no nonce: the outcome is unknown, so a person checks
+          console.error(`[BATCH_STALE_UNKNOWN] ${ids.length} entries need a manual check`);
+        } else if (nonce < minedCount) {
+          console.error(`[BATCH_STALE_MINED] nonce=${nonce}: treated as paid, deleting ${ids.length}`);
+          await prisma.airdropQueueEntry.deleteMany({ where: { id: { in: ids } } });
+        } else if (nonce < pendingCount) {
+          console.log(`[BATCH_STALE_IN_MEMPOOL] nonce=${nonce}: waiting for it to mine`);
+        } else {
+          await releaseClaim(ids);
+        }
+      }
+      entries = await prisma.airdropQueueEntry.findMany({
+        orderBy: { createdAt: "asc" },
+        include: { userWallet: { select: { address: true } } },
+      });
+      if (entries.length === 0) return;
+    }
 
     // Atomic row claim: the conditional update admits exactly one worker
-    const claimable = entries.filter(entry => entry.txHash === null);
-    if (claimable.length === 0) {
+    const unclaimed = entries.filter(entry => entry.txHash === null);
+    if (unclaimed.length === 0) {
       console.log("[BATCH_SKIP_CLAIMED] Entries are claimed by another worker");
       return;
     }
-    const claimIds = claimable.map(entry => entry.id);
+    // The batch goes out with this nonce and no other (see TX_PENDING)
+    const nonce = await publicClient.getTransactionCount({
+      address: faucetAddress,
+      blockTag: "pending",
+    });
+    const marker = pendingMarker(nonce);
     const claimed = await prisma.airdropQueueEntry.updateMany({
-      where: { id: { in: claimIds }, txHash: null },
-      data: { txHash: TX_PENDING, claimedAt: new Date() },
+      where: { id: { in: unclaimed.map(entry => entry.id) }, txHash: null },
+      data: { txHash: marker, claimedAt: new Date() },
     });
     if (claimed.count === 0) {
       console.log("[BATCH_SKIP_CLAIMED] Another worker claimed the entries");
       return;
     }
+    // Pay only the rows this run claimed: another worker may hold some of them
+    const claimable = await prisma.airdropQueueEntry.findMany({
+      where: { txHash: marker },
+      orderBy: { createdAt: "asc" },
+      include: { userWallet: { select: { address: true } } },
+    });
+    const claimIds = claimable.map(entry => entry.id);
 
     const account = privateKeyToAccount(env.FAUCET_PRIVATE_KEY as `0x${string}`);
     const walletClient = createWalletClient({
@@ -282,14 +333,27 @@ export async function sendPendingBatch(): Promise<void> {
       `[BATCH_SENDING] recipients=${recipients.length}, total=${totalValue.toString()}, contract=${contractAddress}`
     );
 
-    hash = await walletClient.writeContract({
-      address: contractAddress,
-      abi: SIMPLE_BATCH_SEND_ABI,
-      functionName: "send",
-      args: [recipients, amounts],
-      value: totalValue,
-      chain,
-    });
+    try {
+      hash = await walletClient.writeContract({
+        address: contractAddress,
+        abi: SIMPLE_BATCH_SEND_ABI,
+        functionName: "send",
+        args: [recipients, amounts],
+        value: totalValue,
+        chain,
+        nonce,
+      });
+    } catch (error) {
+      // Nonce already used (an instant faucet send took it): nothing of this
+      // batch reached the chain, so the rows go back to the queue now
+      if (error instanceof Error && /nonce/i.test(error.message)) {
+        console.error(`[BATCH_NONCE_TAKEN] nonce=${nonce}, releasing ${claimIds.length} entries`);
+        await releaseClaim(claimIds);
+        return;
+      }
+      // Any other failure may have broadcast: the stale check settles it by nonce
+      throw error;
+    }
 
     // Persist the tx hash before waiting for the receipt: a crash during the
     // wait settles from the stored hash on the next run instead of resending

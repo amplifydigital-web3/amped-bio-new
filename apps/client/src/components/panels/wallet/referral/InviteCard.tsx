@@ -1,5 +1,5 @@
-import { useId, useRef, useState } from "react";
-import { useMutation, useQueries, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useId, useRef, useState } from "react";
+import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertCircle,
   Check,
@@ -9,6 +9,11 @@ import {
   Copy,
   ExternalLink,
   Loader2,
+  Mail,
+  MessageCircle,
+  Send,
+  Share2,
+  UserPlus,
   Users,
 } from "lucide-react";
 import { PROCESSING_TXID } from "@repo/constants";
@@ -18,6 +23,7 @@ import { toast } from "@/components/ui/toast";
 import { useDelayed } from "@/hooks/useDelayed";
 import { TestnetLine } from "../../explore/pool-panel/sections";
 import { ClaimReviewPanel, type ClaimTarget } from "./ClaimReviewPanel";
+import { SHARE_TEXT, shareTargets } from "./shareTargets";
 import {
   Avatar,
   REFERRALS_ARTICLE,
@@ -32,6 +38,8 @@ import {
 type Referral = RouterOutputs["referral"]["myReferrals"]["referrals"][number];
 
 const PAGE_SIZE = 10;
+
+const SHARE_ICONS = { telegram: Send, whatsapp: MessageCircle, email: Mail } as const;
 
 function RowSkeleton() {
   return (
@@ -125,9 +133,18 @@ export default function InviteCard() {
   const listId = useId();
   const [copied, setCopied] = useState(false);
   const [copyFailed, setCopyFailed] = useState(false);
+  const [shareFailed, setShareFailed] = useState(false);
   const [open, setOpen] = useState(false);
   const [pageCount, setPageCount] = useState(1);
   const [target, setTarget] = useState<(ClaimTarget & { referralId: number }) | null>(null);
+  // The Copied label clears on a timer; the timer must not outlive the card
+  const copiedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (copiedTimer.current) clearTimeout(copiedTimer.current);
+    };
+  }, []);
 
   const pages = useQueries({
     queries: Array.from({ length: pageCount }, (_, index) => ({
@@ -140,6 +157,8 @@ export default function InviteCard() {
   const showSkeleton = useDelayed(!!first?.isPending, 400);
   const referrals = pages.flatMap(page => page.data?.referrals ?? []);
   const total = first?.data?.total ?? 0;
+  const stats = useQuery({ ...trpc.referralInvite.stats.queryOptions(), enabled: !!authUser });
+  const unclaimed = stats.data?.unclaimed ?? 0;
   const totalPages = first?.data?.totalPages ?? 1;
   const available = first?.data?.affiliateWalletBalance?.hasBalance !== false;
   const loadingMore = pages.length > 1 && pages[pages.length - 1]?.isPending;
@@ -157,7 +176,10 @@ export default function InviteCard() {
           ? { children: "View", onClick: () => window.open(href, "_blank", "noopener") }
           : undefined,
       });
-      await queryClient.invalidateQueries({ queryKey: trpc.referral.myReferrals.pathKey() });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: trpc.referral.myReferrals.pathKey() }),
+        queryClient.invalidateQueries({ queryKey: trpc.referralInvite.stats.queryKey() }),
+      ]);
     },
   });
 
@@ -170,9 +192,12 @@ export default function InviteCard() {
     try {
       await navigator.clipboard.writeText(link);
       setCopyFailed(false);
+      setShareFailed(false);
       setCopied(true);
       toast.add({ type: "success", title: "Link copied" });
-      setTimeout(() => setCopied(false), 2000);
+      // A second copy restarts the window, so drop the pending timer first
+      if (copiedTimer.current) clearTimeout(copiedTimer.current);
+      copiedTimer.current = setTimeout(() => setCopied(false), 2000);
     } catch {
       setCopyFailed(true);
       inputRef.current?.select();
@@ -182,14 +207,26 @@ export default function InviteCard() {
   const copyButton = (wide: boolean) => (
     <Button
       type="button"
-      variant="secondary"
+      variant={wide ? "default" : "secondary"}
       onClick={() => void copy()}
-      className={cn(wide && "h-commit w-full")}
+      className={cn(wide && "shrink-0")}
     >
       {copied ? <Check aria-hidden /> : <Copy aria-hidden />}
-      {copied ? "Copied" : "Copy link"}
+      {wide ? (copied ? "Copied" : "Copy") : copied ? "Copied" : "Copy link"}
     </Button>
   );
+
+  const canNativeShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
+  const nativeShare = async () => {
+    try {
+      await navigator.share({ title: "Amped.Bio", text: SHARE_TEXT, url: link });
+      setShareFailed(false);
+    } catch (error) {
+      // The viewer closed the share sheet; that is not a failure to report
+      if ((error as DOMException)?.name === "AbortError") return;
+      setShareFailed(true);
+    }
+  };
 
   const openClaim = (referral: Referral) => {
     claim.reset();
@@ -302,14 +339,22 @@ export default function InviteCard() {
   return (
     <section
       aria-labelledby="invite-title"
-      className="prism-glass-clear flex flex-col !rounded-prism-21 p-[21px] font-prism sm:p-[34px]"
+      className="prism-glass-clear flex flex-col !rounded-prism-21 p-[21px] font-prism"
     >
-      <h3 id="invite-title" className="text-prism-panel-title text-prism-ink">
-        Invite creators
-      </h3>
+      <div className="flex items-center gap-[13px]">
+        <span
+          aria-hidden
+          className="flex h-touch w-touch shrink-0 items-center justify-center rounded-prism-13 bg-prism-nav-tint text-prism-nav"
+        >
+          <UserPlus className="h-[21px] w-[21px]" />
+        </span>
+        <h3 id="invite-title" className="text-prism-panel-title text-prism-ink">
+          Invite creators
+        </h3>
+      </div>
       {/* D1: Reward and Claim wording kept, as Rob decided */}
-      <p className="mt-2 text-prism-body text-prism-ink-2">
-        Share your link. When a creator signs up with it, you can each claim a referral reward.
+      <p className="mt-[13px] text-prism-body text-prism-ink-2">
+        When a creator signs up with your link, you can each claim a referral reward.
       </p>
       <Button asChild variant="ghost" className="-ml-3 mt-1 self-start">
         <a href={REFERRALS_ARTICLE} target="_blank" rel="noopener noreferrer">
@@ -325,18 +370,58 @@ export default function InviteCard() {
       >
         Your invite link
       </label>
-      <div className="prism-well mt-2 flex h-touch items-center px-3">
-        <input
-          id={`${listId}-link`}
-          ref={inputRef}
-          readOnly
-          value={link}
-          onFocus={event => event.currentTarget.select()}
-          className="min-w-0 flex-1 truncate bg-transparent text-prism-label text-prism-ink focus:outline-none"
-        />
-      </div>
-      <div className="mt-3" aria-live="polite">
+      <div className="mt-2 flex gap-2" aria-live="polite">
+        <div className="prism-well flex h-touch min-w-0 flex-1 items-center px-3">
+          <input
+            id={`${listId}-link`}
+            ref={inputRef}
+            readOnly
+            value={link}
+            onFocus={event => event.currentTarget.select()}
+            className="min-w-0 flex-1 truncate bg-transparent text-prism-label text-prism-ink focus:outline-none"
+          />
+        </div>
         {copyButton(true)}
+      </div>
+      {shareFailed && (
+        <p role="alert" className="mt-2 flex items-start gap-1.5 text-prism-meta text-prism-danger">
+          <AlertCircle aria-hidden className="mt-px h-4 w-4 shrink-0" />
+          Sharing failed. Copy the link and share it manually.
+        </p>
+      )}
+      <div role="group" aria-label="Share your invite link" className="mt-3 flex flex-wrap gap-2">
+        {canNativeShare && (
+          <Button
+            type="button"
+            variant="secondary"
+            size="icon"
+            aria-label="Share"
+            onClick={() => void nativeShare()}
+          >
+            <Share2 aria-hidden />
+          </Button>
+        )}
+        {shareTargets(link).map(target => {
+          const Icon = target.id === "x" ? null : SHARE_ICONS[target.id];
+          return (
+            <Button key={target.id} asChild variant="secondary" size="icon">
+              <a
+                href={target.href}
+                target={target.id === "email" ? undefined : "_blank"}
+                rel="noopener noreferrer"
+                aria-label={target.label}
+              >
+                {Icon ? (
+                  <Icon aria-hidden />
+                ) : (
+                  <span aria-hidden className="text-prism-label font-bold">
+                    X
+                  </span>
+                )}
+              </a>
+            </Button>
+          );
+        })}
       </div>
       {copyFailed && (
         <p role="alert" className="mt-2 flex items-start gap-1.5 text-prism-meta text-prism-danger">
@@ -345,18 +430,42 @@ export default function InviteCard() {
         </p>
       )}
 
-      <div className="mt-3 text-prism-meta tabular-nums text-prism-ink-2">
-        {/* A failed query never reads as zero referrals */}
-        {!isError && first?.data && (
-          <p>
-            <span className="font-bold text-prism-ink">{total}</span>{" "}
-            {total === 1 ? "creator joined" : "creators joined"}
-          </p>
-        )}
-        <p>Referral ID {userIdHex}</p>
-      </div>
+      {/* A failed query never reads as zero referrals */}
+      {stats.data && (
+        <dl className="mt-[21px] grid grid-cols-3 border-y border-prism-line">
+          <div className="py-[13px]">
+            <dt className="text-prism-meta text-prism-ink-2">Joined</dt>
+            <dd className="mt-1 font-prism-display text-[34px] leading-[34px] tabular-nums text-prism-ink">
+              {stats.data.joined}
+            </dd>
+          </div>
+          <div className="border-l border-prism-line py-[13px] pl-[13px]">
+            <dt className="text-prism-meta text-prism-ink-2">Unclaimed</dt>
+            <dd className="mt-1 font-prism-display text-[34px] leading-[34px] tabular-nums text-prism-value-ink">
+              {stats.data.unclaimed}
+            </dd>
+          </div>
+          <div className="border-l border-prism-line py-[13px] pl-[13px]">
+            <dt className="text-prism-meta text-prism-ink-2">Claimed</dt>
+            <dd className="mt-1 font-prism-display text-[34px] leading-[34px] tabular-nums text-prism-ink">
+              {stats.data.claimed}
+            </dd>
+          </div>
+        </dl>
+      )}
+      {unclaimed > 0 && !open && (
+        <Button
+          type="button"
+          variant="secondary"
+          className="mt-3 w-full"
+          onClick={() => setOpen(true)}
+        >
+          Review and claim rewards
+        </Button>
+      )}
+      <p className="mt-3 text-prism-meta tabular-nums text-prism-ink-2">Referral ID {userIdHex}</p>
 
-      <div className="mt-4 border-t border-prism-line">
+      <div className="mt-3 border-t border-prism-line">
         <button
           type="button"
           aria-expanded={open}

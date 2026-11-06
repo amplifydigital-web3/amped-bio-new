@@ -1,7 +1,21 @@
 import { adminProcedure, router } from "../trpc";
 import { z } from "zod";
 import { prisma } from "@repo/database";
-import { SITE_SETTINGS } from "@repo/constants";
+import { FEATURE_FLAG_KEYS, SITE_SETTINGS, type FeatureFlagKey } from "@repo/constants";
+import { listFeatureFlags, setFeatureFlag } from "../../services/featureFlags";
+import {
+  parseStakeKindsAllowlist,
+  readStakeKindsAllowlist,
+  setStakeKindsAllowlist,
+} from "../../services/access/allowlist";
+import { env } from "../../env";
+
+/** users.id is a signed INT: anything above it can never match a creator */
+const USER_ID_MAX = 2_147_483_647;
+
+export const stakeKindsAllowlistInput = z.object({
+  userIds: z.array(z.number().int().positive().max(USER_ID_MAX)).max(500).nullable(),
+});
 
 export const settingsRouter = router({
   getFaucetStatus: adminProcedure.query(async () => {
@@ -77,6 +91,55 @@ export const settingsRouter = router({
           value_type: "STRING",
         },
       });
+    }),
+
+  // Feature flags (packages/constants/src/feature-flags.ts): every flag with its row and fallback
+  listFeatureFlags: adminProcedure.query(() => listFeatureFlags()),
+
+  /** Turn a flag on or off, or pass null to drop the row so every app uses its environment again */
+  setFeatureFlag: adminProcedure
+    .input(
+      z.object({
+        key: z.enum(FEATURE_FLAG_KEYS as [FeatureFlagKey, ...FeatureFlagKey[]]),
+        value: z.boolean().nullable(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      await setFeatureFlag(input.key, input.value, ctx.user!.sub);
+      return { ok: true };
+    }),
+
+  // Access gating stake pilot (Build Board #21, spec 6): creator ids whose stake rules are live
+  getStakeKindsAllowlist: adminProcedure.query(async () => {
+    // One fresh read, so the list and its source always agree
+    const { value, source } = await readStakeKindsAllowlist({ fresh: true });
+    const userIds = [...new Set(parseStakeKindsAllowlist(value))];
+    // Handles so the admin sees who is on the list; an id with no user shows as unknown
+    const users = userIds.length
+      ? await prisma.user.findMany({
+          where: { id: { in: userIds } },
+          select: { id: true, handle: true },
+        })
+      : [];
+    const handles = new Map(users.map(user => [user.id, user.handle]));
+    return {
+      userIds,
+      creators: userIds.map(id => ({
+        id,
+        handle: handles.get(id) ?? null,
+        found: handles.has(id),
+      })),
+      source,
+      environmentValue: env.ACCESS_STAKE_KINDS_ALLOWLIST,
+    };
+  }),
+
+  /** Set the creator ids, or pass null to drop the row and use the environment value again */
+  setStakeKindsAllowlist: adminProcedure
+    .input(stakeKindsAllowlistInput)
+    .mutation(async ({ ctx, input }) => {
+      await setStakeKindsAllowlist(input.userIds, ctx.user!.sub);
+      return { ok: true };
     }),
 
   // Daily Airdrop Batch Settings

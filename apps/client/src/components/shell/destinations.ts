@@ -3,6 +3,9 @@ import {
   Coins,
   Home,
   LayoutPanelTop,
+  Library,
+  LibraryBig,
+  MessageCircle,
   Palette,
   Search,
   UsersRound,
@@ -10,12 +13,17 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import type { EditorPanelType } from "@/types/editor";
+import type { FeatureFlagKey } from "@repo/constants";
+import { isFeatureOn } from "../../config/featureFlags";
 
-// The seven editor destinations in D01 order (Screen Review 001 I01, I11).
+// The editor destinations in D01 order (Screen Review 001 I01, I11).
 export type DestinationId =
   | "home"
   | "explore"
+  | "library"
+  | "inbox"
   | "page"
+  | "content"
   | "design"
   | "analytics"
   | "people"
@@ -29,20 +37,27 @@ export interface Destination {
   label: string;
   icon: LucideIcon;
   group: DestinationGroup;
-  /** Environment flag that must be "true"; no flag means always rendered */
-  flag?: string;
+  /** Feature flag that must be on (config/featureFlags.ts); no flag means always rendered */
+  flag?: FeatureFlagKey;
 }
 
 export const DESTINATIONS: Destination[] = [
   { id: "home", label: "Home", icon: Home, group: "start" },
   { id: "explore", label: "Explore", icon: Search, group: "start" },
+  // Fan Library (#26, FL-3, CT-D1): Start is Home, Explore, Library, Inbox. On phones
+  // dockComposition keeps the shipped dock, so Library sits in More (CK-D4)
+  { id: "library", label: "Library", icon: LibraryBig, group: "start", flag: "fanLibrary" },
+  // Amped Messages (#2 r4, M5, spec 8.1): the Inbox with the unread conversations badge
+  { id: "inbox", label: "Inbox", icon: MessageCircle, group: "start", flag: "messages" },
   { id: "page", label: "Page", icon: LayoutPanelTop, group: "page" },
+  // Content system (#20, decision 7): uploads, the library and later Store and Live
+  { id: "content", label: "Content", icon: Library, group: "page", flag: "content" },
   { id: "design", label: "Design", icon: Palette, group: "page" },
   { id: "analytics", label: "Analytics", icon: BarChart3, group: "page" },
   // Fan Graph (#22, decision 5): followers live in People
-  { id: "people", label: "People", icon: UsersRound, group: "page", flag: "VITE_FAN_GRAPH" },
-  { id: "wallet", label: "Wallet", icon: Wallet, group: "money", flag: "VITE_SHOW_WALLET" },
-  { id: "my-pool", label: "My Pool", icon: Coins, group: "money", flag: "VITE_SHOW_CREATOR_POOL" },
+  { id: "people", label: "People", icon: UsersRound, group: "page", flag: "fanGraph" },
+  { id: "wallet", label: "Wallet", icon: Wallet, group: "money", flag: "wallet" },
+  { id: "my-pool", label: "My Pool", icon: Coins, group: "money", flag: "creatorPool" },
 ];
 
 // Group eyebrows. The Start group has no label (I03).
@@ -52,8 +67,8 @@ export const GROUP_LABELS: Record<DestinationGroup, string | null> = {
   money: "Money",
 };
 
-export function isFlagOn(flag?: string) {
-  return !flag || import.meta.env[flag] === "true";
+export function isFlagOn(flag?: FeatureFlagKey) {
+  return !flag || isFeatureOn(flag);
 }
 
 /** Destinations whose flag is on. Flag off items are not rendered (D07, I04). */
@@ -71,9 +86,15 @@ export function destinationForPanel(panel: EditorPanelType): DestinationId | nul
     case "pay":
     case "rns":
       return "wallet";
+    case "inbox":
+      // The Telegram era inbox has no rail item; only the native Inbox does
+      return isFlagOn("messages") ? "inbox" : null;
+    case "library":
+      return isFlagOn("fanLibrary") ? "library" : null;
     case "home":
     case "explore":
     case "page":
+    case "content":
     case "design":
     case "analytics":
     case "people":
@@ -90,6 +111,7 @@ export const PANEL_TITLES: Record<EditorPanelType, string> = {
   home: "Home",
   explore: "Explore",
   page: "Page",
+  content: "Content",
   design: "Design",
   analytics: "Analytics",
   people: "People",
@@ -99,6 +121,7 @@ export const PANEL_TITLES: Record<EditorPanelType, string> = {
   pay: "Wallet",
   rns: "Wallet",
   inbox: "Inbox",
+  library: "Library",
 };
 
 /** Destinations with autosaved fields show the save status (002 I01, I13). */
@@ -115,7 +138,10 @@ export const WALLET_CHIP_PANELS: EditorPanelType[] = ["wallet", "my-pool", "expl
  */
 export function dockComposition(enabled: Destination[] = enabledDestinations()) {
   if (enabled.length <= 5) return { dock: enabled, more: [] as Destination[] };
-  const dockIds: DestinationId[] = ["home", "page", "design", "wallet"];
+  // Amped Messages (spec 8.1 item 2): Inbox takes Design's dock slot; Design moves to More
+  const dockIds: DestinationId[] = enabled.some(d => d.id === "inbox")
+    ? ["home", "page", "inbox", "wallet"]
+    : ["home", "page", "design", "wallet"];
   const dock = dockIds
     .map(id => enabled.find(d => d.id === id))
     .filter((d): d is Destination => Boolean(d));

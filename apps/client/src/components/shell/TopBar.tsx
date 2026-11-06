@@ -9,6 +9,8 @@ import { HelpMenu } from "./HelpMenu";
 import { WalletChip } from "./WalletChip";
 import { AccountMenu } from "./AccountMenu";
 import { InboxButton } from "./InboxButton";
+import { BellCenter } from "../panels/inbox/BellCenter";
+import { MESSAGES_V2 } from "../panels/inbox/flags";
 import { NavItemLink } from "./NavItemLink";
 import { BrandMark } from "./BrandMark";
 import { copyPageLink, publicPageUrl } from "./pageLink";
@@ -21,7 +23,8 @@ const TAB_TITLES: Record<string, Record<string, string>> = {
   design: { themes: "Themes", style: "Style", motion: "Motion" },
   // Settings is the bare Account title (098 I05)
   account: { settings: "Settings", developers: "Developers" },
-  "my-pool": { overview: "Overview", broadcasts: "Broadcasts" },
+  "my-pool": { overview: "Overview", broadcasts: "Broadcasts", telegram: "Telegram group" },
+  content: { library: "Library", store: "Store", live: "Live" },
 };
 
 function useTitle() {
@@ -104,7 +107,7 @@ export function TopBar() {
           </button>
         </>
       )}
-      <InboxButton />
+      {MESSAGES_V2 ? <BellCenter /> : <InboxButton />}
       <HelpMenu />
       {WALLET_CHIP_PANELS.includes(activePanel) && <WalletChip />}
       <AccountMenu />
@@ -149,7 +152,7 @@ export function MobileTopBar() {
           <PublishPageSheet open={publishOpen} onOpenChange={setPublishOpen} />
         </>
       )}
-      <InboxButton />
+      {MESSAGES_V2 ? <BellCenter /> : <InboxButton />}
       <AccountMenu mobile />
     </header>
   );

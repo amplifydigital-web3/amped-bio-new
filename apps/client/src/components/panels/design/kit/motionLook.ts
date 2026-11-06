@@ -1,0 +1,100 @@
+import { getEffect, type EffectEntry } from "@repo/constants";
+
+// Button hover and press rows (Theme Engine v2 phase 2, board 09).
+
+export interface HoverTile {
+  /** The v1 integer; for a v2 only hover, the nearest v1 look. */
+  id: number;
+  name: string;
+  /** A v2 only hover, stored as buttonEffectId. */
+  effectId?: string;
+}
+
+export const V1_HOVERS: HoverTile[] = [
+  { id: 0, name: "None" },
+  { id: 1, name: "Scale" },
+  { id: 2, name: "Glow" },
+  { id: 3, name: "Slide" },
+  { id: 4, name: "Bounce" },
+  { id: 5, name: "Pulse" },
+  { id: 6, name: "Shake" },
+  { id: 7, name: "Rotate" },
+  { id: 8, name: "Pop" },
+  { id: 9, name: "Shine" },
+];
+
+/** New core hovers and the v1 look a renderer without the flag draws instead. */
+const V2_HOVERS: [string, number][] = [
+  ["buttonHover.fill-sweep", 9],
+  ["buttonHover.underline-grow", 0],
+  ["buttonHover.border-draw", 2],
+  ["buttonHover.icon-slide", 3],
+  ["buttonHover.arrow-nudge", 3],
+];
+
+/** Phase 3e Plus hovers, with the showcase flag, and the v1 look a renderer without it draws. */
+const PLUS_HOVERS: [string, number][] = [
+  ["buttonHover.magnet", 1],
+  ["buttonHover.lift-tilt", 1],
+  ["buttonHover.jelly", 8],
+];
+
+export function hoverTiles(themeV2On: boolean, showcase = false): HoverTile[] {
+  if (!themeV2On) return V1_HOVERS;
+  return [
+    ...V1_HOVERS,
+    ...[...V2_HOVERS, ...(showcase ? PLUS_HOVERS : [])].map(([effectId, id]) => ({
+      id,
+      name: getEffect("buttonHover", effectId).label,
+      effectId,
+    })),
+  ];
+}
+
+/** The entry the parameter strip shows: Strength only with themeShowcase (TE-3e). */
+export function hoverParamEntry(entry: EffectEntry, showcase: boolean): EffectEntry {
+  if (showcase || !("strength" in entry.params)) return entry;
+  const { strength: _strength, ...params } = entry.params;
+  return { ...entry, params };
+}
+
+/** The patch a hover tile writes: a v1 tile clears the v2 id; a new pick starts from default params. */
+export function hoverPatch(tile: HoverTile) {
+  return { buttonEffect: tile.id, buttonEffectId: tile.effectId, buttonEffectParams: undefined };
+}
+
+/** The selected hover tile: a stored v2 id first, else the v1 integer. */
+export function hoverIndex(tiles: HoverTile[], buttonEffect: number, storedId?: string): number {
+  return tiles.findIndex(t =>
+    storedId ? t.effectId === storedId : !t.effectId && t.id === buttonEffect
+  );
+}
+
+export const PRESS_IDS = [
+  "buttonPress.none",
+  "buttonPress.ripple",
+  "buttonPress.dip",
+  // Phase 3c and 3e, with the showcase flag
+  "buttonPress.click-spark",
+  "buttonPress.jelly-press",
+] as const;
+export type PressId = (typeof PRESS_IDS)[number];
+
+/** Click spark (TE-3c) and Jelly press (TE-3e) are Plus, so they show only with themeShowcase. */
+export function pressIdsFor(showcase: boolean): readonly PressId[] {
+  return showcase
+    ? PRESS_IDS
+    : PRESS_IDS.filter(id => getEffect("buttonPress", id).tier === "core");
+}
+
+/** The press a config carries; unknown ids read as none. */
+export function currentPress(stored?: string): PressId {
+  return (PRESS_IDS as readonly string[]).includes(stored ?? "")
+    ? (stored as PressId)
+    : "buttonPress.none";
+}
+
+/** The patch a press tile writes: None clears the field. */
+export function pressPatch(id: PressId) {
+  return { buttonPressId: id === "buttonPress.none" ? undefined : id };
+}

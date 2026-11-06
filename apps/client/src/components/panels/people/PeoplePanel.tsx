@@ -32,10 +32,18 @@ import {
   MenuItem,
   MenuTrigger,
   Skeleton,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
   trpc,
   trpcClient,
   type RouterOutputs,
 } from "@repo/ui";
+import { isFeatureOn } from "@/config/featureFlags";
+import { MembersView } from "./MembersView";
+import { AccessView } from "./AccessView";
+import { ACCESS_INSIGHTS_COPY } from "./accessCopy";
 import { useDebounce } from "@/hooks/useDebounce";
 import { useAuth } from "@repo/ui";
 import { toast } from "@/components/ui/toast";
@@ -142,7 +150,7 @@ function Tile({ label, value, note }: { label: string; value: React.ReactNode; n
  * Fan Graph (#22): the People destination, Followers (boards fg5, fg7, fg10,
  * fg11). Names, handles, dates and sources only. Never email or wallet.
  */
-export function PeoplePanel() {
+function FollowersView() {
   const { authUser } = useAuth();
   const queryClient = useQueryClient();
   const [range, setRange] = useState<Range>("30d");
@@ -695,3 +703,48 @@ export function PeoplePanel() {
 }
 
 export default PeoplePanel;
+
+/**
+ * People (Fan Graph #22, Memberships MB-1, access gating G6). Tabs Followers, Members
+ * (amendment 1 3.1) and Access (gating spec 3.10 delta 7). Members shows once the creator
+ * has a membership plan and checkout is on. Access shows only while accessGating is on
+ * (delta 9). With neither, People is the Followers view alone, as shipped.
+ */
+type PeopleTab = "followers" | "members" | "access";
+
+export function PeoplePanel() {
+  const plan = useQuery({
+    ...trpc.memberships.plan.get.queryOptions(),
+    enabled: isFeatureOn("checkout"),
+    staleTime: 60_000,
+  });
+  const access = isFeatureOn("accessGating");
+  const [tab, setTab] = useState<PeopleTab>("followers");
+  if (!plan.data && !access) return <FollowersView />;
+  return (
+    <Tabs
+      value={tab}
+      onValueChange={v => setTab(v as PeopleTab)}
+      className="flex flex-col gap-[21px]"
+    >
+      <TabsList aria-label="People">
+        <TabsTrigger value="followers">Followers</TabsTrigger>
+        {plan.data && <TabsTrigger value="members">Members</TabsTrigger>}
+        {access && <TabsTrigger value="access">{ACCESS_INSIGHTS_COPY.tab}</TabsTrigger>}
+      </TabsList>
+      <TabsContent value="followers" className="mt-0">
+        <FollowersView />
+      </TabsContent>
+      {plan.data && (
+        <TabsContent value="members" className="mt-0">
+          <MembersView plan={plan.data} />
+        </TabsContent>
+      )}
+      {access && (
+        <TabsContent value="access" className="mt-0">
+          <AccessView />
+        </TabsContent>
+      )}
+    </Tabs>
+  );
+}

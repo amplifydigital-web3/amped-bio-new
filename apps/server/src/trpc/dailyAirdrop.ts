@@ -8,109 +8,14 @@ import { prisma } from "../services/DB";
 import { SITE_SETTINGS, DAILY_AIRDROP_COOLDOWN_MS } from "@repo/constants";
 import Decimal from "decimal.js";
 import { processDailyAirdropClaim, calculateNextBatchTime, sendPendingBatch } from "../services/dailyAirdrop";
-import { web3AuthPublicKeyToAddress } from "./wallet";
+import {
+  getFaucetRequirements,
+  verifyWeb3AuthIdToken,
+  web3AuthPublicKeyToAddress,
+} from "./wallet";
 import { getAddress } from "viem/utils";
-import * as jose from "jose";
 
 // Reuse theme config schema from wallet.ts
-const themeConfigSchema = z.object({
-  background: z
-    .object({
-      type: z.enum(["color", "image", "video"]),
-      value: z.string().nullable(),
-      fileId: z.number().optional(),
-    })
-    .optional(),
-});
-
-async function getFaucetRequirements(userId: number) {
-  const [user, linkBlockCount] = await Promise.all([
-    prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        image: true,
-        image_file_id: true,
-        description: true,
-        theme: true,
-      },
-    }),
-    prisma.block.count({
-      where: { user_id: userId },
-    }),
-  ]);
-
-  if (!user) {
-    return { photo: false, background: false, bio: false, minLinks: false };
-  }
-
-  const hasPhoto = !!(user.image || user.image_file_id);
-
-  let hasBackground = false;
-  if (user.theme) {
-    const themeRecord = await prisma.theme.findUnique({
-      where: { id: Number(user.theme) },
-      select: { config: true },
-    });
-    if (themeRecord?.config) {
-      const parsed = themeConfigSchema.safeParse(themeRecord.config);
-      if (parsed.success) {
-        hasBackground = !!parsed.data.background?.type && (!!parsed.data.background?.value || !!parsed.data.background?.fileId);
-      }
-    }
-  }
-
-  const hasBio = (() => {
-    if (!user.description) return false;
-    const stripped = user.description.replace(/<[^>]*>/g, "").replace(/&nbsp;/g, "").trim();
-    return stripped.length > 0;
-  })();
-  const hasMinLinks = linkBlockCount >= 5;
-
-  return { photo: hasPhoto, background: hasBackground, bio: hasBio, minLinks: hasMinLinks };
-}
-
-const JWKS = jose.createRemoteJWKSet(new URL("https://api-auth.web3auth.io/jwks"));
-
-async function verifyWeb3AuthIdToken(idToken: string, appPubKey: string) {
-  try {
-    const { payload } = await jose.jwtVerify(idToken, JWKS, {
-      algorithms: ["ES256"],
-    });
-
-    const wallets = (payload as any).wallets || [];
-    const normalizedAppKey = appPubKey.toLowerCase().replace(/^0x/, "");
-
-    const isValid = wallets.some((wallet: any) => {
-      if (wallet.type !== "web3auth_app_key") return false;
-      const walletKey = wallet.public_key.toLowerCase();
-      if (walletKey === normalizedAppKey) return true;
-      if (
-        wallet.curve === "secp256k1" &&
-        walletKey.length === 66 &&
-        normalizedAppKey.length === 128
-      ) {
-        const compressedWithoutPrefix = walletKey.substring(2);
-        return normalizedAppKey.startsWith(compressedWithoutPrefix);
-      }
-      return false;
-    });
-
-    if (!isValid) {
-      throw new TRPCError({
-        code: "UNAUTHORIZED",
-        message: "Wallet address does not match the one in the ID token.",
-      });
-    }
-
-    return payload;
-  } catch (error) {
-    console.error("ID token verification failed:", error);
-    throw new TRPCError({
-      code: "UNAUTHORIZED",
-      message: "Invalid ID token.",
-    });
-  }
-}
 
 export const dailyAirdropRouter = router({
   getDailyAirdropInfo: privateProcedure
@@ -148,6 +53,7 @@ export const dailyAirdropRouter = router({
             hasSufficientFunds: false,
             faucetEnabled: false,
             requirements: { photo: false, background: false, bio: false, minLinks: false },
+            isInstant: false,
             userQueueStatus: null,
             estimatedBatchTime: null,
           };

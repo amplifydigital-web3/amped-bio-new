@@ -9,7 +9,9 @@ import {
   isAuthbaseConfigured,
   publicSharedAttributes,
 } from "../services/authbase";
+import { pickShownAttributes, rnsIdBlockOptions } from "../services/rnsIdentity";
 import { env } from "../env";
+import { isFeatureOn } from "../services/featureFlags";
 
 // Screen Review 105 I04, 106 I08: one Notify me for RNS attributes and facets.
 const IDENTITY_NEXT = "rns_identity_next";
@@ -58,7 +60,7 @@ export const authbaseRouter = router({
   // publicAttributes tells the name page whether the 079 D2 rule is live.
   isConfigured: publicProcedure.query(() => ({
     configured: isAuthbaseConfigured(),
-    publicAttributes: isAuthbaseConfigured() && env.RNS_PUBLIC_ATTRIBUTES,
+    publicAttributes: isAuthbaseConfigured() && isFeatureOn("rnsPublicAttributes"),
   })),
 
   // Public identity lookup for any wallet, mirroring the rns-backend proxy at
@@ -66,7 +68,9 @@ export const authbaseRouter = router({
   // status is public, and the profile view calls it for arbitrary addresses.
   // Shared attributes are stripped here (Screen Review 104 D1), except under
   // the 079 D2 rule: with RNS_PUBLIC_ATTRIBUTES on, a Verified wallet returns
-  // its labeled attributes. Not verified and Not linked never return any.
+  // the labeled attributes its owner switched on in their RNS ID block, the
+  // same switches the creator page uses. Not verified and Not linked never
+  // return any, nor does a wallet with no Amped.Bio account or block.
   getWalletStatus: publicProcedure
     .input(
       z.object({
@@ -80,10 +84,15 @@ export const authbaseRouter = router({
         // them. The public lookup returns status, tier, dates and badge only,
         // unless 079 D2 is turned on and the wallet is Verified.
         // The owner reads their own attributes through getMyStatus.
-        const attributes: Record<string, string> =
-          env.RNS_PUBLIC_ATTRIBUTES && status.verified
-            ? publicSharedAttributes(status.attributes)
-            : {};
+        let attributes: Record<string, string> = {};
+        if (isFeatureOn("rnsPublicAttributes") && status.verified) {
+          const owner = await prisma.userWallet.findUnique({
+            where: { address: input.address.toLowerCase() },
+            select: { user: { select: { blocks: { select: { type: true, config: true } } } } },
+          });
+          const { attributes: keys } = rnsIdBlockOptions(owner?.user.blocks ?? []);
+          attributes = pickShownAttributes(publicSharedAttributes(status.attributes), keys);
+        }
         return { ...status, attributes };
       } catch (err) {
         toTrpcError(err);

@@ -11,10 +11,18 @@ import { adminPoolsRouter } from "./pools";
 import { affiliateAdminRouter } from "./affiliate";
 import { oauthAppsAdminRouter } from "./oauthApps";
 import { broadcastsAdminRouter } from "./broadcasts";
+import { telegramAdminRouter } from "./telegram";
+import { messagingAdminRouter } from "./messaging";
+import { moneyAdminRouter } from "./money";
+import { paymentsAdminRouter } from "./payments";
+import { merchantsAdminRouter } from "./merchants";
+import { sellerChecksAdminRouter } from "./sellerChecks";
 
 export const adminRouter = router({
   // User Management
   users: usersRouter,
+  // Seller tier override (Build Board #66, AB-6, board a2)
+  sellerChecks: sellerChecksAdminRouter,
 
   // Block Management & Statistics
   blocks: blocksRouter,
@@ -43,9 +51,22 @@ export const adminRouter = router({
   // Creator Pool Broadcast review and pilot (Build Board #1)
   broadcasts: broadcastsAdminRouter,
 
+  // Messaging on Telegram: reports, paused senders, pilot, bot health (Build Board #2)
+  // Amped Messages (#2 r4, M7): admins and moderators
+  messaging: messagingAdminRouter,
+  telegram: telegramAdminRouter,
+
   // Affiliate Rewards Management
   affiliate: affiliateAdminRouter,
 
   // OAuth Applications
   oauthApps: oauthAppsAdminRouter,
+
+  // USDC relayer, gas ledger, funding, screening and the send pause (Build Board #29)
+  money: moneyAdminRouter,
+
+  // AmpedPay settings, two person changes and the change log (Build Board #50)
+  payments: paymentsAdminRouter,
+  // Business sellers on AmpedPay: Authbase first (Build Board #66, AB-1)
+  merchants: merchantsAdminRouter,
 });

@@ -12,7 +12,8 @@ export interface AuthbaseBadge {
   tier: AuthbaseTier;
   // uint256 string — never coerce with Number()
   token_id: string;
-  transaction_hash: string;
+  // Null on a badge renewed in place with no new tx; token_id is the proof
+  transaction_hash: string | null;
   minted_at: string;
 }
 
@@ -27,8 +28,10 @@ interface AuthbaseBase {
   verified: boolean;
   hasBadge: boolean;
   // Consent-filtered PII. Only keys the holder chose to share are present;
-  // {} when nothing is shared or the wallet isn't linked. Independent of
-  // verification status — render whatever keys exist. Absent ≠ denied.
+  // {} when nothing is shared or the status isn't VERIFIED* (upstream sends
+  // attributes only with a verified status). Values are strings: the server
+  // normalizes `age_over_18: true` to "true". Render whatever keys exist.
+  // Absent ≠ denied.
   attributes: Record<string, string>;
 }
 
@@ -41,19 +44,19 @@ export type AuthbaseWalletStatus =
     })
   | (AuthbaseBase & {
       status: "NOT_VERIFIED";
-      authbase_wallet_address: string;
+      authbase_wallet_address: string | null;
       verification: null;
       badge: null;
     })
   | (AuthbaseBase & {
       status: "VERIFIED";
-      authbase_wallet_address: string;
+      authbase_wallet_address: string | null;
       verification: AuthbaseVerification;
       badge: null;
     })
   | (AuthbaseBase & {
       status: "VERIFIED_WITH_BADGE";
-      authbase_wallet_address: string;
+      authbase_wallet_address: string | null;
       verification: AuthbaseVerification;
       badge: AuthbaseBadge;
     });

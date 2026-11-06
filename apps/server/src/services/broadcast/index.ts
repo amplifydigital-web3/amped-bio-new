@@ -1,6 +1,7 @@
 /**
- * Creator Pool Broadcast (Build Board #1), phase 1: Amped inbox only.
- * Spec: docs/features/creator-pool-broadcast.md, sections 3.5 to 3.8.
+ * Broadcast (Build Board #1), phase 1: Amped inbox only. Spec:
+ * docs/features/creator-pool-broadcast.md, sections 3.5 to 3.8, and Amped Messages M9
+ * (docs/features/messaging.md 6 and 8.6): audiences of pool stakers, followers, or both.
  *
  * Phase 1 has no email, so fan-out is one set of database inserts per
  * broadcast. It runs in the API process right after a broadcast is queued, and
@@ -10,7 +11,10 @@
  * phase 2 with per-recipient email jobs, where rate limiting needs a queue.
  */
 import { Prisma, prisma } from "@repo/database";
+import { resolveAudience, type Audience } from "./audience";
+import { notifyBroadcastDelivered } from "../notifications/jobs";
 import { BROADCAST_LIMITS, BROADCAST_PAUSE_RULES } from "@repo/constants";
+import { enqueueTelegramBroadcast } from "../telegram/broadcast";
 
 const CHUNK = 1000;
 /** A SENDING broadcast untouched this long is treated as abandoned and resumed. */
@@ -19,33 +23,21 @@ const SWEEP_MS = 60 * 1000;
 /** Fan-out runs allowed per broadcast before it is marked FAILED (QA-034). */
 export const BROADCAST_MAX_SEND_ATTEMPTS = 5;
 
-/** Members of a pool: a positive stake in the StakedPool mirror, not suspended, not the owner. */
-export async function memberUserIds(poolId: number, ownerUserId: number): Promise<number[]> {
-  const rows = await prisma.$queryRaw<Array<{ userId: number }>>(Prisma.sql`
-    SELECT DISTINCT uw.userId AS userId
-    FROM staked_pools sp
-    JOIN user_wallets uw ON sp.userWalletId = uw.id
-    JOIN users u ON u.id = uw.userId
-    WHERE sp.poolId = ${poolId}
-      AND CAST(sp.stakeAmount AS DECIMAL(65,0)) > 0
-      AND u.block = 'no'
-      AND uw.userId <> ${ownerUserId}
-  `);
-  return rows.map(r => Number(r.userId));
-}
-
-export async function countMembers(poolId: number, ownerUserId: number): Promise<number> {
-  const rows = await prisma.$queryRaw<Array<{ n: bigint | number }>>(Prisma.sql`
-    SELECT COUNT(DISTINCT uw.userId) AS n
-    FROM staked_pools sp
-    JOIN user_wallets uw ON sp.userWalletId = uw.id
-    JOIN users u ON u.id = uw.userId
-    WHERE sp.poolId = ${poolId}
-      AND CAST(sp.stakeAmount AS DECIMAL(65,0)) > 0
-      AND u.block = 'no'
-      AND uw.userId <> ${ownerUserId}
-  `);
-  return Number(rows[0]?.n ?? 0);
+/**
+ * Why a delivery has no email. Pool stakers keep their stake time opt in, so they wait
+ * for broadcast email (phase 2). A follower who is not a staker in this audience needs
+ * `Follow.email_updates` for this creator (bc-email).
+ */
+export function emailSkipReason(
+  kind: Prisma.BroadcastGetPayload<{ select: { audienceKind: true } }>["audienceKind"],
+  userId: number,
+  audience: Pick<Audience, "emailConsent" | "poolIds">
+): string {
+  if (kind === "POOL_MEMBERS") return "phase1_inbox_only";
+  if (audience.emailConsent.has(userId) || audience.poolIds.has(userId)) {
+    return "phase1_inbox_only";
+  }
+  return "no_email_consent";
 }
 
 /** Statuses that count against the send quota. Rejected and canceled sends do not. */
@@ -90,7 +82,8 @@ export async function getQuota(
     leftThisWeek: Math.max(0, BROADCAST_LIMITS.perWeek - week),
     paused: !!status?.pausedAt,
     nextSendReviewed: !status?.firstApprovedAt,
-    invited: !!status?.invitedAt,
+    // The invite pilot ended in PR M2 (msg-invite)
+    invited: true,
   };
 }
 
@@ -151,22 +144,33 @@ export async function processBroadcast(
 
   const b = await prisma.broadcast.findUnique({
     where: { id: broadcastId },
-    select: { id: true, poolId: true, creatorUserId: true, sendAttempts: true },
+    select: {
+      id: true,
+      poolId: true,
+      audienceKind: true,
+      creatorUserId: true,
+      sendAttempts: true,
+    },
   });
-  if (!b || b.poolId === null) {
+  // An audience with the pool needs the pool (M9: poolId is set only then)
+  if (!b || (b.audienceKind !== "FOLLOWERS" && b.poolId === null)) {
     await prisma.broadcast.update({ where: { id: broadcastId }, data: { status: "FAILED" } });
     return "failed";
   }
 
   try {
-    const userIds = await memberUserIds(b.poolId, b.creatorUserId);
+    // M9: frozen with the access engine's eligibleUserIds, one delivery per person
+    const audience = await resolveAudience(b.audienceKind, b.creatorUserId, b.poolId);
+    const userIds = audience.userIds;
     for (let i = 0; i < userIds.length; i += CHUNK) {
       await prisma.broadcastDelivery.createMany({
         data: userIds.slice(i, i + CHUNK).map(userId => ({
           broadcastId: b.id,
           userId,
+          // Phase 1 sends no email. A follower without email updates for this creator
+          // is never eligible (bc-email); the reason is kept for when email ships.
           emailStatus: "NOT_ELIGIBLE" as const,
-          emailSkipReason: "phase1_inbox_only",
+          emailSkipReason: emailSkipReason(b.audienceKind, userId, audience),
         })),
         skipDuplicates: true,
       });
@@ -179,6 +183,13 @@ export async function processBroadcast(
       data: { status: "SENT", recipientCount, completedAt: new Date() },
     });
     console.log(`[broadcast] ${b.id} delivered to ${recipientCount} inboxes`);
+    // Amped Messages (#2 r4, M4): a bell row and an optional push per recipient
+    void notifyBroadcastDelivered(b.id);
+    // Messaging on Telegram (#2): members who linked Telegram and turned updates on
+    // get it there too, when the creator ticked Telegram. Never fails the broadcast.
+    void enqueueTelegramBroadcast(b.id).catch(error =>
+      console.error(`[broadcast] Telegram fan-out failed for ${b.id}`, error)
+    );
     return "sent";
   } catch (error) {
     console.error(
@@ -240,6 +251,26 @@ export async function sweepBroadcasts() {
     take: 50,
   });
   for (const { id } of pending) await processBroadcast(id);
+
+  // Messaging on Telegram (#2): the fan-out to telegram_outbox is fire and forget,
+  // so a crash between the SENT status and the enqueue would silently drop it.
+  // enqueueTelegramBroadcast is idempotent (only NOT_ELIGIBLE deliveries are
+  // considered), so re-running it for recent SENT broadcasts recovers the gap.
+  const recent = await prisma.broadcast.findMany({
+    where: {
+      status: "SENT",
+      sendTelegram: true,
+      completedAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
+    },
+    select: { id: true },
+    orderBy: { id: "desc" },
+    take: 20,
+  });
+  for (const { id } of recent) {
+    await enqueueTelegramBroadcast(id).catch(error =>
+      console.error(`[broadcast] Telegram fan-out recovery failed for ${id}`, error)
+    );
+  }
   return pending.length;
 }
 
