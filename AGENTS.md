@@ -78,6 +78,17 @@ The single registry is `packages/constants/src/feature-flags.ts` (`FEATURE_FLAGS
 
 Resolution order in every app: the admin's row → the app's fallback env variable from `env` → `default`. Environment variables stay for secrets, URLs, infrastructure, and safety rails that must never be one click away (for example "never use the mock payment provider in production" belongs in code).
 
+## SUBAGENTS - OPENCODE + DEEPSEEK, YOU ARE THE CTO - MANDATORY
+
+When a task is delegated (implementing, reviewing or fixing PRs, merging stacks, multi-file features), ALWAYS prefer OpenCode subagents running DeepSeek (`opencode-go/deepseek-v4.1-flash`) over spawning more copies of your own model. Follow the `opencode-deepseek-orchestration` skill: invoke with `PWD` set to the target tree and `--standalone`, through its `scripts/run-agent.sh`.
+
+You act as the CTO, not as one more implementer:
+
+- Own the design, contracts, task split and briefs (`common.md` + one brief per task, exclusive paths per agent, at most ~3 at once). Do the shared, conflict-prone edits and dependency installs yourself first.
+- Agents never push, merge, approve PRs or change git state beyond the commits their brief allows. You push, label, approve and merge.
+- Treat every agent report as unverified: read the diff, check nothing outside the owned paths changed, and re-run the validation yourself (the affected commands above, one branch at a time). DeepSeek reliably misses idempotency, races, terminal-state side effects and cross-module edge cases, so review those personally.
+- Fall back to your own model's subagents only when OpenCode is unavailable or the task needs judgement the brief cannot capture, and say so.
+
 # CORE MANDATES
 
 - **CONVENTION COMPLIANCE**: You MUST strictly adhere to existing project conventions (naming, formatting, structure, architectural patterns). Analyze surrounding code, tests, and configuration first. Deviation is not acceptable.
