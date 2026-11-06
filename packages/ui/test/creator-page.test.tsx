@@ -18,6 +18,16 @@ import { themeCssVars } from "../src/theme-style";
 // draw what it draws today
 import * as publicStyles from "../../../apps/landingpage/src/lib/styles";
 
+// TE-3e: hover Strength reads CSS variables whose fallbacks are the shipped
+// values, so with no variable set each class draws what v1 draws
+const shipped = (className: string) =>
+  className
+    .replace(/scale-\[var\(--amped-hover-scale,1\.05\)\]/g, "scale-105")
+    .replace(/scale-\[var\(--amped-hover-scale,1\.1\)\]/g, "scale-110")
+    .replace(/translate-x-\[var\(--amped-hover-x,0\.5rem\)\]/g, "translate-x-2")
+    .replace(/rotate-\[var\(--amped-hover-rot,3deg\)\]/g, "rotate-3")
+    .replace(/0_0_var\(--amped-hover-glow,15px\)_/g, "0_0_15px_");
+
 const IDS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 
 const NEO: ThemeConfig = {
@@ -48,7 +58,7 @@ describe("creator look (spec 3.4)", () => {
       const look = lookFor({ containerStyle: n, buttonStyle: n, buttonEffect: n, heroEffect: n });
       expect(effectClassName(look.container)).toBe(publicStyles.getContainerStyle(n));
       expect(effectClassName(look.button)).toBe(publicStyles.getButtonBaseStyle(n));
-      expect(effectClassName(look.buttonHover)).toBe(publicStyles.getButtonEffectStyle(n));
+      expect(shipped(effectClassName(look.buttonHover))).toBe(publicStyles.getButtonEffectStyle(n));
       expect(effectClassName(look.name)).toBe(publicStyles.getHeroEffectStyle(n));
       expect(effectClassName(look.name, true)).toBe(publicStyles.getHeroEffectStyle(n, true));
     }
@@ -212,7 +222,8 @@ describe("CreatorButton", () => {
       publicStyles.getButtonEffectStyle(8),
       CREATOR_FOCUS
     );
-    expect(html).toContain(`class="${before}"`);
+    expect(shipped(html)).toContain(`class="${before}"`);
+    expect(html).not.toMatch(/style="[^"]*--amped-hover-/);
     expect(html).toContain("background-color:#007523");
     expect(html).toContain("font-size:16px");
     expect(html).toContain('target="_blank"');

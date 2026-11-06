@@ -13,7 +13,13 @@ import { personOut, type Person } from "../messaging/direct";
 
 export type BellItem = {
   id: string;
-  kind: "MESSAGE" | "REQUEST" | "BROADCAST" | "MEMBERSHIP_RENEWAL";
+  kind:
+    | "MESSAGE"
+    | "REQUEST"
+    | "BROADCAST"
+    | "MEMBERSHIP_RENEWAL"
+    | "PROMOTER_CODE"
+    | "CONTENT";
   count: number;
   seen: boolean;
   /** conversation id (hex) for MESSAGE and REQUEST */
@@ -23,6 +29,11 @@ export type BellItem = {
   /** MEMBERSHIP_RENEWAL (MB-1, CK-D3): the charge, for Add USDC prefilled, and the grace day */
   renewal: { need: string; graceDay: number | null } | null;
   actor: Person | null;
+  /**
+   * CONTENT (Fan Library, FL-6): the newest item's title, or null when it is no
+   * longer listed. Never an 18+ title.
+   */
+  content: { publicId: string; title: string | null } | null;
   at: Date;
 };
 
@@ -45,6 +56,23 @@ export async function listBell(
   const byId = new Map(
     (await Promise.all(actors.map(a => personOut(a)))).map(person => [person.id, person])
   );
+  const contentIds = rows
+    .filter(row => row.kind === "CONTENT" && row.refId)
+    .map(row => Buffer.from(row.refId!));
+  const items = contentIds.length
+    ? await prisma.contentItem.findMany({
+        where: { id: { in: contentIds } },
+        select: {
+          id: true,
+          publicId: true,
+          title: true,
+          adult: true,
+          deletedAt: true,
+          publishState: true,
+        },
+      })
+    : [];
+  const contentOut = contentOutFor(new Map(items.map(item => [idToHex(item.id), item])));
   // Renewal rows carry the charge so Add USDC opens prefilled with it
   const renewalIds = rows
     .filter(r => r.kind === "MEMBERSHIP_RENEWAL" && r.refId)
@@ -82,9 +110,31 @@ export async function listBell(
           }
         : null,
       actor: row.actorId !== null ? (byId.get(row.actorId) ?? null) : null,
+      content: row.kind === "CONTENT" ? contentOut(row.refId) : null,
       at: row.updatedAt,
     };
   });
+}
+
+/** The newest item of a CONTENT row: a title only while it is listed and not 18+. */
+function contentOutFor(
+  itemById: Map<
+    string,
+    {
+      publicId: string;
+      title: string;
+      adult: boolean;
+      deletedAt: Date | null;
+      publishState: string;
+    }
+  >
+) {
+  return (refId: Uint8Array | null) => {
+    const item = refId ? itemById.get(idToHex(refId)) : undefined;
+    if (!item) return null;
+    const listed = !item.adult && item.deletedAt === null && item.publishState === "PUBLISHED";
+    return { publicId: item.publicId, title: listed ? item.title : null };
+  };
 }
 
 export async function unseenCount(userId: number): Promise<number> {

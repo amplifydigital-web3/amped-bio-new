@@ -8,6 +8,8 @@ import { useNavigate } from "react-router";
 import { normalizeHandle, formatHandle, validateHandleFormat } from "@repo/ui";
 import { trpc } from "@repo/ui";
 import { PANEL_TITLES } from "@/components/shell/destinations";
+import { isLibraryPath } from "@/components/panels/library/paths";
+import { isFeatureOn } from "@/config/featureFlags";
 import { PREVIEW_PATHS, SHELL_TIMEOUT_MS, ShellErrorCard } from "@/components/shell/ShellGate";
 import { ShellSkeleton } from "@/components/shell/ShellSkeleton";
 import { useDelayed } from "@/hooks/useDelayed";
@@ -63,7 +65,14 @@ export function Editor() {
     const queryPanel = searchParams.get("p");
     searchParams.delete("p");
 
-    let rawPanel = panelParam || queryPanel;
+    // Fan Library (#26, FL-3): /library keeps its sub paths (search, creators,
+    // saved, @handle, an item). Off, the Library is not routable at all.
+    const libraryPath =
+      location.pathname.startsWith("/library") && isLibraryPath(location.pathname)
+        ? location.pathname.replace(/\/+$/, "")
+        : null;
+    let rawPanel = panelParam || (libraryPath ? "library" : null) || queryPanel;
+    if (rawPanel === "library" && !isFeatureOn("fanLibrary")) rawPanel = "home";
 
     // Legacy destinations land on their new home (Screen Review 001 I01, I12)
     const legacy = rawPanel ? LEGACY_PANEL_REDIRECTS[rawPanel] : undefined;
@@ -83,7 +92,7 @@ export function Editor() {
         ? (rawPanel as EditorPanelType)
         : ((location.state?.panel as EditorPanelType | undefined) ?? "home");
 
-    const targetPath = `/${panel}`;
+    const targetPath = panel === "library" && libraryPath ? libraryPath : `/${panel}`;
     const targetSearch = query ? `?${query}` : "";
 
     // If the segment is not a known panel and looks like a profile handle, the

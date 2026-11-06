@@ -117,6 +117,16 @@ vi.mock("../services/store/policy", () => ({
     settings: {},
   })),
   versionSummary: () => ({ sellerName: "Maya Lin", summary: "", version: 3 }),
+  versionCoversMemberships: (row: { settings: { memberships?: boolean } }) =>
+    row.settings.memberships === true,
+}));
+// C12: the promoter the join's code attributes, if any
+const promo = vi.hoisted(() => ({ value: null as Record<string, any> | null, calls: [] as any[] }));
+vi.mock("../services/store/promoters", () => ({
+  resolvePromoter: vi.fn(async (input: unknown) => {
+    promo.calls.push(input);
+    return promo.value;
+  }),
 }));
 vi.mock("../services/notifications/push", () => ({ sendPush: vi.fn(async () => ({ sent: 1 })) }));
 vi.mock("../utils/email/transport", () => ({
@@ -141,7 +151,13 @@ import {
   joinRecipients,
   periodFee,
 } from "../services/memberships/core";
-import { upsertPlan, setPlanStatus, isMember, accessUntil } from "../services/memberships/plans";
+import {
+  upsertPlan,
+  setPlanStatus,
+  isMember,
+  accessUntil,
+  publicPlan,
+} from "../services/memberships/plans";
 import {
   chargeOnce,
   closeCanceledOnce,
@@ -270,13 +286,35 @@ describe("plans", () => {
     expect(db.membershipPlan.update.mock.calls[1][0].data.version).toEqual({ increment: 1 });
   });
 
-  it("activates only with a published policy and a passing seller", async () => {
+  it("activates only with a policy that covers memberships and a passing seller", async () => {
+    const { liveVersion } = await import("../services/store/policy");
     db.membershipPlan.findUnique.mockResolvedValue({ ...plan, status: "draft" });
-    db.storeSettings.findUnique.mockResolvedValue({ livePolicyVersionId: null });
+    vi.mocked(liveVersion).mockResolvedValueOnce(null);
     await expect(setPlanStatus(MAYA, "active")).rejects.toMatchObject({ code: "policy" });
-    db.storeSettings.findUnique.mockResolvedValue({ livePolicyVersionId: Buffer.alloc(16, 9) });
+    // A policy published before the plan has no section 5, Memberships: publish again
+    vi.mocked(liveVersion).mockResolvedValueOnce({ settings: { memberships: false } } as never);
+    await expect(setPlanStatus(MAYA, "active")).rejects.toMatchObject({ code: "policy" });
+    vi.mocked(liveVersion).mockResolvedValueOnce({ settings: { memberships: true } } as never);
     chain.seller = false;
     await expect(setPlanStatus(MAYA, "active")).rejects.toMatchObject({ code: "seller" });
+  });
+
+  it("names the policy's seller and version on the public plan, and hides a paused plan", async () => {
+    const shown = await publicPlan("@Maya", null, NOW);
+    expect(shown).toMatchObject({
+      handle: "maya",
+      sellerName: "Maya Lin",
+      policyVersion: 3,
+      amountEvery30Days: "5000000",
+      yearlySavingPercent: 20,
+      viewer: null,
+    });
+    db.user.findFirst.mockResolvedValueOnce({
+      id: MAYA,
+      handle: "maya",
+      membershipPlan: { ...plan, status: "paused" },
+    });
+    expect(await publicPlan("maya", null, NOW)).toBeNull();
   });
 });
 
@@ -335,6 +373,33 @@ describe("join", () => {
       planVersion: 2,
       storePolicyVersionId: Buffer.alloc(16, 9),
     });
+  });
+
+  it("adds the promoter row from ?via= to the stored table, paid on every renewal (C12)", async () => {
+    promo.calls = [];
+    promo.value = {
+      codeId: Buffer.alloc(16, 7),
+      promoterUserId: 30,
+      handle: "sam",
+      to: getAddress("0xd000000000000000000000000000000000000004"),
+      bps: 1_000,
+    };
+    const result = await prepareJoin(
+      FAN,
+      { handle: "maya", interval: "every_30_days", via: "SAM10" },
+      NOW
+    );
+    promo.value = null;
+    if (result.refused) throw new Error(result.reason);
+    expect(result.typed.join.message.recipients).toEqual([
+      { to: getAddress(CREATOR_WALLET), bps: 8500, role: 0 },
+      { to: getAddress(TREASURY), bps: 500, role: 1 },
+      { to: getAddress("0xd000000000000000000000000000000000000004"), bps: 1000, role: 2 },
+    ]);
+    expect(result.promoterHandle).toBe("sam");
+    expect(result.fee).toBe("250000");
+    expect(created).toMatchObject({ promoterCodeId: Buffer.alloc(16, 7) });
+    expect(promo.calls[0]).toMatchObject({ via: "SAM10", buyerUserId: FAN, screen: true });
   });
 
   it("asks one permit for every membership the fan has", async () => {

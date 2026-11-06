@@ -1,6 +1,10 @@
 import { z } from "zod";
 import { prisma } from "@repo/database";
+import { TRPCError } from "@trpc/server";
+import { libraryNewContentSchema } from "@repo/constants";
 import { router, privateProcedure } from "./trpc";
+import { newContentEnabled, setNewContentEnabled } from "../services/library/newContent";
+import { LIBRARY_CREATOR_WHERE } from "../services/library/access";
 import { hexToId } from "../services/analytics/ids";
 import {
   listBell,
@@ -11,6 +15,16 @@ import {
 } from "../services/notifications/bell";
 
 const hexId = z.string().regex(/^[0-9a-f]{32}$/);
+
+/** A public creator's id by handle, or not found. */
+async function creatorIdFor(handle: string): Promise<number> {
+  const creator = await prisma.user.findFirst({
+    where: { handle: handle.toLowerCase(), ...LIBRARY_CREATOR_WHERE },
+    select: { id: true },
+  });
+  if (!creator) throw new TRPCError({ code: "NOT_FOUND", message: "This page is not available." });
+  return creator.id;
+}
 
 /**
  * The bell (Amped Messages #2 r4, PR M4, spec 7.4 item 1) and account notification
@@ -40,6 +54,24 @@ export const notificationsRouter = router({
   setMessagePrefs: privateProcedure
     .input(z.object({ push: z.boolean().optional(), email: z.boolean().optional() }))
     .mutation(({ ctx, input }) => setMessageNotificationPrefs(ctx.user!.sub, input)),
+
+  /**
+   * New content alerts in the bell (Fan Library FL-6, fl-q5): every creator, or one
+   * creator by handle. Email updates stay on follow.update({ emailUpdates }).
+   */
+  newContent: privateProcedure
+    .input(libraryNewContentSchema.pick({ handle: true }).optional())
+    .query(async ({ ctx, input }) => {
+      const creatorId = input?.handle ? await creatorIdFor(input.handle) : undefined;
+      return { enabled: await newContentEnabled(ctx.user!.sub, creatorId) };
+    }),
+
+  setNewContent: privateProcedure
+    .input(libraryNewContentSchema)
+    .mutation(async ({ ctx, input }) => {
+      const creatorId = input.handle ? await creatorIdFor(input.handle) : undefined;
+      return setNewContentEnabled(ctx.user!.sub, input.enabled, creatorId);
+    }),
 
   rnsReminders: privateProcedure.query(async ({ ctx }) => {
     const row = await prisma.notificationPreference.findUnique({

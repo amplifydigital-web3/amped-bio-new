@@ -23,7 +23,7 @@ Fan messages (#310, #313, merged 22 Oct) run their own rule evaluator in `apps/s
 
 ## 3. Decisions in this PR
 
-1. **Store whole tREVO, convert at comparison.** The gating spec suggested migrating stored values to wei. Keeping the stored value as the creator typed it needs no data migration, no change to the settings screen (which shows the stored value back), and no change to `setSettings`. The engine (G1) stores wei in its own `AccessRule`, and G2 maps `stakeMin` through `wholeTokensToWei` when it moves messaging onto the engine.
+1. **Store whole tREVO, convert at comparison.** The gating spec suggested migrating stored values to wei. Keeping the stored value as the creator typed it needs no data migration, no change to the settings screen (which shows the stored value back), and no change to `setSettings`. The engine (G1) stores wei in its own `AccessRule`, and messaging keeps converting `stakeMin` with `wholeTokensToWei` in its own evaluator (G2 retired 2026-11-04; messaging stays outside the engine).
 2. **No admin minimum.** The 24 Oct note on #48 dropped the admin minimum stake setting (Rob: gate on the creator's amount; the deployed contracts stay unchanged). POOL_MEMBER stays "any stake above zero".
 3. **Out of scope, noted.** `trpc/user.ts` (Explore person cards) still counts public follower totals with `email_verified: true` only. It does not gate access. It should move to `trustedEmailWhere` so the number matches Fan Graph; a separate small fix.
 

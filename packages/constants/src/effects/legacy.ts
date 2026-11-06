@@ -304,6 +304,13 @@ function upgradeBackground(background: ThemeConfig["background"]): SceneBase {
   }
 }
 
+function cursorSlot(v1: ThemeConfig): { id: string; params: Record<string, number | string> } {
+  const stored = v1.cursorEffectId ? findEffect(v1.cursorEffectId) : undefined;
+  if (!stored || stored.layer !== "cursor" || stored.retired)
+    return { id: "cursor.none", params: {} };
+  return { id: stored.id, params: v1.cursorParams ? clampParams(stored, v1.cursorParams) : {} };
+}
+
 /**
  * A v1 or v2 config to v2. A v2 config is validated and returned as parsed,
  * so upgradeTheme(upgradeTheme(x)) equals upgradeTheme(x). Throws only for a
@@ -330,13 +337,29 @@ export function upgradeTheme(
   const overlayEntry = findEffect(overlay);
   const overlayParams =
     v1.particlesParams && overlayEntry ? clampParams(overlayEntry, v1.particlesParams) : {};
+  // Phase 3b: a shader scene the Scene row stored by id becomes the scene base
+  // (decision 4: it replaces the base while it runs). The v1 background stays
+  // on the config for renderers without the shader engine.
+  const shaderBase =
+    storedScene?.layer === "scene" && storedScene.engine === "webgl" && !storedScene.retired
+      ? {
+          type: "shader" as const,
+          id: storedScene.id,
+          params: v1.particlesParams ? clampParams(storedScene, v1.particlesParams) : {},
+        }
+      : null;
   // A v2 style the Buttons row stored by id wins over the v1 integer (phase 2)
   const storedButton = v1.buttonStyleId ? findEffect(v1.buttonStyleId) : undefined;
   const buttonId =
     storedButton?.layer === "button"
       ? storedButton.id
       : legacyEffectId("buttonStyle", v1.buttonStyle);
-  const containerId = legacyEffectId("containerStyle", v1.containerStyle);
+  // A v2 surface the Container row stored by id wins over the v1 integer (phase 3d)
+  const storedContainer = v1.containerStyleId ? findEffect(v1.containerStyleId) : undefined;
+  const containerId =
+    storedContainer?.layer === "container" && !storedContainer.retired
+      ? storedContainer.id
+      : legacyEffectId("containerStyle", v1.containerStyle);
   const storedHover = v1.buttonEffectId ? findEffect(v1.buttonEffectId) : undefined;
   const storedPress = v1.buttonPressId ? findEffect(v1.buttonPressId) : undefined;
   const storedName = v1.heroEffectId ? findEffect(v1.heroEffectId) : undefined;
@@ -362,17 +385,31 @@ export function upgradeTheme(
       text: normalizeHex(v1.fontColor) ?? V1_DEFAULTS.fontColor,
     },
     fonts: {
-      name: { family: fontFamily, weight: 700 },
-      body: { family: fontFamily, weight: 400 },
+      // The Text row stores a name face and body weight, italic and axes on
+      // v1 configs (phase 2b). The body family stays fontFamily.
+      name: v1.nameFont
+        ? {
+            family: v1.nameFont.family,
+            weight: v1.nameFont.weight ?? 700,
+            italic: v1.nameFont.italic ?? false,
+            axes: { ...v1.nameFont.axes },
+          }
+        : { family: fontFamily, weight: 700 },
+      body: {
+        family: fontFamily,
+        weight: v1.bodyFontStyle?.weight ?? 400,
+        italic: v1.bodyFontStyle?.italic ?? false,
+        axes: { ...v1.bodyFontStyle?.axes },
+      },
       size: FONT_SIZE_BY_PX[v1.fontSize ?? V1_DEFAULTS.fontSize] ?? "m",
     },
     scene: {
-      base: upgradeBackground(v1.background),
+      base: shaderBase ?? upgradeBackground(v1.background),
       ...(overlay === "scene.none" ? {} : { overlay: { id: overlay, params: overlayParams } }),
     },
     container: {
       id: containerId,
-      params: {},
+      params: paramsFor(containerId, v1.containerParams),
       // The Container row stores shape and border on v1 configs (phase 2)
       shape: oneOf(
         CONTAINER_SHAPES,
@@ -405,6 +442,7 @@ export function upgradeTheme(
       ...(v1.heroEffectLoop ? { loop: oneOf(NAME_SETTLES, v1.heroEffectLoop, "always") } : {}),
       appliesTo: oneOf(NAME_TARGETS, v1.heroAppliesTo, "name"),
     },
-    cursor: { id: "cursor.none", params: {} },
+    // Phase 3c: the Cursor row stores its pick by id
+    cursor: cursorSlot(v1),
   });
 }

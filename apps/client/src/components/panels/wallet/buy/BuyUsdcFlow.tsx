@@ -37,6 +37,7 @@ import {
 import CoinbaseIcon from "@/assets/icons/coinbase.png";
 import { useWalletContext } from "@/contexts/WalletContext";
 import { paymentChain } from "@/utils/paymentChain";
+import { CHECKOUT_ON } from "@/components/shell/CheckoutResumeBar";
 import { Slab, SlabRow } from "../../explore/pool-panel/sections";
 import ReceiveDialog from "../dialogs/ReceiveDialog";
 import { countryName, regionLabel, stateName } from "./regions";
@@ -243,13 +244,15 @@ export default function BuyUsdcFlow() {
     };
   }, [accountPath, walletPath]);
 
-  // The checkout's intent waits for funds while the fan buys USDC (mobile checkout 8)
+  // The checkout's intent waits for funds while the fan buys USDC (mobile checkout 8). Only
+  // with checkout on: the server refuses the call otherwise
   const awaitFunds = useMutation(trpc.checkout.awaitFunds.mutationOptions());
   const awaitFundsFor = useRef<string | null>(null);
   const markAwaiting = useRef(awaitFunds.mutate);
   markAwaiting.current = awaitFunds.mutate;
   useEffect(() => {
-    if (!open || !checkoutIntent || awaitFundsFor.current === checkoutIntent) return;
+    if (!CHECKOUT_ON || !open || !checkoutIntent || awaitFundsFor.current === checkoutIntent)
+      return;
     awaitFundsFor.current = checkoutIntent;
     markAwaiting.current({ id: checkoutIntent });
   }, [open, checkoutIntent]);
