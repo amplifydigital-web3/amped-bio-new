@@ -4,17 +4,27 @@
  * and nothing else is touched. Run in a sandbox with fake caches.
  */
 import { readFileSync } from "node:fs";
+import { Blob as NodeBlob } from "node:buffer";
 import { join } from "node:path";
 import { runInNewContext } from "node:vm";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
+// jsdom's Blob is not the one the Response implementation accepts, so a body
+// built from it reads back as "[object Blob]". Use Node's Blob throughout.
+vi.stubGlobal("Blob", NodeBlob);
 
 class FakeCache {
   entries = new Map<string, Response>();
   async put(key: string | Request, response: Response) {
     const url = typeof key === "string" ? key : new URL(key.url).pathname;
+    // Copy as bytes: jsdom's Blob and the Response implementation do not always
+    // agree, and a Blob that is not recognised reads back as "[object Blob]"
     this.entries.set(
       url,
-      new Response(await response.blob(), { headers: response.headers, status: response.status })
+      new Response(await response.arrayBuffer(), {
+        headers: response.headers,
+        status: response.status,
+      })
     );
   }
   async match(key: string | Request) {
