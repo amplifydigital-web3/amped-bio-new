@@ -30,6 +30,12 @@ const ACCEPT = CONTENT_UPLOAD_KINDS.flatMap(kind =>
   CONTENT_ALLOWED_TYPES[kind].exts.map(ext => `.${ext}`)
 ).join(",");
 
+// Without the Stream settings the picker leaves video out; a dropped video is
+// refused by the preflight in the queue, before any API call
+const ACCEPT_WITHOUT_VIDEO = CONTENT_UPLOAD_KINDS.filter(kind => kind !== "video")
+  .flatMap(kind => CONTENT_ALLOWED_TYPES[kind].exts.map(ext => `.${ext}`))
+  .join(",");
+
 function UploadRow({
   entry,
   onOpenItem,
@@ -189,11 +195,14 @@ export function UploadDialog({
   open,
   onOpenChange,
   storage,
+  videoUploadsOpen = true,
   onOpenItem,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   storage: StorageSnapshot;
+  /** False when the Stream settings are missing: video is not offered */
+  videoUploadsOpen?: boolean;
   onOpenItem: (publicId: string) => void;
 }) {
   const { queue, entries } = useUploads();
@@ -247,7 +256,9 @@ export function UploadDialog({
           </span>
           <div className="min-w-0 flex-1">
             <p className="text-prism-label font-bold text-prism-ink">{u.drop}</p>
-            <p className="text-prism-meta text-prism-ink-2">{u.dropTypes}</p>
+            <p className="text-prism-meta text-prism-ink-2">
+              {videoUploadsOpen ? u.dropTypes : u.dropTypesNoVideo}
+            </p>
           </div>
           <Button variant="secondary" onClick={() => input.current?.click()}>
             {u.choose}
@@ -256,7 +267,7 @@ export function UploadDialog({
             ref={input}
             type="file"
             multiple
-            accept={ACCEPT}
+            accept={videoUploadsOpen ? ACCEPT : ACCEPT_WITHOUT_VIDEO}
             className="sr-only"
             tabIndex={-1}
             aria-hidden
@@ -291,7 +302,9 @@ export function UploadDialog({
         </dl>
 
         <p className="-mt-2 flex items-center gap-2 text-prism-meta font-semibold text-prism-ink">
-          {u.spaceLeft(formatBytes(bytesLeft(storage)), minutesLeft(storage))}
+          {videoUploadsOpen
+            ? u.spaceLeft(formatBytes(bytesLeft(storage)), minutesLeft(storage))
+            : u.spaceLeftNoVideo(formatBytes(bytesLeft(storage)))}
         </p>
 
         <div className="flex items-start gap-3 rounded-prism-13 border border-prism-nav/30 bg-prism-nav-tint px-3 py-3">

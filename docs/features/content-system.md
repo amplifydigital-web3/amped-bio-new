@@ -958,6 +958,8 @@ One Cloudflare account for staging and production (Rob, 3 Nov 2026). Separation 
 11. Register the DMCA agent. Publish the copyright policy page.
 12. Deploys: CI only for production (merge to the live branch), with a scoped API token. Account membership and Wrangler access are account wide, so keep the member list short.
 
+**R2 only mode.** Until Stream is set up, staging can run the content module with R2, Queues and the media Workers alone. With the `CF_STREAM_*` settings unset, uploads of images, audio, documents and files work normally, and a video upload is refused with "Video uploads are not open yet. Upload images, audio, documents or files for now." The editor leaves video out of the upload picker and hides the video minutes on the storage meter. Step 7 and the `CF_STREAM_*` secrets can wait: video opens by itself once every one of them is present and the `contentUploads` flag is on.
+
 Known limits of one account, accepted: the Stream API token and Stream signing keys work on every video in the account, so a staging credential can read, sign or delete a production video if it knows the uid; Workers and Queues tokens are account wide; one wrong `--env` flag reaches the other environment. Revisit two accounts before general availability.
 
 ### 3.19 Full QA fixes, 3 Nov 2026 (rows 127, 129, 151 to 156)

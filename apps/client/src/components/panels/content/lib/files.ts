@@ -21,6 +21,8 @@ export interface StorageSnapshot {
   videoMinutesLimit: number;
   videoMinutesUsed: number;
   limits: Record<ContentUploadKind, number>;
+  /** False when the Stream settings are missing; older APIs omit it, which means open */
+  videoUploadsOpen?: boolean;
 }
 
 /** The kind a file belongs to, from its extension. Null when no kind takes it. */
@@ -141,6 +143,10 @@ export function preflightFile(
 ): Preflight {
   const kind = kindForFile(file.name);
   if (!kind) return { ok: false, kind: null, reason: CONTENT_COPY.errors.unsupported };
+  // Video needs the Stream settings; refuse it here so no upload call is made
+  if (kind === "video" && storage.videoUploadsOpen === false) {
+    return { ok: false, kind, reason: CONTENT_COPY.upload.videoClosed };
+  }
   const mimeType = mimeForFile(file, kind);
   if (!CONTENT_ALLOWED_TYPES[kind].mimes.includes(mimeType)) {
     return { ok: false, kind, reason: CONTENT_COPY.errors.unsupported };

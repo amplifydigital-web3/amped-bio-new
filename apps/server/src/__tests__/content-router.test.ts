@@ -218,6 +218,10 @@ beforeEach(() => {
     R2_SECRET_ACCESS_KEY: "secret",
     R2_BUCKET: "amped-content-test",
     CF_STREAM_API_TOKEN: "token",
+    CF_STREAM_KEY_ID: "stream-key",
+    CF_STREAM_KEY_PEM: "pem",
+    CF_STREAM_CUSTOMER_CODE: "customer",
+    CF_STREAM_WEBHOOK_SECRET: "webhook-secret",
     CF_QUEUES_API_TOKEN: "queues",
     CF_CONTENT_QUEUE_ID: "queue-id",
   });
@@ -533,6 +537,7 @@ describe("ownership and the rest", () => {
     const storage = await owner.getStorage();
     expect(storage).toMatchObject({
       uploadsOpen: true,
+      videoUploadsOpen: true,
       bytesLimit: 5_368_709_120,
       pageFilesBytes: 1000,
       byKind: { audio: 2048 },

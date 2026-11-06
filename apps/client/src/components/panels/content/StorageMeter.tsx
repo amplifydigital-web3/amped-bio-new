@@ -28,7 +28,16 @@ const SEGMENTS: { key: string; label: string; color: string }[] = [
  * creator's page images (spec 3.3), so it matches what Account shows. Video
  * bytes live on Stream and count as minutes, but they still show in the bar.
  */
-export function StorageMeter({ data, className }: { data: StorageData; className?: string }) {
+export function StorageMeter({
+  data,
+  videoUploadsOpen = true,
+  className,
+}: {
+  data: StorageData;
+  /** False when video uploads are closed, so the video minutes part is hidden */
+  videoUploadsOpen?: boolean;
+  className?: string;
+}) {
   const parts: Record<string, number> = {
     video: data.byKind.video ?? 0,
     audio: data.byKind.audio ?? 0,
@@ -102,22 +111,26 @@ export function StorageMeter({ data, className }: { data: StorageData; className
         )}
       </div>
 
-      <div className="min-w-0 md:w-[30%] md:border-l md:border-prism-line md:pl-[21px]">
-        <h2 className="text-prism-label font-bold text-prism-ink">{CONTENT_COPY.meter.minutes}</h2>
-        <div
-          role="meter"
-          aria-label={CONTENT_COPY.meter.minutes}
-          aria-valuemin={0}
-          aria-valuemax={data.videoMinutesLimit}
-          aria-valuenow={Math.min(data.videoMinutesUsed, data.videoMinutesLimit)}
-          className="mt-2 h-[8px] w-full overflow-hidden rounded-full bg-[rgba(22,21,43,0.10)]"
-        >
-          <span className="block h-full bg-prism-nav" style={{ width: `${minutesPct}%` }} />
+      {videoUploadsOpen && (
+        <div className="min-w-0 md:w-[30%] md:border-l md:border-prism-line md:pl-[21px]">
+          <h2 className="text-prism-label font-bold text-prism-ink">
+            {CONTENT_COPY.meter.minutes}
+          </h2>
+          <div
+            role="meter"
+            aria-label={CONTENT_COPY.meter.minutes}
+            aria-valuemin={0}
+            aria-valuemax={data.videoMinutesLimit}
+            aria-valuenow={Math.min(data.videoMinutesUsed, data.videoMinutesLimit)}
+            className="mt-2 h-[8px] w-full overflow-hidden rounded-full bg-[rgba(22,21,43,0.10)]"
+          >
+            <span className="block h-full bg-prism-nav" style={{ width: `${minutesPct}%` }} />
+          </div>
+          <p className="mt-2 text-prism-meta text-prism-ink-2">
+            {CONTENT_COPY.meter.minutesUsed(data.videoMinutesUsed, data.videoMinutesLimit)}
+          </p>
         </div>
-        <p className="mt-2 text-prism-meta text-prism-ink-2">
-          {CONTENT_COPY.meter.minutesUsed(data.videoMinutesUsed, data.videoMinutesLimit)}
-        </p>
-      </div>
+      )}
     </section>
   );
 }

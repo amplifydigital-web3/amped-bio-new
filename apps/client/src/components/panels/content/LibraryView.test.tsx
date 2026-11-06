@@ -99,6 +99,20 @@ describe("LibraryView (cs1, cs8)", () => {
     await waitFor(() => expect(screen.getByRole("button", { name: "Upload" })).toBeDisabled());
   });
 
+  it("hides the video minutes text and meter while video uploads are closed", async () => {
+    mocks.getStorage.mockResolvedValue({ ...storage, videoUploadsOpen: false });
+    renderWithProviders(<LibraryView onOpenItem={vi.fn()} />);
+    expect(await screen.findByText("Upload your first video, track or file")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Video 2 GB, audio and ZIP 500 MB, documents 100 MB, images 25 MB. 5 GB on your plan."
+      )
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Video minutes")).not.toBeInTheDocument();
+    expect(screen.queryByText("84 of 300 minutes")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Upload" })).toBeEnabled();
+  });
+
   it("lists items with one status each and opens the editor", async () => {
     const onOpenItem = vi.fn();
     mocks.list.mockResolvedValue({

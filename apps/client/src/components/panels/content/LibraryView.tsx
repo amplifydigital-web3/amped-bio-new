@@ -160,9 +160,11 @@ export function LibraryView({ onOpenItem }: { onOpenItem: (publicId: string) => 
         videoMinutesLimit: storage.data.videoMinutesLimit,
         videoMinutesUsed: storage.data.videoMinutesUsed,
         limits: storage.data.limits,
+        videoUploadsOpen: storage.data.videoUploadsOpen ?? true,
       }
     : null;
   const uploadsOpen = storage.data?.uploadsOpen ?? false;
+  const videoUploadsOpen = storage.data?.videoUploadsOpen ?? true;
   const libraryEmpty =
     filter === "all" && !search && !list.isLoading && !list.isError && items.length === 0;
 
@@ -185,7 +187,9 @@ export function LibraryView({ onOpenItem }: { onOpenItem: (publicId: string) => 
         )}, documents ${formatLimit(snapshot.limits.document)}, images ${formatLimit(
           snapshot.limits.image
         )}`,
-        `${formatLimit(snapshot.bytesLimit)} and ${snapshot.videoMinutesLimit} video minutes`
+        videoUploadsOpen
+          ? `${formatLimit(snapshot.bytesLimit)} and ${snapshot.videoMinutesLimit} video minutes`
+          : formatLimit(snapshot.bytesLimit)
       )
     : null;
 
@@ -198,7 +202,7 @@ export function LibraryView({ onOpenItem }: { onOpenItem: (publicId: string) => 
           onRetry={() => void storage.refetch()}
         />
       ) : storage.data ? (
-        <StorageMeter data={storage.data} />
+        <StorageMeter data={storage.data} videoUploadsOpen={videoUploadsOpen} />
       ) : (
         <Skeleton className="h-[110px] rounded-prism-21 motion-reduce:animate-none" />
       )}
@@ -328,6 +332,7 @@ export function LibraryView({ onOpenItem }: { onOpenItem: (publicId: string) => 
           open={uploadOpen}
           onOpenChange={setUploadOpen}
           storage={snapshot}
+          videoUploadsOpen={videoUploadsOpen}
           onOpenItem={onOpenItem}
         />
       )}

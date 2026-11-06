@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { CONTENT_COPY } from "../copy";
 import {
   bytesLeft,
   formatBytes,
@@ -111,6 +112,13 @@ describe("preflightFile", () => {
     expect(preflightFile(file("a.zip", 150 * MB), tight, none).ok).toBe(true);
     const second = preflightFile(file("b.zip", 150 * MB), tight, { bytes: 150 * MB, minutes: 0 });
     expect(!second.ok && second.reason).toMatch(/Not enough storage/);
+  });
+
+  it("refuses video while the Stream settings are missing, and keeps other kinds", () => {
+    const closed = { ...storage, videoUploadsOpen: false };
+    const video = preflightFile(file("a.mp4", GB, "video/mp4"), closed, none);
+    expect(!video.ok && video.reason).toBe(CONTENT_COPY.upload.videoClosed);
+    expect(preflightFile(file("a.mp3", 10 * MB, "audio/mpeg"), closed, none).ok).toBe(true);
   });
 
   it("checks video against storage, as the server reserves its bytes, and minutes", () => {
