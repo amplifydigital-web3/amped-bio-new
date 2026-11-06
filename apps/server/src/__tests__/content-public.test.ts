@@ -177,6 +177,8 @@ vi.mock("../services/analytics/visitorIp", () => ({ getVisitorIp: () => ({ ip: "
 vi.mock("../services/library/newContent", () => ({
   onContentPublished: libraryFanOut.onContentPublished,
 }));
+const identity = vi.hoisted(() => ({ checkIdentity: vi.fn() }));
+vi.mock("../services/identity/checks", () => identity);
 
 import { env } from "../env";
 import { contentRouter } from "../trpc/content";
@@ -184,6 +186,7 @@ import { purgeDeletedItems } from "../services/content/purge";
 import { publicCardsFor } from "../services/content/publicView";
 import { keepOwnedContentIds } from "../services/content/blockConfig";
 import { sanitizeBlockConfig } from "../utils/sanitizeBlockConfig";
+import { __setFeatureFlagOverridesForTests } from "../services/featureFlags";
 
 const OWNER = 7;
 const caller = (sub: number | null) =>
@@ -239,6 +242,9 @@ beforeEach(() => {
   libraryFanOut.onContentPublished.mockClear();
   quotaState.taken = 0n;
   cf.r2ObjectExists.mockResolvedValue(false);
+  __setFeatureFlagOverridesForTests({});
+  identity.checkIdentity.mockReset();
+  identity.checkIdentity.mockResolvedValue({ pass: false, reason: "not_shared" });
   Object.assign(env, {
     CONTENT_UPLOADS_ENABLED: true,
     CF_ACCOUNT_ID: "acct",
@@ -567,6 +573,24 @@ describe("report", () => {
     // A report never takes anything down by itself
     expect(db.items[0]).toMatchObject({ publishState: "PUBLISHED", moderationState: "CLEAR" });
     error.mockRestore();
+  });
+
+  it("lets a fan who passed the Over 18 check report an 18+ item", async () => {
+    __setFeatureFlagOverridesForTests({ adultContent: true });
+    const item = addItem({ publishState: "PUBLISHED", adult: true });
+    // Without the pass the item does not exist for the fan (identity checks 4.4)
+    await expect(
+      caller(8).report({ publicId: item.publicId, reason: "adult" })
+    ).rejects.toMatchObject({ code: "NOT_FOUND" });
+    identity.checkIdentity.mockResolvedValue({
+      pass: true,
+      validUntil: new Date(Date.now() + 86_400_000),
+      tier: "STANDARD",
+    });
+    await expect(
+      caller(8).report({ publicId: item.publicId, reason: "adult" })
+    ).resolves.toEqual({ received: true });
+    expect(db.reports.at(-1)).toMatchObject({ reason: "adult", reporterUserId: 8 });
   });
 
   it("is limited to 10 an hour and hides drafts", async () => {

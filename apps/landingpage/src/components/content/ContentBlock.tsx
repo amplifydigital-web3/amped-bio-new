@@ -15,7 +15,7 @@ import { CardCover, ContentCardLink } from "./ContentCardView";
 import { ReportContentButton } from "./ReportDialog";
 import { SITE_CONTENT_COPY as copy } from "./copy";
 import { CREATOR_FOCUS_RING, creatorSurface } from "./theme";
-import { useCardDecisions } from "./gating";
+import { StakeNotices, useCardDecisions } from "./gating";
 
 /**
  * Content block on the creator's page (Build Board #20, spec 3.7, board cs4).
@@ -52,6 +52,8 @@ export function ContentBlock({
   const featuredPlays =
     featured && !featured.gate && (featured.kind === "video" || featured.kind === "audio");
   const gridItems = featured ? rest : items;
+  // GQ2-2: one stake notice for the block when any of its cards is behind a stake rule
+  const showsStake = items.some(card => card.gate?.stake);
 
   return (
     <section
@@ -135,6 +137,8 @@ export function ContentBlock({
             ))}
           </ul>
         ))}
+
+      {showsStake && <StakeNotices className="mt-[21px]" />}
 
       <div className="mt-[21px] flex flex-wrap items-center justify-between gap-[8px]">
         <ReportContentButton

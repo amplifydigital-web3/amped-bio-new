@@ -30,6 +30,22 @@ export type LoadedRule = {
 const RULE_CACHE_SECONDS = 300;
 const ruleKey = (id: string) => `access:rule:${id}`;
 
+/** The earliest instant a rule may open to everyone: UTC midnight tomorrow. */
+export function earliestOpenToAllAt(now = new Date()): Date {
+  const start = new Date(now);
+  start.setUTCHours(0, 0, 0, 0);
+  start.setUTCDate(start.getUTCDate() + 1);
+  return start;
+}
+
+/** The picker shows "Open to everyone on"; the server enforces the same floor. */
+function assertOpenDate(date: Date | null | undefined, now = new Date()) {
+  if (!date) return;
+  if (Number.isNaN(date.getTime()) || date.getTime() < earliestOpenToAllAt(now).getTime()) {
+    throw new TRPCError({ code: "BAD_REQUEST", message: "Choose tomorrow or a later date." });
+  }
+}
+
 export const idToHex = (id: Buffer | Uint8Array) => Buffer.from(id).toString("hex");
 export const hexToId = (hex: string) => Buffer.from(hex, "hex");
 
@@ -145,6 +161,18 @@ async function toStoredParams(
       }
       return { offerId: input.params.offerId };
     }
+    case "member": {
+      // G5: only the owner's own plan. A draft or paused plan is allowed: items can be
+      // gated before the plan takes members, and nobody passes until someone joins
+      const plan = await db.membershipPlan.findUnique({
+        where: { id: hexToId(input.params.planId) },
+        select: { creatorUserId: true },
+      });
+      if (!plan || plan.creatorUserId !== ownerUserId) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Set up your membership first." });
+      }
+      return { planId: input.params.planId };
+    }
     case "any":
     case "all": {
       // 2 to 4 leaves, depth 1, all the owner's own
@@ -177,6 +205,7 @@ export async function createRule(
   input: AccessRuleInput & { name?: string | null; opensToAllAt?: Date | null },
   db: Db = prisma
 ) {
+  assertOpenDate(input.opensToAllAt);
   const params = await toStoredParams(ownerUserId, input, db);
   // Belt and braces: the stored shape must pass the read schema too
   if (!ACCESS_RULE_PARAMS[input.kind].safeParse(params).success) {
@@ -234,6 +263,7 @@ export async function updateRule(
   if (patch.input && patch.input.kind !== row.kind) {
     throw new TRPCError({ code: "BAD_REQUEST", message: "A rule's kind cannot change." });
   }
+  assertOpenDate(patch.opensToAllAt);
   const params = patch.input ? await toStoredParams(ownerUserId, patch.input) : undefined;
   await prisma.accessRule.update({
     where: { id: hexToId(idHex) },

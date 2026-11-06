@@ -32,6 +32,7 @@ export interface ProcessedCallback {
   step: "hash" | "csam" | "malware" | "normalize" | "blur" | "classifier" | "done";
   outcome: "ok" | "failed" | "blocked" | "held";
   reason?: string;
+  explicit?: boolean;
   sha256?: string;
   durationMs?: number;
   pageCount?: number;
