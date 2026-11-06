@@ -1,5 +1,5 @@
 import { Navigate, useLocation } from "react-router";
-import { isModeratorOnly, rolesOf } from "./shell/destinations";
+import { destinationsFor, homeFor, isModeratorOnly, rolesOf } from "./shell/destinations";
 import { ReactNode, useEffect, useState } from "react";
 import { AlertCircle, RotateCcw } from "lucide-react";
 import { Button, useAuth } from "@repo/ui";
@@ -98,9 +98,10 @@ export function ProtectedRoute({ children }: { children: ReactNode }) {
   const showSkeleton = useAfter(SKELETON_AFTER_MS);
   const timedOut = useAfter(TIMEOUT_MS);
   const landing = import.meta.env.VITE_LANDINGPAGE_URL;
-  // Amped Messages (M7): moderators may enter too, for Messaging only
+  // Amped Messages (M7) and Safety (#28 R1, 8.8): moderators and safety leads may
+  // enter too, for their own destinations only (the API answers 403 elsewhere)
   const roles = rolesOf(authUser?.role);
-  const isAdmin = roles.includes("admin") || roles.includes("moderator");
+  const isAdmin = roles.length > 0;
   const moderatorOnly = isModeratorOnly(authUser?.role);
   const { pathname } = useLocation();
 
@@ -123,8 +124,13 @@ export function ProtectedRoute({ children }: { children: ReactNode }) {
   }
   // Signed out or not an admin: only the room while the redirect runs
   if (!isAdmin) return <div className="prism-room min-h-dvh" />;
-  if (moderatorOnly && !pathname.startsWith("/messaging")) {
-    return <Navigate to="/messaging" replace />;
+  if (
+    moderatorOnly &&
+    !destinationsFor(authUser?.role).some(
+      item => item.path !== "/" && pathname.startsWith(item.path)
+    )
+  ) {
+    return <Navigate to={homeFor(authUser?.role)} replace />;
   }
 
   return <>{children}</>;

@@ -189,6 +189,23 @@ const envSchema = z.object({
   // Identity checks (Build Board #47): where an under 18 review case alert goes
   // until the Safety queue ships (identity checks spec 4.5). Empty logs a warning.
   SAFETY_ALERT_EMAIL: z.string().default(""),
+  // Safety (Build Board #28, adult content review 8.5, PR R1). Child safety alerts go
+  // by SMS through a Twilio Messaging Service (Q8, Rob 3 Nov). Empty: SMS is skipped
+  // and logged; the email still goes.
+  TWILIO_ACCOUNT_SID: z.string().default(""),
+  TWILIO_AUTH_TOKEN: z.string().default(""),
+  TWILIO_MESSAGING_SERVICE_SID: z.string().default(""),
+  // The admin origin for case links in alerts (https://admin.amped.bio)
+  ADMIN_URL: z.string().default(""),
+  // Evidence bucket (8.5, content system 3.11): its own R2 token, Object Read and Write on
+  // EVIDENCE_R2_BUCKET only, bucket lock retention 1 year (REPORT Act 2024). Never shared
+  // with the content token; no URL or token for it ever leaves the server.
+  EVIDENCE_R2_ACCESS_KEY_ID: z.string().default(""),
+  EVIDENCE_R2_SECRET_ACCESS_KEY: z.string().default(""),
+  EVIDENCE_R2_BUCKET: z.string().default("amped-evidence"),
+  // Encrypts custodian, release names and request contacts at rest (section 10).
+  // Falls back to BETTER_AUTH_SECRET when empty.
+  SAFETY_DATA_SECRET: z.string().default(""),
   // The company postal address for commercial email footers (CAN-SPAM; bulk email AC-Q11).
   // The Fan Library daily email (FL-6) sends nothing while it is empty.
   BULK_FOOTER_ADDRESS: z.string().default(""),

@@ -61,6 +61,7 @@ import { checkoutAmount } from "../checkout/quote";
 import { liveVersion } from "../store/policy";
 import { countFinalSale } from "../store/sales";
 import { resolvePromoter } from "../store/promoters";
+import { checkIdentity } from "../identity/checks";
 import { checkMerchant } from "../merchants/check";
 import { ampedPayAddress, readContractState } from "./onchain";
 import { paymentsReady } from "./ready";
@@ -325,6 +326,13 @@ export async function preparePurchase(
       return { refused: true, reason: "seller" };
     }
     creator = getAddress(creatorWallet.address);
+    // The seller gate is enforced here too, not only in the quote (AB-6, identity checks 5.3):
+    // prepare is callable on its own, so a creator who fails it must not get a signed split.
+    // A merchant offer runs checkMerchant above instead: the personal check cannot verify a
+    // company or a Safe (M1).
+    if (!(await checkIdentity(resolved.creatorUserId, "seller")).pass) {
+      return { refused: true, reason: "seller" };
+    }
   }
 
   const chainState = await readContractState(now.getTime());

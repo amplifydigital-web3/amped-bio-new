@@ -130,7 +130,13 @@ export const GO_LIVE_STEPS = [
 ] as const;
 export type GoLiveStep = (typeof GO_LIVE_STEPS)[number];
 export type GoLiveState = "done" | "todo" | "not_required";
-export type GoLiveChecklist = { step: GoLiveStep; state: GoLiveState; reason?: string | null }[];
+export type GoLiveChecklist = {
+  step: GoLiveStep;
+  state: GoLiveState;
+  reason?: string | null;
+  /** Seller step (AB-6): selling with Standard, allowed by Amped.Bio until this ISO date */
+  overrideUntil?: string | null;
+}[];
 
 // ---------------------------------------------------------------- store policy (store-policy 3)
 
@@ -245,8 +251,7 @@ export function renderStandardPolicy(fields: {
       ? OPTION_A
       : OPTION_B.replaceAll("{{refund_days}}", String(fields.refund.days));
   const contact = fields.email ? `Amped messages or ${fields.email}` : "Amped messages";
-  const body =
-    fields.memberships === false ? PART_B.replace(MEMBERSHIPS_SECTION, "") : PART_B;
+  const body = fields.memberships === false ? PART_B.replace(MEMBERSHIPS_SECTION, "") : PART_B;
   return body
     .replace("{{section_9}}", fields.adult ? SECTION_9 : "")
     .replaceAll("{{refund_terms}}", refundTerms)
@@ -417,6 +422,12 @@ export const STORE_COPY = {
       policy: "Store policy published.",
       adult: "Adult setup complete.",
     } satisfies Record<GoLiveStep, string>,
+    // AB-6 (board s5, M10): the seller step's states when the Enhanced rule is on
+    sellerNeedsEnhanced:
+      "Selling needs an Enhanced check. Your Standard check stays valid for 18+ content.",
+    sellerUpgrade: "Upgrade to Enhanced",
+    sellerAllowedUntil: (date: string) =>
+      `Allowed by Amped.Bio to sell with Standard until ${date}.`,
     adultSub:
       "Over 18, seller verified, Adult Content Policy accepted, custodian of records named.",
     action: "Go live",

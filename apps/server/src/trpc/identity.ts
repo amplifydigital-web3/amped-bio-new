@@ -12,7 +12,13 @@ import { bumpViewer } from "../services/access";
 /** The client sees dates as ISO strings; nothing else about the check. */
 function toClient(result: IdentityCheckResult) {
   return result.pass
-    ? { pass: true as const, validUntil: result.validUntil.toISOString(), tier: result.tier }
+    ? {
+        pass: true as const,
+        validUntil: result.validUntil.toISOString(),
+        tier: result.tier,
+        // AB-6: selling with Standard, allowed by Amped.Bio until this date (board s5)
+        overrideUntil: result.overrideUntil?.toISOString() ?? null,
+      }
     : { pass: false as const, reason: result.reason };
 }
 

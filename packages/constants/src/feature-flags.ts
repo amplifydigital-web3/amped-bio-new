@@ -289,6 +289,14 @@ export const FEATURE_FLAGS = {
     default: false,
     env: { server: "ACCESS_GATING_ENABLED" },
   },
+  adultContent: {
+    label: "18+ content",
+    description:
+      "18+ items open to fans who pass the Over 18 check: the Adult items card, the 18+ shelf and item pages, and publishing 18+ by creators who pass Over 18 and verified seller. Keep off until the safety queue, adult setup and review before publish ship (#28 R1 to R5).",
+    scope: "public",
+    default: false,
+    env: {},
+  },
   themeSharing: {
     label: "Theme sharing",
     description:
@@ -304,6 +312,16 @@ export const FEATURE_FLAGS = {
     description:
       "The RNS Identity tab sells Authbase checks for USDC with Buy now, and checkout accepts merchant service offers. Off keeps the Verify with Authbase link.",
     scope: "public",
+    default: false,
+    env: {},
+  },
+  // Authbase storefront (Build Board #66, AB-6, M10): turn on after Rob sets the overrides for
+  // creators selling today with Standard (open question 8)
+  sellerRequiresEnhanced: {
+    label: "Sellers need Enhanced",
+    description:
+      "Creators need an Enhanced Authbase check to sell and get paid. An admin can allow a named creator to sell with Standard until a date (Users, Seller check).",
+    scope: "server",
     default: false,
     env: {},
   },

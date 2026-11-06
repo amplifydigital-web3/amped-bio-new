@@ -183,6 +183,21 @@ export function PayPage() {
     service && q?.creator
       ? { ...q.creator, name: service.merchantName, image: null, theme: null }
       : (q?.creator ?? null);
+
+  // An 18+ item passes the Over 18 check first (spec 6, identity checks 4.2). The
+  // stored result is read first, so a fan back from a pass is not sent round again.
+  const adultItem = item?.adult === true;
+  const ageCheck = useQuery({
+    ...trpc.identity.myChecks.queryOptions(),
+    enabled: adultItem,
+    retry: false,
+  });
+  const agePassed = ageCheck.data?.ageOver18.pass === true;
+  useEffect(() => {
+    if (adultItem && (ageCheck.isError || (ageCheck.data && !agePassed))) {
+      window.location.assign(`/age-check?returnTo=${encodeURIComponent(`/pay/${intentId}`)}`);
+    }
+  }, [adultItem, ageCheck.isError, ageCheck.data, agePassed, intentId]);
   const theme = creator?.theme ?? null;
   const pageHref = service ? "/wallet?tab=rns" : creator ? `${LANDING}/${creator.handle}` : LANDING;
   const payingLabel = service ? SERVICE_CHECKOUT_COPY.paying : undefined;

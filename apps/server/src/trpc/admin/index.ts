@@ -16,10 +16,13 @@ import { messagingAdminRouter } from "./messaging";
 import { moneyAdminRouter } from "./money";
 import { paymentsAdminRouter } from "./payments";
 import { merchantsAdminRouter } from "./merchants";
+import { sellerChecksAdminRouter } from "./sellerChecks";
 
 export const adminRouter = router({
   // User Management
   users: usersRouter,
+  // Seller tier override (Build Board #66, AB-6, board a2)
+  sellerChecks: sellerChecksAdminRouter,
 
   // Block Management & Statistics
   blocks: blocksRouter,
