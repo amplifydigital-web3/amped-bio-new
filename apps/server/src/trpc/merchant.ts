@@ -3,7 +3,15 @@ import { TRPCError } from "@trpc/server";
 import { prisma } from "@repo/database";
 import { OFFER_PLACEMENTS } from "@repo/constants";
 import { privateProcedure, publicProcedure, router } from "./trpc";
-import { storefront } from "../services/merchants/offers";
+import {
+  MerchantOfferError,
+  listMerchantOffers,
+  storefront,
+  upsertMerchantOffer,
+} from "../services/merchants/offers";
+import { effectivePayoutWallet } from "../services/merchants/check";
+import { OrderError, listOrders } from "../services/partners/orders";
+import { prepareMerchantRefund, submitMerchantRefund } from "../services/partners/refunds";
 import { ApiKeyError, createApiKey, listApiKeys, revokeApiKey } from "../services/partners/keys";
 import {
   WEBHOOK_EVENTS,
@@ -41,7 +49,9 @@ function asTrpc(error: unknown): never {
   if (
     error instanceof PayoutWalletError ||
     error instanceof ApiKeyError ||
-    error instanceof WebhookError
+    error instanceof WebhookError ||
+    error instanceof MerchantOfferError ||
+    error instanceof OrderError
   ) {
     throw new TRPCError({ code: "BAD_REQUEST", message: error.message });
   }
@@ -71,7 +81,203 @@ async function requireDeveloper(merchantId: Buffer, userId: number) {
 
 const developerInput = z.object({ merchantId: hexId });
 
+/** Owners and Finance edit products and refund orders (spec 3.8). */
+async function requireFinance(merchantId: Buffer, userId: number) {
+  const role = await requireMember(merchantId, userId);
+  if (role !== "owner" && role !== "finance") {
+    throw new TRPCError({ code: "FORBIDDEN", message: "Only an Owner or Finance can do this." });
+  }
+}
+
 export const merchantRouter = router({
+  // AB-5: Merchant Console pages p1 to p4 and p6 (partners.amped.bio, M7)
+  console: router({
+    overview: privateProcedure.input(developerInput).query(async ({ ctx, input }) => {
+      const role = await requireMember(input.merchantId, ctx.user!.sub);
+      const merchant = await prisma.merchant.findUnique({
+        where: { id: input.merchantId },
+        select: { name: true, status: true, feeBps: true, storePolicyUrl: true, returnUrl: true },
+      });
+      const since = new Date(Date.now() - 30 * 86_400_000);
+      const [payoutWallet, paid, open] = await Promise.all([
+        effectivePayoutWallet(input.merchantId),
+        prisma.purchase.findMany({
+          where: {
+            merchantId: input.merchantId,
+            status: { in: ["confirmed_soft", "confirmed"] },
+            createdAt: { gte: since },
+          },
+          select: { amount: true, fee: true },
+        }),
+        prisma.purchase.count({
+          where: {
+            merchantId: input.merchantId,
+            status: { in: ["confirmed_soft", "confirmed"] },
+            fulfillmentState: { in: ["paid", "started", "in_review"] },
+          },
+        }),
+      ]);
+      const gross = paid.reduce((sum, p) => sum + p.amount, 0n);
+      const fees = paid.reduce((sum, p) => sum + p.fee, 0n);
+      return {
+        role,
+        merchant,
+        payoutWallet,
+        last30: {
+          orders: paid.length,
+          grossUnits: gross.toString(),
+          netUnits: (gross - fees).toString(),
+        },
+        openChecks: open,
+      };
+    }),
+    products: privateProcedure.input(developerInput).query(async ({ ctx, input }) => {
+      await requireMember(input.merchantId, ctx.user!.sub);
+      return listMerchantOffers(input.merchantId);
+    }),
+    saveProduct: privateProcedure
+      .input(
+        z.object({
+          merchantId: hexId,
+          offerId: hexId.optional(),
+          code: z.string().trim().max(32),
+          title: z.string().trim().max(80),
+          description: z.string().trim().max(500).nullable().optional(),
+          features: z.array(z.string().trim().max(120)).max(4),
+          tag: z.string().trim().max(24).nullable().optional(),
+          amountUnits: z.string().regex(/^[1-9]\d{0,12}$/),
+          rank: z.number().int().min(0).max(99),
+          status: z.enum(["draft", "active", "paused", "archived"]),
+          // A price change is a money change: a fresh code, like the admin page (spec 3.8)
+          code2fa: z.string().trim().max(12),
+        })
+      )
+      .mutation(async ({ ctx, input }) => {
+        await requireFinance(input.merchantId, ctx.user!.sub);
+        await assertTwoFactorCode(ctx.user!.sub, input.code2fa, ctx.req.headers);
+        try {
+          return await upsertMerchantOffer({
+            merchantId: input.merchantId,
+            actorId: ctx.user!.sub,
+            ...(input.offerId ? { id: input.offerId } : {}),
+            code: input.code,
+            title: input.title,
+            description: input.description ?? null,
+            features: input.features,
+            tag: input.tag ?? null,
+            amountUnits: BigInt(input.amountUnits),
+            rank: input.rank,
+            status: input.status,
+          });
+        } catch (error) {
+          asTrpc(error);
+        }
+      }),
+    orders: privateProcedure
+      .input(
+        z.object({
+          merchantId: hexId,
+          status: z.enum(["paid", "finalized", "refunded"]).optional(),
+          cursor: z.string().max(40).optional(),
+        })
+      )
+      .query(async ({ ctx, input }) => {
+        await requireMember(input.merchantId, ctx.user!.sub);
+        try {
+          return await listOrders(input.merchantId, {
+            ...(input.status ? { status: input.status } : {}),
+            ...(input.cursor ? { cursor: input.cursor } : {}),
+            limit: 50,
+          });
+        } catch (error) {
+          asTrpc(error);
+        }
+      }),
+    prepareRefund: privateProcedure
+      .input(z.object({ merchantId: hexId, orderRef: z.string().regex(/^[0-9a-f]{32}$/), code }))
+      .mutation(async ({ ctx, input }) => {
+        await requireFinance(input.merchantId, ctx.user!.sub);
+        await assertTwoFactorCode(ctx.user!.sub, input.code, ctx.req.headers);
+        try {
+          return await prepareMerchantRefund(input.merchantId, input.orderRef);
+        } catch (error) {
+          asTrpc(error);
+        }
+      }),
+    submitRefund: privateProcedure
+      .input(
+        z.object({
+          merchantId: hexId,
+          orderRef: z.string().regex(/^[0-9a-f]{32}$/),
+          deadline: z.string().max(12),
+          refundSignature: z.string().max(20_000),
+          permitDeadline: z.string().max(12),
+          permitSignature: z.string().max(20_000),
+        })
+      )
+      .mutation(async ({ ctx, input }) => {
+        await requireFinance(input.merchantId, ctx.user!.sub);
+        try {
+          return await submitMerchantRefund(input.merchantId, input.orderRef, {
+            deadline: input.deadline,
+            refund_signature: input.refundSignature,
+            permit_deadline: input.permitDeadline,
+            permit_signature: input.permitSignature,
+          });
+        } catch (error) {
+          asTrpc(error);
+        }
+      }),
+    payoutWallets: privateProcedure.input(developerInput).query(async ({ ctx, input }) => {
+      await requireMember(input.merchantId, ctx.user!.sub);
+      const rows = await prisma.merchantPayoutWallet.findMany({
+        where: { merchantId: input.merchantId },
+        orderBy: { createdAt: "desc" },
+        take: 20,
+      });
+      return rows.map(w => ({
+        id: Buffer.from(w.id).toString("hex"),
+        address: w.address,
+        status: w.status,
+        proposedById: w.proposedById,
+        approvedById: w.approvedById,
+        effectiveAt: w.effectiveAt?.toISOString() ?? null,
+        createdAt: w.createdAt.toISOString(),
+      }));
+    }),
+    team: privateProcedure.input(developerInput).query(async ({ ctx, input }) => {
+      await requireMember(input.merchantId, ctx.user!.sub);
+      const [members, audit] = await Promise.all([
+        prisma.merchantMember.findMany({
+          where: { merchantId: input.merchantId },
+          orderBy: { createdAt: "asc" },
+        }),
+        prisma.merchantAuditLog.findMany({
+          where: { merchantId: input.merchantId },
+          orderBy: { createdAt: "desc" },
+          take: 100,
+        }),
+      ]);
+      const users = await prisma.user.findMany({
+        where: { id: { in: members.map(m => m.userId) } },
+        select: { id: true, name: true, email: true },
+      });
+      const byId = new Map(users.map(u => [u.id, u]));
+      return {
+        members: members.map(m => ({
+          userId: m.userId,
+          role: m.role,
+          name: byId.get(m.userId)?.name ?? `Account #${m.userId}`,
+          email: byId.get(m.userId)?.email ?? null,
+        })),
+        audit: audit.map(a => ({
+          actorId: a.actorId,
+          action: a.action,
+          createdAt: a.createdAt.toISOString(),
+        })),
+      };
+    }),
+  }),
   // AB-4: Console Developers (board p5). Keys and secrets are shown once
   developers: router({
     view: privateProcedure.input(developerInput).query(async ({ ctx, input }) => {
