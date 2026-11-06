@@ -801,8 +801,9 @@ export const contentRouter = router({
     }
     // #28 F1: an item the classifier or a reviewer marked explicit never reaches the
     // public pages unlabeled, whatever order the writes arrived in (for example the
-    // label taken off while the queued job still ran with it on).
-    if (item.explicitAt) {
+    // label taken off while the queued job still ran with it on). A labeled one is
+    // the 18+ branch above.
+    if (item.explicitAt && !item.adult) {
       throw new TRPCError({ code: "BAD_REQUEST", message: MESSAGES.publishExplicit });
     }
     if (item.moderationState !== "CLEAR") {
