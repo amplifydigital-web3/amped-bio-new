@@ -75,6 +75,8 @@ const merchantOffer = () => ({
   amountUnits: 3_000_000n,
   accessPeriodDays: null,
   merchantId: Buffer.from("11".repeat(16), "hex"),
+  merchant: { slug: "authbase", name: "Authbase" },
+  fulfillment: "external",
   creator: {
     id: 10,
     handle: "maya",
@@ -103,6 +105,12 @@ vi.mock("@repo/database", () => ({
   prisma: {
     contentItem: { findUnique: vi.fn(async () => state.item) },
     offer: { findUnique: vi.fn(async () => state.offer) },
+    merchant: {
+      findUnique: vi.fn(async () => ({
+        name: "Authbase",
+        storePolicyUrl: "https://authbase.test/policy",
+      })),
+    },
     theme: { findUnique: vi.fn(async () => null) },
     siteSettings: {
       findUnique: vi.fn(async () =>
@@ -201,7 +209,8 @@ beforeEach(() => {
   checkIdentity.mockImplementation(async () => state.seller);
   checkMerchant.mockReset();
   checkMerchant.mockImplementation(async () => state.merchant);
-  __setFeatureFlagOverridesForTests({ storeSales: true });
+  // A merchant offer is only for sale while the storefront is on (AB-2); a store needs storeSales
+  __setFeatureFlagOverridesForTests({ storeSales: true, authbaseStorefront: true });
   state.mockPrice = null;
   state.appEnv = "staging";
   state.testnetChain = true;
