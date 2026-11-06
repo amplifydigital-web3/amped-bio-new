@@ -167,7 +167,20 @@ export async function revealContact(number: string, reviewer: Reviewer) {
   };
 }
 
-async function close(
+/**
+ * Claims the request transition. Two reviewers (or a double click) can have the same
+ * request open, and a second close must not send a second email, block again, or
+ * close another reviewer's decision.
+ */
+async function claim(request: TakedownRequest, now: Date, outcome: string): Promise<void> {
+  const claimed = await prisma.takedownRequest.updateMany({
+    where: { id: request.id, closedAt: null },
+    data: { closedAt: now, outcome },
+  });
+  if (claimed.count !== 1) throw new SafetyActionError("conflict", "This request is closed.");
+}
+
+async function finish(
   request: TakedownRequest,
   safetyCaseId: Uint8Array | null,
   outcome: string,
@@ -175,10 +188,6 @@ async function close(
   note: string,
   now: Date
 ) {
-  await prisma.takedownRequest.update({
-    where: { id: request.id },
-    data: { closedAt: now, outcome },
-  });
   if (safetyCaseId) {
     await prisma.safetyCase.update({
       where: { id: Buffer.from(safetyCaseId) },
@@ -206,21 +215,26 @@ export async function decideTakedown(
   if (request.closedAt) throw new SafetyActionError("conflict", "This request is closed.");
   if (input.note.trim().length < 10)
     throw new SafetyActionError("bad_request", "Add a note of at least 10 characters.");
+  await claim(request, now, input.outcome);
   const ids = idsOf(request);
   const items = await prisma.contentItem.findMany({
     where: { publicId: { in: ids } },
     select: { publicId: true, sha256: true, userId: true, title: true },
   });
+  // The exact copies hidden at submit belong to this request too: a Not valid
+  // decision restores them, and a Remove tells their creators
+  const hashes = items.flatMap(item => (item.sha256 ? [item.sha256] : []));
+  const copies = hashes.length
+    ? await prisma.contentItem.findMany({
+        where: { sha256: { in: hashes } },
+        select: { publicId: true, userId: true },
+      })
+    : [];
+  const all = [...new Set([...ids, ...copies.map(copy => copy.publicId)])];
+  const owners = [...new Set([...items, ...copies].map(row => row.userId))];
   const requester = safetyBox.decrypt(request.contactEmail);
   if (input.outcome === "removed") {
-    const hashes = items.flatMap(item => (item.sha256 ? [item.sha256] : []));
-    const copies = hashes.length
-      ? await prisma.contentItem.findMany({
-          where: { sha256: { in: hashes } },
-          select: { publicId: true },
-        })
-      : [];
-    await hideItems([...ids, ...copies.map(copy => copy.publicId)], "take_it_down");
+    await hideItems(all, "take_it_down");
     for (const sha256 of hashes) {
       await blockHash({
         sha256,
@@ -230,10 +244,10 @@ export async function decideTakedown(
       });
     }
     await prisma.contentItem.updateMany({
-      where: { publicId: { in: ids } },
+      where: { publicId: { in: all } },
       data: { moderationState: "BLOCKED", moderationReason: "safety:take_it_down" },
     });
-    for (const creator of new Set(items.map(item => item.userId))) {
+    for (const creator of owners) {
       await mailUser(creator, "An item was removed", [
         "An item of yours was removed under the Take It Down Act after a request from the person shown.",
         "You can appeal this decision from the item in your library.",
@@ -243,13 +257,13 @@ export async function decideTakedown(
       `We removed the items in request ${request.number} and blocked the file from being uploaded again.`,
     ]);
   } else {
-    await restoreItems(ids);
+    await restoreItems(all);
     await mail(requester, `Take It Down request ${request.number}: not valid`, [
       `We could not act on request ${request.number}.`,
       input.reason ?? input.note,
     ]);
   }
-  await close(request, safetyCase?.id ?? null, input.outcome, reviewer, input.note.trim(), now);
+  await finish(request, safetyCase?.id ?? null, input.outcome, reviewer, input.note.trim(), now);
 }
 
 /** Copyright: Disable (hidden, hash offered, creator told with the sender's name and email) or Not valid. */
@@ -264,6 +278,7 @@ export async function decideCopyright(
   if (request.closedAt) throw new SafetyActionError("conflict", "This notice is closed.");
   if (input.note.trim().length < 10)
     throw new SafetyActionError("bad_request", "Add a note of at least 10 characters.");
+  await claim(request, now, input.outcome);
   const ids = idsOf(request);
   const sender = safetyBox.decrypt(request.contactEmail);
   if (input.outcome === "removed") {
@@ -302,7 +317,7 @@ export async function decideCopyright(
       input.note,
     ]);
   }
-  await close(request, safetyCase?.id ?? null, input.outcome, reviewer, input.note.trim(), now);
+  await finish(request, safetyCase?.id ?? null, input.outcome, reviewer, input.note.trim(), now);
 }
 
 /** Claimant filed suit: the item stays hidden and the counter notice closes. */
@@ -314,11 +329,12 @@ export async function suitFiled(
   const { request, safetyCase } = await load(input.number);
   if (request.kind !== "counter")
     throw new SafetyActionError("bad_request", "Not a counter notice.");
+  await claim(request, now, "kept");
   await prisma.takedownRequest.update({
     where: { id: request.id },
     data: { suitFiledAt: now, suitReference: input.reference.slice(0, 120) },
   });
-  await close(
+  await finish(
     request,
     safetyCase?.id ?? null,
     "kept",
@@ -342,6 +358,7 @@ export async function restoreAfterCounter(
   if (request.restoreFrom && now < request.restoreFrom) {
     throw new SafetyActionError("bad_request", "The restore window has not opened yet.");
   }
+  await claim(request, now, "reversed");
   const ids = idsOf(request);
   await restoreItems(ids);
   const original = request.counterOfId
@@ -352,7 +369,7 @@ export async function restoreAfterCounter(
     `Restored after a counter notice`,
     [`The items in notice ${original?.number ?? ""} were restored after a counter notice.`]
   );
-  await close(
+  await finish(
     request,
     safetyCase?.id ?? null,
     "reversed",

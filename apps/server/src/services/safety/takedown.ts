@@ -16,7 +16,7 @@
  * who asked in a Take It Down request.
  */
 import { createHash, randomBytes } from "node:crypto";
-import { prisma, type TakedownRequest } from "@repo/database";
+import { Prisma, prisma, type TakedownRequest } from "@repo/database";
 import {
   COUNTER_RESTORE_BY_DAYS,
   COUNTER_RESTORE_FROM_DAYS,
@@ -65,9 +65,35 @@ async function nextRequestNumber(prefix: string, year: number): Promise<string> 
   return safetyNumber(prefix, year, last ? Number(last.number.split("-")[2]) + 1 : 1);
 }
 
+/**
+ * Creates a request with the next number, retrying a number clash. Two people can
+ * send a notice at the same moment; the loser must not lose the notice with a 500.
+ */
+async function createNumbered(
+  prefix: string,
+  year: number,
+  create: (number: string) => Promise<TakedownRequest>
+): Promise<TakedownRequest> {
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const number = await nextRequestNumber(prefix, year);
+    try {
+      return await create(number);
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") continue;
+      throw error;
+    }
+  }
+  throw new Error(`[safety] could not number a ${prefix} request`);
+}
+
 function statusUrl(path: "takedown" | "copyright", number: string, key: string) {
   const base = (env.LANDINGPAGE_URL || "https://amped.bio").replace(/\/$/, "");
   return `${base}/${path}/${number}?k=${key}`;
+}
+
+/** A legal deadline's calendar day in UTC, never the server's local zone. */
+export function utcDay(date: Date): string {
+  return date.toISOString().slice(0, 10);
 }
 
 async function email(to: string, subject: string, lines: string[]) {
@@ -86,7 +112,9 @@ type Located = { url: string; publicId: string | null };
 
 async function resolveLinks(links: string[]) {
   const located: Located[] = links.map(url => ({ url, publicId: publicIdFromLink(url) }));
-  const ids = located.flatMap(entry => (entry.publicId ? [entry.publicId] : []));
+  const ids = [
+    ...new Set(located.flatMap(entry => (entry.publicId ? [entry.publicId] : []))),
+  ];
   const items = ids.length
     ? await prisma.contentItem.findMany({
         where: { publicId: { in: ids } },
@@ -94,6 +122,12 @@ async function resolveLinks(links: string[]) {
       })
     : [];
   return { located, items };
+}
+
+/** A link that is not an Amped item, or an Amped link whose item is gone. */
+function linkMissing(located: Located[], found: number): boolean {
+  const wanted = new Set(located.flatMap(entry => (entry.publicId ? [entry.publicId] : [])));
+  return located.some(entry => !entry.publicId) || found < wanted.size;
 }
 
 // ----------------------------------------------------------------------------
@@ -109,9 +143,7 @@ export function takedownMissing(
   const missing: string[] = [];
   const hasPlace = located.length > 0 || (input.handle && input.description);
   if (!hasPlace) missing.push("where");
-  if (located.some(entry => !entry.publicId) || found < located.filter(e => e.publicId).length) {
-    missing.push("link");
-  }
+  if (linkMissing(located, found)) missing.push("link");
   if (!input.goodFaith) missing.push("statement");
   if (input.relationship === "agent" && !input.agentDetail) missing.push("relationship");
   if (input.signature.trim().length < 2) missing.push("signature");
@@ -123,31 +155,36 @@ export async function submitTakedown(input: TakedownSubmit, now: Date = new Date
   const missing = takedownMissing(input, located, items.length);
   const valid = missing.length === 0 && items.length > 0;
   const key = randomBytes(24).toString("base64url");
-  const number = await nextRequestNumber(SAFETY_NUMBER_PREFIX.takedown, now.getUTCFullYear());
-  const request = await prisma.takedownRequest.create({
-    data: {
-      id: uuidv7(),
-      number,
-      kind: "ncii",
-      statusKeyHash: hashKey(key),
-      relationship: input.relationship,
-      agentDetail: input.agentDetail ?? null,
-      contactEmail: safetyBox.encrypt(input.email)!,
-      contactPhone: safetyBox.encrypt(input.phone ?? null),
-      signature: safetyBox.encrypt(input.signature) ?? "",
-      statement:
-        [input.goodFaith ? "good_faith" : null, input.detail, input.description]
-          .filter(Boolean)
-          .join("\n\n") || null,
-      locations: located.map(entry => ({
-        url: entry.url,
-        publicId: entry.publicId,
-        ...(input.handle ? { handle: input.handle } : {}),
-      })),
-      receivedAt: now,
-      dueAt: new Date(now.getTime() + TAKE_IT_DOWN_LEGAL_HOURS * 3_600_000),
-    },
-  });
+  const request = await createNumbered(
+    SAFETY_NUMBER_PREFIX.takedown,
+    now.getUTCFullYear(),
+    number =>
+      prisma.takedownRequest.create({
+        data: {
+          id: uuidv7(),
+          number,
+          kind: "ncii",
+          statusKeyHash: hashKey(key),
+          relationship: input.relationship,
+          agentDetail: input.agentDetail ?? null,
+          contactEmail: safetyBox.encrypt(input.email)!,
+          contactPhone: safetyBox.encrypt(input.phone ?? null),
+          signature: safetyBox.encrypt(input.signature) ?? "",
+          statement:
+            [input.goodFaith ? "good_faith" : null, input.detail, input.description]
+              .filter(Boolean)
+              .join("\n\n") || null,
+          locations: located.map(entry => ({
+            url: entry.url,
+            publicId: entry.publicId,
+            ...(input.handle ? { handle: input.handle } : {}),
+          })),
+          receivedAt: now,
+          dueAt: new Date(now.getTime() + TAKE_IT_DOWN_LEGAL_HOURS * 3_600_000),
+        },
+      })
+  );
+  const number = request.number;
 
   let hidden: string[] = [];
   if (valid) {
@@ -168,6 +205,9 @@ export async function submitTakedown(input: TakedownSubmit, now: Date = new Date
       contentItemId: items[0]!.id,
       creatorUserId: creators[0] ?? null,
       source: "takedown",
+      // The desk links a request to its own case; joining another request's open
+      // case would close that one when this request is decided
+      join: false,
     });
     await flagIfBurst(request, creators, opened.case.id, now);
     await logSafetyEvent({
@@ -226,7 +266,7 @@ export function copyrightMissing(
   const missing: string[] = [];
   if (input.work.trim().length < 3) missing.push("work");
   if (!located.length) missing.push("where");
-  if (located.some(entry => !entry.publicId) || found < located.length) missing.push("link");
+  if (linkMissing(located, found)) missing.push("link");
   if (input.name.trim().length < 2) missing.push("name");
   if (input.postalAddress.trim().length < 5) missing.push("postal_address");
   if (!input.goodFaith) missing.push("good_faith");
@@ -240,35 +280,44 @@ export async function submitCopyright(input: CopyrightSubmit, now: Date = new Da
   const missing = copyrightMissing(input, located, items.length);
   const complete = missing.length === 0;
   const key = randomBytes(24).toString("base64url");
-  const number = await nextRequestNumber(SAFETY_NUMBER_PREFIX.copyright, now.getUTCFullYear());
-  const request = await prisma.takedownRequest.create({
-    data: {
-      id: uuidv7(),
-      number,
-      kind: "copyright",
-      statusKeyHash: hashKey(key),
-      relationship: "self",
-      agentDetail: safetyBox.encrypt(input.name),
-      contactEmail: safetyBox.encrypt(input.email)!,
-      contactPhone: safetyBox.encrypt(input.phone ?? null),
-      postalAddress: safetyBox.encrypt(input.postalAddress),
-      signature: safetyBox.encrypt(input.signature) ?? "",
-      workDescription: [input.work, input.workLink].filter(Boolean).join("\n"),
-      statement: [input.goodFaith ? "good_faith" : null, input.accurate ? "accurate" : null]
-        .filter(Boolean)
-        .join(","),
-      locations: located.map(entry => ({ url: entry.url, publicId: entry.publicId })),
-      receivedAt: now,
-      dueAt: addBusinessDays(now, 1),
-    },
-  });
+  const request = await createNumbered(
+    SAFETY_NUMBER_PREFIX.copyright,
+    now.getUTCFullYear(),
+    number =>
+      prisma.takedownRequest.create({
+        data: {
+          id: uuidv7(),
+          number,
+          kind: "copyright",
+          statusKeyHash: hashKey(key),
+          relationship: "self",
+          agentDetail: safetyBox.encrypt(input.name),
+          contactEmail: safetyBox.encrypt(input.email)!,
+          contactPhone: safetyBox.encrypt(input.phone ?? null),
+          postalAddress: safetyBox.encrypt(input.postalAddress),
+          signature: safetyBox.encrypt(input.signature) ?? "",
+          workDescription: [input.work, input.workLink].filter(Boolean).join("\n"),
+          statement: [input.goodFaith ? "good_faith" : null, input.accurate ? "accurate" : null]
+            .filter(Boolean)
+            .join(","),
+          locations: located.map(entry => ({ url: entry.url, publicId: entry.publicId })),
+          receivedAt: now,
+          dueAt: addBusinessDays(now, 1),
+        },
+      })
+  );
+  const number = request.number;
   if (complete) {
     await openCase({
       type: "COPYRIGHT",
+      // The case carries the notice number, so staff and counsel see one reference
+      number,
       requestId: request.id,
       contentItemId: items[0]!.id,
       creatorUserId: items[0]!.userId,
       source: "copyright_notice",
+      // A second notice on the same item needs its own case and its own clock
+      join: false,
     });
   }
   if (missing.length) {
@@ -298,47 +347,55 @@ export async function submitCounterNotice(
   const owned = await prisma.contentItem.count({ where: { publicId: { in: ids }, userId } });
   if (!owned) return null;
   const key = randomBytes(24).toString("base64url");
-  const number = await nextRequestNumber(SAFETY_NUMBER_PREFIX.counter, now.getUTCFullYear());
-  const counter = await prisma.takedownRequest.create({
-    data: {
-      id: uuidv7(),
-      number,
-      kind: "counter",
-      counterOfId: notice.id,
-      statusKeyHash: hashKey(key),
-      relationship: "self",
-      agentDetail: safetyBox.encrypt(input.name),
-      contactEmail: safetyBox.encrypt(`user:${userId}`)!,
-      contactPhone: safetyBox.encrypt(input.phone),
-      postalAddress: safetyBox.encrypt(input.postalAddress),
-      signature: safetyBox.encrypt(input.signature) ?? "",
-      jurisdictionConsent: input.jurisdiction && input.acceptService,
-      statement: input.mistake ? "mistake" : null,
-      locations: notice.locations as object,
-      receivedAt: now,
-      dueAt: addBusinessDays(now, COUNTER_RESTORE_BY_DAYS),
-      restoreFrom: addBusinessDays(now, COUNTER_RESTORE_FROM_DAYS),
-      restoreBy: addBusinessDays(now, COUNTER_RESTORE_BY_DAYS),
-    },
-  });
+  const counter = await createNumbered(
+    SAFETY_NUMBER_PREFIX.counter,
+    now.getUTCFullYear(),
+    number =>
+      prisma.takedownRequest.create({
+        data: {
+          id: uuidv7(),
+          number,
+          kind: "counter",
+          counterOfId: notice.id,
+          statusKeyHash: hashKey(key),
+          relationship: "self",
+          agentDetail: safetyBox.encrypt(input.name),
+          contactEmail: safetyBox.encrypt(`user:${userId}`)!,
+          contactPhone: safetyBox.encrypt(input.phone),
+          postalAddress: safetyBox.encrypt(input.postalAddress),
+          signature: safetyBox.encrypt(input.signature) ?? "",
+          jurisdictionConsent: input.jurisdiction && input.acceptService,
+          statement: input.mistake ? "mistake" : null,
+          locations: notice.locations as object,
+          receivedAt: now,
+          dueAt: addBusinessDays(now, COUNTER_RESTORE_BY_DAYS),
+          restoreFrom: addBusinessDays(now, COUNTER_RESTORE_FROM_DAYS),
+          restoreBy: addBusinessDays(now, COUNTER_RESTORE_BY_DAYS),
+        },
+      })
+  );
+  const number = counter.number;
   const original = await prisma.safetyCase.findFirst({
     where: { requestId: notice.id },
     select: { id: true },
   });
   await openCase({
     type: "COPYRIGHT",
+    number,
     requestId: counter.id,
     parentCaseId: original?.id ?? null,
     creatorUserId: userId,
     actorId: userId,
     source: "counter_notice",
+    join: false,
   });
-  // A copy goes to the sender with the restore window (7.5, section 14)
+  // A copy goes to the sender with the restore window (7.5, section 14). The
+  // window is computed and shown in UTC so it never moves with the server timezone.
   const sender = safetyBox.decrypt(notice.contactEmail);
   if (sender) {
     await email(sender, `Counter notice on ${notice.number}`, [
       `The owner of the item in notice ${notice.number} sent a counter notice.`,
-      `Unless you tell us you filed an action, the item is restored between ${counter.restoreFrom!.toDateString()} and ${counter.restoreBy!.toDateString()}.`,
+      `Unless you tell us you filed an action, the item is restored between ${utcDay(counter.restoreFrom!)} and ${utcDay(counter.restoreBy!)} (UTC).`,
       `Counter notice from: ${input.name}. Address: ${input.postalAddress}. Phone: ${input.phone}.`,
     ]);
   }
