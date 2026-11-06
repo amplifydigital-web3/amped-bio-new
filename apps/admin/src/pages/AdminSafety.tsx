@@ -81,10 +81,14 @@ export function AdminSafety() {
       >
         <TabsList>
           <TabsTrigger value="queue">Queue</TabsTrigger>
+          <TabsTrigger value="requests">Requests</TabsTrigger>
           <TabsTrigger value="blocked">Blocked files</TabsTrigger>
         </TabsList>
         <TabsContent value="queue">
           <Queue lead={lead} onOpen={id => setParams({ case: id })} />
+        </TabsContent>
+        <TabsContent value="requests">
+          <Requests lead={lead} />
         </TabsContent>
         <TabsContent value="blocked">
           <BlockedFiles lead={lead} />
@@ -817,6 +821,248 @@ function BlockedFiles({ lead }: { lead: boolean }) {
             ))}
           </tbody>
         </SlabTable>
+      )}
+    </div>
+  );
+}
+
+// ----------------------------------------------------------------------------
+// Requests (boards ad3 and ad3b, R3)
+// ----------------------------------------------------------------------------
+
+const KIND_LABEL = {
+  ncii: "Take It Down",
+  copyright: "Copyright",
+  counter: "Counter notice",
+} as const;
+
+function Requests({ lead }: { lead: boolean }) {
+  const [kind, setKind] = useState<"" | "ncii" | "copyright" | "counter">("");
+  const [open, setOpen] = useState<string | null>(null);
+  const list = useQuery(trpc.safety.requests.list.queryOptions(kind ? { kind } : {}));
+  if (open) return <RequestView number={open} lead={lead} onClose={() => setOpen(null)} />;
+  return (
+    <div className="space-y-[13px]">
+      <label className="flex items-center gap-2 text-prism-meta text-prism-ink-2">
+        Kind
+        <select
+          value={kind}
+          onChange={event => setKind(event.target.value as typeof kind)}
+          className="h-touch rounded-prism-13 border border-prism-line bg-white px-3 text-prism-body text-prism-ink"
+        >
+          <option value="">All</option>
+          <option value="ncii">Take It Down</option>
+          <option value="copyright">Copyright</option>
+          <option value="counter">Counter notices</option>
+        </select>
+      </label>
+      <SlabTable label="Requests">
+        <SlabHead>
+          <th className={cn(thClass, stickyCell)}>Number</th>
+          <th className={thClass}>Kind</th>
+          <th className={thClass}>Received</th>
+          <th className={thClass}>Clock</th>
+          <th className={thClass}>Items</th>
+        </SlabHead>
+        <tbody>
+          {list.data?.map(row => (
+            <tr
+              key={row.number}
+              className={cn(rowClass, "cursor-pointer")}
+              onClick={() => setOpen(row.number)}
+            >
+              <td className={cn(tdClass, stickyCell, "font-semibold")}>
+                <button type="button" onClick={() => setOpen(row.number)}>
+                  {row.number}
+                </button>
+              </td>
+              <td className={tdClass}>
+                {KIND_LABEL[row.kind as keyof typeof KIND_LABEL] ?? row.kind}
+              </td>
+              <td className={tdClass}>{formatDayTime(row.receivedAt)}</td>
+              <td className={cn(tdClass, row.hoursLeft < 12 && "font-semibold text-prism-danger")}>
+                {row.hoursLeft >= 0 ? `${row.hoursLeft} h left` : `${-row.hoursLeft} h over`}
+              </td>
+              <td className={tdClass}>{formatCount(row.items)}</td>
+            </tr>
+          ))}
+          {list.data?.length === 0 && (
+            <tr className={rowClass}>
+              <td colSpan={5} className={cn(tdClass, "text-prism-ink-2")}>
+                No open requests.
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </SlabTable>
+    </div>
+  );
+}
+
+function RequestView({
+  number,
+  lead,
+  onClose,
+}: {
+  number: string;
+  lead: boolean;
+  onClose: () => void;
+}) {
+  const client = useQueryClient();
+  const view = useQuery(trpc.safety.requests.get.queryOptions({ number }));
+  const reveal = useMutation(trpc.safety.requests.revealContact.mutationOptions());
+  const decide = useMutation(trpc.safety.requests.decide.mutationOptions());
+  const suit = useMutation(trpc.safety.requests.suitFiled.mutationOptions());
+  const restore = useMutation(trpc.safety.requests.restore.mutationOptions());
+  const [contact, setContact] = useState<Record<string, string | null> | null>(null);
+  const [note, setNote] = useState("");
+  const [reference, setReference] = useState("");
+  const refresh = () => {
+    void client.invalidateQueries({ queryKey: trpc.safety.requests.get.queryKey({ number }) });
+    void client.invalidateQueries({ queryKey: trpc.safety.requests.list.queryKey() });
+  };
+  const act = async (work: () => Promise<unknown>, done: string) => {
+    try {
+      await work();
+      toast.success(done);
+      refresh();
+    } catch (error) {
+      toast.error(errorMessage(error));
+    }
+  };
+  if (view.isPending)
+    return <Skeleton delayMs={400} className="h-[233px] w-full rounded-prism-21" />;
+  if (view.isError) {
+    return (
+      <ErrorCard
+        title="This request did not load"
+        cause={errorMessage(view.error)}
+        retryLabel="Back"
+        onRetry={onClose}
+      />
+    );
+  }
+  const data = view.data;
+  const noteOk = note.trim().length >= SAFETY_NOTE_MIN;
+  return (
+    <div className="space-y-[13px]">
+      <div className="flex flex-wrap items-center gap-2">
+        <Button type="button" variant="outline" onClick={onClose}>
+          <ArrowLeft aria-hidden />
+          Requests
+        </Button>
+        <h2 className="text-prism-panel-title text-prism-ink">
+          {data.number} · {KIND_LABEL[data.kind as keyof typeof KIND_LABEL] ?? data.kind}
+        </h2>
+        {data.flagged && <WordBadge tone="warning">Many requests against this creator</WordBadge>}
+      </div>
+      <section className="prism-slab space-y-1 p-[13px] text-prism-meta text-prism-ink">
+        <p>
+          Received {formatDayTime(data.receivedAt)}, due {formatDayTime(data.dueAt)}
+        </p>
+        {data.work && <p>Claimed work: {data.work}</p>}
+        {data.statement && <p className="whitespace-pre-wrap">Statement: {data.statement}</p>}
+        <p>
+          Contact:{" "}
+          {contact
+            ? [contact.name, contact.email, contact.phone, contact.postalAddress]
+                .filter(Boolean)
+                .join(", ")
+            : data.email}
+        </p>
+        {lead && !contact && (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() =>
+              act(async () => setContact(await reveal.mutateAsync({ number })), "Shown and logged")
+            }
+          >
+            Show contact
+          </Button>
+        )}
+        {data.restoreFrom && data.restoreBy && (
+          <p>
+            Restore between {formatDayTime(data.restoreFrom)} and {formatDayTime(data.restoreBy)}
+          </p>
+        )}
+        <ul className="pt-1">
+          {data.items.map(item => (
+            <li key={item.publicId}>
+              {item.publicId}: {item.hidden ? "hidden" : "visible"}
+            </li>
+          ))}
+          {data.copies.map(copy => (
+            <li key={copy.publicId}>
+              Copy {copy.publicId}: {copy.hidden ? "hidden" : "visible"}
+            </li>
+          ))}
+        </ul>
+      </section>
+      {!data.closedAt && (
+        <section className="prism-slab space-y-[13px] p-[13px]">
+          <Textarea
+            aria-label="Note for the log"
+            placeholder={`Note for the log, at least ${SAFETY_NOTE_MIN} characters`}
+            value={note}
+            onChange={event => setNote(event.target.value)}
+          />
+          <div className="flex flex-wrap gap-2">
+            {data.kind !== "counter" ? (
+              <>
+                <Button
+                  type="button"
+                  disabled={!noteOk || decide.isPending}
+                  onClick={() =>
+                    act(() => decide.mutateAsync({ number, outcome: "removed", note }), "Removed")
+                  }
+                >
+                  {data.kind === "ncii" ? "Remove all" : "Disable"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={!noteOk || decide.isPending}
+                  onClick={() =>
+                    act(
+                      () => decide.mutateAsync({ number, outcome: "not_valid", note }),
+                      "Closed as not valid"
+                    )
+                  }
+                >
+                  Not valid
+                </Button>
+              </>
+            ) : (
+              <>
+                <input
+                  aria-label="Court and case number"
+                  placeholder="Court and case number"
+                  value={reference}
+                  onChange={event => setReference(event.target.value)}
+                  className="h-touch rounded-prism-13 border border-prism-line px-3"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={reference.trim().length < 3 || suit.isPending}
+                  onClick={() => act(() => suit.mutateAsync({ number, reference }), "Kept hidden")}
+                >
+                  Claimant filed suit
+                </Button>
+                {lead && (
+                  <Button
+                    type="button"
+                    disabled={restore.isPending}
+                    onClick={() => act(() => restore.mutateAsync({ number }), "Restored")}
+                  >
+                    Restore
+                  </Button>
+                )}
+              </>
+            )}
+          </div>
+        </section>
       )}
     </div>
   );

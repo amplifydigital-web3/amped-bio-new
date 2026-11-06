@@ -150,6 +150,12 @@ const libraryFanOut = vi.hoisted(() => ({
 
 vi.mock("@repo/database", () => ({ prisma: db.prisma, Prisma: { JsonNull: "JsonNull" } }));
 vi.mock("../utils/auth", () => ({ auth: { api: {} } }));
+const safetyIntake = vi.hoisted(() => ({
+  intakeReport: vi.fn(async (_item: unknown, report: { reason: string }) => ({
+    hidden: report.reason === "csam",
+  })),
+}));
+vi.mock("../services/safety/reports", () => safetyIntake);
 vi.mock("../utils/fileUrlResolver", () => ({ getFileUrl: vi.fn(async () => null) }));
 vi.mock("../utils/rateLimit", () => ({
   hitRateLimit: vi.fn(async (key: string) => {
@@ -555,24 +561,27 @@ describe("public reads", () => {
 });
 
 describe("report", () => {
-  it("records a report on a public item and raises an alert for CSAM", async () => {
+  it("sends a report into Safety intake and raises an alert for CSAM (#28 R3)", async () => {
     const item = addItem({ publishState: "PUBLISHED" });
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
     await expect(
       caller(null).report({ publicId: item.publicId, reason: "csam", details: "  see 0:12  " })
-    ).resolves.toEqual({ received: true });
-    expect(db.reports[0]).toMatchObject({
-      reason: "csam",
-      details: "see 0:12",
-      reporterUserId: null,
-    });
+    ).resolves.toEqual({ received: true, hidden: true, form: null });
+    expect(safetyIntake.intakeReport).toHaveBeenCalledWith(
+      expect.objectContaining({ publicId: item.publicId }),
+      { reason: "csam", details: "see 0:12", reporterUserId: null }
+    );
     expect(error).toHaveBeenCalledWith(
       "[content] ALERT csam report",
       expect.stringContaining(item.publicId)
     );
-    // A report never takes anything down by itself
-    expect(db.items[0]).toMatchObject({ publishState: "PUBLISHED", moderationState: "CLEAR" });
     error.mockRestore();
+    // "This is me and I did not agree" continues on the Take It Down form
+    await expect(
+      caller(null).report({ publicId: item.publicId, reason: "ncii" })
+    ).resolves.toMatchObject({
+      form: "takedown",
+    });
   });
 
   it("lets a fan who passed the Over 18 check report an 18+ item", async () => {
@@ -589,8 +598,11 @@ describe("report", () => {
     });
     await expect(
       caller(8).report({ publicId: item.publicId, reason: "adult" })
-    ).resolves.toEqual({ received: true });
-    expect(db.reports.at(-1)).toMatchObject({ reason: "adult", reporterUserId: 8 });
+    ).resolves.toEqual({ received: true, hidden: false, form: null });
+    expect(safetyIntake.intakeReport).toHaveBeenCalledWith(
+      expect.objectContaining({ publicId: item.publicId }),
+      { reason: "adult", details: null, reporterUserId: 8 }
+    );
   });
 
   it("is limited to 10 an hour and hides drafts", async () => {

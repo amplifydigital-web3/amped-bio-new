@@ -39,26 +39,48 @@ export const contentPublicItemSchema = z.object({
   publicId: contentPublicIdSchema,
 });
 
-/** Report reasons, as ContentReport.reason stores them (spec 3.3). */
+/**
+ * Report reasons, as ContentReport.reason stores them, in the order fans see them
+ * (adult content review 7.1, R3; `csam` keeps its value). `store_policy` is offered
+ * on store pages only.
+ */
 export const CONTENT_REPORT_REASONS = [
-  "copyright",
+  "ncii",
+  "withdraw",
   "csam",
   "adult",
+  "copyright",
   "harassment",
-  "malware",
   "scam",
+  "malware",
   "other",
+  "store_policy",
 ] as const;
 export type ContentReportReason = (typeof CONTENT_REPORT_REASONS)[number];
 
+/** Reasons on an item's Report sheet (store pages add `store_policy`). */
+export const CONTENT_ITEM_REPORT_REASONS = CONTENT_REPORT_REASONS.filter(
+  reason => reason !== "store_policy"
+) as Exclude<ContentReportReason, "store_policy">[];
+
 export const CONTENT_REPORT_LABELS: Record<ContentReportReason, string> = {
-  copyright: "It uses my work without permission",
-  csam: "It sexualizes a child",
-  adult: "It is sexual or explicit and not labeled 18+",
-  harassment: "It harasses or threatens someone",
-  malware: "The file is harmful or a scam download",
-  scam: "It is a scam or misleading",
+  ncii: "This is me and I did not agree",
+  withdraw: "I appear in this and withdraw consent",
+  csam: "This shows a child",
+  adult: "Adult item not labeled",
+  copyright: "It copies my work",
+  harassment: "Harassment",
+  scam: "Scam or fraud",
+  malware: "The file is harmful",
   other: "Something else",
+  store_policy: "Store policy breaks the rules",
+};
+
+/** Reasons that continue on a public notice form instead of a report (7.1, 7.5). */
+export const CONTENT_REPORT_FORM: Partial<Record<ContentReportReason, "takedown" | "copyright">> = {
+  ncii: "takedown",
+  withdraw: "takedown",
+  copyright: "copyright",
 };
 
 export const contentReportSchema = z.object({

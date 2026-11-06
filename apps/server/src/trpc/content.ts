@@ -39,6 +39,7 @@ import {
   contentReportSchema,
   contentRetrySchema,
   contentPreviewSchema,
+  CONTENT_REPORT_FORM,
   contentAdultItemSchema,
   contentAdultShelfSchema,
   type ContentAdultItem,
@@ -48,6 +49,7 @@ import {
   type ContentUploadKind,
 } from "@repo/constants";
 import { privateProcedure, publicProcedure, router } from "./trpc";
+import { intakeReport } from "../services/safety/reports";
 import {
   adultOpen,
   canViewAdult,
@@ -1173,9 +1175,11 @@ export const contentRouter = router({
     }),
 
   /**
-   * Report content (spec 3.11). Recorded for the admin queue (PR 7). A CSAM
-   * report also raises an alert line for on call; nothing is taken down by a
-   * report alone, so a report can not be used to remove someone's work.
+   * Report content (adult content review 7.1, R3). Every report joins or opens a
+   * Safety case. "This shows a child" hides the item at once and opens a Critical
+   * case, behind the abuse guard (services/safety/reports.ts); every other reason
+   * hides nothing. `form` tells the page to continue on the Take It Down or
+   * copyright form.
    */
   report: publicProcedure.input(contentReportSchema).mutation(async ({ ctx, input }) => {
     const key = `content-report:${viewerKey(ctx)}`;
@@ -1198,19 +1202,14 @@ export const contentRouter = router({
     if (!item || (!visible && !adultVisible && item.userId !== viewerId)) {
       throw new TRPCError({ code: "NOT_FOUND", message: VIEWER_MESSAGES.notFound });
     }
-    await prisma.contentReport.create({
-      data: {
-        id: uuidv7(),
-        contentItemId: item.id,
-        reporterUserId: viewerId,
-        reason: input.reason,
-        details: input.details || null,
-      },
-    });
+    const intake = await intakeReport(
+      { id: item.id, publicId: item.publicId, userId: item.userId },
+      { reason: input.reason, details: input.details || null, reporterUserId: viewerId }
+    );
     const line = JSON.stringify({ publicId: item.publicId, reason: input.reason });
     if (input.reason === "csam") console.error("[content] ALERT csam report", line);
     else console.info("[content] report", line);
-    return { received: true };
+    return { received: true, hidden: intake.hidden, form: CONTENT_REPORT_FORM[input.reason] ?? null };
   }),
 
   /** Public items for the sitemap (decision 23). */

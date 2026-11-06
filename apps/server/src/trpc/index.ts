@@ -5,6 +5,7 @@ import appRouter from "./handle";
 import { rnsRouter } from "./rns";
 import { adminRouter } from "./admin/index";
 import { safetyRouter } from "./safety";
+import { copyrightRouter, takedownRouter } from "./takedown";
 import { uploadRouter } from "./upload";
 import { themeRouter } from "./theme";
 import { themeGalleryRouter } from "./themeGallery";
@@ -53,6 +54,9 @@ const mergedRouter = router({
   admin: adminRouter,
   // Safety (#28 R1): moderators and safety leads, not admin by default
   safety: safetyRouter,
+  // Public notice forms (#28 R3)
+  takedown: takedownRouter,
+  copyright: copyrightRouter,
   upload: uploadRouter,
   theme: themeRouter,
   themeGallery: themeGalleryRouter,

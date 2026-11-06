@@ -627,6 +627,25 @@ export function ProfileView({
         >
           Privacy Policy
         </a>
+        {/* Adult content review 7.2 and 7.5 (R3): linked from every page footer */}
+        <a
+          href="/takedown"
+          className={cn(
+            "inline-flex min-h-[44px] items-center px-1 text-[13px] leading-[16px] underline-offset-2 hover:underline",
+            CREATOR_FOCUS
+          )}
+        >
+          Take It Down
+        </a>
+        <a
+          href="/copyright"
+          className={cn(
+            "inline-flex min-h-[44px] items-center px-1 text-[13px] leading-[16px] underline-offset-2 hover:underline",
+            CREATOR_FOCUS
+          )}
+        >
+          Copyright
+        </a>
       </div>
     </footer>
   );
