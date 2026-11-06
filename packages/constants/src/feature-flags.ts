@@ -315,6 +315,15 @@ export const FEATURE_FLAGS = {
     default: false,
     env: {},
   },
+  // Authbase storefront (Build Board #66, AB-4): /partners/v1 and merchant webhooks
+  partnerApi: {
+    label: "Partner API",
+    description:
+      "Merchants (Authbase) can call /partners/v1 with an API key, and Amped.Bio sends them signed order webhooks.",
+    scope: "server",
+    default: false,
+    env: {},
+  },
   // Authbase storefront (Build Board #66, AB-6, M10): turn on after Rob sets the overrides for
   // creators selling today with Standard (open question 8)
   sellerRequiresEnhanced: {
