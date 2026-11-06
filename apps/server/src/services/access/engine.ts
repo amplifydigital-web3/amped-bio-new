@@ -618,13 +618,17 @@ export async function eligibleUserIds(
     if (!plan || plan.ownerUserId !== ownerUserId) return { userIds: [], nextCursor: null };
     const now = new Date();
     const graceStart = new Date(now.getTime() - MEMBERSHIP_LIMITS.graceDays * 86_400_000);
+    // Same window as accessUntil (MB-1): an active row only counts through its period
+    // end plus one keeper tick, so a lapsed row never stays in a broadcast audience
+    const activeSince = new Date(now.getTime() - MEMBERSHIP_LIMITS.activeLapseMs);
     const rows = await prisma.membership.findMany({
       where: {
+        planId: hexToId(rule.params.planId as string),
         creatorUserId: ownerUserId,
         fanUserId: { gt: after },
         fan: { block: "no" },
         OR: [
-          { status: "active" },
+          { status: "active", currentPeriodEnd: { gt: activeSince } },
           { status: "canceled", currentPeriodEnd: { gt: now } },
           { status: "past_due", pastDueSince: { gt: graceStart } },
         ],
