@@ -175,7 +175,7 @@ export async function viewerMembership(viewerId: number, creatorUserId: number) 
  * extends past this: a row that is still active days later (the chain subscription ended
  * outside this server, or the keeper never ran) closes on its own.
  */
-const ACTIVE_LAPSE_MS = 60 * 60 * 1000;
+const ACTIVE_LAPSE_MS = MEMBERSHIP_LIMITS.activeLapseMs;
 
 /** Until when a membership opens members only items, or null when it does not. */
 export function accessUntil(

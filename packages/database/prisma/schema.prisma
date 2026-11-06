@@ -1560,6 +1560,9 @@ model ContentItem {
   adult            Boolean             @default(false)
   // #28 R1 (adult content review 5.3): made or changed with AI. Null until the creator answers.
   aiLabel          Boolean?            @map("ai_label")
+  // Set when the classifier returns explicit or a reviewer labels the item 18+ (#28 F1).
+  // While set, the owner can not turn the 18+ label off.
+  explicitAt       DateTime?           @map("explicit_at")
   moderationState  ModerationState     @default(PENDING) @map("moderation_state")
   moderationReason String?             @map("moderation_reason") @db.VarChar(255)
   durationMs       Int?                @map("duration_ms")
