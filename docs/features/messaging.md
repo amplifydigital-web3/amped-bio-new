@@ -281,13 +281,16 @@ One transaction: re check `canMessage`, upsert the conversation by `pairKey`, in
 1. Bell: `notifications.list` (latest 20, newest first, with the actor), `notifications.unseenCount` (capped at 100 for the 99+ badge), `notifications.markSeen({ ids? })` (no ids marks every unseen row, which is what opening the bell does). Opening a conversation marks its MESSAGE and REQUEST rows seen. A muted conversation adds no row. Broadcast delivery adds one BROADCAST row per recipient (`groupKey = broadcast:{id}`). Each new row sends `notification.new` on the realtime stream.
 2. Push: `web-push` with VAPID keys (`VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`). `push.publicKey` (null while push is not set up), `push.subscribe`, `push.unsubscribe`. `push.subscribe` accepts only https endpoints on known push services (`PUSH_SERVICE_HOSTS`: FCM, Mozilla, Apple, Windows WNS), with no port, credentials or IP address, because the job loop POSTs to the stored URL; `sendPush` drops any stored row outside the list. Each push request times out after 10 s. A push is queued only when the recipient has a device, push is on, the conversation is not muted, and no app stream is open (`isLive`). It is checked again when it runs: nothing is sent if the message was read or unsent meanwhile. A 404 or 410 from the push service deletes the subscription; other failures retry with backoff up to 5 attempts. Payload: title "@handle", body "Sent you a message" for requests and for senders with any 18+ label (a block or a content item), otherwise the first 80 characters. The tap opens `/inbox/{conversationId}`. The service worker (`apps/client/public/sw.js`) is push only: no cache, no fetch handler, and no system notification while the app is focused.
 3. Email: one pending `NotificationJob` (channel email) per conversation, enforced by the unique `dedupeKey` (`email:{userId}:{conversationId}`, cleared when the loop claims the job), runs at +30 minutes and sends only if the conversation is still unread, the person has a verified email, the conversation is not muted, and message emails are on. At most one per conversation every 6 hours and 3 a day. The email never carries the message text. Requests say so. The footer link (`https://API_HOST/email/messages-off?t=`, signed per account, no expiry) opens a page with one button that turns message emails off. It is a POST so mail scanners that open links cannot switch people off.
-4. The job loop (`services/notifications/jobs.ts`) uses the Telegram claim pattern (conditional `updateMany`), polls every 2 s behind a Redis lock so one instance polls (the owner is random per process; when Redis is configured but fails, the loop pauses rather than run unguarded), and purges finished jobs after 30 days.
+4. Redacted forms (QA MS-Q19). A request, and a sender with any 18+ label, never shows message text outside the conversation. In app toast for a request: title "@{handle} wants to message you" only, no description (`apps/client/src/components/panels/inbox/realtime.tsx`). The toast for an 18+ sender still shows the first line on `development` and needs the same title only form (build follow up below). Push: title "@{handle}", body "Sent you a message" (`messagePushPayload` in `services/notifications/jobs.ts`). Email reminder for a request: subject "You have a message request on Amped.Bio", heading "You have a message request", button "Open Requests", no text (`apps/server/src/utils/email/MessageReminderTemplate.tsx`). Board m1 draws all three.
+5. The job loop (`services/notifications/jobs.ts`) uses the Telegram claim pattern (conditional `updateMany`), polls every 2 s behind a Redis lock so one instance polls (the owner is random per process; when Redis is configured but fails, the loop pauses rather than run unguarded), and purges finished jobs after 30 days.
 
 ### 7.5 tRPC routes (`trpc/messages/*`)
 
-`messages.list({ folder, filter, cursor })`, `messages.get({ conversationId, cursor })`, `messages.canMessage({ handle })`, `messages.send({ to | conversationId, body, idempotencyKey })`, `messages.accept`, `messages.delete` (request), `messages.read({ conversationId, messageId })`, `messages.unsend({ messageId })`, `messages.clear` (delete for me), `messages.mute({ until })`, `messages.archive`, `messages.block`, `messages.unblock`, `messages.report({ reason, note, messageId? })`, `messages.settings.get`, `messages.settings.set`, `messages.search({ q })` over the user's own conversations by name and handle.
+`messages.list({ folder, filter, cursor })`, `messages.get({ conversationId, cursor })`, `messages.canMessage({ handle })`, `messages.send({ to | conversationId, body, idempotencyKey })`, `messages.accept`, `messages.deleteRequest`, `messages.read({ conversationId, messageId })`, `messages.unsend({ messageId })`, `messages.clear` (delete for me), `messages.mute({ until })`, `messages.archive`, `messages.block`, `messages.unblock`, `messages.report({ reason, note, messageId? })`, `messages.settings.get`, `messages.settings.set`, `messages.search({ q })` over the user's own conversations by name and handle.
 
-Filters on the list: All, Unread, Members, Pool fans, Followers. The relation label on each row ("Member", "Pool fan", "Follower") comes from `views.ts` as today.
+Filters on the list: All, Unread, Pool fans, Followers (`MESSAGE_UI.filters`, `apps/client/src/components/panels/inbox/ConversationList.tsx`). Members joins the filters when Memberships ships; until then no Members chip is drawn or built (QA MS-Q4). The relation label on each row ("Member", "Pool fan", "Follows you", "You follow") comes from `views.ts` and `MESSAGE_UI.relation` (QA MS-Q21).
+
+Requests are deleted one at a time with `messages.deleteRequest`. v1 has no bulk delete and no board draws Delete all requests. A bulk action needs `messages.deleteAllRequests` added to the M2 scope before it is drawn (QA MS-Q7).
 
 Broadcast routes: `broadcast.audienceCounts` returns pool, follower and deduplicated totals; `broadcast.create` takes `audience: POOL_MEMBERS | FOLLOWERS | POOL_AND_FOLLOWERS` and `poolId` when the pool is included. Quotas, first send review and pause rules are unchanged and count per creator across audiences.
 
@@ -305,14 +308,23 @@ Roles: admin and moderator (both exist). safety_lead joins when Adult Content Re
 
 Built in M7: `admin.messaging.*` on `moderatorProcedure` (admin or moderator). The case view shows the latest 60 messages of the reported conversation with the reported one marked (and its snapshot when unsent), refused for a conversation nobody reported. Flagged terms list the sender, the matched words and a count, never the text: text opens only from a report. Every case opened, resolve, pause, resume, caps save and kill switch change goes to the admin log (SiteSettings `messaging.adminLog`, latest 200) and the server log. The kill switch writes SiteSettings `messaging.enabled` and, when off, `messaging.enabled.reason`; turning off needs a reason. Telegram era thread reports resolve through the ids the M1 copy reused. Live streams count this server only. A moderator sees only Messaging in the admin; other routes send them there. The recipient pause threshold (5 people or 1%) stays in code.
 
+Screen as built and drawn on board m6 (QA 3 Nov):
+
+1. Admin rail, in the order of `apps/admin/src/shell/destinations.ts`: Dashboard, Users; Content: Themes, Files, Broadcasts, Messaging; Money: Pools, USDC, Payments; Access: OAuth clients, Feature flags. A moderator sees only Messaging. The phone dock is Dashboard, Users, Pools, USDC, More; Messaging opens from More (MS-Q12).
+2. Health labels: "Messages last hour", "Live streams, this server", "Push delivered, 24 hr", "Email reminders, 24 hr", "Open reports" (MS-Q26).
+3. Tabs: Reports, Paused, Caps, Flagged terms, Log. Log lists the admin log entries (MS-Q26).
+4. Caps shows exactly the five `messaging.caps.*` inputs in `MESSAGE_CAP_SETTING_KEYS`. The automatic pause rules (3 blocks in 7 days; reports from 1% of a person's conversations, at least 5 people) show as read only text under the Paused list, never as a Caps input (MS-Q13).
+5. While the kill switch is off the page shows the warning notice "Every Inbox is read only" with when and the reason, and the button reads "Turn messaging on" (MS-Q26). The `messages` feature flag (admin › Feature flags) wins over the kill switch: while the flag is off the page says "Off by the messages feature flag (Feature flags). The switch here cannot turn it on." and Turn messaging on is disabled. Messaging is turned on for everyone in Feature flags, never by an environment variable.
+6. At 390: health tiles stack two per row, the tabs scroll sideways inside their container, Reports render as cards, and the case view opens as a full screen sheet (MS-Q14).
+
 ## 8. Client
 
 ### 8.1 Shell
 
 1. Rail: Inbox (MessageCircle icon) in the Start group after Explore, behind the `messages` feature flag (admin › Feature flags). A count badge shows unread conversations, capped at 99+. Requests and broadcasts never raise it; they count on their tab and on the bell. Badge: 20 high pill, 13/16 700 white on #5650A2 (6.85:1), tabular figures (Prism v1.1 addition pending approval).
-2. Phone dock: Home, Page, Inbox, Wallet, More. Design moves to More.
-3. Top bar bell: count of unseen alerts in a small pill on the bell. The popover (desktop) or sheet (phone) lists alerts with avatar, "@handle sent you a message", time, and an unread mark. Mark all as seen. View all opens Inbox.
-4. Toast (D21 convention): G1 clear, r13, min 55, bottom left of the context field (above the dock on phones), sender and first line, one ghost action Reply, dismisses after 5 s. Never for muted conversations, never while that conversation is open.
+2. Phone dock: Home, Page, Inbox, Wallet, More. Design moves to More. The More sheet lists Explore, Content, Design, Analytics, People, My Pool, the D01 order in `apps/client/src/components/shell/destinations.ts` (QA MS-Q18). Content, People and My Pool sit behind their own feature flags (`content`, `fanGraph`, `creatorPool`); a destination whose flag is off is not listed. With the `messages` flag off there is no Inbox and the dock stays Home, Page, Design, Wallet, More.
+3. Top bar bell: count of unseen alerts in a small pill on the bell; the count equals the unseen rows. The popover (desktop) or bottom sheet (phone, `BellCenter.tsx`) lists alerts with avatar, the `MESSAGE_UI.bell` line, time, and an unread mark: "@{handle} sent you a message" (or "sent you {n} messages"), "@{handle} wants to message you", "@{handle} sent a broadcast". Mark all as seen. Open Inbox. Empty: "Nothing new" with "Messages and broadcasts show up here." The bell has no settings link; settings live in Account, Messages (QA MS-Q16, MS-Q20).
+4. Toast (D21 convention): G1 clear, r13, min 55, bottom left of the context field (above the dock on phones), sender and first line, one ghost action Reply and a 44 dismiss on every size, dismisses after 5 s. A request toast carries the title only (7.4 item 4) (QA MS-Q17). Never for muted conversations, never while that conversation is open.
 5. Tab title prefix "(3)" while there are unseen alerts.
 
 ### 8.2 Inbox (`/inbox`, `/inbox/{conversationId}`)
@@ -320,17 +332,23 @@ Built in M7: `admin.messaging.*` on `moderatorProcedure` (admin or moderator). T
 1. Desktop: list on the left (360 wide), conversation on the right. Phone: list, then the conversation full screen with Back.
 2. List header: Primary and Requests tabs (Requests shows its count), a search well, filter chips. New message (pen icon) opens the people search sheet.
 3. Row: avatar, name, relation label, last message preview (Message removed when unsent), time, unread dot and count. Muted shows a muted mark.
-4. Conversation: header with avatar, name and handle (opens their page), relation label, and a menu: Mute, Archive, Block, Report, Delete for me. Messages grouped by day; own messages right in the indigo bubble, theirs left on clear glass. Read receipt under the last own message ("Seen 2:14 PM") when both sides keep receipts on. Typing dots.
+4. Conversation: header with avatar, name and handle (opens their page), relation label, and a menu: Mute, Archive, Block, Report, Delete for me. Block and Delete for me ask first in a dialog (`blockTitle`, `blockBody`, `clearTitle`, `clearBody`), as built in `ConversationView.tsx`. There is no Undo toast for these actions (QA MS-Q5). Messages grouped by day; own messages right in the indigo bubble, theirs left on clear glass. Read receipt under the last own message ("Seen 2:14 PM") when both sides keep receipts on. Typing dots.
 5. Composer: a well that grows to 6 lines, a character count from 1,800, Send (indigo 55 circle, primary action; dashed disabled ring while empty). Enter sends on desktop, Shift Enter breaks a line. Draft kept per conversation.
-6. Request view: the stranger's messages with links as plain text, a notice "@handle is not someone you follow. Links are off until you accept.", and Accept (primary), Delete, Block, Report. Replying accepts.
-7. Refusals as inline notices: "@maya takes messages from followers and members. Follow to message her." with Follow. "You have reached today's limit. Try again tomorrow." "@maya is not taking messages."
+6. Request view: the stranger's messages with links as plain text in body type (no monospace, no unfurl; only http and https URLs are detected, `parts.tsx`, `util.ts`) (QA MS-Q22), a notice "@handle is not someone you follow. Links are off until you accept.", and Accept (primary), Delete, Block, Report. Replying accepts. The sender's side shows the notice `MESSAGE_UI.waitingAccept` above the composer, and after the 3rd message (`messagesBeforeAccept`) the composer gives way to the `awaiting_accept` refusal until the recipient accepts (QA MS-Q6).
+7. Refusals as inline notices, verbatim from `MESSAGE_REFUSALS`, using they and them: "@maya takes messages from followers and members. Follow to message them." with Follow (QA MS-Q23). "You have reached today's message limit. Try again tomorrow." "@maya is not taking messages."
 8. Broadcast tab, the third tab. See 8.6.
 
 9. Built in M5: the open conversation lives in `?c=`; `/inbox/{conversationId}` (push and email links) redirects there. `?to={handle}` opens New message for that handle. The Broadcast tab shows the existing broadcast inbox until M9 rebuilds it. Message text search runs in the client over the loaded rows (bodies are encrypted at rest); people search runs on the server. Touch screens show a message's actions after a tap on the bubble.
 
 ### 8.3 Settings (Account, Messages)
 
-Who can message me (rule tiles as today plus No one, with the stake input for the stake rule), Requests explainer, Read receipts switch, Notifications (Push on this device with Turn on, Email reminders), Blocked accounts list with Unblock. The iPhone install hint shows only on iOS Safari when not installed: "To get alerts on iPhone, add Amped.Bio to your Home Screen, then open it from there."
+Who can message me (rule tiles as today plus No one, with the stake input for the stake rule), New conversations per day, Requests explainer, Read receipts switch, Notifications (Push on this device with Turn on, Email reminders), Blocked accounts list with Unblock. The iPhone install hint shows only on iOS Safari when not installed: "To get alerts on iPhone, add Amped.Bio to your Home Screen, then open it from there."
+
+Unavailable rules (QA MS-Q10). Until Memberships ships, Members only is disabled with "Memberships are coming soon." and the `not_member` refusal has no action (no See membership). Without a pool, Pool fans only and Minimum stake are disabled with "Create your pool to use this rule." (`apps/client/src/components/panels/account/MessagesRow.tsx`).
+
+New conversations per day (QA MS-Q11). This is the recipient's `dailyNewThreadCap`. Past it the server refuses the sender with `cap_reached` ("@{handle} has reached today's limit for new conversations. Try again tomorrow."). Nothing waits or queues. Helper: "Past this, people see that you have reached today's limit." Build step: add the field to `MessagesRow.tsx` as a number well bound to `messages.settings.set({ dailyNewThreadCap })` (the router already accepts it in `apps/server/src/trpc/messages.ts`), and add the helper to `MESSAGE_UI.settings` as `dailyCapHelp`.
+
+Phone 390 draws the rule tiles stacked one per row, the stake well and this field (QA MS-Q25).
 
 ### 8.4 Message me block
 
@@ -338,16 +356,24 @@ Block kind `message` replaces `telegram_message`; existing blocks migrate in pla
 
 Built in M6: block kind `message` (label only, 40 characters, default "Message me"; `messageBlockConfigSchema`). `getHandle` returns `messageDoor` `{ open, ruleKind }` when the page carries the block: open unless the kill switch is on, the page is unpublished or suspended, the rule is No one, or inbound messages are paused. The door never carries an amount. Migration `20261103020000_message_block` turns `telegram_message` rows into `message` rows in place; a label still at "Message me on Telegram" becomes "Message me". Until it runs, a `telegram_message` row renders and edits as Message me behind the `messages` feature flag (admin › Feature flags). Signed out, the text waits in session storage under `amped_message_draft` while the fan sign up card opens, and the person returns with `?message=1` to the same sheet with the text kept; they tap Send themselves. The owner's tap shows a short note and Open my Inbox.
 
+Door states drawn on board m4 (QA 3 Nov):
+
+1. Signed out: "Sign up to message {name}. Your message is kept, and you send it when you come back." Nothing sends after sign up without the person tapping Send (MS-Q3).
+2. Sheet outcomes from `MESSAGE_UI.door`: Sent ("{name} gets it in their Inbox. Replies show up in yours."), Sent as a request ("It waits in {name}'s Requests until they accept. You can send up to 3 messages until then."), Owner ("This is your Message me button"), Failed ("Your message was not sent. Try again." with Send kept) (MS-Q9).
+3. New message to someone who does not follow you shows `MESSAGE_UI.goesToRequests` before the first send (MS-Q9).
+4. At 640 and up the composer is the centered Prism Dialog over the page, not a bottom sheet (MS-Q24).
+5. The editor block has no migration note and names no Telegram. The M6 migration renames silently (MS-Q8).
+
 ### 8.5 Service worker and manifest
 
 New `apps/client/public/sw.js` for push only (no offline caching in v1) and `manifest.webmanifest` with `display: standalone`, name Amped.Bio, the brand mark icons. Registration after sign in.
 
 ### 8.6 Broadcast in Messages
 
-1. **Fan view.** Inbox, Broadcast tab: broadcasts from creators the person follows or stakes with, newest first, with the creator, the audience line ("To pool stakers", "To followers") and a Report action. Unread broadcasts count on the bell, not on the rail badge, so a busy creator list never drowns out direct messages. Mute a creator's broadcasts from the creator row (uses `NotificationPreference.mutedUntil`).
-2. **Creator view.** The same tab shows New broadcast, the quota line ("2 of 3 left today"), and Sent with recipient counts and status (In review, Sending, Sent, Rejected).
-3. **Composer.** Title, body (Markdown subset, 5,000 characters, 5 links), and an audience picker: Pool stakers (with the count), Followers (with the count), Both. The deduplicated total shows before send. First broadcast notice: "Your first broadcast is reviewed by Amped before it sends." The Testnet notice shows in the preview when the body mentions the pool, staking or tREVO.
-4. **My Pool.** The Broadcasts tab is removed and the Telegram group tab goes with Telegram, leaving Overview. Overview gains one Broadcast card with the last broadcast and a Broadcast button. The button opens Inbox, Broadcast, New broadcast with Pool stakers picked.
+1. **Fan view.** Inbox, Broadcast tab: broadcasts from creators the person follows or stakes with, newest first, with the creator, the audience line ("To pool stakers", "To followers") and a Report action. Unread broadcasts count on the bell, not on the rail badge, so a busy creator list never drowns out direct messages. Mute a creator's broadcasts from the creator row (uses `NotificationPreference.mutedUntil`). The Testnet notice (`TESTNET_NOTICE`) shows on every opened broadcast that goes to pool stakers or mentions the pool, staking or tREVO. Collapsed list items show the audience line only (QA MS-Q28).
+2. **Creator view.** The same tab shows New broadcast, the quota line ("2 of 3 left today"), and Sent with recipient counts and status (In review, Sending, Sent, Rejected). Limit states: the daily "3 of 3 sent today" and the weekly "10 of 10 this week" (`BROADCAST_LIMITS`), each with when sending opens again (QA MS-Q27). Today's composer folds the weekly cap into `leftToday` and says "No sends left today. You can send again tomorrow." even when the weekly cap is the cause (build follow up below). At 390 the audience tiles stack and Preview and Send pin above the dock (QA MS-Q15).
+3. **Composer.** Title, body (Markdown subset, 5,000 characters, 5 links), and an audience picker: Pool stakers (with the count), Followers (with the count), Both. The deduplicated total shows before send. First broadcast notice: "Your first broadcast is reviewed by Amped before it sends." It shows only until Amped approves the creator's first broadcast (`nextSendReviewed` from `getQuota` in `services/broadcast/index.ts`) (QA MS-Q27). The Testnet notice shows in the preview when the body mentions the pool, staking or tREVO.
+4. **My Pool.** The Broadcasts tab is removed. The Telegram group tab stays (Rob, 4 Nov: the Telegram code is kept for a gated feature later, card #65). Overview gains one Broadcast card with the last broadcast and a Broadcast button, drawn at 1440 and 390 (QA MS-Q15). The button opens Inbox, Broadcast, New broadcast with Pool stakers picked.
 5. **Routes.** `/inbox?tab=broadcast`, `/inbox/broadcast/new?audience=pool`, `/inbox/broadcast/{id}`.
 
 ## 9. Copy
@@ -359,8 +385,13 @@ All strings live in `packages/constants/src/messages.ts` and pass `check:copy`. 
 - Empty Requests: "No requests. Messages from people you don't follow show up here."
 - Request notice: "@{handle} is not someone you follow. Links are off until you accept."
 - Push ask: "Get a notice when someone messages you?" Buttons: "Turn on", "Not now".
-- Refusals: closed "@{handle} is not taking messages." rule "@{handle} takes messages from {rule label}." cap "You have reached today's message limit. Try again tomorrow." awaiting "Wait for @{handle} to accept your request before sending more."
-- Report reasons: Spam, Harassment, Financial promise, Other.
+- Refusals (`MESSAGE_REFUSALS`, verbatim on every board, they and them): closed "@{handle} is not taking messages." rule "@{handle} takes messages from {rule label}." with "Follow to message them." for the follower rule; not_member "@{handle} takes messages from members only." with no action. sender cap "You have reached today's message limit. Try again tomorrow." recipient cap "@{handle} has reached today's limit for new conversations. Try again tomorrow." awaiting "Wait for @{handle} to accept your request before sending more."
+- Sender paused: "You can't send messages right now." with Contact support (the refusal card on `development` has no Contact support yet; build follow up below). Never the reason, the count or the end time. Spec 7.3 item 6 holds: a blocked person is never told, and the automatic threshold (3 blocks in 7 days) would let a sender work out who blocked them (QA MS-Q1).
+- Financial promise warning: "This reads like a financial promise. The Amped.Bio rules do not allow them, and Amped can see flagged messages." No banned money word on this or any messaging surface (QA MS-Q2).
+- Bell: "@{handle} sent you a message", "@{handle} wants to message you", "@{handle} sent a broadcast", "Nothing new", "Open Inbox", "Mark all as seen".
+- Door signed out: "Sign up to message {name}. Your message is kept, and you send it when you come back."
+- Push ask body: "Your browser asks next. You can turn it off any time in Account, Messages." Receipt under an own message: "Sent", then "Seen {time}". There is no Delivered state (QA MS-Q25).
+- Report reasons: Spam, Harassment, Financial promise, Something else (`MESSAGE_REPORT_REASONS`).
 - Broadcast tab: "Broadcast". Audience picker: "Pool stakers", "Followers", "Both". Audience line: "To pool stakers", "To followers", "To followers and pool stakers". Quota: "{n} of 3 left today". First send: "Your first broadcast is reviewed by Amped before it sends." My Pool button: "Broadcast".
 
 ## 10. Analytics
@@ -382,7 +413,12 @@ Events through the analytics registry: `message_sent` (folder, relation, is_firs
 11. Admin pauses a sender and the next send refuses `sender_paused`; the kill switch makes the Inbox read only.
 12. A follower who does not stake receives a Followers broadcast in the Broadcast tab; a fan who both follows and stakes receives a Both broadcast once; a follower without email updates gets no broadcast email.
 13. My Pool, Broadcast opens the composer with Pool stakers picked.
-14. Every screen passes the Prism 2.2 gate at 1440 and 390, with no horizontal scroll and 44 targets.
+14. Every screen passes the Prism 2.2 gate at 1440 and 390, with no horizontal scroll and 44 targets. Admin Messaging included (QA MS-Q14).
+15. A paused sender sees only "You can't send messages right now." No screen, toast, push or email tells a person they were blocked or why they were paused (QA MS-Q1).
+16. After signed out sign up the person lands on the sheet with the text kept; no message sends until they tap Send (QA MS-Q3).
+17. A creator sets New conversations per day in Account, Messages; past it a new sender sees the `cap_reached` refusal and no request is queued (QA MS-Q11).
+18. A request or an 18+ sender never shows message text in a toast, push or email (QA MS-Q19).
+19. Every board string matches `packages/constants/src/messages.ts`; `check:copy` passes with no banned money words (QA MS-Q2, MS-Q16, MS-Q23).
 
 ## 12. Build plan (PRs to `development`)
 
@@ -399,6 +435,18 @@ Events through the analytics registry: `message_sent` (folder, relation, is_firs
 | M8  | chore/remove-telegram      | Delete services/telegram (including groups, inline, miniapp, initData), routes, trpc/telegram, the wizard, TelegramGroups and InboxTelegramGroups, landing `/tg` and MiniApp, the telegram_group block kind (telegram_message migrates to message in M6; telegram_group blocks stop rendering and the editor shows "Telegram groups are no longer supported. Add a Community link instead."), the admin Telegram page, env vars and Broadcast Telegram fields. The `tg` handle stays reserved. Drop the Telegram tables (seven, with TelegramGroup and TelegramGroupMember) in a follow up migration after staging sign off                                                                                                                                                                           | M5, M6, M7, M9 |
 
 Production migrations are applied by hand after merge, as today. Each PR says so.
+
+QA fixes 3 Nov, build follow ups (boards updated the same day):
+
+| Finding | File | Change |
+|---|---|---|
+| MS-Q11 | `apps/client/src/components/panels/account/MessagesRow.tsx`; `packages/constants/src/messages.ts` | Add the New conversations per day number well bound to `messages.settings.set({ dailyNewThreadCap })`; add `MESSAGE_UI.settings.dailyCapHelp` |
+| MS-Q7 | `apps/server/src/trpc/messages.ts` | No change in v1. Bulk delete only if `messages.deleteAllRequests` joins the M2 scope |
+| MS-Q4 | `ConversationList.tsx`, `MESSAGE_UI.filters` | Add the Members filter when Memberships ships |
+| MS-Q29 | `packages/ui/src/prism/tabs.tsx` | Not in this spec. Logged for Prism v1.2: 44 tab or a 44 hit area |
+| MS-Q19 | `apps/client/src/components/panels/inbox/realtime.tsx`; `services/realtime/stream.ts` | The toast for a sender with any 18+ label carries the title only, like a request: the `message.new` event says when the sender is 18+ so the client drops the first line |
+| MS-Q1 | `apps/client/src/components/panels/inbox/ConversationView.tsx` (`Refusal`) | The `sender_paused` refusal adds a Contact support link; no reason, count or end time |
+| MS-Q27 | `apps/client/src/components/panels/broadcast/Composer.tsx`, `BroadcastsTab.tsx` | Show the weekly limit line from `leftThisWeek` instead of "You can send again tomorrow" when the weekly cap is the cause |
 
 ## 13. Open items for counsel
 
