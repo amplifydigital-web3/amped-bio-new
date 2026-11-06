@@ -16,6 +16,7 @@ import { JWTPayload, SignJWT } from "jose";
 import type { EnrichedUser } from "../types/auth-helpers";
 import { uuidv7 } from "./uuid-v7";
 import { checkSignUpHandle, refuseHandleUpdate } from "./handleHooks";
+import { revokeOAuthOnBan } from "./banHooks";
 
 // === jwt private key generation  ===
 const pk = crypto.createPrivateKey({
@@ -297,6 +298,9 @@ export const auth = betterAuth({
       update: {
         before: async (data: any) => {
           refuseHandleUpdate(data);
+        },
+        after: async (user: any) => {
+          await revokeOAuthOnBan(user);
         },
       },
       create: {

@@ -19,6 +19,7 @@ import type { EnrichedUser } from "../types/auth-helpers";
 import { uuidv7 } from "./uuid-v7";
 import { createOnboardingRecord } from "./onboarding";
 import { checkSignUpHandle, refuseHandleUpdate } from "./handleHooks";
+import { revokeOAuthOnBan } from "./banHooks";
 import { matchReserved } from "../services/reservedHandles";
 
 /**
@@ -386,6 +387,9 @@ export const auth = betterAuth({
       update: {
         before: async (data: any) => {
           refuseHandleUpdate(data);
+        },
+        after: async (user: any) => {
+          await revokeOAuthOnBan(user);
         },
       },
       create: {
