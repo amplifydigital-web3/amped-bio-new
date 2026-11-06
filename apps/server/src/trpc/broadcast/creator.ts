@@ -2,19 +2,16 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { prisma } from "@repo/database";
 import {
+  BROADCAST_AUDIENCES,
   BROADCAST_LIMITS,
+  BROADCAST_UI,
   EMAIL_VERIFICATION_GRACE_BROADCASTS,
+  audienceHasPool,
   checkBroadcastContent,
 } from "@repo/constants";
 import { privateProcedure, router } from "../trpc";
-import { env } from "../../env";
-import {
-  countMembers,
-  countSentBroadcasts,
-  enqueueBroadcast,
-  getQuota,
-  memberUserIds,
-} from "../../services/broadcast";
+import { countSentBroadcasts, enqueueBroadcast, getQuota } from "../../services/broadcast";
+import { audienceCounts, resolveAudience } from "../../services/broadcast/audience";
 import { findByUserId, isReachable } from "../../services/telegram/accounts";
 import { isTelegramConfigured } from "../../services/telegram/client";
 import { telegramReach } from "../../services/telegram/broadcast";
@@ -33,10 +30,19 @@ function quotaExceeded(quota: Quota) {
   });
 }
 
+/** The caller's own pool on this chain, or null. */
+function poolOn(userId: number, chainId: string) {
+  return prisma.creatorPool.findFirst({
+    where: { chainId, wallet: { userId } },
+    select: { id: true, name: true },
+  });
+}
+
 /**
- * broadcast.creator: the pool owner's composer and sent list (My Pool,
- * Broadcasts tab). Spec section 3.4. Every procedure resolves the pool from
- * the caller's own wallet, so a creator can only reach their own broadcasts.
+ * broadcast.creator: the composer and sent list (Inbox, Broadcast tab; M9). Spec
+ * docs/features/messaging.md 7.5 and 8.6. Any creator with followers or a pool can send.
+ * Every procedure resolves the pool from the caller's own wallet, so a creator can only
+ * reach their own broadcasts and their own stakers.
  */
 export const broadcastCreatorRouter = router({
   /** Everything the Broadcasts tab needs to decide what to show. */
@@ -44,11 +50,8 @@ export const broadcastCreatorRouter = router({
     .input(z.object({ chainId: z.string() }))
     .query(async ({ ctx, input }) => {
       const userId = ctx.user!.sub;
-      const pool = await prisma.creatorPool.findFirst({
-        where: { chainId: input.chainId, wallet: { userId } },
-        select: { id: true, name: true },
-      });
-      const [quota, status, user, sentTotal] = await Promise.all([
+      const pool = await poolOn(userId, input.chainId);
+      const [quota, status, user, sentTotal, counts, last] = await Promise.all([
         getQuota(userId),
         prisma.broadcastSenderStatus.findUnique({ where: { userId } }),
         prisma.user.findUnique({
@@ -56,17 +59,26 @@ export const broadcastCreatorRouter = router({
           select: { name: true, email_verified: true, created_at: true },
         }),
         countSentBroadcasts(userId),
+        audienceCounts(userId, pool?.id ?? null),
+        prisma.broadcast.findFirst({
+          where: { creatorUserId: userId },
+          orderBy: { createdAt: "desc" },
+          select: { id: true, title: true, status: true, audienceKind: true, createdAt: true },
+        }),
       ]);
-      const members = pool ? await countMembers(pool.id, userId) : 0;
-      // Messaging on Telegram (#2), row 117: the composer's Telegram checkbox and count line
+      // Messaging on Telegram (#2), row 117: the composer's Telegram checkbox and count line.
+      // Reach counts the pool stakers, as before M9; Telegram stays off in production.
       const telegramOn = isTelegramConfigured();
       const telegramAccount = telegramOn ? await findByUserId(userId) : null;
       const telegram = {
         available: telegramOn,
         creatorLinked: isReachable(telegramAccount),
         reach:
-          telegramOn && pool && members > 0
-            ? await telegramReach(userId, await memberUserIds(pool.id, userId))
+          telegramOn && pool && counts.pool > 0
+            ? await telegramReach(
+                userId,
+                (await resolveAudience("POOL_MEMBERS", userId, pool.id)).userIds
+              )
             : 0,
       };
       // Verification grace (Rob, 2026-10-10): a new creator sends without a
@@ -78,7 +90,10 @@ export const broadcastCreatorRouter = router({
       );
       return {
         pool,
-        members,
+        // Pool stakers, kept under its old name for the My Pool card
+        members: counts.pool,
+        counts,
+        last,
         quota,
         creatorName: user?.name ?? "",
         emailVerified: verification.verified,
@@ -98,10 +113,20 @@ export const broadcastCreatorRouter = router({
     .input(z.object({ title: z.string().max(500), body: z.string().max(20000) }))
     .query(({ input }) => ({ flags: checkBroadcastContent(input.title, input.body) })),
 
+  /** Pool stakers, followers, and both deduplicated (spec 7.5). */
+  audienceCounts: privateProcedure
+    .input(z.object({ chainId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const pool = await poolOn(ctx.user!.sub, input.chainId);
+      return { hasPool: !!pool, ...(await audienceCounts(ctx.user!.sub, pool?.id ?? null)) };
+    }),
+
   send: privateProcedure
     .input(
       z.object({
         chainId: z.string(),
+        /** M9: pool stakers, followers, or both. Older clients send no audience. */
+        audience: z.enum(BROADCAST_AUDIENCES).default("POOL_MEMBERS"),
         title: titleSchema,
         body: bodySchema,
         idempotencyKey: z.string().min(8).max(64),
@@ -126,7 +151,8 @@ export const broadcastCreatorRouter = router({
       });
       if (existing) return existing;
 
-      const pool = await ownedPool(userId, input.chainId);
+      // The pool is needed only when the audience includes it (M9)
+      const pool = audienceHasPool(input.audience) ? await ownedPool(userId, input.chainId) : null;
       const [user, status, quota, sentTotal] = await Promise.all([
         prisma.user.findUnique({
           where: { id: userId },
@@ -167,11 +193,12 @@ export const broadcastCreatorRouter = router({
       // under a lock, right before the insert.
       if (quota.leftToday <= 0) throw quotaExceeded(quota);
 
-      const members = await countMembers(pool.id, userId);
-      if (members === 0) {
+      const audience = await resolveAudience(input.audience, userId, pool?.id ?? null);
+      const recipients = audience.userIds.length;
+      if (recipients === 0) {
         throw new TRPCError({
           code: "PRECONDITION_FAILED",
-          message: "Your pool has no members yet.",
+          message: BROADCAST_UI.emptyAudience[input.audience],
         });
       }
 
@@ -207,8 +234,8 @@ export const broadcastCreatorRouter = router({
           return tx.broadcast.create({
             data: {
               creatorUserId: userId,
-              poolId: pool.id,
-              audienceKind: "ALL_MEMBERS",
+              poolId: pool?.id ?? null,
+              audienceKind: input.audience,
               sendTelegram: telegramUsable,
               title: input.title,
               body: input.body,
@@ -217,7 +244,7 @@ export const broadcastCreatorRouter = router({
               status: firstSend ? "IN_REVIEW" : "QUEUED",
               reviewReason: firstSend ? "first_send" : null,
               queuedAt: firstSend ? null : now,
-              recipientEstimate: members,
+              recipientEstimate: recipients,
             },
             select: { id: true, status: true },
           });
@@ -258,38 +285,36 @@ export const broadcastCreatorRouter = router({
       return { ok: true };
     }),
 
-  /** The creator's broadcasts for this pool, newest first, with totals. */
-  list: privateProcedure.input(z.object({ chainId: z.string() })).query(async ({ ctx, input }) => {
-    const userId = ctx.user!.sub;
-    const pool = await prisma.creatorPool.findFirst({
-      where: { chainId: input.chainId, wallet: { userId } },
-      select: { id: true },
-    });
-    if (!pool) return [];
-    const rows = await prisma.broadcast.findMany({
-      where: { creatorUserId: userId, poolId: pool.id },
-      orderBy: { createdAt: "desc" },
-      take: 50,
-      select: {
-        id: true,
-        title: true,
-        status: true,
-        reviewReason: true,
-        reviewNote: true,
-        flaggedTerms: true,
-        createdAt: true,
-        completedAt: true,
-        recipientEstimate: true,
-        recipientCount: true,
-        _count: { select: { reports: true } },
-      },
-    });
-    return rows.map(({ _count, flaggedTerms, ...b }) => ({
-      ...b,
-      reports: _count.reports,
-      flagged: !!flaggedTerms,
-    }));
-  }),
+  /** The creator's broadcasts to every audience, newest first, with totals (M9). */
+  list: privateProcedure
+    .input(z.object({ chainId: z.string().optional() }).optional())
+    .query(async ({ ctx }) => {
+      const userId = ctx.user!.sub;
+      const rows = await prisma.broadcast.findMany({
+        where: { creatorUserId: userId },
+        orderBy: { createdAt: "desc" },
+        take: 50,
+        select: {
+          id: true,
+          title: true,
+          status: true,
+          audienceKind: true,
+          reviewReason: true,
+          reviewNote: true,
+          flaggedTerms: true,
+          createdAt: true,
+          completedAt: true,
+          recipientEstimate: true,
+          recipientCount: true,
+          _count: { select: { reports: true } },
+        },
+      });
+      return rows.map(({ _count, flaggedTerms, ...b }) => ({
+        ...b,
+        reports: _count.reports,
+        flagged: !!flaggedTerms,
+      }));
+    }),
 
   /** Totals only (spec decision 7). Never who read or reported. */
   getStats: privateProcedure
@@ -302,6 +327,7 @@ export const broadcastCreatorRouter = router({
           title: true,
           body: true,
           status: true,
+          audienceKind: true,
           reviewNote: true,
           flaggedTerms: true,
           createdAt: true,

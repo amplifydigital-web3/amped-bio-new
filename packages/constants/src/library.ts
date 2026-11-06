@@ -225,6 +225,88 @@ export interface LibraryPage<T> {
   nextCursor: string | null;
 }
 
+// ---------------------------------------------------------------- downloads (FL-5)
+
+/**
+ * Offline copies (spec 3.5 Offline, decision C). The file lives only in the
+ * app's Cache Storage; the server keeps a record so a check can tell the app
+ * which copies the fan may still open.
+ */
+export const LIBRARY_DOWNLOADS = {
+  /** Item kinds the app can keep offline */
+  kinds: ["video", "audio", "document", "file"] as const,
+  /** Download grants per fan per item per day (decision 24) */
+  perDay: 10,
+  /** How often the open app checks access, in ms */
+  checkEveryMs: 6 * 60 * 60 * 1000,
+  /** Offline opens are allowed this long after the last successful check */
+  offlineWindowMs: 30 * 24 * 60 * 60 * 1000,
+  /** Records one check may name */
+  checkMax: 500,
+  /** The largest size a record stores (20 GB) */
+  maxBytes: 20 * 1024 ** 3,
+} as const;
+export type LibraryDownloadKind = (typeof LIBRARY_DOWNLOADS.kinds)[number];
+
+/** True when the fan may keep an offline copy: the creator allows downloads and the kind is one the app keeps. */
+export function canKeepOffline(card: Pick<ContentCard, "kind" | "allowDownload">): boolean {
+  return card.allowDownload && (LIBRARY_DOWNLOADS.kinds as readonly string[]).includes(card.kind);
+}
+
+/** Why a copy left the device. */
+export const LIBRARY_DOWNLOAD_REMOVED_REASONS = [
+  "removed",
+  "access",
+  "unavailable",
+  "downloadsOff",
+] as const;
+export type LibraryDownloadRemovedReason = (typeof LIBRARY_DOWNLOAD_REMOVED_REASONS)[number];
+
+/** A random id per installed app. Never a fingerprint. */
+export const libraryDeviceSchema = z.string().regex(/^[A-Za-z0-9_-]{16,64}$/, "Unknown device");
+const downloadIdSchema = z.string().regex(/^[0-9a-f]{32}$/, "Unknown download");
+
+export const libraryRecordDownloadSchema = z.object({
+  publicId: contentPublicIdSchema,
+  device: libraryDeviceSchema,
+});
+export const libraryMarkDownloadedSchema = z.object({
+  id: downloadIdSchema,
+  bytes: z.number().int().min(0).max(LIBRARY_DOWNLOADS.maxBytes),
+});
+export const libraryRemoveDownloadSchema = z.object({ id: downloadIdSchema });
+export const libraryDownloadsSchema = z.object({ device: libraryDeviceSchema });
+export const libraryDownloadsCheckSchema = z.object({
+  device: libraryDeviceSchema,
+  ids: z.array(downloadIdSchema).max(LIBRARY_DOWNLOADS.checkMax),
+});
+
+/** What recordDownload answers: the record and a short lived, single use file link. */
+export interface LibraryDownloadGrant {
+  id: string;
+  item: LibraryItem;
+  url: string;
+  fileName: string;
+  /** Unix ms. The app starts the fetch at once. */
+  expiresAt: number;
+}
+
+export interface LibraryDownloadRecord {
+  id: string;
+  bytes: number;
+  createdAt: string;
+  item: LibraryItem;
+}
+
+export interface LibraryDownloadsCheck {
+  /** Records the fan may still open offline */
+  allowed: string[];
+  /** Records whose files the app deletes now */
+  removed: { id: string; reason: LibraryDownloadRemovedReason }[];
+  /** ISO time of this check; offline opens are allowed for 30 days after it */
+  checkedAt: string;
+}
+
 // ---------------------------------------------------------------- theme summary
 
 /** The still parts of a creator's look. Motion, overlays and cursor effects are left out (spec 3.2). */

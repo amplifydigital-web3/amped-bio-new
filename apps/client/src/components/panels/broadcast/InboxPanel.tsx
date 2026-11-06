@@ -2,9 +2,12 @@ import { useEffect, useState } from "react";
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router";
 import { BellOff, ChevronLeft, Flag, Inbox } from "lucide-react";
+import { useChainId } from "wagmi";
 import {
   BROADCAST_REPORT_REASONS,
+  BROADCAST_UI,
   TELEGRAM_APP_STRINGS,
+  TESTNET_NOTICE,
   type BroadcastReportReasonValue,
 } from "@repo/constants";
 import {
@@ -30,6 +33,7 @@ import { toast } from "@/components/ui/toast";
 import { useDelayed } from "@/hooks/useDelayed";
 import { useEditor } from "@/contexts/EditorContext";
 import { Avatar, BroadcastBody, BroadcastFooter } from "./shared";
+import { CreatorBroadcasts } from "./CreatorBroadcasts";
 import { BROADCAST_ON, longTime, shortTime } from "./utils";
 import { MESSAGES_ON } from "../messages/shared";
 import { MessagesTab } from "../messages/MessagesTab";
@@ -177,8 +181,7 @@ function MessageView({ broadcastId, onBack }: { broadcastId: number; onBack: () 
               {data.creator.name}
             </span>
             <span className="block truncate text-prism-meta text-prism-ink-2">
-              {data.poolName ? `${data.poolName}, ` : ""}
-              {longTime(data.deliveredAt)}
+              {BROADCAST_UI.audience[data.audience].line}, {longTime(data.deliveredAt)}
             </span>
           </div>
         </div>
@@ -189,6 +192,11 @@ function MessageView({ broadcastId, onBack }: { broadcastId: number; onBack: () 
           {data.title}
         </h2>
         <BroadcastBody body={data.body} />
+        {/* bc-pool-terms: a broadcast to pool stakers, or one about the pool, staking or
+            tREVO, carries the Testnet notice for every recipient */}
+        {data.testnet && (
+          <p className="text-prism-meta font-semibold text-prism-warning-ink">{TESTNET_NOTICE}</p>
+        )}
         <BroadcastFooter creatorName={data.creator.name} />
       </div>
 
@@ -336,7 +344,7 @@ export function UpdatesTab() {
         <EmptyState
           icon={Inbox}
           title="No messages yet"
-          description="When you join a creator's pool, their updates arrive here."
+          description={BROADCAST_UI.receivedEmpty}
           action={
             <Button variant="secondary" onClick={() => setActivePanelAndNavigate("explore")}>
               Explore pools
@@ -380,6 +388,9 @@ export function UpdatesTab() {
                   {m.title}
                 </span>
                 <span className="block truncate text-prism-meta text-prism-ink-2">{m.preview}</span>
+                <span className="block truncate text-prism-meta text-prism-ink-3">
+                  {BROADCAST_UI.audience[m.audience].line}
+                </span>
               </span>
               {m.unread && (
                 <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-prism-nav">
@@ -428,7 +439,58 @@ export function UpdatesTab() {
 type InboxTab = "updates" | "messages" | "settings";
 
 /**
- * Inbox (spec 3.2). Updates are broadcasts (Build Board #1). With Messaging on
+ * Inbox, Broadcast (M9, spec 8.6): Received for everyone, and Sent for a creator with
+ * followers, a pool, or a broadcast already sent. ?view=sent opens Sent; ?compose=1
+ * opens the composer there.
+ */
+export function BroadcastTab() {
+  const chainId = useChainId().toString();
+  const [params, setParams] = useSearchParams();
+  const overview = useQuery({
+    ...trpc.broadcast.creator.overview.queryOptions({ chainId }),
+    retry: 1,
+  });
+  const creator =
+    !!overview.data &&
+    (overview.data.counts.total > 0 || !!overview.data.pool || !!overview.data.last);
+  const wantsSent = params.get("view") === "sent" || params.get("compose") === "1";
+  const view = creator && wantsSent ? "sent" : "received";
+
+  const setView = (next: "sent" | "received") =>
+    setParams(
+      current => {
+        const p = new URLSearchParams(current);
+        if (next === "sent") p.set("view", "sent");
+        else {
+          p.delete("view");
+          p.delete("compose");
+          p.delete("audience");
+        }
+        p.delete("s");
+        return p;
+      },
+      { replace: true }
+    );
+
+  return (
+    <div className="space-y-4">
+      {creator && (
+        <div role="group" aria-label="Broadcasts" className="flex gap-2">
+          <Chip selected={view === "received"} onClick={() => setView("received")}>
+            {BROADCAST_UI.received}
+          </Chip>
+          <Chip selected={view === "sent"} onClick={() => setView("sent")}>
+            {BROADCAST_UI.sent}
+          </Chip>
+        </div>
+      )}
+      {view === "sent" ? <CreatorBroadcasts chainId={chainId} /> : <UpdatesTab />}
+    </div>
+  );
+}
+
+/**
+ * Inbox (spec 3.2). Updates are broadcasts (Build Board #1) and show the M9 Broadcast tab. With Messaging on
  * Telegram (#2, rows 113 and 114) the inbox gains Messages, the conversations
  * with fans and creators, and Settings, Fan messages. The tab lives in ?tab=;
  * a thread link (?t=) opens Messages and a broadcast link (?b=) opens Updates.
@@ -437,7 +499,7 @@ export function InboxPanel() {
   const [params, setParams] = useSearchParams();
   const S = TELEGRAM_APP_STRINGS;
   if (!MESSAGES_ON)
-    return <div className="px-4 py-5 md:px-6">{BROADCAST_ON && <UpdatesTab />}</div>;
+    return <div className="px-4 py-5 md:px-6">{BROADCAST_ON && <BroadcastTab />}</div>;
 
   const requested = params.get("tab");
   const fallback: InboxTab = BROADCAST_ON ? "updates" : "messages";
@@ -472,7 +534,7 @@ export function InboxPanel() {
       </TabsList>
       {BROADCAST_ON && (
         <TabsContent value="updates">
-          <UpdatesTab />
+          <BroadcastTab />
         </TabsContent>
       )}
       <TabsContent value="messages">

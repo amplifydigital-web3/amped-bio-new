@@ -11,6 +11,12 @@ import { useReferralHandler } from "./hooks/useReferralHandler";
 import { ExternalRedirect, NewVersionDialog, ToastCard, useAuth } from "@repo/ui";
 import { ERROR_TOAST_DURATION } from "@/components/ui/toast";
 import { JoinHandoffGate, PayHandoffGate } from "@/components/checkout/HandoffCard";
+import { isFeatureOn } from "@/config/featureFlags";
+import { DownloadsSync } from "@/components/panels/library/downloads/DownloadsSync";
+import {
+  OfflineDownloads,
+  useOnline,
+} from "@/components/panels/library/downloads/OfflineDownloads";
 
 // Internal Prism component gallery for review (not linked in the app). Served in
 // development, testing and staging builds only, never in production.
@@ -121,9 +127,15 @@ function AppRouter() {
 
         {/* Amped Messages (#2 r4, M5): push and email links open /inbox/{conversationId} */}
         <Route path="/inbox/:conversationId" element={<InboxDeepLink />} />
+        {/* M9 (spec 8.6 item 5): New broadcast and an opened broadcast */}
+        <Route path="/inbox/broadcast/new" element={<BroadcastDeepLink />} />
+        <Route path="/inbox/broadcast/:broadcastId" element={<BroadcastDeepLink />} />
 
         {/* Fan Library (#26, FL-3): /library/search, /library/@handle and the item view.
           The Editor keeps these sub paths; /library itself is the /:panel route */}
+        {/* Fan Library FL-5: without a connection, Downloads opens on its own page,
+          since the shell needs the API to sign in */}
+        <Route path="/library/downloads/*" element={<DownloadsRoute />} />
         <Route
           path="/library/*"
           element={
@@ -152,6 +164,17 @@ function AppRouter() {
   );
 }
 
+/** Downloads: the Library page online, the offline page without a connection (FL-5). */
+function DownloadsRoute() {
+  const online = useOnline();
+  if (!online && isFeatureOn("fanLibrary")) return <OfflineDownloads />;
+  return (
+    <ProtectedRoute>
+      <Editor />
+    </ProtectedRoute>
+  );
+}
+
 /** /inbox/{id} becomes /inbox?c={id}, keeping any other query (the Editor owns /:panel). */
 function InboxDeepLink() {
   const { conversationId } = useParams();
@@ -160,6 +183,23 @@ function InboxDeepLink() {
   if (conversationId && /^[0-9a-f]{32}$/.test(conversationId)) params.set("c", conversationId);
   const query = params.toString();
   return <Navigate replace to={`/inbox${query ? `?${query}` : ""}`} />;
+}
+
+/**
+ * /inbox/broadcast/new?audience=pool opens the composer in Inbox, Broadcast, Sent;
+ * /inbox/broadcast/{id} opens that broadcast in Received.
+ */
+function BroadcastDeepLink() {
+  const { broadcastId } = useParams();
+  const location = useLocation();
+  const params = new URLSearchParams(location.search);
+  params.set("tab", "broadcast");
+  if (broadcastId && /^\d{1,10}$/.test(broadcastId)) params.set("b", broadcastId);
+  else {
+    params.set("view", "sent");
+    params.set("compose", "1");
+  }
+  return <Navigate replace to={`/inbox?${params.toString()}`} />;
 }
 
 // 081 I04, I05: any other path belongs to the public site. While the session
@@ -187,6 +227,7 @@ function App() {
     <BrowserRouter>
       <EditorProvider>
         <AppRouter />
+        <DownloadsSync />
         {/* The one toast stack (Screen Review 084, D21): react-hot-toast calls and
             toast.add from components/ui/toast render as the Prism ToastCard.
             Errors leave after 10 seconds, success and info after 5. */}
