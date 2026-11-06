@@ -1,9 +1,9 @@
 import { useCallback, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useChainId } from "wagmi";
 import { trpcClient } from "@repo/ui";
 import { useWalletContext } from "@/contexts/WalletContext";
 import { isForceMetamask } from "@/utils/auth";
+import { appChainId } from "@/utils/appChain";
 
 export type FaucetRequirements = {
   photo: boolean;
@@ -45,7 +45,11 @@ export type FaucetState =
  */
 export function useFaucet() {
   const wallet = useWalletContext();
-  const chainId = useChainId();
+  // The faucet lives on the app network, never the wallet's chain (038 I06):
+  // a USDC send temporarily switches the wallet to the payment chain, and a
+  // live useChainId() here would re-fire this query against a chain the
+  // server does not serve the faucet for.
+  const chainId = Number(appChainId());
   const queryClient = useQueryClient();
   const queryKey = ["wallet", "faucet", chainId];
 

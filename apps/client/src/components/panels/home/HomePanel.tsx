@@ -10,10 +10,13 @@ import { HOME_UPDATES_FRAME } from "./homeContent";
 import { MakeYourPageCard } from "./MakeYourPageCard";
 import { PageStatusCard, PageStatusError, PageStatusSkeleton } from "./PageStatusCard";
 import { SetupChecklist, SetupChecklistError, SetupChecklistSkeleton } from "./SetupChecklist";
+import { GetTrevoSection } from "./GetTrevoSection";
 import { NetworkSection, TestnetCard } from "./TestnetCard";
 import { UpdatesFrame } from "./UpdatesFrame";
 import { VerifyEmailNotice } from "./VerifyEmailNotice";
 import { VideoGuides } from "./VideoGuides";
+import { MESSAGES_ON } from "../messages/shared";
+import { TelegramHomeCard } from "../messages/TelegramHomeCard";
 
 // Page details that have not loaded by then show the error card (016 I13)
 const PROFILE_TIMEOUT_MS = 10_000;
@@ -27,11 +30,11 @@ function focusShellTitle() {
 
 /**
  * Home (Screen Review 015, 016). Native, on the D08 grid without a preview.
- * Left column: the setup checklist on first run (015), then the page status
- * card. Right column: the testnet compliance card, Network rows and Video
+ * Left column: the setup checklist on first run (015), the page status card,
+ * then Get tREVO (the Daily faucet and Invite creators cards). Right column: the testnet compliance card, Network rows and Video
  * guides. The Updates frame (D2) sits last in the left column and last in the
  * DOM, so it is last in the tab order. Mobile stacks one column: notices,
- * checklist, page status, testnet, video guides, Network, Updates.
+ * checklist, page status, Get tREVO, testnet, video guides, Network, Updates.
  */
 export function HomePanel() {
   const [params, setParams] = useSearchParams();
@@ -119,6 +122,10 @@ export function HomePanel() {
           {unpublished && data && !data.publishCardDismissed && (
             <MakeYourPageCard onPublish={() => setPublishOpen(true)} />
           )}
+          {/* Messaging on Telegram (#2), item 6: after the first five steps, until wizard A step 3 */}
+          {MESSAGES_ON && data && !unpublished && data.completed && !data.telegramSetup && (
+            <TelegramHomeCard />
+          )}
 
           {profileLoaded ? (
             <PageStatusCard
@@ -134,6 +141,9 @@ export function HomePanel() {
           ) : (
             showProfileSkeleton && <PageStatusSkeleton />
           )}
+
+          {/* The faucet and invite cards moved here from the Wallet */}
+          <GetTrevoSection />
         </div>
 
         {/* Static: always renders, even with the API blocked (016 I13) */}

@@ -1,0 +1,4 @@
+# Local only (wrangler dev). Copy to .dev.vars. Never commit real keys.
+# kid:base64urlSecret pairs, comma separated. The first signs on the API; every key verifies here.
+# Generate: openssl rand -base64 48 | tr '+/' '-_' | tr -d '='
+MEDIA_TOKEN_KEYS=local:REPLACE_WITH_A_32_BYTE_OR_LONGER_BASE64URL_SECRET

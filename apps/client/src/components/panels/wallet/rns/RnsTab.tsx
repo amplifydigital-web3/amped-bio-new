@@ -47,7 +47,7 @@ export function RnsTab() {
           onOpenAddress={address => route.go({ address })}
         />
         <MyRnsNames
-          onOpenName={label => route.go({ name: label })}
+          onOpenName={(label, options) => route.go({ name: label, ...options })}
           onSearch={() => searchRef.current?.focus()}
         />
       </div>

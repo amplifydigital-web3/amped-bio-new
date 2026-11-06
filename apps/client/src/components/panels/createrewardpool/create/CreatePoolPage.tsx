@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useChainId } from "wagmi";
-import { useNavigate } from "react-router";
 import { ArrowRight, Coins, ExternalLink } from "lucide-react";
 import { Button, EmptyState, Notice } from "@repo/ui";
 import { getChainConfig } from "@repo/web3";
@@ -58,8 +57,7 @@ export function CreatePoolPage({
   const symbol = chain?.nativeCurrency.symbol ?? "tREVO";
   const explorer = chain?.blockExplorers?.default?.url;
   const wallet = useWalletContext();
-  const { profile, setActivePanel } = useEditor();
-  const navigate = useNavigate();
+  const { profile, setActivePanelAndNavigate } = useEditor();
 
   const methods = useForm<CreatorPoolFormValues>({
     resolver: zodResolver(creatorPoolSchema),
@@ -234,8 +232,7 @@ export function CreatePoolPage({
         staleNotice={staleNotice}
         onDismissStale={onDismissStale}
         onGetTrevo={() => {
-          setActivePanel("wallet");
-          navigate("/wallet");
+          setActivePanelAndNavigate("home", undefined, { open: "faucet" });
         }}
       />
     </FormProvider>

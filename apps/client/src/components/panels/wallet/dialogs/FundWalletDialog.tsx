@@ -1,8 +1,14 @@
-import { Gift, ArrowLeftRight, Zap, ArrowRight, Check } from "lucide-react";
+import { Gift, ArrowLeftRight, Zap, ArrowRight, Check, CircleDollarSign } from "lucide-react";
+import { ONRAMP_COPY } from "@repo/constants";
+import { USDC_SYMBOL } from "@repo/web3";
+import { USDC_FLAGS } from "@/config/usdc/flags";
+import { paymentChain } from "@/utils/paymentChain";
+import type { ReceiveNetwork } from "./ReceiveDialog";
 import CoinbaseIcon from "@/assets/icons/coinbase.png";
 import MoonpayIcon from "@/assets/icons/moonpay.png";
 import OnRampIcon from "@/assets/icons/onramp.png";
 import { useState, useEffect } from "react";
+import { useLocation, useNavigate } from "react-router";
 import { useFundWalletDialog } from "../hooks/useFundWalletDialog";
 import { Dialog, DialogContent } from "@repo/ui";
 import { FaucetRequirementsChecklist } from "./FaucetRequirementsChecklist";
@@ -69,7 +75,8 @@ function CountdownTimer({ targetDate, onComplete }: { targetDate: Date; onComple
 interface FundWalletDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  openReceiveModal: () => void;
+  /** Opens Receive. Deposit USDC passes "payment" so it lands on the USDC chain (137 w5). */
+  openReceiveModal: (network?: ReceiveNetwork) => void;
 }
 
 function FundWalletDialog({ open, onOpenChange, openReceiveModal }: FundWalletDialogProps) {
@@ -120,6 +127,23 @@ function FundWalletDialog({ open, onOpenChange, openReceiveModal }: FundWalletDi
   const handleManualDeposit = () => {
     onOpenChange(false);
     openReceiveModal();
+  };
+
+  const navigate = useNavigate();
+  const location = useLocation();
+  // Screen Review 138 (o1): Buy USDC opens in the Wallet. From anywhere else the
+  // fan comes back to where they were once the USDC arrives (Back to the item).
+  const handleBuyUsdc = () => {
+    onOpenChange(false);
+    const here = `${location.pathname}${location.search}`;
+    const next = new URLSearchParams({ fund: "usdc" });
+    if (location.pathname !== "/wallet") next.set("return", here);
+    navigate(`/wallet?${next.toString()}`);
+  };
+
+  const handleUsdcDeposit = () => {
+    onOpenChange(false);
+    openReceiveModal("payment");
   };
 
   return (
@@ -280,6 +304,50 @@ function FundWalletDialog({ open, onOpenChange, openReceiveModal }: FundWalletDi
                 </button>
               )}
 
+              {/* Buy USDC through Coinbase (Screen Review 138, board w5) */}
+              {USDC_FLAGS.onramp && (
+                <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 hover:shadow-md transition-shadow duration-200">
+                  <button
+                    onClick={handleBuyUsdc}
+                    className="w-full flex items-center justify-between"
+                  >
+                    <div className="flex items-center space-x-4">
+                      <div className="p-2 bg-blue-100 rounded-lg">
+                        <img src={CoinbaseIcon} alt="" aria-hidden className="w-6 h-6" />
+                      </div>
+                      <div className="text-left">
+                        <h3 className="font-semibold text-gray-900">Buy {USDC_SYMBOL}</h3>
+                        <p className="text-sm text-gray-600">{ONRAMP_COPY.fundRow}</p>
+                      </div>
+                    </div>
+                    <ArrowRight className="w-5 h-5 text-gray-400" />
+                  </button>
+                </div>
+              )}
+
+              {/* Deposit USDC (Screen Review 137, board w5): opens Receive on the payment chain */}
+              {USDC_FLAGS.wallet && (
+                <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 hover:shadow-md transition-shadow duration-200">
+                  <button
+                    onClick={handleUsdcDeposit}
+                    className="w-full flex items-center justify-between"
+                  >
+                    <div className="flex items-center space-x-4">
+                      <div className="p-2 bg-indigo-100 rounded-lg">
+                        <CircleDollarSign className="w-6 h-6 text-indigo-600" />
+                      </div>
+                      <div className="text-left">
+                        <h3 className="font-semibold text-gray-900">Deposit {USDC_SYMBOL}</h3>
+                        <p className="text-sm text-gray-600">
+                          From an exchange or another wallet, on {paymentChain.name}
+                        </p>
+                      </div>
+                    </div>
+                    <ArrowRight className="w-5 h-5 text-gray-400" />
+                  </button>
+                </div>
+              )}
+
               {/* Bridge */}
               <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 hover:shadow-md transition-shadow duration-200">
                 <button
@@ -324,29 +392,31 @@ function FundWalletDialog({ open, onOpenChange, openReceiveModal }: FundWalletDi
                 </button>
               </div>
 
-              {/* Coinbase */}
-              <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 hover:shadow-md transition-shadow duration-200">
-                <button
-                  disabled={true}
-                  className="w-full flex items-center justify-between opacity-50 cursor-not-allowed"
-                >
-                  <div className="flex items-center space-x-4">
-                    <div className="p-2 bg-blue-100 rounded-lg">
-                      <img src={CoinbaseIcon} alt="Coinbase" className="w-6 h-6" />
+              {/* Coinbase: replaced by Buy USDC when the on-ramp is on */}
+              {!USDC_FLAGS.onramp && (
+                <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 hover:shadow-md transition-shadow duration-200">
+                  <button
+                    disabled={true}
+                    className="w-full flex items-center justify-between opacity-50 cursor-not-allowed"
+                  >
+                    <div className="flex items-center space-x-4">
+                      <div className="p-2 bg-blue-100 rounded-lg">
+                        <img src={CoinbaseIcon} alt="Coinbase" className="w-6 h-6" />
+                      </div>
+                      <div className="text-left">
+                        <h3 className="font-semibold text-gray-900 flex items-center">
+                          Coinbase{" "}
+                          <span className="ml-2 px-2 py-1 text-xs font-semibold text-white bg-blue-500 rounded-full">
+                            Soon
+                          </span>
+                        </h3>
+                        <p className="text-sm text-gray-600">Instant · Fees 0.5 — 2.5%</p>
+                      </div>
                     </div>
-                    <div className="text-left">
-                      <h3 className="font-semibold text-gray-900 flex items-center">
-                        Coinbase{" "}
-                        <span className="ml-2 px-2 py-1 text-xs font-semibold text-white bg-blue-500 rounded-full">
-                          Soon
-                        </span>
-                      </h3>
-                      <p className="text-sm text-gray-600">Instant · Fees 0.5 — 2.5%</p>
-                    </div>
-                  </div>
-                  <ArrowRight className="w-5 h-5 text-gray-400" />
-                </button>
-              </div>
+                    <ArrowRight className="w-5 h-5 text-gray-400" />
+                  </button>
+                </div>
+              )}
 
               {/* Moonpay */}
               <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 hover:shadow-md transition-shadow duration-200">

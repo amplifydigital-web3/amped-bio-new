@@ -5,8 +5,13 @@ import { PublicHeader } from "@/components/layout/PublicHeader";
 import { PublicFooter } from "@/components/layout/PublicFooter";
 import { NetworkTotals } from "@/components/layout/NetworkTotals";
 import { ClaimBar } from "@/components/landing/ClaimBar";
-import { DemoPage } from "@/components/landing/DemoPage";
+import { ProfileCarousel } from "@/components/landing/ProfileCarousel";
 import { JsonLd } from "@/components/seo/JsonLd";
+import { getFeatureFlagOverrides, resolveLandingFlag } from "@/lib/featureFlags";
+import { HeroBeam } from "@/components/landing/motion/HeroBeam";
+import { HeroHeadline } from "@/components/landing/motion/HeroHeadline";
+import { HowItWorks } from "@/components/landing/motion/HowItWorks";
+import { PauseMotionButton } from "@/components/landing/motion/PauseMotionButton";
 import { SITE_URL, buildSiteJsonLd } from "@/lib/seo";
 
 export const metadata: Metadata = {
@@ -34,22 +39,34 @@ const VALUE_CARDS = [
 
 // Native Prism landing (Screen Review 007, D1): copy lives in code, no creator
 // theme, no consent prompt on the front door. Order: header, hero with claim
-// bar and demo frame, value cards, testnet notice, network totals, footer.
-export default function HomePage() {
+// bar and example page carousel, value cards, testnet notice, network totals, footer.
+// With the motion feature flag (Build Board #26): the hero light, the headline
+// reveal, How it works and Pause motion. Network totals are tREVO figures and
+// never move.
+export default async function HomePage() {
+  const showMotion = resolveLandingFlag("motion", await getFeatureFlagOverrides());
   return (
-    <div className="prism-room prism-font flex min-h-dvh flex-col text-prism-ink">
+    <div className="prism-room prism-font flex min-h-dvh flex-col overflow-x-clip text-prism-ink">
       <JsonLd data={buildSiteJsonLd()} />
       <PublicHeader />
       <main className="mx-auto w-full max-w-[1372px] flex-1 px-[13px] sm:px-0">
-        <section className="grid items-center gap-[34px] pt-[55px] lg:grid-cols-[minmax(0,1fr)_508px] lg:gap-[21px] lg:pt-[68px]">
+        <section className="relative isolate grid items-center gap-[34px] pt-[55px] lg:grid-cols-[minmax(0,1fr)_508px] lg:gap-[21px] lg:pt-[68px]">
+          {showMotion && <HeroBeam />}
           <div className="max-w-[856px]">
             <p className="flex items-center gap-2 text-prism-eyebrow uppercase text-prism-ink-2">
               <span aria-hidden className="h-[3px] w-[13px] rounded-full bg-prism-value" />
               Link in bio with a wallet
             </p>
-            <h1 className="mt-[13px] font-prism-display text-prism-display-68 text-prism-ink sm:text-prism-display">
-              Claim your page.
-            </h1>
+            {showMotion ? (
+              <HeroHeadline
+                text="Claim your page."
+                className="mt-[13px] font-prism-display text-prism-display-68 text-prism-ink sm:text-prism-display"
+              />
+            ) : (
+              <h1 className="mt-[13px] font-prism-display text-prism-display-68 text-prism-ink sm:text-prism-display">
+                Claim your page.
+              </h1>
+            )}
             <p className="mt-[21px] max-w-[610px] text-prism-body text-prism-ink-2">
               Amped.Bio is more than a link-in-bio. It&apos;s your passport into the Revolution
               Network. Each profile doubles as your wallet and hub for staking into Reward Pools.
@@ -59,9 +76,11 @@ export default function HomePage() {
             </div>
           </div>
           <div className="prism-glass-clear rounded-prism-34 p-[21px]">
-            <DemoPage />
+            <ProfileCarousel />
           </div>
         </section>
+
+        {showMotion && <HowItWorks />}
 
         <section aria-label="What you get" className="mt-[89px] space-y-[21px]">
           <div
@@ -95,7 +114,13 @@ export default function HomePage() {
           <NetworkTotals />
         </section>
 
-        <div className="mt-[89px]">
+        {showMotion && (
+          <div className="mt-[34px] flex justify-end">
+            <PauseMotionButton />
+          </div>
+        )}
+
+        <div className={showMotion ? "mt-[21px]" : "mt-[89px]"}>
           <PublicFooter />
         </div>
       </main>

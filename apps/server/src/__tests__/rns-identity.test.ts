@@ -14,7 +14,7 @@ const now = () => Math.floor(Date.now() / 1000);
 const state = vi.hoisted(() => ({
   record: { expiry: 0, owner: null as string | null, addr: null as string | null },
   readFails: false,
-  authbase: "verified" as "verified" | "not_verified" | "throw",
+  authbase: "verified" as "verified" | "badge" | "expired" | "not_verified" | "throw",
   configured: true,
   flag: true,
   attributesFlag: false,
@@ -43,18 +43,30 @@ vi.mock("../services/authbase", async () => ({
   isAuthbaseConfigured: () => state.configured,
   getAuthbaseWalletStatus: vi.fn(async () => {
     if (state.authbase === "throw") throw new Error("down");
-    const verified = state.authbase === "verified";
+    const verified = state.authbase !== "not_verified";
+    const badge = state.authbase === "badge";
     return {
       verified,
-      status: verified ? "VERIFIED" : "NOT_VERIFIED",
+      hasBadge: badge,
+      status: badge ? "VERIFIED_WITH_BADGE" : verified ? "VERIFIED" : "NOT_VERIFIED",
       verification: verified
         ? {
-            type: "STANDARD",
+            type: badge ? "ENHANCED" : "STANDARD",
             verified_at: "2026-08-12T00:00:00Z",
-            valid_until: "2027-08-12T00:00:00Z",
+            // An expired check Authbase has not flipped yet (clock window)
+            valid_until:
+              state.authbase === "expired" ? "2026-09-01T00:00:00Z" : "2027-08-12T00:00:00Z",
           }
         : null,
-      attributes: { legal_name: "Secret Name", name: "Maya Lin", country: "US" },
+      badge: badge
+        ? {
+            tier: "ENHANCED",
+            token_id: "115792089237316195423570985008687907853269984665640564039457",
+            transaction_hash: null,
+            minted_at: "2026-08-13T00:00:00Z",
+          }
+        : null,
+      attributes: { legal_name: "Secret Name", name: "Maya Lin", country: "US", gender: "F" },
       message: "upstream message",
       authbase_wallet_address: WALLET,
     };
@@ -88,7 +100,9 @@ import {
   parseRnsDisplay,
   rnsIdBlockOptions,
   RNS_DISPLAY_DEFAULTS,
+  type RnsIdBlockOptions,
 } from "../services/rnsIdentity";
+import { formatAuthbaseAttribute } from "@repo/constants";
 
 const display = (over: Partial<typeof RNS_DISPLAY_DEFAULTS> = {}, details = {}) => ({
   ...RNS_DISPLAY_DEFAULTS,
@@ -211,11 +225,11 @@ describe("public RNS identity", () => {
   });
 });
 
-// RNS ID block (Build Board #33, Screen Review 112 D1): the checked name
+// RNS ID block (Build Board #33, Screen Review 112 D1): a shared attribute
 // reaches the page only with the attributes flag on, a verified chip and
-// the owner's block switch on. Every other path leaves it out.
-describe("RNS ID block: Name on ID", () => {
-  const block = { nameOnId: true };
+// the owner's block switch on for it. Every other path leaves it out.
+describe("RNS ID block: shared attributes", () => {
+  const block: RnsIdBlockOptions = { attributes: ["name"], visible: true };
   const withBlock = (over: Partial<typeof RNS_DISPLAY_DEFAULTS> = {}, options = block) =>
     computeRnsIdentity({
       storedName: "mayalin",
@@ -227,57 +241,66 @@ describe("RNS ID block: Name on ID", () => {
   it("is left out while RNS_PUBLIC_ATTRIBUTES is off, whatever the block asks", async () => {
     const { identity } = await withBlock();
     expect(identity?.chip).toBe("verified");
-    expect(identity && "nameOnId" in identity).toBe(false);
+    expect(identity && "attributes" in identity).toBe(false);
   });
 
-  it("shows the Authbase name with the flag, a verified chip and the switch on", async () => {
+  it("shows only the switched on attributes with the flag and a verified chip", async () => {
     state.attributesFlag = true;
     const { identity } = await withBlock();
-    expect(identity?.nameOnId).toBe("Maya Lin");
+    expect(identity?.attributes).toEqual({ name: "Maya Lin" });
     const json = JSON.stringify(identity);
     expect(json).not.toContain("Secret Name");
     expect(json).not.toContain("US");
+    const more = await withBlock({}, { attributes: ["gender", "country"], visible: true });
+    expect(more.identity?.attributes).toEqual({ gender: "F", country: "US" });
   });
 
   it("is left out when the block switch is off or there is no block", async () => {
     state.attributesFlag = true;
-    expect((await withBlock({}, { nameOnId: false })).identity?.nameOnId).toBeUndefined();
+    expect(
+      (await withBlock({}, { attributes: [], visible: true })).identity?.attributes
+    ).toBeUndefined();
     const { identity } = await computeRnsIdentity({
       storedName: "mayalin",
       wallet: WALLET,
       display: display(),
     });
-    expect(identity?.nameOnId).toBeUndefined();
+    expect(identity?.attributes).toBeUndefined();
   });
 
-  it("never rides on the name chip (badge off or not verified)", async () => {
+  it("survives Show Verified badge off, and only verification gates it", async () => {
     state.attributesFlag = true;
     const badgeOff = await withBlock({ showBadge: false });
     expect(badgeOff.identity?.chip).toBe("name");
-    expect(badgeOff.identity?.nameOnId).toBeUndefined();
+    expect(badgeOff.identity?.attributes).toEqual({ name: "Maya Lin" });
     state.authbase = "not_verified";
     const unverified = await withBlock();
     expect(unverified.identity?.chip).toBe("name");
-    expect(unverified.identity?.nameOnId).toBeUndefined();
+    expect(unverified.identity?.attributes).toBeUndefined();
   });
 });
 
 describe("rnsIdBlockOptions", () => {
-  it("reads the switch from a visible rnsid block only", () => {
-    expect(rnsIdBlockOptions([])).toEqual({ nameOnId: false, visible: false });
+  it("reads the switches from a visible rnsid block only", () => {
+    expect(rnsIdBlockOptions([])).toEqual({ attributes: [], visible: false });
     expect(rnsIdBlockOptions([{ type: "link", config: { url: "x" } }])).toEqual({
-      nameOnId: false,
+      attributes: [],
       visible: false,
     });
     expect(rnsIdBlockOptions([{ type: "rnsid", config: { show: { nameOnId: true } } }])).toEqual({
-      nameOnId: true,
+      attributes: ["name"],
       visible: true,
     });
     expect(
+      rnsIdBlockOptions([
+        { type: "rnsid", config: { show: { country: true, ageOver18: true, gender: true } } },
+      ])
+    ).toEqual({ attributes: ["age_over_18", "gender", "country"], visible: true });
+    expect(
       rnsIdBlockOptions([{ type: "rnsid", config: { show: { nameOnId: true }, hidden: true } }])
-    ).toEqual({ nameOnId: false, visible: false });
+    ).toEqual({ attributes: [], visible: false });
     expect(rnsIdBlockOptions([{ type: "rnsid", config: null }])).toEqual({
-      nameOnId: false,
+      attributes: [],
       visible: false,
     });
   });
@@ -287,7 +310,7 @@ describe("rnsIdBlockOptions", () => {
       { type: "rnsid", config: { show: { nameOnId: true } } },
       { type: "rnsid", config: { show: { nameOnId: false }, hidden: true } },
     ];
-    expect(rnsIdBlockOptions(two)).toEqual({ nameOnId: true, visible: true });
+    expect(rnsIdBlockOptions(two)).toEqual({ attributes: ["name"], visible: true });
     // The server side addBlock gate keeps this from happening (see
     // rns-id-block-singleton.test.ts); the read side stays deterministic anyway
   });
@@ -298,14 +321,153 @@ describe("rnsIdBlockOptions", () => {
         storedName: "mayalin",
         wallet: WALLET,
         display: display({}, { check: true }),
-        block: { nameOnId: true },
+        block: { attributes: ["name"], visible: true },
       });
     // Warm the cache while the flag is on: the entry carries the name
     state.attributesFlag = true;
-    expect((await run()).identity?.nameOnId).toBe("Maya Lin");
+    expect((await run()).identity?.attributes).toEqual({ name: "Maya Lin" });
     // The flag turns off; the cached entry can still hold the name for the TTL
     state.attributesFlag = false;
     state.cacheHits = true;
-    expect((await run()).identity?.nameOnId).toBeUndefined();
+    expect((await run()).identity?.attributes).toBeUndefined();
+  });
+
+  it("fresh skips the cached verification, so a consent change on Authbase shows at once", async () => {
+    state.attributesFlag = true;
+    state.cacheHits = true;
+    // Consent granted since this entry was written
+    state.cache[`rns_verification:${WALLET}`] = { state: "not_verified" };
+    const read = (options?: { fresh?: boolean }) =>
+      computeRnsIdentity(
+        {
+          storedName: "mayalin",
+          wallet: WALLET,
+          display: display(),
+          block: { attributes: ["name"], visible: true },
+        },
+        options
+      );
+    expect((await read()).identity?.chip).toBe("name");
+    expect((await read({ fresh: true })).identity?.attributes).toEqual({ name: "Maya Lin" });
+  });
+});
+
+describe("formatAuthbaseAttribute", () => {
+  it("reads Authbase values as people do, and passes anything else through", () => {
+    expect(formatAuthbaseAttribute("age_over_18", "true")).toBe("Yes");
+    expect(formatAuthbaseAttribute("age_over_18", "false")).toBe("No");
+    expect(formatAuthbaseAttribute("gender", "F")).toBe("Female");
+    expect(formatAuthbaseAttribute("gender", "M")).toBe("Male");
+    expect(formatAuthbaseAttribute("country", "us")).toBe("United States");
+    expect(formatAuthbaseAttribute("country", "Narnia")).toBe("Narnia");
+    expect(formatAuthbaseAttribute("name", "Maya Lin")).toBe("Maya Lin");
+  });
+});
+
+// Build Board #33: the badge and the verification status on the RNS ID block,
+// the Verified badge switched off (112 D8) and no linked name (112 D9)
+describe("RNS ID block: badge and status", () => {
+  const block: RnsIdBlockOptions = { attributes: ["name"], visible: true };
+  const build = (
+    over: Partial<typeof RNS_DISPLAY_DEFAULTS> = {},
+    options: RnsIdBlockOptions | null = block,
+    storedName: string | null = "mayalin"
+  ) =>
+    computeRnsIdentity({
+      storedName,
+      wallet: WALLET,
+      display: display(over),
+      block: options ?? undefined,
+    });
+
+  it("carries the badge tier and mint date, never the token id", async () => {
+    state.authbase = "badge";
+    const { identity, verification } = await build();
+    expect(identity).toMatchObject({
+      chip: "verified",
+      linked: true,
+      badge: { tier: "enhanced", mintedAt: "2026-08-13T00:00:00Z" },
+      check: { tier: "enhanced" },
+    });
+    expect(verification).toMatchObject({ state: "verified", badge: { tier: "enhanced" } });
+    expect(JSON.stringify(identity)).not.toContain("115792089");
+    expect(JSON.stringify(verification)).not.toContain("115792089");
+  });
+
+  it("has no badge on a plain VERIFIED status, and drops it with the Verified badge off", async () => {
+    expect((await build()).identity?.badge).toBeUndefined();
+    state.authbase = "badge";
+    const off = await build({ showBadge: false });
+    expect(off.identity?.chip).toBe("name");
+    expect(off.identity?.badge).toBeUndefined();
+    expect(off.identity?.check).toBeUndefined();
+  });
+
+  it("reports an expired check to the owner and shows it as no Verified claim", async () => {
+    state.authbase = "expired";
+    const { identity, verification } = await build();
+    expect(verification).toEqual({ state: "expired", validUntil: "2026-09-01T00:00:00Z" });
+    expect(identity?.chip).toBe("name");
+    expect(identity?.checkHidden).toBeUndefined();
+    expect(identity?.badge).toBeUndefined();
+  });
+
+  it("D8: badge off on a current check marks checkHidden; Not verified never does", async () => {
+    state.attributesFlag = true;
+    const off = await build({ showBadge: false });
+    expect(off.identity).toMatchObject({ chip: "name", linked: true, checkHidden: true });
+    expect(off.identity?.attributes).toEqual({ name: "Maya Lin" });
+    state.authbase = "not_verified";
+    const unverified = await build({ showBadge: false });
+    expect(unverified.identity?.checkHidden).toBeUndefined();
+  });
+
+  it("D9: a visible block with no linked name shows the check without a name", async () => {
+    for (const storedName of [null, "mayalin"]) {
+      if (storedName) state.record = { expiry: now() + 300 * DAY, owner: OTHER, addr: OTHER };
+      state.authbase = "badge";
+      const { identity, nameState } = await build({}, block, storedName);
+      expect(identity).toMatchObject({
+        chip: "verified",
+        linked: false,
+        badge: { tier: "enhanced" },
+      });
+      expect(identity?.name).toBeUndefined();
+      expect(identity?.label).toBeUndefined();
+      expect(nameState).toBe(storedName ? "not_linked" : "none");
+    }
+  });
+
+  it("D9: no linked name gets nothing without a visible block, a current check or Show on my page", async () => {
+    const noName = (over = {}, options: RnsIdBlockOptions | null = block) =>
+      build(over, options, null);
+    expect((await noName({}, null)).identity).toBeNull();
+    expect((await noName({}, { attributes: ["name"], visible: false })).identity).toBeNull();
+    expect((await noName({ showName: false })).identity).toBeNull();
+    state.authbase = "not_verified";
+    expect((await noName()).identity).toBeNull();
+    state.authbase = "expired";
+    expect((await noName()).identity).toBeNull();
+  });
+
+  it("D8 and D9 together: attributes only, or nothing when none are shared", async () => {
+    expect((await build({ showBadge: false }, block, null)).identity).toBeNull();
+    state.attributesFlag = true;
+    const { identity } = await build({ showBadge: false }, block, null);
+    expect(identity).toEqual({
+      chip: "none",
+      linked: false,
+      checkHidden: true,
+      wallet: expect.any(String),
+      attributes: { name: "Maya Lin" },
+    });
+  });
+
+  it("an RNS read failure never turns into a name claim", async () => {
+    state.readFails = true;
+    const { identity } = await build();
+    expect(identity).toMatchObject({ chip: "verified", linked: false });
+    expect(identity?.name).toBeUndefined();
+    expect((await build({}, null)).identity).toBeNull();
   });
 });

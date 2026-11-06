@@ -28,11 +28,31 @@ import { formatCount, shortHex } from "../../kit/format";
 const AMOUNT = /^\d*\.?\d+$/;
 const UNIT = "tREVO";
 
-interface AffiliateWallet {
-  success: true;
-  address: string;
-  balances: { chainId: number; currency: string; formattedBalance: string }[];
-}
+type WalletFailure = "not_configured" | "balance_unavailable" | "invalid_key" | "chain_unsupported";
+
+// What the admin sees when the rewards wallet cannot be shown. Only a failed
+// read is worth a retry; a missing or bad key needs a server setting.
+const WALLET_FAILURE: Record<WalletFailure | "request", { cause: string; retry: boolean }> = {
+  not_configured: {
+    cause:
+      "No rewards wallet is set on this server, so referral rewards are not paid. Set AFFILIATES_PRIVATE_KEY on the API server and restart it.",
+    retry: false,
+  },
+  invalid_key: {
+    cause:
+      "The rewards wallet key on this server is not valid. Check AFFILIATES_PRIVATE_KEY on the API server.",
+    retry: false,
+  },
+  chain_unsupported: {
+    cause: "The rewards network is not supported by this server.",
+    retry: false,
+  },
+  balance_unavailable: {
+    cause: "The network did not return the balance. Try again.",
+    retry: true,
+  },
+  request: { cause: "The balance could not be read. Try again.", retry: true },
+};
 
 function RewardWell({
   id,
@@ -161,11 +181,14 @@ export function ReferralRewardsCard() {
     }
   };
 
-  const info =
-    wallet.data && "success" in wallet.data && wallet.data.success
-      ? (wallet.data as unknown as AffiliateWallet)
-      : null;
+  const info = wallet.data?.success ? wallet.data : null;
   const balance = info?.balances[0];
+  const failure =
+    WALLET_FAILURE[
+      wallet.data && !wallet.data.success && wallet.data.reason ? wallet.data.reason : "request"
+    ];
+  const failedAddress =
+    wallet.data && !wallet.data.success && "address" in wallet.data ? wallet.data.address : null;
 
   return (
     <section
@@ -193,10 +216,15 @@ export function ReferralRewardsCard() {
         <Skeleton delayMs={400} className="h-4 w-48" />
       ) : wallet.isError || !info ? (
         <ErrorCard
-          title="Rewards wallet did not load"
-          cause="The balance could not be read. Try again."
-          retryLabel="Retry"
-          onRetry={() => void wallet.refetch()}
+          title={
+            failure === WALLET_FAILURE.not_configured
+              ? "Rewards wallet is not set up"
+              : "Rewards wallet did not load"
+          }
+          cause={
+            failedAddress ? `${failure.cause} Wallet ${shortHex(failedAddress)}.` : failure.cause
+          }
+          {...(failure.retry ? { retryLabel: "Retry", onRetry: () => void wallet.refetch() } : {})}
         />
       ) : (
         <p className="flex flex-wrap items-center gap-2 text-prism-meta text-prism-ink-2">

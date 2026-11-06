@@ -1,5 +1,7 @@
 import { prisma } from "../services/DB";
 import { fanHandleBase } from "../services/follow/rules";
+import { HANDLE_MAX_LENGTH, HANDLE_MIN_LENGTH, generatedHandleBase } from "@repo/constants";
+import { matchReserved, reservedRowsForGenerators } from "../services/reservedHandles";
 
 /**
  * Extracts handle from email: part before "@", removes alias (before "+"), and removes dots
@@ -34,17 +36,33 @@ export async function isHandleAvailable(handle: string): Promise<boolean> {
 }
 
 /**
+ * Reserved handles (Build Board D2, spec 4.6): a generated handle must be free
+ * and must not be reserved. The final handle is checked, not the base.
+ */
+async function isHandleUsable(handle: string): Promise<boolean> {
+  if ((await matchReserved(handle)).reserved) return false;
+  return isHandleAvailable(handle);
+}
+
+/** The base a generated handle starts from, with any reserved prefix removed. */
+async function safeBase(raw: string): Promise<string> {
+  return generatedHandleBase(raw, await reservedRowsForGenerators(), {
+    minLength: HANDLE_MIN_LENGTH,
+    maxLength: HANDLE_MAX_LENGTH,
+  });
+}
+
+/**
  * Generates a unique handle by appending random numbers if needed
  */
-export async function generateUniqueHandle(baseHandle: string): Promise<string> {
+export async function generateUniqueHandle(rawBase: string): Promise<string> {
+  const baseHandle = await safeBase(rawBase);
   let handle = baseHandle;
   let attempts = 0;
   const maxAttempts = 100;
 
   while (attempts < maxAttempts) {
-    const isAvailable = await isHandleAvailable(handle);
-
-    if (isAvailable) {
+    if (await isHandleUsable(handle)) {
       return handle;
     }
 
@@ -67,11 +85,17 @@ export async function processEmailToUniqueHandle(email: string): Promise<string>
 }
 
 export async function generateFanHandle(name: string | null | undefined): Promise<string> {
-  const base = fanHandleBase(name);
+  // fanHandleBase gives "fan" when the name has nothing usable; keep that word
+  const fromName = fanHandleBase(name);
+  const cleaned = await safeBase(fromName);
+  let base = cleaned === "user" ? "fan" : cleaned;
+  // The hyphen joins a reserved prefix when the name is that prefix's word
+  // ("Amped" would give amped-4821, under amped-), so fall back to "fan"
+  if ((await matchReserved(`${base}-1000`)).reserved) base = "fan";
   for (let attempt = 0; attempt < 20; attempt++) {
     const digits = String(Math.floor(1000 + Math.random() * 9000));
     const handle = `${base}-${digits}`;
-    if (await isHandleAvailable(handle)) return handle;
+    if (await isHandleUsable(handle)) return handle;
   }
   return `${base}-${Date.now()}`;
 }

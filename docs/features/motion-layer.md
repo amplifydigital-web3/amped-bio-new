@@ -1,6 +1,6 @@
 # Premium motion layer
 
-Status: v3, decided and in build. Rob took #26 off hold on 2026-10-07 ("go ahead and do #26"). Editor motion (phases 1 and 3) is in PR feat/motion-editor. Public site motion (phase 2) is in PR feat/motion-public behind `NEXT_PUBLIC_SHOW_MOTION`, on for staging and off in production until counsel clears the items in 3.8. Build Board item #26.
+Status: v4, decided and in build. Rob took #26 off hold on 2026-10-07 ("go ahead and do #26"). Editor motion (phases 1 and 3) is in PR feat/motion-editor. Public site motion (phase 2) is in PR feat/motion-public behind `NEXT_PUBLIC_SHOW_MOTION`, on for staging and off in production until counsel clears the items in 3.8. Build Board item #26.
 Owner: Rob Frasca. Drafted by Claude, 2026-10-04.
 Depends on: Prism 2.2 UI rollout (Build Board #20). Motion animates the screens that rollout delivers.
 Prototype: Amped Motion Lab, https://claude.ai/artifact/B5P8pvSWzAph7Y6uAyS6MV
@@ -43,11 +43,11 @@ Public site total: 68.2 KB gzip, loaded after LCP. CustomEase (3.7 KB) is left o
 
 Decisions 2 and 3 stand as approved. Decisions 1 and 4 are revised. Decisions 5 and 6 are new. All six accepted by Rob (2026-10-07); decision 5 took the alternative.
 
-1. **Placement (revised).** The public site gets scroll storytelling: GSAP, Lenis and the OGL hero. The editor gets native View Transitions, Prism CSS and Web Animations. No animation library enters the editor. Creator pages and money flows get none of it. Reason: every editor moment in section 3.4 runs natively at 0 KB. Motion would add 28.5 to 42.1 KB gzip, mostly for springs and gestures Prism does not use. Lenis breaks nested panels, sheets and inputs.
-2. **GSAP scope.** GSAP powers only Amped's own pages. It never powers creator-selectable effects in Design. Reason: the no-charge license prohibits use in no-code animation builders that compete with Webflow, and the Design Motion tab is close to that line. Counsel confirms before the public site work ships.
-3. **WebGL engine.** OGL, not Three.js, for the hero shader.
+1. **Placement (revised, built natively).** The public site gets scroll storytelling. As built in v4 it uses no library: sticky positioning and IntersectionObserver for How it works, raw WebGL for the hero, CSS for the headline reveal and the pool reveals. GSAP, Lenis, OGL and SplitText are not added. Reason: every beat runs natively in about 6 KB gzip of Amped code, the PR merges with no lockfile change, and the GSAP license question in decision 2 no longer applies. The editor gets native View Transitions, Prism CSS and Web Animations. No animation library enters the editor. Creator pages and money flows get none of it. Reason: every editor moment in section 3.4 runs natively at 0 KB. Motion would add 28.5 to 42.1 KB gzip, mostly for springs and gestures Prism does not use. Lenis breaks nested panels, sheets and inputs.
+2. **GSAP scope.** GSAP powers only Amped's own pages. It never powers creator-selectable effects in Design. Reason: the no-charge license prohibits use in no-code animation builders that compete with Webflow, and the Design Motion tab is close to that line. Phase 2 as built uses no GSAP (decision 1).
+3. **WebGL engine.** No engine. The hero is one raw WebGL shader (v4). Approved as OGL, not Three.js; the shader needed neither.
 4. **Vector engine (revised).** SVG with Web Animations for the success moment, Follow and empty states. No Rive. Reason: the Rive runtime is 477 KB gzip, larger than all public site motion combined, for moments SVG draws at 0 KB. The prototype draws the success moment in 610 ms with no library. Revisit Rive only if Amped adopts a character or mascot with many states. dotLottie is retired after #262.
-5. **Network totals (decided: alternative).** Rob chose to count up the non-token totals only: the number of pools and the number of stakers count up once when they enter the screen. Token figures (amounts, balances, Pool total, rewards) never move. The first recommendation (every figure still) was not taken.
+5. **Network totals (decided: alternative).** Rob chose to count up the non-token totals only: the number of pools and the number of stakers count up once when they enter the screen. Token figures (amounts, balances, Pool total, rewards) never move. The first recommendation (every figure still) was not taken. As of v4 no public page shows a pool count or staker count; the landing network totals are tREVO figures and stay still. The count-up ships when a pool or staker count appears.
 6. **Phone hero (new, for Rob).** The phone hero plays a slow ambient drift. No device tilt. Reason: iOS asks for motion permission before tilt works. A permission prompt on a landing page costs trust and conversions. Alternative: tilt after a tap with the iOS prompt. Not recommended.
 
 ## 3. Detailed spec
@@ -56,7 +56,7 @@ Decisions 2 and 3 stand as approved. Decisions 1 and 4 are revised. Decisions 5 
 
 | Surface | App | Allowed | Never |
 | --- | --- | --- | --- |
-| Landing `/`, How it works, pools directory hero | `apps/landingpage` | GSAP, ScrollTrigger, SplitText, Lenis, OGL, View Transitions, CSS scroll timelines | Motion on token figures |
+| Landing `/`, How it works, pools directory hero | `apps/landingpage` | Raw WebGL (one shader), sticky positioning, IntersectionObserver, Prism CSS, CSS scroll timelines | Motion on token figures, any animation library |
 | Editor (all destinations) | `apps/client` | View Transitions, Prism CSS, Web Animations, SVG | Lenis, GSAP, WebGL, any animation library |
 | Creator pages `/<handle>` | `apps/landingpage` | Existing creator effects only | Any library in this spec on creator content (Prism 17) |
 | Money flows (stake, unstake, claim, send, create pool) | both | Prism CSS motion only | GSAP, WebGL, celebration in Review or Commit (Prism 15) |
@@ -78,15 +78,15 @@ Prism section 14 stays the source. `packages/ui/src/prism/motion.ts` re-exports 
 | `story` | scroll linked | public site only |
 | `ease` | `cubic-bezier(0.2, 0, 0, 1)` | all eased motion |
 
-No bounce, overshoot or spring anywhere. `motion.ts` exports a 10-line cubic-bezier function, and GSAP registers it with `gsap.registerEase("prism", ...)`. CustomEase is not loaded: it would add 3.7 KB gzip and break the 70 KB budget.
+No bounce, overshoot or spring anywhere. Every duration and the easing come from `motion-tokens.js`, as CSS variables (`--prism-*`) or through `motion.ts`.
 
 ### 3.3 Public site choreography
 
-1. **Hero.** A CSS poster of three Prism beams paints first and is the LCP element. The OGL shader loads after first paint and fades in over 610 ms. On fine pointers the beams bend toward the pointer. On touch they drift slowly (decision 6). Headline lines reveal with SplitText: mask lines, 377 ms each, 55 ms stagger, then revert to plain text.
+1. **Hero.** A CSS poster of three Prism beams paints first and is the LCP element. A raw WebGL shader (one full screen triangle) starts after first paint and fades in over 610 ms. On fine pointers the beams bend toward the pointer. On touch they drift slowly (decision 6). Headline words rise out of a mask, 377 ms each, 55 ms apart, in CSS. The words are server rendered text, so nothing reverts.
 2. **Hero guards.** Device pixel ratio capped at 1.5. Paused when off screen or the tab is hidden. Poster only under reduced motion, Save-Data, fewer than 4 cores, or under 4 GB memory. A frame watchdog measures the first 45 visible frames. If the median frame is over 28 ms, the canvas is removed and the poster stays.
-3. **How it works.** One pinned ScrollTrigger sequence in four beats: claim a page, design it, fans follow, members join a pool. Pin on wide screens only (1024 and up), scrub 0.6, about 2,400 px of scroll. The pool beat shows mechanics only: wallet to pool contract to members-only link. No amounts, rates or outcomes. Counsel reviews this beat.
-4. **Pools directory.** Pools and stakers count up once on enter (decision 5); token totals are static. Cards rise 13 px and fade on enter with `animation-timeline: view()`. No script.
-5. **Lenis.** Fine pointers only. Off on touch, off under reduced motion, stopped while any dialog or sheet is open. Anchor links and keyboard scrolling keep working.
+3. **How it works.** Four beats: claim a page, design it, fans follow, members join a pool. On wide screens (1024 and up) the steps scroll on the left while one sticky stage on the right plays the step crossing the middle of the viewport (IntersectionObserver), with a progress bar. Each step is about 55vh of scroll. The pool beat shows mechanics only: fan's wallet to pool contract to member of your pool, with the testnet line. No amounts, rates or outcomes. Counsel reviews this beat.
+4. **Pools directory.** Pool cards rise 21 px and fade up from 35% opacity as they enter, with `animation-timeline: view()`. No script. Token totals are static. Pool and staker counts count up once on enter when a public page shows them (decision 5).
+5. **Scrolling.** Native scrolling everywhere. Lenis is not used.
 
 ### 3.4 Editor choreography
 
@@ -114,7 +114,7 @@ The success moment and its states live in `packages/ui/src/prism/moments/`. Each
 
 ### 3.5 Phones and desktop
 
-- Every sequence has a 390 design and a 1440 design. GSAP uses `gsap.matchMedia()` with breakpoints at 640 and 1024.
+- Every sequence has a 390 design and a 1440 design. How it works switches at 1024 with `matchMedia`.
 - How it works stacks on phones. No pin under 1024.
 - Touch targets and focus order never depend on animation state.
 
@@ -128,18 +128,18 @@ The success moment and its states live in `packages/ui/src/prism/moments/`. Each
 | Animation JS | public site 70 KB gzip or less, loaded after LCP. Editor adds 0 KB | both apps |
 | Frame rate | no long task over 50 ms during scroll | public site |
 
-Every library loads by dynamic import on the route that uses it. Lighthouse CI runs on the landing page, a creator page and the editor Home. It is blocked until GitHub Actions billing is restored (Build Board ws-ci-pipeline). Until then the budget is checked by hand on each PR with a Lighthouse mobile run.
+Phase 2 adds no library. Its own code (hero, How it works, headline, Pause motion) is about 6 KB gzip. Lighthouse CI runs on the landing page, a creator page and the editor Home. It is blocked until GitHub Actions billing is restored (Build Board ws-ci-pipeline). Until then the budget is checked by hand on each PR with a Lighthouse mobile run.
 
 ### 3.7 Accessibility
 
-- `prefers-reduced-motion`: no pin, no Lenis, no WebGL (poster only), moments show their end state, View Transitions are instant.
-- A Pause motion control on the landing page, like the one on creator pages (041 I02).
+- `prefers-reduced-motion`: no pin, no WebGL (poster only), moments show their end state, View Transitions are instant.
+- A Pause motion control on the landing page. It shares the `amped.motion.paused` key with creator pages (041 I02), so one choice holds across amped.bio.
 - No content is reachable only by scrolling an animation. Every beat in the pinned sequence is plain text in the DOM, in order.
-- SplitText uses `aria: "auto"` and reverts to the original text after the reveal.
+- The headline reveal moves server rendered words, so screen readers read the heading once, as text.
 
 ### 3.8 Compliance
 
-- GSAP stays out of the creator Design Motion tab and any creator-selectable effect (decision 2). Counsel confirms the scope before public site work ships.
+- GSAP stays out of the creator Design Motion tab and any creator-selectable effect (decision 2). Phase 2 does not use GSAP, so no counsel review of the GSAP license is needed for it.
 - Trust rule: no spectacle in Review or Commit. Success moments play on result steps only.
 - The How it works pool beat describes mechanics only. No amounts, rates, returns or growth. Banned words from the gating, broadcast and explorer lists apply to all animated copy.
 - No count-up or motion on token amounts, balances, token totals or rewards anywhere. Only the pool and staker counts may count up (decision 5). Wallet and pool stat figures do not take part in entrance staggers.
@@ -151,14 +151,14 @@ Every library loads by dynamic import on the route that uses it. Lighthouse CI r
 | --- | --- | --- |
 | 0, quick wins | Particles load on first use, not at editor start. Merged in #272 | None |
 | 1, editor foundation | `motion.ts` from the preset. View Transitions on destination change. Sheet drag hook. Success moment SVG. Built in feat/motion-editor. Removing `framer-motion` and `tsparticles-slim` needs a lockfile change and ships with phase 2 | Prism rollout batches for those screens merged (done) |
-| 2, public site | Hero (OGL with poster and watchdog), How it works (GSAP), pools reveals (CSS), Lenis, Pause motion. Built in feat/motion-public behind `NEXT_PUBLIC_SHOW_MOTION` (on in staging, off in production) | Counsel on GSAP scope, the pool beat and the hero copy before the production flag turns on |
+| 2, public site | Hero (raw WebGL with poster and watchdog), headline reveal (CSS), How it works (sticky stage), pools reveals (CSS), Pause motion. No library. Built in feat/motion-public behind `NEXT_PUBLIC_SHOW_MOTION` (on in development and staging, off in production) | Counsel on the pool beat and the hero copy before the production flag turns on |
 | 3, editor moments | Follow, empty states, pool created result. Built in feat/motion-editor | Boards approved |
 
 ### 3.10 Acceptance criteria
 
 1. No animation library appears in the editor bundle. `framer-motion`, `motion`, `@rive-app/*` and `gsap` are absent from `apps/client/package.json`.
 2. Under `prefers-reduced-motion`, no element moves on the landing page, in the editor or on creator pages, and every state change is instant.
-3. On a touch device, Lenis is not active and native scrolling and momentum work.
+3. On a touch device, native scrolling and momentum work.
 4. The hero poster paints first and is the LCP element. With a median first-frame time over 28 ms, the canvas is removed.
 5. Landing LCP under 2.5 s and INP under 200 ms on a Lighthouse mobile run.
 6. No GSAP import exists under `apps/client` or any creator effect renderer.
@@ -181,4 +181,5 @@ Every library loads by dynamic import on the route that uses it. Lighthouse CI r
 
 - 2026-10-04: v1. Decisions accepted. Quick win shipped in the same PR.
 - 2026-10-04: v2 after the deep dive and prototype. Decision 1 drops Motion. Decision 4 drops Rive for SVG. New decisions 5 (no count-up) and 6 (ambient phone hero). Adds the frame watchdog, sheet drag, a 70 KB public budget, the CI blocker and the hero copy flag. Acceptance criteria 10 to 12 added.
+- 2026-10-07: v4. Phase 2 built with no library: raw WebGL hero, CSS headline and pool reveals, sticky How it works stage. GSAP, Lenis, OGL and SplitText dropped. Decision 5 count-up waits for a pool or staker count on a public page. Pause motion shares the creator page key.
 - 2026-10-07: v3. Rob took #26 off hold. Decisions accepted; decision 5 takes the alternative (pools and stakers count up, token figures still). Phases 1 and 3 built; phase 2 built behind a flag. Added rail, dock, tabs, press, lift, entrance and checklist rows to 3.4. Tab changes use no View Transition. Criterion 12 updated.

@@ -1,4 +1,10 @@
-import type { BlockType, PublicTrackingPixels, ThemeConfig } from "@repo/constants";
+import type {
+  BlockType,
+  ContentCard,
+  PublicTrackingPixels,
+  StoreBioBlock,
+  ThemeConfig,
+} from "@repo/constants";
 import type { RouterOutputs } from "../../../server/src/trpc";
 
 // Inferred directly from the tRPC router so the SSR page data can never drift
@@ -18,6 +24,14 @@ export interface UserProfile {
   identity?: HandleUser["identity"];
   /** 112: the month the page joined, "YYYY-MM", for the RNS ID block */
   since?: string | null;
+  /** Messaging on Telegram (#2): "Messages on Telegram" beside the name. Never the username. */
+  telegramMark?: boolean;
+  /** Row 115: whether Message me on Telegram is live, the rule kind and the bot. Never an amount. */
+  telegramDoor?: HandleUser["telegramDoor"];
+  /** Board tg13: whether Join my Telegram group is live, the rule kind and the bot. */
+  telegramGroupDoor?: HandleUser["telegramGroupDoor"];
+  /** Amped Messages (M6): whether Message me is live and the rule kind. Never an amount. */
+  messageDoor?: HandleUser["messageDoor"];
 }
 
 // Theme from tRPC, but with the JSON column typed as the app's ThemeConfig
@@ -37,6 +51,17 @@ export interface ProfilePageData {
   trackingPixels: PublicTrackingPixels | null;
   /** Whether search engines may index this profile */
   indexable: boolean;
+  /** Content blocks (#20): cards for public items only, keyed by publicId */
+  contentCards: Record<string, ContentCard>;
+  /** Identity checks 4.4: the page has 18+ items (no title, cover or count) */
+  hasAdult: boolean;
+  /**
+   * Theme Engine v2 2b PR 2: the page's font stylesheets on Amped's media host,
+   * or null while fontDelivery is off (the page loads them from Google, as before)
+   */
+  fonts: string[] | null;
+  /** Store block (st10): null hides the block */
+  storeBlock: StoreBioBlock | null;
 }
 
 export const DEFAULT_HANDLE = "landingpage";
@@ -82,6 +107,10 @@ export const DEFAULT_PROFILE_DATA: ProfilePageData = {
   creatorPoolAddress: null,
   trackingPixels: null,
   indexable: false,
+  contentCards: {},
+  hasAdult: false,
+  fonts: null,
+  storeBlock: null,
 };
 
 /**
@@ -98,6 +127,10 @@ export function mapGetHandleData(result: HandleOutput, handle: string): ProfileP
     creatorPoolAddress,
     trackingPixels,
     indexable,
+    contentCards,
+    hasAdult,
+    fonts,
+    storeBlock,
   } = result;
   return {
     profile: {
@@ -110,6 +143,10 @@ export function mapGetHandleData(result: HandleOutput, handle: string): ProfileP
       photoCmp: "",
       identity: user.identity ?? null,
       since: user.since ?? null,
+      telegramMark: user.telegramMark === true,
+      telegramDoor: user.telegramDoor ?? null,
+      telegramGroupDoor: user.telegramGroupDoor ?? null,
+      messageDoor: user.messageDoor ?? null,
     },
     theme: theme ? (theme as unknown as Theme) : null,
     blocks: [...blocksRaw].sort((a, b) => a.order - b.order) as unknown as BlockType[],
@@ -117,5 +154,9 @@ export function mapGetHandleData(result: HandleOutput, handle: string): ProfileP
     creatorPoolAddress: creatorPoolAddress ?? null,
     trackingPixels: trackingPixels ?? null,
     indexable,
+    contentCards: contentCards ?? {},
+    hasAdult: hasAdult === true,
+    fonts: fonts ?? null,
+    storeBlock: storeBlock ?? null,
   };
 }

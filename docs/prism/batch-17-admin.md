@@ -95,7 +95,7 @@ Each batch PR documents itself in its own file under `docs/prism/`, so open PRs 
 
 ## Notes
 
-- Compliance line: the 089 D1 answer quotes "Pool rewards are set by the creator". The approved 089 boards and the 089 approved QA use the newer house line from Rob's 29 Sep calls, which is `TESTNET_NOTICE`: "Testnet only. tREVO has no cash value. Pool rewards come from the network, vary, and are not guaranteed." The build uses `TESTNET_NOTICE` in the referral review and the conversion review. Swapping it is one constant if the lead wants the older line.
+- Compliance line: the 089 D1 answer quotes "Pool rewards are set by the creator". The approved 089 boards and the 089 approved QA use the newer house line from Rob's 29 Sep calls, which is `TESTNET_NOTICE`: "Testnet only. Pool rewards come from the network, vary, and are not guaranteed." The build uses `TESTNET_NOTICE` in the referral review and the conversion review. Swapping it is one constant if the lead wants the older line.
 - 089 I02 asks for the lock when moving from Select to Review. #232 already locks when Process is pressed, before the panel and before any wallet opens. That is earlier and is kept.
 - The value panel is the shared modal SidePanel, so the queue does not reflow beside it as drawn on the board.
 - Broadcasts is not in the review rows; it stays in the rail under Content so its page remains reachable.

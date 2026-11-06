@@ -5,13 +5,16 @@ import { EMAIL_ROW, EmailRow } from "./EmailRow";
 import { PAGE_VISIBILITY_ROW, PageVisibilityRow } from "./PageVisibilityRow";
 import { PASSWORD_ROW, PasswordRow } from "./PasswordRow";
 import { PUBLIC_URL_ROW, PublicUrlRow } from "./PublicUrlRow";
+import { RNS_REMINDERS_ROW, RnsRemindersRow } from "./RnsRemindersRow";
+import { MESSAGES_ROW, MessagesRow } from "./MessagesRow";
+import { MESSAGES_V2 } from "../inbox/flags";
 import { TWO_FACTOR_ROW, TwoFactorRow } from "./TwoFactorRow";
 import { VerifyEmailCard } from "./VerifyEmailCard";
 
 // Screen Review 019 I01, 021 I01 and 098 I01 (D04, D30). Account Settings is
 // one 610 column with one G1 clear card of flat disclosure rows: Public URL,
-// Email, Password, Two factor, Connected apps. One row is open at a time;
-// ?open=<row> opens one. With the Fan Graph on, Page visibility (QA-008)
+// Email, Password, Two factor, Connected apps, Name reminders. One row is
+// open at a time; ?open=<row> opens one. With the Fan Graph on, Page visibility (QA-008)
 // follows Public URL.
 
 const ROWS = [
@@ -21,6 +24,8 @@ const ROWS = [
   PASSWORD_ROW,
   TWO_FACTOR_ROW,
   CONNECTED_APPS_ROW,
+  RNS_REMINDERS_ROW,
+  MESSAGES_ROW,
 ];
 
 export function AccountSettings() {
@@ -45,6 +50,9 @@ export function AccountSettings() {
           <PasswordRow />
           <TwoFactorRow />
           <ConnectedAppsRow />
+          <RnsRemindersRow />
+          {/* Amped Messages (#2 r4, M5, spec 8.3) */}
+          {MESSAGES_V2 && <MessagesRow />}
         </DisclosureGroup>
       </div>
     </div>

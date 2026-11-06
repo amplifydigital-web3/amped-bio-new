@@ -29,8 +29,15 @@ import { trpc } from "@/lib/trpc";
 import { normalizeHandle } from "@/lib/handle";
 import { useCaptcha } from "@/hooks/useCaptcha";
 import { goTo, toAbsoluteUrl } from "@/lib/panel";
+import {
+  SIGN_UP_UNCONFIRMED_BODY,
+  SIGN_UP_UNCONFIRMED_TITLE,
+  signInAfterLostSignUp,
+} from "@/lib/signUpRecovery";
 import { PRIVACY_POLICY_URL } from "@/components/layout/PublicFooter";
 import { EMAIL_FIX } from "./SignInForm";
+import { MESSAGE_UI, TELEGRAM_APP_STRINGS } from "@repo/constants";
+import { useFeatureFlag } from "@/components/providers/FeatureFlagsProvider";
 
 const emailSchema = z.string().email();
 const googleEnabled = Boolean(process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID);
@@ -49,12 +56,19 @@ const EMAIL_TAKEN = "This email already has an account.";
  * page URL field. The server makes a fan account with a handle from the name
  * and no published page, then the person returns to the creator's page with
  * ?follow=1, which finishes the follow.
+ *
+ * Messaging on Telegram (#2, row 122): the same card from Message me on Telegram
+ * (?intent=message) reads "Message {creator}" with the sign up line, and returns
+ * with ?message=1, which opens the fan link sheet. The account is the same fan
+ * account, so the server sees the follow intent.
  */
 export function FanRegisterForm() {
   const params = useSearchParams();
+  const messagesOn = useFeatureFlag("messages");
   const creatorHandle = normalizeHandle(params.get("creator") ?? "");
-  // Back to the creator page; it completes the follow on load
-  const returnTo = `/${creatorHandle}?follow=1`;
+  const intent = params.get("intent") === "message" ? "message" : "follow";
+  // Back to the creator page; it completes the follow, or opens the link sheet, on load
+  const returnTo = `/${creatorHandle}?${intent}=1`;
   const { executeCaptcha, isCaptchaEnabled } = useCaptcha();
   const [name, setName] = useState("");
   const [email, setEmail] = useState(params.get("email") ?? "");
@@ -73,6 +87,8 @@ export function FanRegisterForm() {
   const emailRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
   const noticeRef = useRef<HTMLDivElement>(null);
+  // Set when a sign up attempt ended without a clear answer (see RegisterForm)
+  const lostSignUp = useRef(false);
 
   // The creator's name comes from the server, never from the URL
   const { data: creator } = useQuery({
@@ -93,6 +109,24 @@ export function FanRegisterForm() {
   const passwordOk = PASSWORD_RULES.every(rule => rule.test(password));
   const validateEmail = (value: string) =>
     emailSchema.safeParse(value).success ? undefined : EMAIL_FIX;
+
+  const finishSignUp = () => {
+    lostSignUp.current = false;
+    goTo(returnTo);
+  };
+
+  // True when the account turned out to exist and the person is now signed in
+  const recoverLostSignUp = async () => {
+    const outcome = await signInAfterLostSignUp(email, password, executeCaptcha, isCaptchaEnabled);
+    if (outcome === "signedIn") finishSignUp();
+    return outcome !== "failed";
+  };
+
+  const failOrRecover = async () => {
+    if (await recoverLostSignUp()) return;
+    lostSignUp.current = true;
+    setCardError("network");
+  };
 
   const submit = async () => {
     setCardError(null);
@@ -127,15 +161,17 @@ export function FanRegisterForm() {
       if (response?.error) {
         const kind = classifyAuthError(response.error);
         if (kind === "emailTaken") {
+          // A retry after a lost attempt: the first one made the account
+          if (lostSignUp.current && (await recoverLostSignUp())) return;
           setEmailError(EMAIL_TAKEN);
           emailRef.current?.focus();
         } else if (kind === "captcha") setCaptchaFailed(true);
-        else setCardError("network");
+        else await failOrRecover();
         return;
       }
-      goTo(returnTo);
+      finishSignUp();
     } catch {
-      setCardError("network");
+      await failOrRecover();
     } finally {
       setLoading(false);
     }
@@ -148,7 +184,7 @@ export function FanRegisterForm() {
       callbackURL: toAbsoluteUrl(returnTo),
       newUserCallbackURL: toAbsoluteUrl(returnTo),
       errorCallbackURL: toAbsoluteUrl(
-        `/register?intent=follow&creator=${encodeURIComponent(creatorHandle)}&error=google`
+        `/register?intent=${intent}&creator=${encodeURIComponent(creatorHandle)}&error=google`
       ),
       intent: "follow",
     });
@@ -166,8 +202,14 @@ export function FanRegisterForm() {
 
   return (
     <AuthCard
-      title={`Follow ${creatorName}`}
-      subtitle="An account lets you follow creators and get their updates. You can make your own page later."
+      title={intent === "message" ? `Message ${creatorName}` : `Follow ${creatorName}`}
+      subtitle={
+        intent === "message"
+          ? messagesOn
+            ? MESSAGE_UI.door.signUpLine(creatorName)
+            : TELEGRAM_APP_STRINGS.publicSignUpLine(creatorName)
+          : "An account lets you follow creators and get their updates. You can make your own page later."
+      }
       notice={
         cardError && (
           <Notice
@@ -176,14 +218,13 @@ export function FanRegisterForm() {
             role="alert"
             variant="warning"
             className="outline-none"
-            title={cardError === "google" ? GOOGLE_FAILED_TITLE : "Your account was not created"}
+            title={cardError === "google" ? GOOGLE_FAILED_TITLE : SIGN_UP_UNCONFIRMED_TITLE}
           >
-            <p>
-              {cardError === "google" ? GOOGLE_FAILED_BODY : "Check your connection and try again."}
-            </p>
+            <p>{cardError === "google" ? GOOGLE_FAILED_BODY : SIGN_UP_UNCONFIRMED_BODY}</p>
             <Button
               variant="ghost"
               className="mt-2"
+              disabled={busy}
               onClick={() => void (cardError === "google" ? google() : submit())}
             >
               Retry

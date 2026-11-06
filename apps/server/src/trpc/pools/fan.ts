@@ -29,8 +29,13 @@ import {
   PoolTabRewardPool,
   PoolDetailsForModal,
   SlimPoolForUserStakedPool,
-  PoolSearchResult,
 } from "@repo/constants";
+import { applyStakeDelta, refreshPoolStatsQuietly } from "../../services/poolStats";
+import { hitRateLimit } from "../../utils/rateLimit";
+import { decodeCached, encodeCached } from "../../utils/cacheCodec";
+
+/** Live reads per account a minute; each miss is one multicall to the RPC */
+const LIVE_POOL_READS_PER_MINUTE = 60;
 
 export const poolsFanRouter = router({
   getPoolByAddress: publicProcedure
@@ -241,11 +246,7 @@ export const poolsFanRouter = router({
 
         const whereClause: any = {
           chainId: input.chainId, // Only fetch pools from the specified chain
-          AND: [
-            {
-              OR: [{ hidden: false }, { hidden: null }],
-            },
-          ],
+          AND: [{ hidden: false }],
         };
 
         if (input.search) {
@@ -444,7 +445,7 @@ export const poolsFanRouter = router({
         }
 
         // Arrays to collect updates for batch processing
-        const poolsToUpdate: { id: number; revoStaked: string }[] = [];
+        const poolsToUpdate: { id: number; revoStaked: string; creatorStaked: bigint }[] = [];
 
         // Apply filtering logic after getting pool data from blockchain
         const results = await Promise.allSettled(
@@ -499,6 +500,7 @@ export const poolsFanRouter = router({
                     poolsToUpdate.push({
                       id: pool.id,
                       revoStaked: totalStakeValue.toString(),
+                      creatorStaked: stakeData.creatorStaked,
                     });
 
                     totalStake = totalStakeValue;
@@ -601,6 +603,10 @@ export const poolsFanRouter = router({
             `);
 
             console.log(`Successfully batch updated revoStaked for ${poolsToUpdate.length} pools`);
+            // Keep the list stats columns on the creator stake just read (D7 PL1)
+            for (const update of poolsToUpdate) {
+              await refreshPoolStatsQuietly(update.id, { creatorStaked: update.creatorStaked });
+            }
           } catch (batchUpdateError) {
             console.error(`Error in batch update of revoStaked:`, batchUpdateError);
             // Continue anyway, as we still have the correct values in memory for the response
@@ -804,16 +810,7 @@ export const poolsFanRouter = router({
       const userStakedCacheKey = getUserStakedCacheKey(input.chainId, userId);
       const cachedStakedPools = await cache.get<string>(userStakedCacheKey);
       if (cachedStakedPools !== null) {
-        return JSON.parse(cachedStakedPools, (_key, value) => {
-          if (typeof value === "string" && /^-?\d+$/.test(value)) {
-            try {
-              return BigInt(value);
-            } catch {
-              return value;
-            }
-          }
-          return value;
-        }) as UserStakedPool[];
+        return decodeCached<UserStakedPool[]>(cachedStakedPools);
       }
 
       try {
@@ -1048,13 +1045,7 @@ export const poolsFanRouter = router({
         const filteredResultStakes = resultStakes.filter(stake => stake.pool.stakedByYou > 0n);
 
         // Cache the result (serialize bigints to strings for Redis)
-        await cache.set(
-          userStakedCacheKey,
-          JSON.stringify(filteredResultStakes, (_key, value) =>
-            typeof value === "bigint" ? value.toString() : value
-          ),
-          CACHE_TTL.USER_STAKED
-        );
+        await cache.set(userStakedCacheKey, encodeCached(filteredResultStakes), CACHE_TTL.USER_STAKED);
 
         return filteredResultStakes;
       } catch (error) {
@@ -1186,63 +1177,20 @@ export const poolsFanRouter = router({
             });
           }
 
-          // Convert the BigInt amount to a string for storage
-          const amountToStore = stake.amount.toString();
-
-          // For string-based amounts, get the existing stake as a string and add to it
-          const existingStake = await prisma.stakedPool.findUnique({
-            where: {
-              userWalletId_poolId: {
-                userWalletId: userWallet.id,
-                poolId: pool.id,
-              },
-            },
-            select: {
-              stakeAmount: true,
-            },
+          // One transaction: event once per hash, locked row update, pool stats (D7 PL1)
+          const applied = await applyStakeDelta({
+            userWalletId: userWallet.id,
+            poolId: pool.id,
+            amount: stake.amount,
+            eventType: "stake",
+            transactionHash: input.hash,
           });
-
-          // Convert strings to BigInt for calculation, then back to string for storage
-          const existingAmount = BigInt(existingStake?.stakeAmount || "0");
-          const newStakeAmount = (existingAmount + BigInt(amountToStore)).toString();
-
-          await prisma.stakedPool.upsert({
-            where: {
-              userWalletId_poolId: {
-                userWalletId: userWallet.id,
-                poolId: pool.id,
-              },
-            },
-            update: {
-              stakeAmount: newStakeAmount,
-              updatedAt: new Date(),
-            },
-            create: {
-              userWalletId: userWallet.id,
-              poolId: pool.id,
-              stakeAmount: amountToStore,
-            },
-          });
-
-          // Upsert to avoid duplicate-key errors if the event was already indexed
-          // (e.g. by an admin syncPool run before the user confirmed their tx).
-          await prisma.stakeEvent.upsert({
-            where: {
-              transactionHash_userWalletId_poolId: {
-                transactionHash: input.hash,
-                userWalletId: userWallet.id,
-                poolId: pool.id,
-              },
-            },
-            update: {}, // no-op — event already exists
-            create: {
-              userWalletId: userWallet.id,
-              poolId: pool.id,
-              amount: amountToStore,
-              eventType: "stake",
-              transactionHash: input.hash,
-            },
-          });
+          if (!applied.applied) {
+            console.info(
+              `Stake ${input.hash} for pool ${pool.id} was already recorded; nothing added`
+            );
+            continue;
+          }
 
           console.info(
             `Stake confirmed for user ${userId} in pool ${pool.id}, amount: ${stake.amount.toString()}`
@@ -1425,71 +1373,21 @@ export const poolsFanRouter = router({
             });
           }
 
-          // Convert the BigInt amount to a string for storage
-          const amountToStore = unstake.amount.toString();
-
-          // For string-based amounts, get the existing stake as a string and subtract from it
-          const existingStake = await prisma.stakedPool.findUnique({
-            where: {
-              userWalletId_poolId: {
-                userWalletId: userWallet.id,
-                poolId: pool.id,
-              },
-            },
-            select: {
-              stakeAmount: true,
-            },
+          // One transaction: event once per hash, locked row update, pool stats (D7 PL1).
+          // applyStakeDelta refuses an unstake larger than the recorded stake.
+          const applied = await applyStakeDelta({
+            userWalletId: userWallet.id,
+            poolId: pool.id,
+            amount: unstake.amount,
+            eventType: "unstake",
+            transactionHash: input.hash,
           });
-
-          // Convert strings to BigInt for calculation, then back to string for storage
-          const existingAmount = BigInt(existingStake?.stakeAmount || "0");
-
-          if (existingAmount < BigInt(amountToStore)) {
-            throw new TRPCError({
-              code: "BAD_REQUEST",
-              message: `Unstake amount exceeds current stake. Current stake: ${existingAmount}, Requested unstake: ${amountToStore}`,
-            });
+          if (!applied.applied) {
+            console.info(
+              `Unstake ${input.hash} for pool ${pool.id} was already recorded; nothing removed`
+            );
+            continue;
           }
-
-          const newStakeAmount = (existingAmount - BigInt(amountToStore)).toString();
-
-          await prisma.stakedPool.upsert({
-            where: {
-              userWalletId_poolId: {
-                userWalletId: userWallet.id,
-                poolId: pool.id,
-              },
-            },
-            update: {
-              stakeAmount: newStakeAmount,
-              updatedAt: new Date(),
-            },
-            create: {
-              userWalletId: userWallet.id,
-              poolId: pool.id,
-              stakeAmount: (-BigInt(amountToStore)).toString(), // Negative amount for new unstake
-            },
-          });
-
-          // Upsert to avoid duplicate-key errors if the event was already indexed
-          // (e.g. by an admin syncPool run before the user confirmed their tx).
-          await prisma.stakeEvent.upsert({
-            where: {
-              transactionHash_userWalletId_poolId: {
-                transactionHash: input.hash,
-                userWalletId: userWallet.id,
-                poolId: pool.id,
-              },
-            },
-            update: {}, // no-op — event already exists
-            create: {
-              userWalletId: userWallet.id,
-              poolId: pool.id,
-              amount: amountToStore,
-              eventType: "unstake",
-              transactionHash: input.hash,
-            },
-          });
 
           console.info(
             `Unstake confirmed for user ${userId} in pool ${pool.id}, amount: ${unstake.amount.toString()}`
@@ -1752,6 +1650,7 @@ export const poolsFanRouter = router({
                     where: { id: pool.id },
                     data: { revoStaked: newTotalStake.toString() },
                   });
+                  await refreshPoolStatsQuietly(pool.id, { creatorStaked });
                   console.log(
                     `Successfully updated revoStaked in database for pool ${pool.id}: ${newTotalStake.toString()}`
                   );
@@ -1874,6 +1773,7 @@ export const poolsFanRouter = router({
                   console.log(
                     `Successfully updated stakedPool record for userWalletId: ${targetUserWallet.id}, poolId: ${pool.id}, amount: ${(stakedByYou || 0n).toString()}`
                   );
+                  await refreshPoolStatsQuietly(pool.id);
                 } catch (updateError) {
                   console.error(
                     `Error updating stakedPool record for userWalletId: ${targetUserWallet.id}, poolId: ${pool.id}:`,
@@ -2000,7 +1900,9 @@ export const poolsFanRouter = router({
       }
     }),
 
-  getLiveUserPoolData: publicProcedure
+  // Signed in, rate limited and only for pools Amped knows: never a free RPC
+  // proxy for arbitrary contracts (each random address would miss the cache)
+  getLiveUserPoolData: privateProcedure
     .input(
       z.object({
         poolAddress: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
@@ -2008,7 +1910,11 @@ export const poolsFanRouter = router({
         chainId: z.string(),
       })
     )
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
+      const reads = await hitRateLimit(`live_pool_read:${ctx.user!.sub}`, 60);
+      if (reads > LIVE_POOL_READS_PER_MINUTE) {
+        throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "Too many requests. Try again shortly." });
+      }
       const normalizedPoolAddress = getAddress(input.poolAddress);
       const normalizedUserAddress = getAddress(input.userAddress);
       const cacheKey = getLiveUserPoolDataCacheKey(
@@ -2025,6 +1931,13 @@ export const poolsFanRouter = router({
       const chain = getChainConfig(parseInt(input.chainId));
       if (!chain) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Unsupported chain ID" });
+      }
+      const knownPool = await prisma.creatorPool.findFirst({
+        where: { chainId: input.chainId, poolAddress: { in: [normalizedPoolAddress, input.poolAddress, input.poolAddress.toLowerCase()] } },
+        select: { id: true },
+      });
+      if (!knownPool) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Pool not found" });
       }
 
       const publicClient = createPublicClient({ chain, transport: getRpcTransport(chain) });
@@ -2126,88 +2039,6 @@ export const poolsFanRouter = router({
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Failed to confirm claim",
-        });
-      }
-    }),
-
-  searchPoolsForBlockEditor: publicProcedure
-    .input(
-      z.object({
-        chainId: z.string(),
-        search: z.string().min(2, "Search must be at least 2 characters"),
-        limit: z.number().optional().default(3),
-      })
-    )
-    .query(async ({ input }): Promise<PoolSearchResult[]> => {
-      try {
-        const whereClause: any = {
-          chainId: input.chainId,
-          AND: [
-            {
-              OR: [{ hidden: false }, { hidden: null }],
-            },
-          ],
-        };
-
-        // Check if the search query looks like an Ethereum address
-        const isAddress = /^0x[a-fA-F0-9]{40}$/.test(input.search.trim());
-
-        if (isAddress) {
-          // For address search, do exact match
-          whereClause.AND.push({
-            OR: [{ poolAddress: { equals: input.search.toLowerCase() } }],
-          });
-        } else {
-          // For text search, search across multiple fields
-          whereClause.AND.push({
-            OR: [
-              { description: { contains: input.search } },
-              { poolAddress: { contains: input.search } },
-              { wallet: { user: { name: { contains: input.search } } } },
-            ],
-          });
-        }
-
-        const pools = await prisma.creatorPool.findMany({
-          where: whereClause,
-          take: input.limit,
-          select: {
-            id: true,
-            name: true,
-            poolAddress: true,
-            wallet: {
-              select: {
-                user: {
-                  select: {
-                    handle: true,
-                  },
-                },
-              },
-            },
-            stakedPools: {
-              select: {
-                stakeAmount: true,
-              },
-            },
-          },
-        });
-
-        // Count only users with positive stake amounts for fans count
-        const results: PoolSearchResult[] = pools.map(pool => ({
-          id: pool.id,
-          name: pool.name || `Pool ${pool.id}`,
-          address: pool.poolAddress!,
-          fans: pool.stakedPools.filter(staked => BigInt(staked.stakeAmount) > 0n).length,
-          creatorHandle: pool.wallet?.user?.handle || null,
-        }));
-
-        return results;
-      } catch (error) {
-        console.error("Error searching pools for block editor:", error);
-        if (error instanceof TRPCError) throw error;
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Failed to search pools",
         });
       }
     }),

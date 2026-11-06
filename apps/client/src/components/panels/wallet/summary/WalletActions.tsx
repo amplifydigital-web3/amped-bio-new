@@ -4,7 +4,7 @@ import { ArrowDownToLine, Plus, Send } from "lucide-react";
 import { Button, cn } from "@repo/ui";
 import { useWalletContext } from "@/contexts/WalletContext";
 import FundWalletDialog from "../dialogs/FundWalletDialog";
-import ReceiveDialog from "../dialogs/ReceiveDialog";
+import ReceiveDialog, { type ReceiveNetwork } from "../dialogs/ReceiveDialog";
 
 /**
  * Screen Review 050 I03 to I07. One filled button: Send (55) opens the Send
@@ -17,6 +17,7 @@ export function WalletActions() {
   const wallet = useWalletContext();
   const [, setParams] = useSearchParams();
   const [receiveOpen, setReceiveOpen] = useState(false);
+  const [receiveNetwork, setReceiveNetwork] = useState<ReceiveNetwork>("native");
   const [fundOpen, setFundOpen] = useState(false);
 
   const zero = wallet.balance?.data?.value === 0n;
@@ -52,7 +53,10 @@ export function WalletActions() {
       key="receive"
       type="button"
       variant="secondary"
-      onClick={() => setReceiveOpen(true)}
+      onClick={() => {
+        setReceiveNetwork("native");
+        setReceiveOpen(true);
+      }}
       className="max-sm:w-full"
     >
       <ArrowDownToLine aria-hidden />
@@ -100,9 +104,12 @@ export function WalletActions() {
       <FundWalletDialog
         open={fundOpen}
         onOpenChange={setFundOpen}
-        openReceiveModal={() => setReceiveOpen(true)}
+        openReceiveModal={network => {
+          setReceiveNetwork(network ?? "native");
+          setReceiveOpen(true);
+        }}
       />
-      <ReceiveDialog open={receiveOpen} onOpenChange={setReceiveOpen} />
+      <ReceiveDialog open={receiveOpen} onOpenChange={setReceiveOpen} network={receiveNetwork} />
     </div>
   );
 }

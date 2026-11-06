@@ -17,6 +17,7 @@ import {
 } from "@repo/constants";
 import { env } from "../../env";
 import { s3Service } from "../../services/S3Service";
+import { assertUploadVerified } from "../../services/uploadVerification";
 import { uploadedFileService } from "../../services/UploadedFileService";
 import Decimal from "decimal.js";
 import { indexPoolRewardsWithin, netStake, recordCreateEvent } from "../../services/poolEvents";
@@ -578,7 +579,8 @@ export const poolsCreatorRouter = router({
           "pool-images",
           userId,
           input.contentType,
-          input.fileExtension
+          input.fileExtension,
+          input.fileSize
         );
 
         const uploadedFile = await uploadedFileService.createUploadedFile({
@@ -597,6 +599,7 @@ export const poolsCreatorRouter = router({
         };
       } catch (error: any) {
         console.error("Error generating presigned URL for pool image:", error);
+        if (error instanceof TRPCError) throw error;
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: `Failed to generate upload URL: ${error.message || error}`,
@@ -619,15 +622,9 @@ export const poolsCreatorRouter = router({
         }
 
         const fileKey = uploadedFile.s3_key;
-        const bucket = uploadedFile.bucket;
 
-        const fileExists = await s3Service.fileExists({ fileKey, bucket });
-        if (!fileExists) {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "File not found in S3. Please upload the file first.",
-          });
-        }
+        // Exists, size matches the declared size, and the real type is allowed
+        await assertUploadVerified(uploadedFile, ALLOWED_POOL_IMAGE);
 
         await uploadedFileService.updateFileStatus({
           id: input.fileId,

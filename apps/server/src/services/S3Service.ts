@@ -7,14 +7,17 @@ import {
   type S3ClientConfig,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import AWS from "aws-sdk"; // Import AWS SDK for the getSignedUrlPromise method
 import crypto from "crypto";
 import { env } from "../env";
 import {
   ALLOWED_AVATAR_FILE_TYPES,
   ALLOWED_BACKGROUND_FILE_TYPES,
+  ALLOWED_COLLECTION_THUMBNAIL_FILE_TYPES,
   ALLOWED_POOL_IMAGE,
 } from "@repo/constants";
+import { createPresignedPutUrl, verifyUploadedObject, type UploadVerification } from "./s3Upload";
+
+const BYTES_PER_MB = 1024 * 1024;
 
 export type FileCategory = "profiles" | "backgrounds" | "category" | "pool-images";
 export type S3Operation = "getObject" | "putObject" | "deleteObject";
@@ -43,6 +46,14 @@ export interface FileExistsParams {
   bucket?: string; // Optional bucket, defaults to the default bucket
 }
 
+export interface VerifyUploadParams {
+  fileKey: string;
+  bucket?: string; // Optional bucket, defaults to the default bucket
+  expectedSize: number | bigint | null; // Size declared when the upload URL was issued
+  declaredType: string | null; // Content type declared when the upload URL was issued
+  allowedTypes: readonly string[]; // Types the upload flow accepts
+}
+
 export interface GenerateServerFileKeyParams {
   category: FileCategory | "collection";
   fileExtension: string;
@@ -52,8 +63,7 @@ export interface GenerateServerFileKeyParams {
 }
 
 class S3Service {
-  private s3Client: S3Client; // For newer AWS SDK operations
-  private s3: AWS.S3; // For signed URL generation using the v2 API
+  private s3Client: S3Client;
   private bucketName: string;
   private bucketRegion: string;
   private publicBaseUrl: string;
@@ -101,6 +111,7 @@ class S3Service {
         accessKeyId: env.AWS_ACCESS_KEY_ID.trim(),
         secretAccessKey: env.AWS_SECRET_ACCESS_KEY.trim(),
       },
+      ...S3Service.checksumOptions,
     };
 
     // Set the standard S3 public URL format based on the region
@@ -117,24 +128,8 @@ class S3Service {
       this.publicBaseUrl = `${env.AWS_S3_ENDPOINT.trim()}/${this.bucketName}`;
     }
 
-    // Initialize both S3 client types
+    // One AWS SDK v3 client for every operation, including presigning.
     this.s3Client = new S3Client(clientOptions);
-
-    // Initialize AWS SDK v2 S3 client for signed URL generation
-    AWS.config.update({
-      region: this.bucketRegion,
-      accessKeyId: env.AWS_ACCESS_KEY_ID.trim(),
-      secretAccessKey: env.AWS_SECRET_ACCESS_KEY.trim(),
-    });
-
-    if (env.AWS_S3_ENDPOINT && env.AWS_S3_ENDPOINT.trim().length > 0) {
-      this.s3 = new AWS.S3({
-        endpoint: env.AWS_S3_ENDPOINT.trim(),
-        s3ForcePathStyle: true,
-      });
-    } else {
-      this.s3 = new AWS.S3();
-    }
 
     console.info(
       "[INFO] S3Service initialized",
@@ -152,6 +147,21 @@ class S3Service {
   }
 
   /**
+   * AWS SDK v3 (3.729 and later) adds a CRC32 checksum to every request by
+   * default. On a presigned PUT that checksum is computed over an empty body
+   * and placed in the URL, so S3 rejects the real file a browser sends.
+   * "WHEN_REQUIRED" turns that off for operations that do not need it. It also
+   * keeps us compatible with S3 compatible stores (MinIO, Cloudflare R2).
+   */
+  private static readonly checksumOptions: Pick<
+    S3ClientConfig,
+    "requestChecksumCalculation" | "responseChecksumValidation"
+  > = {
+    requestChecksumCalculation: "WHEN_REQUIRED",
+    responseChecksumValidation: "WHEN_REQUIRED",
+  };
+
+  /**
    * Create an S3Client with the current configuration
    * This method ensures consistent client configuration across different operations
    * @returns S3Client - Configured S3 client instance
@@ -163,6 +173,7 @@ class S3Service {
         accessKeyId: env.AWS_ACCESS_KEY_ID,
         secretAccessKey: env.AWS_SECRET_ACCESS_KEY,
       },
+      ...S3Service.checksumOptions,
     };
 
     // Add custom endpoint if provided (for local development with S3Mock or other S3-compatible services)
@@ -215,7 +226,8 @@ class S3Service {
   }
 
   /**
-   * Validate file type and size based on the file category
+   * Validate file type and size based on the file category.
+   * fileSize is in bytes. The UPLOAD_LIMIT_*_MB env values are in MB.
    */
   validateFile(
     contentType: string,
@@ -224,25 +236,30 @@ class S3Service {
   ): { valid: boolean; message?: string } {
     // Get allowed file types and size limit based on category
     let allowedTypes: string[];
-    let maxSize: number;
+    let maxSizeMB: number;
 
     // Set validation rules based on file category
     if (category === "profiles") {
       allowedTypes = ALLOWED_AVATAR_FILE_TYPES;
-      maxSize = env.UPLOAD_LIMIT_PROFILE_PHOTO_MB;
+      maxSizeMB = env.UPLOAD_LIMIT_PROFILE_PHOTO_MB;
     } else if (category === "backgrounds") {
       allowedTypes = ALLOWED_BACKGROUND_FILE_TYPES;
-      maxSize = env.UPLOAD_LIMIT_BACKGROUND_MB;
+      maxSizeMB = env.UPLOAD_LIMIT_BACKGROUND_MB;
     } else if (category === "pool-images") {
       allowedTypes = ALLOWED_POOL_IMAGE;
-      maxSize = env.UPLOAD_LIMIT_POOL_IMAGE_MB;
+      maxSizeMB = env.UPLOAD_LIMIT_POOL_IMAGE_MB;
+    } else if (category === "category") {
+      // Theme collection images (admin). Same rules as the admin router.
+      allowedTypes = ALLOWED_COLLECTION_THUMBNAIL_FILE_TYPES;
+      maxSizeMB = env.UPLOAD_LIMIT_COLLECTION_THUMBNAIL_MB;
     } else {
       // Invalid category
       return {
         valid: false,
-        message: `Invalid file category: ${category}. Allowed categories are 'profiles', 'backgrounds', and 'pool-images'.`,
+        message: `Invalid file category: ${category}. Allowed categories are 'profiles', 'backgrounds', 'pool-images' and 'category'.`,
       };
     }
+    const maxSize = maxSizeMB * BYTES_PER_MB;
 
     // Check file type
     if (!allowedTypes.includes(contentType)) {
@@ -261,8 +278,10 @@ class S3Service {
     }
 
     // Check file size if provided
+    if (fileSize !== undefined && (!Number.isSafeInteger(fileSize) || fileSize <= 0)) {
+      return { valid: false, message: "File size must be a positive whole number of bytes" };
+    }
     if (fileSize !== undefined && fileSize > maxSize) {
-      const maxSizeMB = maxSize / (1024 * 1024);
       console.info(
         "[INFO] File validation failed: File size exceeds limit",
         JSON.stringify({
@@ -366,63 +385,72 @@ class S3Service {
   }
 
   /**
-   * Get a signed URL for any S3 operation (getObject, putObject, deleteObject)
+   * Get a signed URL for an S3 operation, on AWS SDK v3.
    * @param key - Object path/key in the bucket
-   * @param operation - S3 operation type
+   * @param operation - getObject or deleteObject. Uploads use getSignedUploadUrl,
+   *   which needs the declared size.
    * @param expiresIn - URL expiration time in seconds (default: 300)
-   * @param contentType - Content-Type header to include in signature calculation (for uploads)
    * @returns Promise<string> - Signed URL
    */
   async getSignedUrl(
     key: string,
-    operation: S3Operation,
-    expiresIn: number = 300,
-    contentType?: string
+    operation: Exclude<S3Operation, "putObject">,
+    expiresIn: number = 300
   ): Promise<string> {
     try {
-      console.debug(
-        "[DEBUG] Creating signed URL for operation:",
-        JSON.stringify({
-          operation,
-          bucket: this.bucketName,
-          key,
-          expiresIn,
-          contentType,
-        })
-      );
+      const command =
+        operation === "getObject"
+          ? new GetObjectCommand({ Bucket: this.bucketName, Key: key })
+          : new DeleteObjectCommand({ Bucket: this.bucketName, Key: key });
 
-      // Use a generic Record type instead of AWS.S3.PresignedUrlRequest
-      const params: Record<string, any> = {
-        Bucket: this.bucketName,
-        Key: key,
-        Expires: expiresIn,
-      };
-
-      // Add Content-Type to signature calculation for PUT operations
-      if (operation === "putObject" && contentType) {
-        params.ContentType = contentType;
-      }
-
-      const url = await this.s3.getSignedUrlPromise(operation, params);
+      const url = await getSignedUrl(this.s3Client, command, { expiresIn });
 
       console.info(
         "[INFO] Generated signed URL for operation",
-        JSON.stringify({
-          operation,
-          key,
-          expiresIn,
-          contentType,
-          urlLength: url.length,
-          url: url.substring(0, 100) + "...", // Log partial URL for security
-        })
+        JSON.stringify({ operation, key, expiresIn, urlLength: url.length })
       );
-
       return url;
     } catch (error) {
       console.error(
         "[ERROR] Failed to generate signed URL",
         error instanceof Error ? error.stack : error,
         JSON.stringify({ operation, key })
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Get a presigned PUT URL bound to the declared type and size.
+   * Content-Type and Content-Length are part of the signature, so S3 rejects
+   * the request (403 SignatureDoesNotMatch) if the browser sends another type
+   * or a body of another size. Browsers set Content-Length from the File.
+   */
+  async getSignedUploadUrl(
+    key: string,
+    contentType: string,
+    contentLength: number,
+    expiresIn: number = 300
+  ): Promise<string> {
+    try {
+      const url = await createPresignedPutUrl(this.s3Client, {
+        bucket: this.bucketName,
+        key,
+        contentType,
+        contentLength,
+        expiresIn,
+      });
+
+      console.info(
+        "[INFO] Generated signed upload URL",
+        JSON.stringify({ key, contentType, contentLength, expiresIn, urlLength: url.length })
+      );
+      return url;
+    } catch (error) {
+      console.error(
+        "[ERROR] Failed to generate signed upload URL",
+        error instanceof Error ? error.stack : error,
+        JSON.stringify({ key, contentType, contentLength })
       );
       throw error;
     }
@@ -437,14 +465,15 @@ class S3Service {
     userId: number,
     contentType: string,
     fileExtension: string,
+    fileSize: number,
     themeId?: number
   ): Promise<{
     presignedUrl: string; // Temporary URL for upload only
     fileKey: string; // File identifier to be stored in the database
   }> {
     try {
-      // Validate file type based on category
-      const validation = this.validateFile(contentType, category);
+      // Validate file type and declared size based on category
+      const validation = this.validateFile(contentType, category, fileSize);
       if (!validation.valid) {
         console.error(
           "[ERROR] Failed to generate presigned URL",
@@ -461,8 +490,8 @@ class S3Service {
 
       const fileKey = this.generateUniqueFileKey({ category, userId, fileExtension, themeId });
 
-      // Get a signed URL for putting an object
-      const presignedUrl = await this.getSignedUrl(fileKey, "putObject", 300, contentType);
+      // Signed PUT bound to the declared type and size
+      const presignedUrl = await this.getSignedUploadUrl(fileKey, contentType, fileSize, 300);
 
       return {
         presignedUrl, // This URL is for upload only and is temporary
@@ -472,7 +501,7 @@ class S3Service {
       console.error(
         "[ERROR] Error generating presigned URL",
         error instanceof Error ? error.stack : error,
-        JSON.stringify({ category, userId, contentType, themeId })
+        JSON.stringify({ category, userId, contentType, fileSize, themeId })
       );
       throw error;
     }
@@ -656,6 +685,40 @@ class S3Service {
   }
 
   /**
+   * Verify an uploaded object before it is marked COMPLETED.
+   * Checks that it exists, that its stored size equals the size declared when
+   * the upload URL was issued, and that its first 4 KB are an allowed type
+   * matching the declared type. Does not delete anything; see
+   * services/uploadVerification.ts for what the confirm routes do on failure.
+   */
+  async verifyUpload(params: VerifyUploadParams): Promise<UploadVerification> {
+    const { fileKey, bucket, expectedSize, declaredType, allowedTypes } = params;
+    const targetBucket = bucket || this.bucketName;
+    const s3Client = bucket && bucket !== this.bucketName ? this.createS3Client() : this.s3Client;
+
+    const result = await verifyUploadedObject(s3Client, {
+      bucket: targetBucket,
+      key: fileKey,
+      expectedSize,
+      declaredType,
+      allowedTypes,
+    });
+
+    console.info(
+      "[INFO] Upload verification",
+      JSON.stringify({
+        fileKey,
+        bucket: targetBucket,
+        ok: result.ok,
+        ...(result.ok
+          ? { size: result.size, detectedType: result.detectedType }
+          : { reason: result.reason, detail: result.detail }),
+      })
+    );
+    return result;
+  }
+
+  /**
    * Generate a temporary URL for accessing a file in any S3 bucket
    * This function allows access to files in different buckets, not just the default one
    * @param params - Object containing bucket name, file key, and optional expiration time
@@ -718,6 +781,7 @@ class S3Service {
     category: FileCategory,
     contentType: string,
     fileExtension: string,
+    fileSize: number,
     collectionId?: number,
     themeId?: number,
     isThumbnail?: boolean
@@ -726,9 +790,9 @@ class S3Service {
     fileKey: string; // File identifier to be stored in the database
   }> {
     try {
-      // Validate file type based on category
-      const fileCategory = category === "category" ? "profiles" : category;
-      const validation = this.validateFile(contentType, fileCategory as FileCategory);
+      // Validate file type and declared size based on category.
+      // "category" (collection images) has its own rules in validateFile.
+      const validation = this.validateFile(contentType, category, fileSize);
       if (!validation.valid) {
         throw new Error(validation.message || "File validation failed");
       }
@@ -741,8 +805,8 @@ class S3Service {
         isThumbnail,
       });
 
-      // Get a signed URL for putting an object
-      const presignedUrl = await this.getSignedUrl(fileKey, "putObject", 300, contentType);
+      // Signed PUT bound to the declared type and size
+      const presignedUrl = await this.getSignedUploadUrl(fileKey, contentType, fileSize, 300);
 
       return {
         presignedUrl,
@@ -752,7 +816,7 @@ class S3Service {
       console.error(
         "[ERROR] Error generating server presigned URL",
         error instanceof Error ? error.stack : error,
-        JSON.stringify({ category, contentType, collectionId, themeId, isThumbnail })
+        JSON.stringify({ category, contentType, fileSize, collectionId, themeId, isThumbnail })
       );
       throw error;
     }

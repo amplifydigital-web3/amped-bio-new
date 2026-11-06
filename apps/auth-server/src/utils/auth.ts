@@ -15,6 +15,7 @@ import crypto from "crypto";
 import { JWTPayload, SignJWT } from "jose";
 import type { EnrichedUser } from "../types/auth-helpers";
 import { uuidv7 } from "./uuid-v7";
+import { checkSignUpHandle, refuseHandleUpdate } from "./handleHooks";
 
 // === jwt private key generation  ===
 const pk = crypto.createPrivateKey({
@@ -187,7 +188,17 @@ export const auth = betterAuth({
         advertisedMetadata: {
           claims_supported: ["wallet"],
         },
-        customUserInfoClaims: async ({ user, scopes, requestedClaims, jwt }: { user: any; scopes: string[]; requestedClaims: string[]; jwt?: any }) => {
+        customUserInfoClaims: async ({
+          user,
+          scopes,
+          requestedClaims,
+          jwt,
+        }: {
+          user: any;
+          scopes: string[];
+          requestedClaims: string[];
+          jwt?: any;
+        }) => {
           const claims: Record<string, unknown> = {};
 
           if (requestedClaims.includes("wallet") || scopes.includes("profile")) {
@@ -226,6 +237,7 @@ export const auth = betterAuth({
     ),
     asBetterAuthPlugin(oauthDeviceAuthorization({ verificationUri: OAUTH_DEVICE_PATH })),
   ],
+  // @ts-expect-error — $extends changes the return type; prismaAdapter needs PrismaClient at runtime
   database: prismaAdapter(withNumericIdCoercion(prisma), {
     provider: "mysql",
   }),
@@ -257,8 +269,19 @@ export const auth = betterAuth({
   },
   databaseHooks: {
     user: {
+      // Reserved handles (Build Board D2, spec 4.8): /update-user never sets a handle
+      update: {
+        before: async (data: any) => {
+          refuseHandleUpdate(data);
+        },
+      },
       create: {
         before: async (user: any, context: any) => {
+          // Reserved handles (Build Board D2, spec 4.4): a handle the person
+          // sent passes the same format and reserved rules as Public URL
+          const supplied = await checkSignUpHandle(user.handle);
+          if (supplied) user.handle = supplied;
+
           if ((!user.handle || user.handle === "") && user.email) {
             user.handle = await processEmailToUniqueHandle(user.email);
           }
@@ -315,14 +338,15 @@ export const auth = betterAuth({
   emailVerification: {
     sendVerificationEmail: async ({ user, token }: { user: any; url: any; token: any }) => {
       console.info("Sending email verification to:", user.email);
-      // Awaited so an SMTP failure is logged here instead of becoming an
-      // unhandled rejection. It is not rethrown: sign up still completes and
-      // the person can resend from Home or Account.
-      try {
-        await sendEmailVerification(user.email, token);
-      } catch (error: any) {
+      // Not awaited: Better Auth runs this inside the sign up request, after
+      // the user row is written. Waiting on SMTP there let a slow relay hold
+      // the response until a proxy timed it out, and the sign up card said
+      // the account was not created when it was. The catch keeps a failure
+      // logged instead of an unhandled rejection; the person can resend from
+      // Home or Account.
+      void sendEmailVerification(user.email, token).catch((error: any) => {
         console.error("Email verification send failed for", user.email, error?.message ?? error);
-      }
+      });
     },
     sendOnSignUp: true,
     autoSignInAfterVerification: true,

@@ -20,6 +20,15 @@ export function getPanelHomeUrl(options: { welcome?: boolean } = {}): string {
 }
 
 /**
+ * TE-4c: the editor's Themes tab with a shared look in the preview. The
+ * editor adds it to Shared with me (spec 3.10) and applies nothing.
+ */
+export function getPanelLookUrl(slug: string): string {
+  const base = process.env.NEXT_PUBLIC_PANEL_URL || "";
+  return `${base}/design?tab=themes&look=${encodeURIComponent(slug)}`;
+}
+
+/**
  * Build the apps/client URL that opens a pool's details panel in Explore, where the
  * signed in person can stake (D27, Screen Review 071 I03). The client reads
  * ?pool=<address> and opens the pool panel; legacy ?pa= is rewritten there.
@@ -48,6 +57,9 @@ export function getSafeRedirect(raw: string | null | undefined): string | null {
     // Screen Review 081 I05, I10: the admin app sends signed out admins here too
     const admin = process.env.NEXT_PUBLIC_ADMIN_URL;
     if (admin) allowed.push(new URL(admin).origin);
+    // The Merchant Console (partners.amped.bio) signs in through this page too (Build Board #66)
+    const partners = process.env.NEXT_PUBLIC_PARTNERS_URL;
+    if (partners) allowed.push(new URL(partners).origin);
     if (!allowed.includes(target.origin)) return null;
     // Same site targets are returned as a normalized path so router.push stays on site
     return target.origin === window.location.origin
@@ -83,4 +95,24 @@ export function toAbsoluteUrl(url: string): string {
 /** Full navigation: destinations are often on the panel origin. */
 export function goTo(url: string) {
   window.location.href = url;
+}
+
+/**
+ * The link between Sign in and Create account. It keeps a safe returnTo (or the
+ * legacy redirect), so a checkout intent in the pay URL survives sign up
+ * (mobile checkout CK-1), and the email when there is one.
+ */
+export function authSwitchHref(
+  path: "/login" | "/register",
+  params: URLSearchParams,
+  email?: string
+): string {
+  const next = new URLSearchParams();
+  if (email) next.set("email", email);
+  const returnTo = getSafeRedirect(params.get("returnTo"));
+  const redirect = getSafeRedirect(params.get("redirect"));
+  if (returnTo) next.set("returnTo", returnTo);
+  else if (redirect) next.set("redirect", redirect);
+  const query = next.toString();
+  return query ? `${path}?${query}` : path;
 }
