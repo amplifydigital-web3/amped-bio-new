@@ -182,6 +182,9 @@ export async function listOrders(
     offerIds = offers.map(o => Buffer.from(o.id));
   }
   const limit = Math.min(Math.max(filter.limit ?? 50, 1), 100);
+  if (filter.wallet && !isAddress(filter.wallet, { strict: false })) {
+    throw new OrderError(422, "invalid_wallet", "Send a valid wallet address.");
+  }
   const cursorDate = filter.cursor ? new Date(filter.cursor) : null;
   if (cursorDate && Number.isNaN(cursorDate.getTime())) {
     throw new OrderError(422, "invalid_cursor", "Send the next_cursor from the previous page.");
@@ -190,9 +193,7 @@ export async function listOrders(
     where: {
       merchantId,
       status: { in: filter.status ? (statusMap[filter.status] ?? []) : VISIBLE },
-      ...(filter.wallet && isAddress(filter.wallet, { strict: false })
-        ? { payer: getAddress(filter.wallet) }
-        : {}),
+      ...(filter.wallet ? { payer: getAddress(filter.wallet) } : {}),
       ...(filter.rnsName ? { rnsName: filter.rnsName.toLowerCase() } : {}),
       ...(offerIds ? { offerId: { in: offerIds } } : {}),
       createdAt: {
@@ -225,8 +226,11 @@ export async function entitlements(merchantId: Buffer, wallet: string, now = new
       merchantId,
       payer: getAddress(wallet as Address),
       status: { in: ["confirmed_soft", "confirmed"] },
-      fulfillmentState: { not: "verified" },
-      OR: [{ accessUntil: null }, { accessUntil: { gt: now } }],
+      // Null reads as paid for an order made before AB-2; a bare not filter would drop it
+      AND: [
+        { OR: [{ fulfillmentState: null }, { fulfillmentState: { not: "verified" } }] },
+        { OR: [{ accessUntil: null }, { accessUntil: { gt: now } }] },
+      ],
     },
     orderBy: { createdAt: "desc" },
     select: ORDER_SELECT,
@@ -305,9 +309,17 @@ export async function reportFulfillment(
   const closes =
     state === "verified" ||
     (state === "not_passed" && (body.attempts_used ?? 0) >= ATTEMPTS_PER_ORDER);
-  await prisma.purchase.update({
-    where: { id: row.id },
+  // Conditional: a report that races the verified one must not reopen or rewrite the order
+  const written = await prisma.purchase.updateMany({
+    where: {
+      id: row.id,
+      status: { in: ["confirmed_soft", "confirmed"] },
+      OR: [{ fulfillmentState: null }, { fulfillmentState: { not: "verified" } }],
+    },
     data: { fulfillmentState: state, ...(closes ? { accessUntil: now } : {}) },
   });
+  if (written.count !== 1) {
+    throw new OrderError(409, "already_verified", "This order is already verified.");
+  }
   return getOrder(merchantId, ref);
 }
