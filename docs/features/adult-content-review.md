@@ -724,6 +724,7 @@ Drafted for counsel. Nothing here is on a board as final text.
 
 ## Revision log
 
+- 2026-11-05: R2 built (`feat/safety-queue`, on R1). Queue, case view with blur and 60 second reveal, decisions with keys, Block this file, strikes by safety lead, escalate (child safety and trafficking), delivery line Retry, Blocked files. Handoff `docs/fixes/safety-queue.md`.
 - 2026-11-05: R1 built (`feat/safety-foundation`, on C7a). Section 10 tables, roles and the admin gate, SafetyEvent writer, Settings defaults, hash blocklist service, `preserveEvidence`, child safety alert (email and Twilio SMS), CSAM match and classifier hold intake. Handoff `docs/fixes/safety-foundation.md`.
 - 2026-11-05: A1 with R6 and C1 built (`feat/content-adult-access`). `adultContent` flag (off until R1 to R5); shelf and item shells at `/{handle}/adult`; statutory notices in constants with a byte test and `StatutoryNotice`. Handoff `docs/fixes/content-adult-access.md`.
 - 2026-11-05: F1 built (`fix/content-adult-unlabel`). `explicitAt` set from a new `explicit` flag on the classifier callback; unlabel refused while set, else a READY item is held with `adult_label_removed`. Handoff `docs/fixes/content-adult-unlabel.md`.

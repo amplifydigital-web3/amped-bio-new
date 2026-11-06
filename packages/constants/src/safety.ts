@@ -128,3 +128,85 @@ export const SAFETY_SETTINGS_DEFAULTS: SafetySettings = {
 
 /** site_settings key for the Safety settings JSON. */
 export const SAFETY_SETTINGS_KEY = "safety.settings";
+
+// ----------------------------------------------------------------------------
+// Decisions (section 8.2, PR R2)
+// ----------------------------------------------------------------------------
+
+export const SAFETY_OUTCOMES = ["clear", "label_clear", "needs_change", "removed"] as const;
+export type SafetyOutcome = (typeof SAFETY_OUTCOMES)[number];
+
+/** Every decision carries a note of at least this many characters for the log. */
+export const SAFETY_NOTE_MIN = 10;
+
+/**
+ * Reason codes and the text the creator reads (8.7 holds the editable copy in R5).
+ * `block` names the blocklist reason when "Block this file everywhere" is on.
+ */
+export const SAFETY_REASON_CODES = {
+  explicit_unlabeled: {
+    label: "Explicit, not labeled 18+",
+    creator: "This item is sexual or explicit and was not labeled 18+.",
+    block: "policy",
+    blockDefault: false,
+  },
+  missing_release: {
+    label: "Missing release or recording date",
+    creator: "Someone in this item has no signed release or recording date on file.",
+    block: "policy",
+    blockDefault: false,
+  },
+  non_consent: {
+    label: "Shared without consent",
+    creator: "This item shows a person who did not agree to it being shared.",
+    block: "non_consent",
+    blockDefault: true,
+  },
+  copyright: {
+    label: "Copyright",
+    creator: "This item uses someone else's work without permission.",
+    block: "copyright",
+    blockDefault: true,
+  },
+  malware: {
+    label: "Harmful file",
+    creator: "This file is harmful or a scam download.",
+    block: "malware",
+    blockDefault: true,
+  },
+  harassment: {
+    label: "Harassment",
+    creator: "This item harasses or threatens someone.",
+    block: "policy",
+    blockDefault: false,
+  },
+  scam: {
+    label: "Scam or misleading",
+    creator: "This item is a scam or misleading.",
+    block: "policy",
+    blockDefault: false,
+  },
+  prohibited: {
+    label: "Prohibited content",
+    creator: "This item breaks the Adult Content Policy.",
+    block: "policy",
+    blockDefault: false,
+  },
+  other: {
+    label: "Other",
+    creator: "This item breaks the Amped.Bio content rules.",
+    block: "policy",
+    blockDefault: false,
+  },
+} as const satisfies Record<
+  string,
+  { label: string; creator: string; block: BlockedHashReason; blockDefault: boolean }
+>;
+export type SafetyReasonCode = keyof typeof SAFETY_REASON_CODES;
+export const SAFETY_REASON_KEYS = Object.keys(SAFETY_REASON_CODES) as SafetyReasonCode[];
+
+/** Case types that never show media, a thumbnail or a reveal (8.1, 8.5). */
+export const SAFETY_NO_MEDIA_TYPES: readonly SafetyCaseType[] = ["CHILD_SAFETY", "AGE_RESULT"];
+
+/** Reveal tokens for one asset live this long (section 13). */
+export const SAFETY_REVEAL_SECONDS = 60;
