@@ -287,6 +287,16 @@ vi.mock("../utils/email/transport", () => ({
   deliverEmail: (...a: unknown[]) => deliverEmail(...a),
 }));
 
+// AB-6: the seller gate runs at prepare, not only in the quote
+const sellerIdentity = vi.hoisted(() => ({ pass: true, reason: null as string | null }));
+vi.mock("../services/identity/checks", () => ({
+  checkIdentity: vi.fn(async () =>
+    sellerIdentity.pass
+      ? { pass: true, tier: "ENHANCED", validUntil: new Date(Date.now() + 86_400_000) }
+      : { pass: false, reason: sellerIdentity.reason ?? "needs_enhanced" }
+  ),
+}));
+
 import {
   AMPEDPAY_ABI,
   RECEIVE_WITH_AUTHORIZATION_TYPES,
@@ -596,6 +606,8 @@ beforeEach(() => {
   state.live = null;
   relayerCall.mockClear();
   deliverEmail.mockClear();
+  sellerIdentity.pass = true;
+  sellerIdentity.reason = null;
   setSplitSignerForTests(localSigner);
 });
 
@@ -603,6 +615,17 @@ const prepare = (overrides: Row = {}) =>
   preparePurchase(20, { intentId: INTENT, amount: "3000000", ...overrides }, NOW);
 
 describe("preparePurchase", () => {
+  it("refuses a creator who no longer passes the seller gate (AB-6)", async () => {
+    sellerIdentity.pass = false;
+    sellerIdentity.reason = "needs_enhanced";
+    expect(await prepare({ signer: fan.address })).toEqual({
+      refused: true,
+      reason: "seller",
+    });
+    expect(state.purchases).toHaveLength(0);
+    sellerIdentity.pass = true;
+  });
+
   it("adds the promoter row when the intent's code attributes, and stores the code (C12)", async () => {
     const PROMOTER = getAddress("0xd000000000000000000000000000000000000004");
     state.intents[0]!.via = "MAYA2026";
