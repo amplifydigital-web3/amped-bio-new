@@ -4,7 +4,8 @@ import { useId, useState } from "react";
 import { CheckCircle2, Flag, Loader2 } from "lucide-react";
 import {
   CONTENT_REPORT_LABELS,
-  CONTENT_REPORT_REASONS,
+  CONTENT_ITEM_REPORT_REASONS,
+  TAKEDOWN_COPY,
   type ContentReportReason,
 } from "@repo/constants";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, cn } from "@repo/ui";
@@ -59,6 +60,11 @@ export function ReportDialog({
   const [reason, setReason] = useState<ContentReportReason | null>(null);
   const [details, setDetails] = useState("");
   const [state, setState] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  // R3: a child report hides the item at once; three reasons continue on a public form
+  const [result, setResult] = useState<{ hidden: boolean; form: "takedown" | "copyright" | null }>({
+    hidden: false,
+    form: null,
+  });
   const [error, setError] = useState<string | null>(null);
 
   const send = async () => {
@@ -66,11 +72,12 @@ export function ReportDialog({
     setState("sending");
     setError(null);
     try {
-      await trpcClient.content.report.mutate({
+      const sent = await trpcClient.content.report.mutate({
         publicId,
         reason,
         details: details.trim() || undefined,
       });
+      setResult({ hidden: Boolean(sent.hidden), form: sent.form ?? null });
       setState("sent");
     } catch (failure) {
       setState("error");
@@ -91,7 +98,19 @@ export function ReportDialog({
             role="status"
           >
             <CheckCircle2 className="h-9 w-9 text-[#17693F]" aria-hidden />
-            <p className="text-[16px] font-semibold">{copy.reportThanks}</p>
+            <p className="text-[16px] font-semibold">
+              {result.hidden ? TAKEDOWN_COPY.reportCsamThanks : copy.reportThanks}
+            </p>
+            {result.form && (
+              <a
+                href={`/${result.form}?link=${encodeURIComponent(itemLink(publicId))}`}
+                className="min-h-[44px] rounded-full border border-[#16152B] px-[21px] py-[10px] font-semibold"
+              >
+                {result.form === "takedown"
+                  ? TAKEDOWN_COPY.formTitle
+                  : TAKEDOWN_COPY.copyrightTitle}
+              </a>
+            )}
             <button
               type="button"
               onClick={onClose}
@@ -127,7 +146,7 @@ export function ReportDialog({
             )}
             <fieldset className="flex flex-col gap-1">
               <legend className="mb-1 text-[14px] font-semibold">{copy.reportWhy}</legend>
-              {CONTENT_REPORT_REASONS.map(value => (
+              {CONTENT_ITEM_REPORT_REASONS.map(value => (
                 <label
                   key={value}
                   className="flex min-h-[44px] cursor-pointer items-center gap-[13px] rounded-[8px] px-[8px] hover:bg-black/5"
@@ -188,4 +207,11 @@ export function ReportDialog({
       </DialogContent>
     </Dialog>
   );
+}
+
+/** The reported item's public link, from the page's handle segment. */
+function itemLink(publicId: string): string {
+  if (typeof window === "undefined") return "";
+  const handle = window.location.pathname.split("/").filter(Boolean)[0] ?? "";
+  return `${window.location.origin}/${handle}/c/${publicId}`;
 }

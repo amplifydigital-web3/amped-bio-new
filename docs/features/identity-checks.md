@@ -168,6 +168,11 @@ The rule applies to the creator, the account that owns the product, plan, ticket
 
 It does not cover the wallet's own Send. Sending USDC to an address is the user's wallet, not a sale through Amped. The Send review already shows the recipient's verification through `rnsTrust`.
 
+### 5.1b Merchants and the seller tier (Authbase storefront, 5 Nov)
+
+- A business seller (a `Merchant`, first Authbase) does not pass this check. It passes `checkMerchant` instead: admin approved after a business check, an effective payout wallet, and the USDC screen. See `docs/features/authbase-storefront.md` 3.2.
+- Creators need tier ENHANCED to pass `seller`, unless an Amped.Bio admin sets a `SellerOverride` (reason, end date, two factor, logged). New reason `needs_enhanced`. See `docs/features/authbase-storefront.md` 3.2b (M10). This replaces "either tier (S2)" from that PR on.
+
 ### 5.2 The seller checklist
 
 One card, "Get paid", on the Store page and the Memberships setup, phone first and at 1440 inside the editor shell. It is item 5 of the store go live checklist (`store-catalog.md`, go live). It shows two rows with their own state. It does not turn payments on: the card ends with Back to checklist, and the store live switch stays on the checklist (QA 3 Nov, VS-Q6).
@@ -310,6 +315,7 @@ Order with Rob's sequence: G0 (stake unit fix) before messaging goes live. I1 an
 
 ## Revision log
 
+- 2026-11-05: A1 built (`feat/content-adult-access`). Over 18 sheet at `app.amped.bio/age-check`; `canViewAdult`, `content.listAdultForBio`, `content.getAdult`; creator 18+ needs Over 18 and seller (A2); all behind the `adultContent` flag. Handoff `docs/fixes/content-adult-access.md`.
 - 2026-11-03 (revision 4, seller QA fixes): Full QA of rows 341 to 343. `sellerDetail` per row (3). Get paid card copy and states, card ends with Back to checklist, endorsement line, network line (5.2). Register writes `revo_name` and the Point to this wallet flow (5.2.1). Refusal sheet by reason, content checkout check (5.3). Earlier date wins, Authbase notice, seller expiry emails (5.4). S5 decided. Acceptance 14 to 21. X-Q1 decided by Rob: sellers need two way binding (`name_not_linked`, one_way row state, V2c).
 - 2026-11-03 (revision 4): S5 recorded as recommended (Wallet Names tab, deep link from the Get paid card). RN1 recorded: RNS names on testnet and mainnet; the product runs on testnet until the mainnet go live. Authbase questions drafted for Rob to send (method and IAL2, re-verification, retention, anonymized result, expiry webhook, rate limits, status across staging and production, sandbox).
 - 2026-10-30 (revision 3): Full QA of I1 against `development` f8bd0bb. Seller reason mapping from `checkRnsBinding`; `unavailable` never cached; rows for another wallet ignored (no wallet change flow exists); `identity.recheck` rate limit; privacy notice lines, retention and `CONSENT_POLICY_VERSION` bump spelled out; new 4.5 Under 18 result (IQ1, Rob 30 Oct) with board ad8; `IdentityReviewCase` added to I1; S1 no longer waits on #351. Acceptance 9 replaced, 12 and 13 added.
