@@ -15,7 +15,7 @@ Branch: `fix/content-adult-unlabel`. Must merge before A1.
 4. `content.update`:
    - `adult: false` on an item with `explicitAt` is refused with FORBIDDEN, "A reviewer marked this 18+. Ask for a review if this is wrong."
    - `adult: false` on a READY item with no `explicitAt` (processed before the column, or the classifier missed it) sets `moderationState = HELD`, `moderationReason = adult_label_removed` and `publishState = DRAFT`. `content.publish` then refuses it until a reviewer clears it. When R1 ships, this hold opens a SafetyCase (re-review trigger in spec 5.4).
-   - An item still processing is left to the classifier, which now runs with `adult = false`.
+   - An item still processing is left to the classifier, which now runs with `adult = false`. The queued job keeps the label it was enqueued with, so a label taken off mid-processing still reports explicit: the classifier step then holds the item with `adult_label_removed` instead of clearing it. `content.publish` also refuses any item with `explicitAt` set, so no ordering of the writes can put an unlabeled explicit item on the public pages.
    - Turning the label on never holds.
 5. `ownerView` returns `adultLocked`. The item editor shows the 18+ switch on and disabled, with the locked line as its helper text.
 6. F3 copy: the switch helper reads "Label this item for adults. Only fans who passed the Over 18 check can open it."
