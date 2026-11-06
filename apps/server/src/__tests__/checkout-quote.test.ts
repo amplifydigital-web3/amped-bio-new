@@ -17,10 +17,16 @@ type Row = {
 
 const state = vi.hoisted(() => ({
   item: null as unknown,
+  offer: null as unknown,
   rows: [] as Row[],
   wallet: { address: "0xabc" } as { address: string } | null,
   countedToday: 0,
   seller: { pass: true } as { pass: boolean; reason?: string },
+  merchant: { pass: true, feeBps: 2_000 } as {
+    pass: boolean;
+    feeBps?: number;
+    reason?: string;
+  },
   mockPrice: null as string | null,
   appEnv: "staging",
   testnetChain: true,
@@ -60,9 +66,51 @@ const sellable = () => ({
   },
 });
 
+const merchantOffer = () => ({
+  slug: "standard-check",
+  title: "Standard check",
+  kind: "service",
+  status: "active",
+  adult: false,
+  amountUnits: 3_000_000n,
+  accessPeriodDays: null,
+  merchantId: Buffer.from("11".repeat(16), "hex"),
+  merchant: { slug: "authbase", name: "Authbase" },
+  fulfillment: "external",
+  creator: {
+    id: 10,
+    handle: "maya",
+    name: "Maya",
+    block: "no",
+    page_status: "PUBLISHED",
+    image: null,
+    image_file_id: null,
+    theme: null,
+    storeSettings: { status: "live" },
+  },
+  items: [
+    {
+      contentItem: {
+        status: "READY",
+        publishState: "PUBLISHED",
+        moderationState: "CLEAR",
+        adult: false,
+        deletedAt: null,
+      },
+    },
+  ],
+});
+
 vi.mock("@repo/database", () => ({
   prisma: {
     contentItem: { findUnique: vi.fn(async () => state.item) },
+    offer: { findUnique: vi.fn(async () => state.offer) },
+    merchant: {
+      findUnique: vi.fn(async () => ({
+        name: "Authbase",
+        storePolicyUrl: "https://authbase.test/policy",
+      })),
+    },
     theme: { findUnique: vi.fn(async () => null) },
     siteSettings: {
       findUnique: vi.fn(async () =>
@@ -127,9 +175,12 @@ vi.mock("../utils/fileUrlResolver", () => ({
 
 const checkIdentity = vi.hoisted(() => vi.fn());
 vi.mock("../services/identity/checks", () => ({ checkIdentity }));
+const checkMerchant = vi.hoisted(() => vi.fn());
+vi.mock("../services/merchants/check", () => ({ checkMerchant }));
 
 import { quoteIntent } from "../services/checkout/quote";
 import { checkoutProvider, mockProviderAllowed } from "../services/checkout/provider";
+import { __setFeatureFlagOverridesForTests } from "../services/featureFlags";
 
 const ID = "0f".repeat(16);
 
@@ -148,12 +199,18 @@ function intent(overrides: Partial<Row> = {}): Row {
 
 beforeEach(() => {
   state.item = sellable();
+  state.offer = null;
   state.rows = [intent()];
   state.wallet = { address: "0xabc" };
   state.countedToday = 0;
   state.seller = { pass: true };
+  state.merchant = { pass: true, feeBps: 2_000 };
   checkIdentity.mockReset();
   checkIdentity.mockImplementation(async () => state.seller);
+  checkMerchant.mockReset();
+  checkMerchant.mockImplementation(async () => state.merchant);
+  // A merchant offer is only for sale while the storefront is on (AB-2); a store needs storeSales
+  __setFeatureFlagOverridesForTests({ storeSales: true, authbaseStorefront: true });
   state.mockPrice = null;
   state.appEnv = "staging";
   state.testnetChain = true;
@@ -266,6 +323,26 @@ describe("quoteIntent", () => {
   it("the daily purchase limit stops a new payment", async () => {
     state.countedToday = 20;
     expect((await quoteIntent(20, ID)).state).toBe("limit");
+  });
+
+  it("a merchant offer quotes the merchant fee and still respects the daily limit (AB-1)", async () => {
+    state.rows = [intent({ targetType: "offer", targetId: "aa".repeat(16) })];
+    state.offer = merchantOffer();
+    state.countedToday = 20;
+    // The limit is a buyer rule, not a seller rule: it applies to merchant offers too
+    expect((await quoteIntent(20, ID)).state).toBe("limit");
+    state.countedToday = 0;
+
+    const quote = await quoteIntent(20, ID);
+    expect(quote.state).toBe("ready");
+    expect(quote.feeBps).toBe(2_000);
+    expect(quote.fee).toBe("600000");
+    // The creator gate is replaced by checkMerchant, never run next to it
+    expect(checkIdentity).not.toHaveBeenCalled();
+    expect(checkMerchant).toHaveBeenCalled();
+
+    state.merchant = { pass: false, reason: "not_active" };
+    expect((await quoteIntent(20, ID)).state).toBe("seller");
   });
 });
 

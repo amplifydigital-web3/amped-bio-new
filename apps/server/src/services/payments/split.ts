@@ -45,9 +45,14 @@ export class SplitRuleError extends Error {
   }
 }
 
+/** The seller row of a split: the creator, or the merchant on a business seller's sale (M11). */
+export type SellerRole = typeof SPLIT_ROLES.creator | typeof SPLIT_ROLES.merchant;
+
 /**
- * Creator, platform and (Phase 4) promoter rows. Platform bps comes from the fee setting; the
- * creator gets the remainder. Partner rows arrive with SplitRecipient (store work).
+ * Seller, platform and (Phase 4) promoter rows. Platform bps comes from the fee setting (or the
+ * merchant's fee); the seller gets the remainder. Partner rows arrive with SplitRecipient (store
+ * work). `creator` is the seller's payout address: the creator's wallet, or the merchant's
+ * effective payout wallet when sellerRole is merchant (authbase-storefront 3.1).
  */
 export function buildSplit(params: {
   paymentRef: Hex;
@@ -58,13 +63,14 @@ export function buildSplit(params: {
   platformFeeBps: number;
   promoter?: { to: Address; bps: number } | null;
   validBefore: bigint;
+  sellerRole?: SellerRole;
 }): SplitTable {
   const promoterBps = params.promoter?.bps ?? 0;
   const recipients: SplitRecipient[] = [
     {
       to: getAddress(params.creator),
       bps: BPS - params.platformFeeBps - promoterBps,
-      role: SPLIT_ROLES.creator,
+      role: params.sellerRole ?? SPLIT_ROLES.creator,
     },
     { to: getAddress(params.treasury), bps: params.platformFeeBps, role: SPLIT_ROLES.platform },
   ];
@@ -108,10 +114,12 @@ export function assertSplitRules(
   let creators = 0;
   let platforms = 0;
   let promoters = 0;
+  let merchants = 0;
+  let platformBps = 0;
   const seen = new Set<string>();
   for (const r of split.recipients) {
     const key = r.to.toLowerCase();
-    if (isAddressEqual(r.to, zeroAddress) || r.bps <= 0 || r.role > SPLIT_ROLES.partner)
+    if (isAddressEqual(r.to, zeroAddress) || r.bps <= 0 || r.role > SPLIT_ROLES.merchant)
       throw new SplitRuleError("invalid_recipient");
     if (seen.has(key)) throw new SplitRuleError("duplicate_recipient");
     seen.add(key);
@@ -121,31 +129,45 @@ export function assertSplitRules(
     if (r.role === SPLIT_ROLES.creator) {
       creators += 1;
       if (r.bps < limits.minCreatorBps) throw new SplitRuleError("creator_bps");
+    } else if (r.role === SPLIT_ROLES.merchant) {
+      merchants += 1;
+      if (r.bps < limits.minCreatorBps) throw new SplitRuleError("creator_bps");
     } else if (r.role === SPLIT_ROLES.platform) {
       platforms += 1;
       if (!isAddressEqual(r.to, treasury)) throw new SplitRuleError("platform_not_treasury");
-      if (r.bps < limits.feeFloorBps || r.bps > AMPEDPAY_CONTRACT.MAX_FEE_BPS)
-        throw new SplitRuleError("platform_bps");
+      platformBps = r.bps;
     } else if (r.role === SPLIT_ROLES.promoter) {
       promoters += 1;
     }
   }
-  if (creators !== 1) throw new SplitRuleError("creator_count");
+  // Same order as AmpedPay._validateRecipients (M11): one seller row, creator or merchant
+  if (merchants > 1) throw new SplitRuleError("merchant_count");
+  if (creators + merchants !== 1) throw new SplitRuleError("creator_count");
+  if (platforms === 1) {
+    const ceiling =
+      merchants === 1 ? AMPEDPAY_CONTRACT.MAX_MERCHANT_FEE_BPS : AMPEDPAY_CONTRACT.MAX_FEE_BPS;
+    if (platformBps < limits.feeFloorBps || platformBps > ceiling)
+      throw new SplitRuleError("platform_bps");
+  }
   if (platforms !== 1) throw new SplitRuleError("platform_count");
   if (promoters > 1) throw new SplitRuleError("promoter_count");
   if (sum !== BPS) throw new SplitRuleError("bps_sum");
 }
 
-/** The share each recipient receives, as the contract pays it: the creator gets the rounding. */
+function isSellerRole(role: number): boolean {
+  return role === SPLIT_ROLES.creator || role === SPLIT_ROLES.merchant;
+}
+
+/** The share each recipient receives, as the contract pays it: the seller gets the rounding. */
 export function splitShares(split: SplitTable): { to: Address; role: SplitRole; amount: bigint }[] {
   let paidOut = 0n;
   const out = split.recipients.map(r => {
-    if (r.role === SPLIT_ROLES.creator) return { to: r.to, role: r.role, amount: 0n };
+    if (isSellerRole(r.role)) return { to: r.to, role: r.role, amount: 0n };
     const amount = (split.amount * BigInt(r.bps)) / BigInt(BPS);
     paidOut += amount;
     return { to: r.to, role: r.role, amount };
   });
-  const creator = out.find(r => r.role === SPLIT_ROLES.creator);
+  const creator = out.find(r => isSellerRole(r.role));
   if (creator) creator.amount = split.amount - paidOut;
   return out;
 }

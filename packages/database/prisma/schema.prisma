@@ -1670,10 +1670,30 @@ model Offer {
   createdAt        DateTime  @default(now()) @map("created_at")
   updatedAt        DateTime  @updatedAt @map("updated_at")
 
-  creator User        @relation(fields: [creatorUserId], references: [id], onDelete: Cascade)
-  items   OfferItem[]
+  // Authbase storefront (AB-1): set when a business seller sells this offer. creatorUserId is then
+  // the merchant's first Owner account; checkMerchant replaces the creator's seller check
+  merchantId       Bytes?    @map("merchant_id") @db.Binary(16)
+  // AB-2 service offers (spec 3.3): library | external. external = the merchant fulfills it
+  // after payment (Authbase runs the ID check); no Library entry
+  fulfillment      String    @default("library") @db.VarChar(12)
+  // The merchant's own product code, sent back on every order (STANDARD, ENHANCED)
+  externalCode     String?   @map("external_code") @db.VarChar(32)
+  // Where the offer shows: rns_identity (the Identity tab storefront)
+  placement        String?   @db.VarChar(32)
+  // Up to four feature lines on the card
+  features         Json?
+  // Short card tag: For fans, For creators
+  tag              String?   @db.VarChar(24)
+  // Orders the cards left to right
+  rank             Int       @default(0)
+
+  creator  User        @relation(fields: [creatorUserId], references: [id], onDelete: Cascade)
+  merchant Merchant?   @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+  items    OfferItem[]
 
   @@unique([creatorUserId, slug])
+  @@index([merchantId, status])
+  @@index([placement, status])
   @@index([creatorUserId, status, sortOrder])
   @@map("offers")
 }
@@ -2380,6 +2400,8 @@ model CheckoutIntent {
   // The store policy version the sheet showed (CK-5, store policy 3.6). Set at the first quote;
   // moved to the live version only when the fan accepts a changed policy
   storePolicyVersionId Bytes? @map("store_policy_version_id") @db.Binary(16)
+  // AB-2: the RNS name a service offer (the Identity tab check) is bought for
+  rnsName              String?   @map("rns_name") @db.VarChar(64)
   expiresAt     DateTime  @map("expires_at")
   claimedAt     DateTime? @map("claimed_at")
   createdAt     DateTime  @default(now()) @map("created_at")
@@ -2654,6 +2676,12 @@ model Purchase {
   refundTxHash     String?   @map("refund_tx_hash") @db.VarChar(66)
   // C10: the creator's live store policy when the sale was prepared (store policy 3.6)
   storePolicyVersionId Bytes? @map("store_policy_version_id") @db.Binary(16)
+  // AB-1: the business seller of a merchant offer; the Console and Partner API read by it
+  merchantId       Bytes?    @map("merchant_id") @db.Binary(16)
+  // AB-2: external fulfillment progress (paid | started | in_review | verified | not_passed)
+  fulfillmentState String?   @map("fulfillment_state") @db.VarChar(16)
+  // AB-2: the RNS name the Identity tab check was bought for
+  rnsName          String?   @map("rns_name") @db.VarChar(64)
   receiptSentAt    DateTime? @map("receipt_sent_at")
   createdAt        DateTime  @default(now()) @map("created_at")
   updatedAt        DateTime  @updatedAt @map("updated_at")
@@ -2667,6 +2695,7 @@ model Purchase {
   @@index([status, updatedAt])
   @@index([txHash])
   @@index([refundTxHash])
+  @@index([merchantId, createdAt])
   @@index([promoterCodeId])
   @@index([checkoutIntentId])
   @@map("purchases")
@@ -2761,6 +2790,170 @@ model Membership {
   @@index([planId, status])
   @@index([status, currentPeriodEnd])
   @@map("memberships")
+}
+
+// ---------------------------------------------------------------------------------------------
+// Authbase storefront (Build Board #66, AB-1; docs/features/authbase-storefront.md 3.2, 3.8, 3.10)
+// A business seller on AmpedPay. Authbase is the first. Approved by two admins after a business
+// check (M1). Its payout wallet changes only through propose, second Owner approval and a 24 hour
+// wait (M2). Its fee is set through the two person rule (M3: Authbase 2,000 bps).
+// ---------------------------------------------------------------------------------------------
+
+model Merchant {
+  id               Bytes     @id @db.Binary(16) // UUIDv7
+  slug             String    @unique @db.VarChar(40)
+  name             String    @db.VarChar(80)
+  // pending | active | suspended
+  status           String    @default("pending") @db.VarChar(12)
+  // Platform share on this merchant's sales, inside the contract's MAX_MERCHANT_FEE_BPS
+  feeBps           Int       @default(2000) @map("fee_bps")
+  // { registration, beneficialOwners, sanctionsScreen, notes } as recorded by the admin
+  businessCheck    Json?     @map("business_check")
+  storePolicyUrl   String?   @map("store_policy_url") @db.VarChar(500)
+  returnUrl        String?   @map("return_url") @db.VarChar(500)
+  approvedAt       DateTime? @map("approved_at")
+  suspendedAt      DateTime? @map("suspended_at")
+  createdById      Int       @map("created_by_id")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  members       MerchantMember[]
+  payoutWallets MerchantPayoutWallet[]
+  auditLog      MerchantAuditLog[]
+  offers        Offer[]
+
+  @@index([status])
+  @@map("merchants")
+}
+
+model MerchantMember {
+  id         Bytes    @id @db.Binary(16) // UUIDv7
+  merchantId Bytes    @map("merchant_id") @db.Binary(16)
+  userId     Int      @map("user_id")
+  // owner | finance | developer | viewer
+  role       String   @db.VarChar(12)
+  addedById  Int      @map("added_by_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  merchant Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+
+  @@unique([merchantId, userId])
+  @@index([userId])
+  @@map("merchant_members")
+}
+
+model MerchantPayoutWallet {
+  id               Bytes     @id @db.Binary(16) // UUIDv7
+  merchantId       Bytes     @map("merchant_id") @db.Binary(16)
+  address          String    @db.VarChar(42)
+  // proposed | approved | effective | replaced | rejected | cancelled
+  status           String    @db.VarChar(12)
+  // The signed proof of control: EOA or ERC-1271 signature over the proof message
+  proofMessage     String    @map("proof_message") @db.VarChar(500)
+  proofSignature   String    @map("proof_signature") @db.Text
+  proposedById     Int       @map("proposed_by_id")
+  approvedById     Int?      @map("approved_by_id")
+  rejectedById     Int?      @map("rejected_by_id")
+  // approvedAt + 24 hours; the payments worker makes it effective then
+  effectiveAt      DateTime? @map("effective_at")
+  approvedAt       DateTime? @map("approved_at")
+  replacedAt       DateTime? @map("replaced_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  merchant Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+
+  @@index([merchantId, status])
+  @@index([status, effectiveAt])
+  @@map("merchant_payout_wallets")
+}
+
+model MerchantAuditLog {
+  id         Bytes    @id @db.Binary(16) // UUIDv7
+  merchantId Bytes    @map("merchant_id") @db.Binary(16)
+  // Amped.Bio user id; 0 for the system (the worker)
+  actorId    Int      @map("actor_id")
+  action     String   @db.VarChar(48)
+  detail     Json?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  merchant Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+
+  @@index([merchantId, createdAt])
+  @@map("merchant_audit_log")
+}
+
+// Partner API (Build Board #66, AB-4; docs/features/authbase-storefront.md 3.9, partner spec 8 and 9)
+model MerchantApiKey {
+  id          Bytes     @id @db.Binary(16) // UUIDv7
+  merchantId  Bytes     @map("merchant_id") @db.Binary(16)
+  name        String    @db.VarChar(60)
+  // test | live
+  mode        String    @db.VarChar(8)
+  // The first 16 characters, shown in the Console (ab_test_1a2b3c4d)
+  prefix      String    @db.VarChar(16)
+  // sha256 of the full key; the key itself is shown once and never stored
+  keyHash     String    @unique @map("key_hash") @db.Char(64)
+  createdById Int       @map("created_by_id")
+  lastUsedAt  DateTime? @map("last_used_at")
+  revokedAt   DateTime? @map("revoked_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  @@index([merchantId])
+  @@map("merchant_api_keys")
+}
+
+model WebhookEndpoint {
+  id           Bytes     @id @db.Binary(16) // UUIDv7
+  merchantId   Bytes     @map("merchant_id") @db.Binary(16)
+  url          String    @db.VarChar(500)
+  // Encrypted with MERCHANT_SECRET_BOX_KEY; signing needs the plain secret
+  secretBox    String    @map("secret_box") @db.Text
+  events       Json
+  // active | disabled
+  status       String    @default("active") @db.VarChar(12)
+  createdById  Int       @map("created_by_id")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  @@index([merchantId, status])
+  @@map("webhook_endpoints")
+}
+
+model WebhookDelivery {
+  id            Bytes     @id @db.Binary(16) // UUIDv7, also the event_id
+  endpointId    Bytes     @map("endpoint_id") @db.Binary(16)
+  merchantId    Bytes     @map("merchant_id") @db.Binary(16)
+  eventId       String    @map("event_id") @db.VarChar(40)
+  type          String    @db.VarChar(32)
+  orderRef      String?   @map("order_ref") @db.VarChar(40)
+  payload       Json
+  attempt       Int       @default(0)
+  // pending | delivered | failed
+  status        String    @default("pending") @db.VarChar(12)
+  nextAttemptAt DateTime  @map("next_attempt_at")
+  claimedUntil  DateTime? @map("claimed_until")
+  responseCode  Int?      @map("response_code")
+  lastError     String?   @map("last_error") @db.VarChar(255)
+  deliveredAt   DateTime? @map("delivered_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  @@index([status, nextAttemptAt])
+  @@index([merchantId, createdAt])
+  @@map("webhook_deliveries")
+}
+
+model PartnerIdempotencyKey {
+  id         Bytes    @id @db.Binary(16) // UUIDv7
+  merchantId Bytes    @map("merchant_id") @db.Binary(16)
+  key        String   @db.VarChar(80)
+  route      String   @db.VarChar(80)
+  status     Int
+  response   Json
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@unique([merchantId, key])
+  @@map("partner_idempotency_keys")
 }
 
 // Seller tier override (Build Board #66, AB-6; docs/features/authbase-storefront.md 3.2b, M10).

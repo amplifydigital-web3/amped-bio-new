@@ -1,6 +1,6 @@
 # Amped.Bio Privacy Policy
 
-Last updated: November 5, 2026
+Last updated: November 6, 2026
 
 This policy explains what personal information Amped.Bio collects, why, who receives it, and the choices you have. It applies to creators, fans and anyone who visits an Amped.Bio page.
 
@@ -45,6 +45,10 @@ When you create an account and build your page, we collect:
 If you verify your identity with Authbase, we receive your verification status and badge, and only the attributes you choose to share with Amped.Bio: your name as checked on your ID, whether you are over 18, your gender and your country. We never receive your date of birth. Only you can see those shared attributes unless you choose to show one. You can show each attribute on your own, while you are verified, by turning it on in your page's RNS ID block. Anyone who views your page or your RNS name can then see it. Others see only your verification status, and only where you choose to show it, plus the attributes you turned on.
 
 When we check your age or your seller status with Authbase, we keep the result of the check and when it ends. We never receive your birth date or ID.
+
+**Buying a check a business runs.** Some identity checks are sold by a business seller, for example Authbase, and that business runs the check after you pay. We give that seller your order so it can do the work: an order reference we make, the product you bought, the amount, the wallet address that paid, the RNS name you entered, and the order and check status. We do not give it your email, your legal name, your wallet balance or any ID document. The seller runs the check under its own privacy policy and never sends us your ID document or selfie.
+
+**Business sellers and their teams.** If a business applies to sell on Amped.Bio, or an account is added to a business seller's team, we collect the business name, its registration details, information about its beneficial owners, the result of the sanctions screen on the business, its owners and its payout wallet, the payout wallet address and the signed proof that the business controls it, and the accounts, names, emails and roles on the team. We also keep an audit log of each change and the names, prefixes and last use of the API keys and the webhook addresses the business creates. We use these to approve the business, pay it, keep its account secure and meet our legal and tax duties.
 
 ## 3. Wallets, tREVO and on chain activity
 
@@ -146,6 +150,8 @@ We do not sell your personal information. We do not use it for our own advertisi
 | ndau conversion records | Addresses, amounts, signatures, terms hash | Contract and legal obligation |
 | Send and receive USDC, show your activity | Wallet address, amounts, addresses, transaction IDs | Contract |
 | Pay promoter codes and show their sales and earnings | The code, the creator and promoter accounts, the share, the sales and earnings | Contract |
+| Deliver an identity check you bought from a business seller | The order reference, product, amount, paying wallet address, the RNS name you entered, the order and check status | Contract |
+| Approve, pay and audit business sellers | Business and beneficial owner details, sanctions result, payout wallet and proof, team accounts and roles, the audit log, API key names and webhook addresses | Contract, legal obligation and legitimate interests |
 | Buy USDC through Coinbase | Wallet address, IP address, amount, region, random reference, Coinbase's order record, the encrypted Coinbase token | Contract |
 | Screen addresses against sanctions and risk lists | Wallet addresses, the vendor's result | Legal obligation and legitimate interests |
 | Written summaries for creators | Page totals, top sources, devices, visitor counts and up to 10 link names | Legitimate interests |
@@ -163,7 +169,8 @@ We do not sell your personal information. We do not use it for our own advertisi
 | Web3Auth | Sign in details needed for your wallet key | Create and secure your wallet |
 | Google | Sign in with Google data; Google Analytics measurements, and cookies with permission | Sign in; site measurement |
 | Anthropic | Page totals, top sources, devices, visitor counts and up to 10 link names | Write creator summaries |
-| Authbase | Your verification request | Identity badge, if you choose it |
+| Authbase | Your verification request, and the order data of a check you bought | Identity badge, if you choose it; run the check you paid for |
+| A business seller you buy from (for example Authbase) | The order reference, product, amount, paying wallet address, the RNS name you entered, the order and check status | Deliver the service you bought |
 | Creator tools (Google Analytics, Meta, TikTok) | Visit events, IP address and device, with permission per creator | The creator's own analytics and ads |
 | Apps you connect with Sign in with Amped.Bio | What you allow on the consent screen | Sign you in to that app |
 | Coinbase (United States) | For Buy USDC: your wallet address, IP address, amount, region and a random reference. For USDC sends: the transfer you signed, which Coinbase submits | Sell and deliver USDC; submit your sends and pay the network fee |
@@ -226,6 +233,11 @@ Creator pages and the public site set nothing in your browser until you choose, 
 | Locked item views and unlocks | 25 months |
 | Library saves and the time you last opened each creator's section | While your account is open, then deleted within 30 days of closing it |
 | Authbase age and seller check results (pass or fail, the reason and when the check ends) | While your account is open, then deleted within 30 days of closing it |
+| Business seller application and business check (business details, beneficial owners, sanctions result, who approved) | 5 years after the business stops selling, for legal and tax duties |
+| Business seller team, payout wallet changes and audit log | While the business sells, and 5 years after, for disputes and legal duties |
+| Business seller API keys (name, prefix and last use; never the key itself) | Until revoked |
+| Webhook deliveries to a business seller (event, order reference, response and time) | 30 days |
+| Partner API idempotency records (the key and the first answer to a write) | 7 days |
 | Under 18 reviews (that an age check showed under 18, and how we decided) | 5 years |
 | Reports you send (the item, the reason, the text and your account) | 2 years, or while the Safety case they opened is open |
 | Take It Down requests and copyright notices (name, contact, signature, links, statements and decisions) | 3 years after the request closes. The postal address and phone are erased 1 year after it closes |

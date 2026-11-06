@@ -28,6 +28,7 @@ import {
 import { getFileUrl } from "../../utils/fileUrlResolver";
 import { liveVersion, versionSummary } from "../store/policy";
 import { checkIdentity } from "../identity/checks";
+import { checkMerchant } from "../merchants/check";
 import { paymentSettings, type PaymentSettings } from "../payments/settings";
 import { resolvePromoter } from "../store/promoters";
 import { checkoutProvider } from "./provider";
@@ -73,6 +74,17 @@ export type CheckoutQuote = {
   validUntil: string;
   /** C12: "Referred by @handle" when the intent carries an active, in scope promoter code */
   promoter: { handle: string } | null;
+  /**
+   * AB-2: set for a merchant's service offer. The sheet shows the service variant: seller line
+   * with the merchant's policy link, the fee row with its percent, and Start verification.
+   */
+  service?: {
+    merchantName: string;
+    storePolicyUrl: string | null;
+    code: string | null;
+    /** The RNS name the check is for; the sheet returns to its Identity tab */
+    rnsName?: string | null;
+  } | null;
 };
 
 /** Statuses that count against the daily purchase limits. */
@@ -171,6 +183,7 @@ export async function quoteIntent(viewerUserId: number, idHex: string): Promise<
       expiresAt: true,
       via: true,
       storePolicyVersionId: true,
+      rnsName: true,
     },
   });
   if (!row || row.userId !== viewerUserId) throw notFound();
@@ -200,6 +213,7 @@ export async function quoteIntent(viewerUserId: number, idHex: string): Promise<
       amount: "0",
       fee: "0",
       promoter: null,
+      service: null,
     };
   }
 
@@ -220,39 +234,55 @@ export async function quoteIntent(viewerUserId: number, idHex: string): Promise<
         updatedAt: { gte: startOfUtcDay(now) },
       },
     }),
-    liveVersion(resolved.creatorUserId),
+    // A merchant sells under its own policy URL, not the Owner account's store policy (AB-2)
+    resolved.extra.merchantId ? Promise.resolve(null) : liveVersion(resolved.creatorUserId),
   ]);
   const policy = live ? await quotePolicy(row, live) : null;
 
+  // AB-1: a merchant offer runs the business seller gate and carries the merchant's fee
+  const merchant = resolved.extra.merchantId
+    ? await checkMerchant(Buffer.from(resolved.extra.merchantId, "hex"), { screen: false })
+    : null;
+  const feeBps = merchant?.pass ? merchant.feeBps : settings.platformFeeBps;
+
   // A product carries its amount (C9); a content target still uses the checkout amount
   const amount = resolved.extra.amountUnits ?? (await checkoutAmount(settings));
-  const fee = (amount * BigInt(settings.platformFeeBps)) / 10_000n;
+  const fee = (amount * BigInt(feeBps)) / 10_000n;
   const handle = resolved.item.creatorHandle;
 
   // The same rule prepare applies, without the screening call; prepare has the last word
-  const promoter = await resolvePromoter({
-    via: row.via,
-    creatorUserId: resolved.creatorUserId,
-    targetId: row.targetType === "offer" ? row.targetId : null,
-    buyerUserId: viewerUserId,
-    payer: null,
-    platformFeeBps: settings.platformFeeBps,
-    minCreatorBps: AMPEDPAY_CONTRACT.defaults.minCreatorBps,
-    now,
-  }).catch(() => null);
+  // Merchant sales carry no promoter row (spec 3.1)
+  const promoter = merchant
+    ? null
+    : await resolvePromoter({
+        via: row.via,
+        creatorUserId: resolved.creatorUserId,
+        targetId: row.targetType === "offer" ? row.targetId : null,
+        buyerUserId: viewerUserId,
+        payer: null,
+        platformFeeBps: settings.platformFeeBps,
+        minCreatorBps: AMPEDPAY_CONTRACT.defaults.minCreatorBps,
+        now,
+      }).catch(() => null);
 
   // Order matters: one state per sheet, the most specific cause first
   let state: CheckoutQuoteState = "ready";
   // Paid is terminal: it never reads ready again, so the sheet cannot offer Pay twice
   if (status === "paid") state = "paid";
   else if (settings.paymentsPaused) state = "paused";
-  else if (!wallet || (settings.pilotOnly && !settings.pilotCreators.includes(handle)))
+  else if (merchant && !merchant.pass) state = "seller";
+  else if (
+    !merchant &&
+    (!wallet || (settings.pilotOnly && !settings.pilotCreators.includes(handle)))
+  )
     state = "seller";
-  else if (!(await sellerPasses(resolved.creatorUserId))) state = "seller";
+  else if (!merchant && !(await sellerPasses(resolved.creatorUserId))) state = "seller";
+  // The daily limit applies to every seller, merchant offers included: prepare enforces it too
   else if (countedToday >= settings.purchasesPerDayPerAccount) state = "limit";
 
   return {
     ...base,
+    feeBps,
     state,
     item: {
       title: resolved.item.title,
@@ -269,5 +299,32 @@ export async function quoteIntent(viewerUserId: number, idHex: string): Promise<
     amount: amount.toString(),
     fee: fee.toString(),
     promoter: promoter ? { handle: promoter.handle } : null,
+    service: resolved.extra.merchantId
+      ? await serviceInfo(resolved.extra.merchantId, row.targetId, row.rnsName)
+      : null,
   };
+}
+
+/** The merchant's name, policy URL and product code for the service sheet (AB-2). */
+async function serviceInfo(merchantIdHex: string, offerIdHex: string, rnsName: string | null) {
+  const [merchant, offer] = await Promise.all([
+    prisma.merchant.findUnique({
+      where: { id: Buffer.from(merchantIdHex, "hex") },
+      select: { name: true, storePolicyUrl: true },
+    }),
+    /^[0-9a-f]{32}$/.test(offerIdHex)
+      ? prisma.offer.findUnique({
+          where: { id: Buffer.from(offerIdHex, "hex") },
+          select: { externalCode: true },
+        })
+      : Promise.resolve(null),
+  ]);
+  return merchant
+    ? {
+        merchantName: merchant.name,
+        storePolicyUrl: merchant.storePolicyUrl,
+        code: offer?.externalCode ?? null,
+        rnsName,
+      }
+    : null;
 }

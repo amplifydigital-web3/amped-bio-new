@@ -319,6 +319,8 @@ const envSchema = z.object({
   ONRAMP_DOMAIN: z.string().default(""),
   // Key for the stored Coinbase userAuthToken (AES-256-GCM). Falls back to BETTER_AUTH_SECRET.
   ONRAMP_DATA_KEY: z.string().default(""),
+  // Authbase storefront (Build Board #66, AB-4): encrypts merchant webhook secrets at rest
+  MERCHANT_SECRET_BOX_KEY: z.string().default(""),
   // AmpedPay (Build Board #50), spec docs/features/ampedpay.md 3.3 and 6.1. Master switch for
   // payments. While false the admin Payments pages still show and change every setting, so
   // values are ready before launch; fans see nothing.

@@ -806,6 +806,70 @@ importers:
         specifier: ^4.151.1
         version: 4.151.2(@types/node@26.6.4)(bufferutil@4.0.9)(utf-8-validate@5.0.10)
 
+  apps/partners:
+    dependencies:
+      '@repo/constants':
+        specifier: workspace:*
+        version: link:../../packages/constants
+      '@repo/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
+      '@repo/web3':
+        specifier: workspace:*
+        version: link:../../packages/web3
+      '@tanstack/react-query':
+        specifier: 5.85.4
+        version: 5.85.4(react@18.3.1)
+      '@trpc/client':
+        specifier: 11.1.2
+        version: 11.1.2(@trpc/server@11.1.2(typescript@7.0.2))(typescript@7.0.2)
+      lucide-react:
+        specifier: ^0.474.0
+        version: 0.474.0(react@18.3.1)
+      react:
+        specifier: ^18.3.1
+        version: 18.3.1
+      react-dom:
+        specifier: ^18.3.1
+        version: 18.3.1(react@18.3.1)
+      react-router:
+        specifier: ^7.11.0
+        version: 7.12.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      sonner:
+        specifier: ^2.0.7
+        version: 2.0.7(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      viem:
+        specifier: 2.34.0
+        version: 2.34.0(bufferutil@4.0.9)(typescript@7.0.2)(utf-8-validate@5.0.10)(zod@3.25.64)
+      zod:
+        specifier: ^3.25.64
+        version: 3.25.64
+    devDependencies:
+      '@types/react':
+        specifier: ^18.3.5
+        version: 18.3.20
+      '@types/react-dom':
+        specifier: ^18.3.0
+        version: 18.3.6(@types/react@18.3.20)
+      '@vitejs/plugin-react':
+        specifier: ^4.3.1
+        version: 4.4.1(vite@5.4.18(@types/node@26.6.4))
+      autoprefixer:
+        specifier: ^10.4.18
+        version: 10.4.21(postcss@8.5.23)
+      postcss:
+        specifier: ^8.4.35
+        version: 8.5.23
+      tailwindcss:
+        specifier: ^3.4.1
+        version: 3.4.17(ts-node@10.9.2(@types/node@26.6.4)(typescript@7.0.2))
+      typescript:
+        specifier: 'catalog:'
+        version: 7.0.2
+      vite:
+        specifier: ^5.4.2
+        version: 5.4.18(@types/node@26.6.4)
+
   apps/server:
     dependencies:
       '@aws-sdk/client-s3':

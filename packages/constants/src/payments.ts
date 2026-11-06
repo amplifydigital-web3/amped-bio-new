@@ -61,6 +61,8 @@ export const PAYMENT_GROUP_ORDER: PaymentGroup[] = [
 export const AMPEDPAY_CONTRACT = {
   BPS: 10_000,
   MAX_FEE_BPS: 1_000,
+  /** Platform ceiling on a merchant payment (M11, docs/features/authbase-storefront.md 3.13) */
+  MAX_MERCHANT_FEE_BPS: 2_000,
   MIN_CREATOR_BPS_FLOOR: 5_000,
   MIN_RECIPIENTS: 2,
   MAX_RECIPIENTS_CAP: 8,

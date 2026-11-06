@@ -62,6 +62,8 @@ import { liveVersion } from "../store/policy";
 import { countFinalSale } from "../store/sales";
 import { resolvePromoter } from "../store/promoters";
 import { checkIdentity } from "../identity/checks";
+import { checkMerchant } from "../merchants/check";
+import { notifyMerchantOrder } from "../partners/orderEvents";
 import { ampedPayAddress, readContractState } from "./onchain";
 import { paymentsReady } from "./ready";
 import { limitsFromState, paymentSettings } from "./settings";
@@ -246,6 +248,7 @@ export async function preparePurchase(
       expiresAt: true,
       via: true,
       storePolicyVersionId: true,
+      rnsName: true,
     },
   });
   // Only the fan who claimed the intent; anyone else gets the same not found
@@ -292,25 +295,45 @@ export async function preparePurchase(
 
   // The store policy the sheet showed (CK-5, store policy 3.6). A newer live version refuses
   // until the fan has seen it and accepts it by sending its version.
-  const policy = await policyForPurchase(intent, resolved.creatorUserId, input.policyVersion);
+  // A merchant's store policy is its own published URL, shown on the sheet (AB-2)
+  const policy = resolved.extra.merchantId
+    ? { versionId: null, refused: null }
+    : await policyForPurchase(intent, resolved.creatorUserId, input.policyVersion);
   if (policy.refused) return policy.refused;
 
-  const creatorWallet = await prisma.userWallet.findUnique({
-    where: { userId: resolved.creatorUserId },
-    select: { address: true },
-  });
-  if (
-    !creatorWallet?.address ||
-    !isAddress(creatorWallet.address, { strict: false }) ||
-    (settings.pilotOnly && !settings.pilotCreators.includes(handle))
-  ) {
-    return { refused: true, reason: "seller" };
-  }
-  const creator = getAddress(creatorWallet.address);
-  // The seller gate is enforced here too, not only in the quote (AB-6, identity checks 5.3):
-  // prepare is callable on its own, so a creator who fails it must not get a signed split.
-  if (!(await checkIdentity(resolved.creatorUserId, "seller")).pass) {
-    return { refused: true, reason: "seller" };
+  // AB-1 (authbase-storefront 3.1, M1, M11): a merchant offer pays the merchant's effective
+  // payout wallet as the merchant row, at the merchant's fee, after checkMerchant passes. The
+  // payout wallet is screened in the screening step below like a creator's wallet.
+  const merchantId = resolved.extra.merchantId
+    ? Buffer.from(resolved.extra.merchantId, "hex")
+    : null;
+  let creator: Address;
+  let platformFeeBps = settings.platformFeeBps;
+  if (merchantId) {
+    const merchant = await checkMerchant(merchantId, { screen: false });
+    if (!merchant.pass) return { refused: true, reason: "seller" };
+    creator = merchant.payoutWallet;
+    platformFeeBps = merchant.feeBps;
+  } else {
+    const creatorWallet = await prisma.userWallet.findUnique({
+      where: { userId: resolved.creatorUserId },
+      select: { address: true },
+    });
+    if (
+      !creatorWallet?.address ||
+      !isAddress(creatorWallet.address, { strict: false }) ||
+      (settings.pilotOnly && !settings.pilotCreators.includes(handle))
+    ) {
+      return { refused: true, reason: "seller" };
+    }
+    creator = getAddress(creatorWallet.address);
+    // The seller gate is enforced here too, not only in the quote (AB-6, identity checks 5.3):
+    // prepare is callable on its own, so a creator who fails it must not get a signed split.
+    // A merchant offer runs checkMerchant above instead: the personal check cannot verify a
+    // company or a Safe (M1).
+    if (!(await checkIdentity(resolved.creatorUserId, "seller")).pass) {
+      return { refused: true, reason: "seller" };
+    }
   }
 
   const chainState = await readContractState(now.getTime());
@@ -364,17 +387,20 @@ export async function preparePurchase(
 
   // C12: a promoter row when the intent carries an active, in scope code. A bad code sells
   // without one; it never stops the sale
-  const promoter = await resolvePromoter({
-    via: intent.via,
-    creatorUserId: resolved.creatorUserId,
-    targetId: intent.targetType === "offer" ? intent.targetId : null,
-    buyerUserId: userId,
-    payer,
-    platformFeeBps: settings.platformFeeBps,
-    minCreatorBps: limits.minCreatorBps,
-    now,
-    screen: true,
-  });
+  // Merchant sales carry no promoter row (spec 3.1)
+  const promoter = merchantId
+    ? null
+    : await resolvePromoter({
+        via: intent.via,
+        creatorUserId: resolved.creatorUserId,
+        targetId: intent.targetType === "offer" ? intent.targetId : null,
+        buyerUserId: userId,
+        payer,
+        platformFeeBps: settings.platformFeeBps,
+        minCreatorBps: limits.minCreatorBps,
+        now,
+        screen: true,
+      });
 
   const id = uuidv7();
   const nowSeconds = BigInt(Math.floor(now.getTime() / 1000));
@@ -385,9 +411,10 @@ export async function preparePurchase(
     amount,
     creator,
     treasury: chainState.value.treasury,
-    platformFeeBps: settings.platformFeeBps,
+    platformFeeBps,
     promoter: promoter ? { to: promoter.to, bps: promoter.bps } : null,
     validBefore: nowSeconds + BigInt(validity),
+    sellerRole: merchantId ? SPLIT_ROLES.merchant : SPLIT_ROLES.creator,
   });
   try {
     assertSplitRules(split, limits, chainState.value.treasury, nowSeconds);
@@ -441,6 +468,10 @@ export async function preparePurchase(
       promoterCodeId: promoter?.codeId ?? null,
       // The store policy the buyer was shown (store policy 3.6); null before one is published
       storePolicyVersionId: policy.versionId,
+      merchantId,
+      // AB-2: a service order starts unfulfilled; the merchant reports progress (AB-4)
+      fulfillmentState: merchantId ? "paid" : null,
+      rnsName: merchantId ? intent.rnsName : null,
       chainId: paymentChain.id,
       payer,
       creatorAddress: creator,
@@ -473,7 +504,7 @@ export async function preparePurchase(
     review: {
       amount: amount.toString(),
       fee: fee.toString(),
-      feeBps: settings.platformFeeBps,
+      feeBps: platformFeeBps,
       payer,
       creatorHandle: handle,
       chainId: paymentChain.id,
@@ -925,6 +956,11 @@ export async function settlePurchase(
       },
     });
     if (!moved.count) return status;
+    // AB-3: a merchant order that skipped the soft step is paid and final at once
+    await notifyMerchantOrder(
+      row.id,
+      status === "confirmed_soft" ? ["order.finalized"] : ["order.paid", "order.finalized"]
+    );
     // C10: a product counts a sale once, when it is final
     await countFinalSale(row.id);
     const block = await client.getBlock({ blockNumber: receipt.blockNumber });
@@ -953,6 +989,8 @@ export async function settlePurchase(
     });
     if (!moved.count) return status;
     await setIntentStatus(row.checkoutIntentId, ["open", "signing", "submitted"], "paid");
+    // AB-3 (M5): the merchant hears at the first confirmation, so the check can start
+    await notifyMerchantOrder(row.id, ["order.paid"]);
     return "confirmed_soft";
   }
 

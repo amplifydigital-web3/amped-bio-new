@@ -56,8 +56,11 @@ contract AmpedPay is
     // ------------------------------------------------------------ constants
 
     uint16 public constant BPS = 10_000;
-    /// @notice The platform share can never exceed 10% (decision 6).
+    /// @notice The platform share can never exceed 10% on a creator payment (decision 6).
     uint16 public constant MAX_FEE_BPS = 1_000;
+    /// @notice The platform share can never exceed 20% on a merchant payment, a business seller
+    /// such as Authbase (docs/features/authbase-storefront.md 3.13, decision M11).
+    uint16 public constant MAX_MERCHANT_FEE_BPS = 2_000;
     uint16 public constant MIN_CREATOR_BPS_FLOOR = 5_000;
     uint8 public constant MIN_RECIPIENTS = 2;
     uint8 public constant MAX_RECIPIENTS_CAP = 8;
@@ -72,6 +75,9 @@ contract AmpedPay is
     uint8 public constant ROLE_PLATFORM = 1;
     uint8 public constant ROLE_PROMOTER = 2;
     uint8 public constant ROLE_PARTNER = 3;
+    /// @notice A business seller. Takes the creator's place: a split has exactly one creator row
+    /// or exactly one merchant row, never both. Funds refunds like the creator (M11).
+    uint8 public constant ROLE_MERCHANT = 4;
 
     bytes32 public constant RECIPIENT_TYPEHASH = keccak256("Recipient(address to,uint16 bps,uint8 role)");
     bytes32 public constant SPLIT_TYPEHASH = keccak256(
@@ -98,6 +104,7 @@ contract AmpedPay is
         uint64 validBefore;
     }
 
+    /// @dev `creator` holds the seller: the creator row, or the merchant row on a merchant payment.
     struct Payment {
         bytes32 splitHash;
         address payer;
@@ -145,6 +152,7 @@ contract AmpedPay is
     error DuplicateRecipient(address to);
     error BpsSum(uint256 sum);
     error CreatorCount();
+    error MerchantCount();
     error PlatformCount();
     error PromoterCount();
     error PlatformNotTreasury();
@@ -241,8 +249,9 @@ contract AmpedPay is
         p.platformAmount = _distribute(split.paymentRef, split.amount, split.recipients, creatorIndex);
     }
 
-    /// @notice Refunds the full amount to the payer. The creator funds the creator, promoter and
-    /// partner shares; the treasury funds the platform share (content spec decision 25).
+    /// @notice Refunds the full amount to the payer. The creator (or the merchant on a merchant
+    /// payment) funds the creator, promoter and partner shares; the treasury funds the platform
+    /// share (content spec decision 25, authbase-storefront M6).
     /// @param paymentRef The payment to refund.
     /// @param deadline Last second the creator's refund signature is valid.
     /// @param creatorSig The creator's Refund signature.
@@ -383,8 +392,8 @@ contract AmpedPay is
 
     // ------------------------------------------------------------ internal
 
-    /// @dev Pays every non creator share, then the creator the remainder (spec 3.2).
-    /// Returns the platform share so a refund knows what the treasury funds.
+    /// @dev Pays every non seller share, then the seller (creator or merchant) the remainder
+    /// (spec 3.2). Returns the platform share so a refund knows what the treasury funds.
     function _distribute(bytes32 paymentRef, uint256 amount, Recipient[] calldata rs, uint256 creatorIndex)
         internal
         returns (uint256 platformAmount)
@@ -401,10 +410,11 @@ contract AmpedPay is
         uint256 creatorShare = amount - paidOut;
         address creator = rs[creatorIndex].to;
         usdc.safeTransfer(creator, creatorShare);
-        emit Share(paymentRef, creator, ROLE_CREATOR, creatorShare);
+        emit Share(paymentRef, creator, rs[creatorIndex].role, creatorShare);
     }
 
-    /// @dev Enforces every recipient rule in spec 3.2. Returns the creator and its index.
+    /// @dev Enforces every recipient rule in spec 3.2 and the merchant rule (M11). Returns the
+    /// seller (the creator, or the merchant on a merchant payment) and its index.
     function _validateRecipients(Recipient[] calldata rs)
         internal
         view
@@ -417,9 +427,11 @@ contract AmpedPay is
         uint256 creators;
         uint256 platforms;
         uint256 promoters;
+        uint256 merchants;
+        uint16 platformBps;
         for (uint256 i; i < n; ++i) {
             Recipient calldata r = rs[i];
-            if (r.to == address(0) || r.bps == 0 || r.role > ROLE_PARTNER) revert InvalidRecipient(i);
+            if (r.to == address(0) || r.bps == 0 || r.role > ROLE_MERCHANT) revert InvalidRecipient(i);
             for (uint256 j; j < i; ++j) {
                 if (rs[j].to == r.to) revert DuplicateRecipient(r.to);
             }
@@ -429,15 +441,25 @@ contract AmpedPay is
                 creator = r.to;
                 creatorIndex = i;
                 if (r.bps < minCreatorBps) revert CreatorBps(r.bps);
+            } else if (r.role == ROLE_MERCHANT) {
+                merchants++;
+                creator = r.to;
+                creatorIndex = i;
+                if (r.bps < minCreatorBps) revert CreatorBps(r.bps);
             } else if (r.role == ROLE_PLATFORM) {
                 platforms++;
                 if (r.to != treasury) revert PlatformNotTreasury();
-                if (r.bps < feeFloorBps || r.bps > MAX_FEE_BPS) revert PlatformBps(r.bps);
+                platformBps = r.bps;
             } else if (r.role == ROLE_PROMOTER) {
                 promoters++;
             }
         }
-        if (creators != 1) revert CreatorCount();
+        if (merchants > 1) revert MerchantCount();
+        if (creators + merchants != 1) revert CreatorCount();
+        if (platforms == 1) {
+            uint16 maxPlatformBps = merchants == 1 ? MAX_MERCHANT_FEE_BPS : MAX_FEE_BPS;
+            if (platformBps < feeFloorBps || platformBps > maxPlatformBps) revert PlatformBps(platformBps);
+        }
         if (platforms != 1) revert PlatformCount();
         if (promoters > 1) revert PromoterCount();
         if (sum != BPS) revert BpsSum(sum);
