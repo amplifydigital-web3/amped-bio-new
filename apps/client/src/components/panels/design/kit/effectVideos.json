@@ -1,0 +1,90 @@
+{
+  "scene.aurora": {
+    "src": "/effects/scene.aurora.mp4",
+    "bytes": 5627
+  },
+  "scene.silk": {
+    "src": "/effects/scene.silk.mp4",
+    "bytes": 4825
+  },
+  "scene.iridescence": {
+    "src": "/effects/scene.iridescence.mp4",
+    "bytes": 9022
+  },
+  "scene.liquid-chrome": {
+    "src": "/effects/scene.liquid-chrome.mp4",
+    "bytes": 30527
+  },
+  "scene.plasma": {
+    "src": "/effects/scene.plasma.mp4",
+    "bytes": 5388
+  },
+  "scene.galaxy": {
+    "src": "/effects/scene.galaxy.mp4",
+    "bytes": 8263
+  },
+  "scene.threads": {
+    "src": "/effects/scene.threads.mp4",
+    "bytes": 14446
+  },
+  "scene.lightning": {
+    "src": "/effects/scene.lightning.mp4",
+    "bytes": 7029
+  },
+  "scene.orb": {
+    "src": "/effects/scene.orb.mp4",
+    "bytes": 5103
+  },
+  "scene.dark-veil": {
+    "src": "/effects/scene.dark-veil.mp4",
+    "bytes": 4839
+  },
+  "scene.grainient": {
+    "src": "/effects/scene.grainient.mp4",
+    "bytes": 3610
+  },
+  "scene.light-rays": {
+    "src": "/effects/scene.light-rays.mp4",
+    "bytes": 5294
+  },
+  "scene.dot-field": {
+    "src": "/effects/scene.dot-field.mp4",
+    "bytes": 44589
+  },
+  "scene.ripple-grid": {
+    "src": "/effects/scene.ripple-grid.mp4",
+    "bytes": 24216
+  },
+  "scene.ferrofluid": {
+    "src": "/effects/scene.ferrofluid.mp4",
+    "bytes": 6727
+  },
+  "scene.molten-metal": {
+    "src": "/effects/scene.molten-metal.mp4",
+    "bytes": 7196
+  },
+  "scene.topography": {
+    "src": "/effects/scene.topography.mp4",
+    "bytes": 60059
+  },
+  "scene.faulty-terminal": {
+    "src": "/effects/scene.faulty-terminal.mp4",
+    "bytes": 15625
+  },
+  "scene.letter-glitch": {
+    "src": "/effects/scene.letter-glitch.mp4",
+    "bytes": 85786
+  },
+  "scene.galaxy-field": {
+    "src": "/effects/scene.galaxy-field.mp4",
+    "bytes": 24747
+  },
+  "cursor.blob": {
+    "src": "/effects/cursor.blob.mp4",
+    "bytes": 4367
+  },
+  "cursor.splash": {
+    "src": "/effects/cursor.splash.mp4",
+    "bytes": 4768
+  }
+}

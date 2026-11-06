@@ -7,6 +7,7 @@ import { __resetStakeKindsAllowlistCacheForTests } from "../services/access/allo
 
 const state = vi.hoisted(() => ({
   poolOwner: 10 as number | null,
+  offer: null as null | { creatorUserId: number; status: string },
   created: [] as Array<Record<string, unknown>>,
   rule: { ownerUserId: 10, kind: "follower" } as null | { ownerUserId: number; kind: string },
   blocks: 0,
@@ -59,6 +60,7 @@ vi.mock("@repo/database", () => ({
         state.rows.delete(where.id.toString("hex"));
       }),
     },
+    offer: { findUnique: vi.fn(async () => state.offer) },
     block: { count: vi.fn(async () => state.blocks) },
     contentItem: { count: vi.fn(async () => state.items) },
   },
@@ -69,6 +71,7 @@ import { cleanupInlineRule, createRule, deleteRule, updateRule } from "../servic
 beforeEach(() => {
   __resetStakeKindsAllowlistCacheForTests();
   state.poolOwner = 10;
+  state.offer = null;
   state.created = [];
   state.rule = { ownerUserId: 10, kind: "follower" };
   state.blocks = 0;
@@ -203,5 +206,35 @@ describe("cleanupInlineRule (content gating 3.5)", () => {
     expect(await cleanupInlineRule((await import("@repo/database")).prisma as never, a)).toEqual(
       []
     );
+  });
+});
+
+describe("paid rules (G4)", () => {
+  const offerId = "cd".repeat(16);
+
+  it("stores the creator's own product", async () => {
+    state.offer = { creatorUserId: 10, status: "active" };
+    await createRule(10, { kind: "paid", params: { offerId } });
+    expect(state.created[0]).toMatchObject({ kind: "paid", params: { offerId } });
+  });
+
+  it("allows a draft product, so a creator can set up before going live", async () => {
+    state.offer = { creatorUserId: 10, status: "draft" };
+    await createRule(10, { kind: "paid", params: { offerId } });
+    expect(state.created).toHaveLength(1);
+  });
+
+  it("refuses another creator's, a missing or an archived product", async () => {
+    for (const offer of [
+      { creatorUserId: 11, status: "active" },
+      null,
+      { creatorUserId: 10, status: "archived" },
+    ]) {
+      state.offer = offer;
+      await expect(createRule(10, { kind: "paid", params: { offerId } })).rejects.toThrow(
+        "Pick one of your own products."
+      );
+    }
+    expect(state.created).toHaveLength(0);
   });
 });

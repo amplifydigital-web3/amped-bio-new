@@ -389,6 +389,27 @@ export function buildLockedCard(
   };
 }
 
+/**
+ * A store product's cover (C9): the item's COVER rendition, never the media itself. An image
+ * item has no separate cover, so it shows its blur. Signed with the public image lifetime.
+ */
+export function buildProductCover(
+  item: Item,
+  assets: Asset[],
+  now: Date = new Date()
+): ContentImageSet | null {
+  const signer = new Signer(item, "public", now);
+  if (fromDbKind(item.kind) !== "image") {
+    const cover = imageSet(signer, assets, "COVER");
+    if (cover) return cover;
+  }
+  const blur = signer.r2(
+    assets.find(asset => asset.role === "BLUR"),
+    "image"
+  );
+  return blur ? { src: blur, srcSet: "", width: null, height: null } : null;
+}
+
 /** Preview tokens live 1 hour (content spec 3.6). */
 const PREVIEW_SECONDS = HOUR;
 

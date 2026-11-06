@@ -28,7 +28,7 @@ import {
 import { env } from "../../env";
 import { uuidv7 } from "../../utils/uuid-v7";
 import { checkIdentity } from "../identity/checks";
-import { hideItems } from "../content/edge";
+import { edgeDirty, hideItems, syncEdge } from "../content/edge";
 import { safetyBox } from "./crypto";
 import { openCase } from "./cases";
 import { logSafetyEvent } from "./events";
@@ -125,14 +125,20 @@ export async function enableAdult(userId: number) {
 export async function disableAdult(userId: number) {
   const profile = await prisma.creatorAdultProfile.findUnique({ where: { userId } });
   if (!profile?.enabledAt) return { unpublished: 0 };
+  const published = await prisma.contentItem.findMany({
+    where: { userId, adult: true, publishState: "PUBLISHED" },
+    select: { publicId: true },
+  });
   const result = await prisma.contentItem.updateMany({
     where: { userId, adult: true, publishState: "PUBLISHED" },
-    data: { publishState: "DRAFT" },
+    data: { publishState: "DRAFT", ...edgeDirty() },
   });
   await prisma.creatorAdultProfile.update({
     where: { userId },
     data: { disabledAt: new Date(), disabledBy: null, disabledReason: null },
   });
+  // The draft must leave the public pages now, not on the next reconcile pass
+  if (published.length) await syncEdge(published.map(item => item.publicId));
   return { unpublished: result.count };
 }
 
@@ -284,8 +290,9 @@ export async function signRelease(
     options,
     signedAt: now,
   });
-  await prisma.appearingPerson.update({
-    where: { id: person.id },
+  // One signature, even when two accounts open the same invite link at once
+  const signed = await prisma.appearingPerson.updateMany({
+    where: { id: person.id, releaseAt: null, withdrawnAt: null },
     data: {
       personUserId: userId,
       releaseVersion: RELEASE_VERSION,
@@ -293,13 +300,17 @@ export async function signRelease(
       releaseOptions: options,
       idGivenConfirmedAt: now,
       releaseAt: now,
-      releaseText: filled.text,
+      // The filled text names the performer: encrypted like the legal name
+      releaseText: safetyBox.encrypt(filled.text),
       releaseHash: filled.hash,
       // Snapshot of the check at signing: outcome date, never an attribute value
       checkReference: age.tier,
       checkDate: now,
     },
   });
+  if (signed.count !== 1) {
+    throw new AdultSetupError("conflict", "This release is already signed.");
+  }
   return { releaseHash: filled.hash };
 }
 
@@ -355,7 +366,12 @@ export async function withdrawRelease(userId: number, personId: string, now: Dat
   if (!person || person.personUserId !== userId)
     throw new AdultSetupError("not_found", "Not found.");
   if (person.withdrawnAt) return { hidden: 0 };
-  await prisma.appearingPerson.update({ where: { id: person.id }, data: { withdrawnAt: now } });
+  // Withdraw once: a second tap must not open a second case for every item
+  const withdrawn = await prisma.appearingPerson.updateMany({
+    where: { id: person.id, withdrawnAt: null },
+    data: { withdrawnAt: now },
+  });
+  if (withdrawn.count !== 1) return { hidden: 0 };
   const covered = await prisma.contentItemPerson.findMany({
     where: { releaseId: person.id },
     select: { contentItemId: true },
@@ -449,6 +465,8 @@ export async function submitBlocker(
   if (!profile?.enabledAt || profile.disabledAt) return "adult_off";
   if (profile.policyVersion !== ADULT_POLICY_VERSION) return "policy_outdated";
   if (!item.adult) return "not_labeled";
+  // A moderator's block is final here; submitting again must not clear it
+  if (item.status === "BLOCKED" || item.moderationState === "BLOCKED") return "item_blocked";
   if (item.aiLabel === null) return "ai_label_missing";
   const tagged = await prisma.contentItemPerson.findMany({ where: { contentItemId: item.id } });
   if (tagged.length) {
@@ -474,10 +492,12 @@ export async function submitForReview(userId: number, publicId: string, confirme
   const blocker = await submitBlocker(userId, publicId);
   if (blocker) return { ok: false as const, error: blocker };
   const item = await ownedItem(publicId, userId);
-  await prisma.contentItem.update({
-    where: { id: item.id },
+  // Conditional: a decision made between the check above and this write wins
+  const held = await prisma.contentItem.updateMany({
+    where: { id: item.id, moderationState: { not: "BLOCKED" } },
     data: { moderationState: "HELD", moderationReason: "adult_review" },
   });
+  if (held.count !== 1) return { ok: false as const, error: "item_blocked" as const };
   await openCase({
     type: "ADULT_REVIEW",
     contentItemId: item.id,
@@ -510,10 +530,17 @@ export async function surfaceAllowed(itemId: Uint8Array, surface: string): Promi
   if (!tagged.length) return true;
   const releases = await prisma.appearingPerson.findMany({
     where: { id: { in: tagged.map(t => Buffer.from(t.releaseId)) } },
-    select: { releaseOptions: true, withdrawnAt: true },
+    select: {
+      releaseAt: true,
+      creatorSignedAt: true,
+      withdrawnAt: true,
+      releaseVersion: true,
+      releaseOptions: true,
+    },
   });
   return releases.every(release => {
-    if (release.withdrawnAt) return false;
+    // Both signatures and the current version: a stale or one sided release allows nothing
+    if (!releaseValid(release)) return false;
     const options = releaseOptionsSchema.safeParse(release.releaseOptions);
     return options.success && (options.data.surfaces as string[]).includes(surface);
   });

@@ -164,4 +164,29 @@ describe("EditorContext autosave", () => {
     });
     expect(editor.keepUnsavedEdits()).toBe(false);
   });
+
+  // TE-4a (spec 3.13, phase 4): the editor saves the look it holds by its id
+  it("saves an own look by its id and applies that same id", async () => {
+    mocks.trpcClient.theme.editTheme.mutate.mockResolvedValue({ id: 42 });
+    renderEditor();
+    setOwnerProfile();
+    act(() => {
+      editor.applyTheme({ ...editor.theme, id: 42, user_id: 1 } as never);
+    });
+    act(() => {
+      editor.replaceThemeConfig({ buttonColor: "#654321" } as never);
+    });
+
+    await act(async () => {
+      expect(await editor.flushSave()).toBe(true);
+    });
+
+    expect(mocks.trpcClient.theme.editTheme.mutate).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 42 })
+    );
+    expect(mocks.trpcClient.user.edit.mutate).toHaveBeenCalledWith(
+      expect.objectContaining({ theme: 42 })
+    );
+    expect(editor.theme.id).toBe(42);
+  });
 });

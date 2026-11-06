@@ -88,6 +88,7 @@ export const ADULT_SUBMIT_ERRORS = {
   release_missing: "Everyone you tag needs a release signed by both of you.",
   production_dates_missing: "Add every date the item was recorded.",
   policy_outdated: "Accept the current Adult Content Policy first.",
+  item_blocked: "This item is blocked. Contact Safety if you think this is wrong.",
 } as const;
 export type AdultSubmitError = keyof typeof ADULT_SUBMIT_ERRORS;
 

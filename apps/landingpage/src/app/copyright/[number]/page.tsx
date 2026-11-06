@@ -6,6 +6,8 @@ import { NoticeStatus } from "@/components/notices/NoticeForms";
 export const metadata: Metadata = {
   title: "Notice status | Amped.Bio",
   robots: { index: false, follow: false },
+  // The status key is in this URL: never send it to another origin as a Referer
+  referrer: "no-referrer",
 };
 
 export default async function Page({ params }: { params: Promise<{ number: string }> }) {
