@@ -6,7 +6,7 @@ import { hashPassword, verifyPassword } from "./password";
 import { APIError, betterAuth } from "better-auth";
 import type { BetterAuthPlugin } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
-import { captcha, jwt, customSession, twoFactor } from "better-auth/plugins";
+import { admin, captcha, jwt, customSession, twoFactor } from "better-auth/plugins";
 import { cimd } from "@better-auth/cimd";
 import { fetchClientMetadataResource } from "@better-auth/cimd/node";
 import { mcp } from "@better-auth/mcp";
@@ -16,6 +16,7 @@ import { JWTPayload, SignJWT } from "jose";
 import type { EnrichedUser } from "../types/auth-helpers";
 import { uuidv7 } from "./uuid-v7";
 import { checkSignUpHandle, refuseHandleUpdate } from "./handleHooks";
+import { revokeOAuthOnBan } from "./banHooks";
 
 // === jwt private key generation  ===
 const pk = crypto.createPrivateKey({
@@ -75,8 +76,26 @@ const trustedOAuthClientIds = env.OAUTH_TRUSTED_CLIENT_IDS.split(",")
 const asBetterAuthPlugin = <T>(plugin: T) => plugin as unknown as BetterAuthPlugin & T;
 
 // ================ better-auth configuration ==================
+/**
+ * Admin plugin endpoints closed over HTTP. Each one bypasses an Amped.Bio flow
+ * that must run instead: impersonation has no audit trail or privacy notice
+ * basis; remove-user skips the account deletion job (Restrict keys, message
+ * anonymization); create-user and update-user skip sign up rules (handle,
+ * captcha, consent); set-user-password skips the reset email and two factor.
+ * Role, ban, session revoke and list stay open to the "admin" role.
+ */
+export const ADMIN_PLUGIN_DISABLED_PATHS = [
+  "/admin/impersonate-user",
+  "/admin/stop-impersonating",
+  "/admin/remove-user",
+  "/admin/create-user",
+  "/admin/update-user",
+  "/admin/set-user-password",
+];
+
 export const auth = betterAuth({
   basePath: "",
+  disabledPaths: ADMIN_PLUGIN_DISABLED_PATHS,
   trustedOrigins: [
     env.APP_URL,
     env.LANDINGPAGE_URL,
@@ -126,6 +145,12 @@ export const auth = betterAuth({
         session,
       };
     }),
+    // Better Auth admin plugin: roles, ban and user management endpoints under
+    // /auth/admin, all gated to the "admin" role by the plugin itself. The role
+    // column on users and the tRPC adminProcedure (trpc/trpc.ts) keep working
+    // unchanged, so the admin panel does not depend on the new endpoints.
+    admin({ adminRoles: ["admin"] }),
+
     captcha({
       provider: "hcaptcha",
       secretKey: env.CAPTCHA_SECRET_KEY,
@@ -273,6 +298,9 @@ export const auth = betterAuth({
       update: {
         before: async (data: any) => {
           refuseHandleUpdate(data);
+        },
+        after: async (user: any) => {
+          await revokeOAuthOnBan(user);
         },
       },
       create: {
