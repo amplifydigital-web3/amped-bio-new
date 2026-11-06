@@ -11,6 +11,12 @@ import { useReferralHandler } from "./hooks/useReferralHandler";
 import { ExternalRedirect, NewVersionDialog, ToastCard, useAuth } from "@repo/ui";
 import { ERROR_TOAST_DURATION } from "@/components/ui/toast";
 import { JoinHandoffGate, PayHandoffGate } from "@/components/checkout/HandoffCard";
+import { isFeatureOn } from "@/config/featureFlags";
+import { DownloadsSync } from "@/components/panels/library/downloads/DownloadsSync";
+import {
+  OfflineDownloads,
+  useOnline,
+} from "@/components/panels/library/downloads/OfflineDownloads";
 
 // Internal Prism component gallery for review (not linked in the app). Served in
 // development, testing and staging builds only, never in production.
@@ -127,6 +133,9 @@ function AppRouter() {
 
         {/* Fan Library (#26, FL-3): /library/search, /library/@handle and the item view.
           The Editor keeps these sub paths; /library itself is the /:panel route */}
+        {/* Fan Library FL-5: without a connection, Downloads opens on its own page,
+          since the shell needs the API to sign in */}
+        <Route path="/library/downloads/*" element={<DownloadsRoute />} />
         <Route
           path="/library/*"
           element={
@@ -152,6 +161,17 @@ function AppRouter() {
         <Route path="*" element={<PublicSiteRedirect />} />
       </Routes>
     </>
+  );
+}
+
+/** Downloads: the Library page online, the offline page without a connection (FL-5). */
+function DownloadsRoute() {
+  const online = useOnline();
+  if (!online && isFeatureOn("fanLibrary")) return <OfflineDownloads />;
+  return (
+    <ProtectedRoute>
+      <Editor />
+    </ProtectedRoute>
   );
 }
 
@@ -207,6 +227,7 @@ function App() {
     <BrowserRouter>
       <EditorProvider>
         <AppRouter />
+        <DownloadsSync />
         {/* The one toast stack (Screen Review 084, D21): react-hot-toast calls and
             toast.add from components/ui/toast render as the Prism ToastCard.
             Errors leave after 10 seconds, success and info after 5. */}

@@ -120,6 +120,7 @@ model User {
   storageQuota          UserStorageQuota?
   viewerProgress        ViewerProgress[]
   savedItems            SavedItem[]
+  downloadRecords       DownloadRecord[]
   libraryVisits         LibraryCreatorVisit[] @relation("LibraryVisitsMade")
   libraryVisitsReceived LibraryCreatorVisit[] @relation("LibraryVisitsReceived")
 
@@ -1595,15 +1596,16 @@ model ContentItem {
   createdAt        DateTime            @default(now()) @map("created_at")
   updatedAt        DateTime            @updatedAt @map("updated_at")
 
-  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  assets         ContentAsset[]
-  reports        ContentReport[]
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assets          ContentAsset[]
+  reports         ContentReport[]
   // Gating engine (#21, G1): Restrict, so a rule in use cannot be deleted and a
   // gated item never turns public. Never SetNull.
-  accessRule     AccessRule?      @relation(fields: [accessRuleId], references: [id], onDelete: Restrict)
-  viewerProgress ViewerProgress[]
-  savedItems     SavedItem[]
-  offerItems     OfferItem[]
+  accessRule      AccessRule?      @relation(fields: [accessRuleId], references: [id], onDelete: Restrict)
+  viewerProgress  ViewerProgress[]
+  savedItems      SavedItem[]
+  offerItems      OfferItem[]
+  downloadRecords DownloadRecord[]
 
   @@index([userId, status])
   @@index([userId, publishState, publishedAt])
@@ -1851,6 +1853,34 @@ model SavedItem {
   @@index([userId, createdAt])
   @@index([contentItemId])
   @@map("saved_items")
+}
+
+/// Fan Library (#26) FL-5: one row per offline copy a fan keeps on one installed
+/// app. The file itself lives only in that browser's Cache Storage. `device` is a
+/// random id the app made at install, never a fingerprint. `removedAt` is set
+/// when the fan removes the copy or a check finds the fan may no longer open it.
+/// Personal data: deleted with the account. Creators never see these rows.
+model DownloadRecord {
+  id            Bytes     @id @db.Binary(16)
+  userId        Int       @map("user_id")
+  contentItemId Bytes     @map("content_item_id") @db.Binary(16)
+  /// Size the app stored, set once the file is saved
+  bytes         BigInt    @default(0)
+  /// The single use grant that fetched the file
+  grantJti      String    @map("grant_jti") @db.VarChar(64)
+  device        String    @db.VarChar(64)
+  createdAt     DateTime  @default(now()) @map("created_at")
+  removedAt     DateTime? @map("removed_at")
+  /// Why the copy went: removed (by the fan), access, unavailable, downloadsOff
+  removedReason String?   @map("removed_reason") @db.VarChar(16)
+
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contentItem ContentItem @relation(fields: [contentItemId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([userId, device])
+  @@index([contentItemId])
+  @@map("download_records")
 }
 
 // Fan Library (#26) FL-2: when a fan last opened a creator's section, for the

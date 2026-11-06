@@ -1,13 +1,13 @@
 /**
  * The item menu (Build Board #26, FL-3, spec 3.5, board m10): Play next, Add to
  * queue, Save, Mark as watched, Go to the creator's section, Remove from
- * Continue. Download joins in FL-5. The more button is the visible twin of the
+ * Continue, and Download where the creator allows it (FL-5). The more button is the visible twin of the
  * long press, so every action has a button.
  */
 import { useMutation } from "@tanstack/react-query";
 import { MoreHorizontal } from "lucide-react";
 import { useNavigate } from "react-router";
-import type { LibraryItem } from "@repo/constants";
+import { canKeepOffline, type LibraryItem } from "@repo/constants";
 import {
   Menu,
   MenuContent,
@@ -16,8 +16,12 @@ import {
   MenuTrigger,
   queryClient,
   trpc,
+  useAuth,
   useOptionalPlayer,
 } from "@repo/ui";
+import { isFeatureOn } from "@/config/featureFlags";
+import { downloadsApi } from "./downloads/api";
+import { useDownloadAction } from "./downloads/DownloadsPage";
 import { toast } from "@/components/ui/toast";
 import { LIBRARY_COPY } from "./copy";
 import { LIBRARY_PATHS } from "./paths";
@@ -77,6 +81,10 @@ export function ItemMenu({
   const actions = useLibraryActions();
   const playable = isPlayable(item) && !!player;
   const saved = !!item.savedAt;
+  const { authUser } = useAuth();
+  const download = useDownloadAction(downloadsApi, authUser?.id ?? null, item);
+  const offlineOk =
+    isFeatureOn("fanLibrary") && canKeepOffline(item) && typeof caches !== "undefined";
 
   const queue = (mode: "next" | "end") => {
     const entry = queueEntryFor(item);
@@ -104,6 +112,16 @@ export function ItemMenu({
             <MenuItem onSelect={() => queue("end")}>{C.menu.addToQueue}</MenuItem>
           </>
         )}
+        {offlineOk &&
+          (download.stored ? (
+            <MenuItem onSelect={() => void download.remove()}>{C.menu.removeDownload}</MenuItem>
+          ) : (
+            <MenuItem disabled={download.downloading} onSelect={() => void download.start()}>
+              {download.downloading
+                ? LIBRARY_COPY.downloads.progress(download.percent)
+                : C.menu.download}
+            </MenuItem>
+          ))}
         <MenuItem onSelect={() => void actions.toggleSave(item.publicId, saved)}>
           {saved ? C.menu.unsave : C.menu.save}
         </MenuItem>

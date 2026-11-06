@@ -23,6 +23,7 @@ import {
 } from "@repo/ui";
 import { LIBRARY_COPY } from "./copy";
 import { LIBRARY_PATHS } from "./paths";
+import { activeAccount, localSource } from "./downloads/store";
 
 const C = LIBRARY_COPY;
 
@@ -44,12 +45,15 @@ export function isPlayable(item: Pick<ContentCard, "kind">) {
 }
 
 /**
- * Fresh signed URLs for an item, every time the player asks. A refusal from the
- * gating engine (the fan lost access since the list loaded) stops the player
- * with Access ended (FL-6, spec 3.4).
+ * Fresh signed URLs for an item, every time the player asks, or its offline copy.
+ * A refusal from the gating engine (the fan lost access since the list loaded)
+ * stops the player with Access ended (FL-6, spec 3.4).
  */
 export function resolverFor(publicId: string): SourceResolver {
   return async () => {
+    // FL-5: a copy on this device plays from the device, online or not
+    const local = localSource(activeAccount(), publicId);
+    if (local) return local;
     const result = await trpcClient.content.getReadUrl.query({ publicId });
     if (result.decision && !result.decision.allowed) throw new AccessEndedError();
     return requirePlayerSource(result.playback);
