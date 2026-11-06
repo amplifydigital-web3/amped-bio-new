@@ -95,10 +95,24 @@ export function CardLock({
   );
 }
 
-/** TESTNET_NOTICE above ACCESS_STAKE_DISCLOSURE, on every stake step (gating 3.11). */
-export function StakeNotices() {
+/**
+ * TESTNET_NOTICE above ACCESS_STAKE_DISCLOSURE (gating 3.11). Shown on every stake
+ * step of the unlock sheet, and once per page section that shows a locked stake
+ * item, before any tap or refusal (GQ2-2, decision D2: one compact block per section).
+ */
+export function StakeNotices({
+  className,
+  style,
+}: { className?: string; style?: React.CSSProperties } = {}) {
   return (
-    <div className="mt-[13px] space-y-[4px] rounded-[13px] bg-black/5 p-[13px] text-[14px] leading-[20px]">
+    <div
+      data-stake-notices=""
+      style={style}
+      className={cn(
+        "mt-[13px] space-y-[4px] rounded-[13px] bg-black/5 p-[13px] text-[14px] leading-[20px]",
+        className
+      )}
+    >
       <p className="font-semibold">{TESTNET_NOTICE}</p>
       <p className="opacity-90">{ACCESS_STAKE_DISCLOSURE}</p>
     </div>

@@ -150,6 +150,12 @@ const libraryFanOut = vi.hoisted(() => ({
 
 vi.mock("@repo/database", () => ({ prisma: db.prisma, Prisma: { JsonNull: "JsonNull" } }));
 vi.mock("../utils/auth", () => ({ auth: { api: {} } }));
+const safetyIntake = vi.hoisted(() => ({
+  intakeReport: vi.fn(async (_item: unknown, report: { reason: string }) => ({
+    hidden: report.reason === "csam",
+  })),
+}));
+vi.mock("../services/safety/reports", () => safetyIntake);
 vi.mock("../utils/fileUrlResolver", () => ({ getFileUrl: vi.fn(async () => null) }));
 vi.mock("../utils/rateLimit", () => ({
   hitRateLimit: vi.fn(async (key: string) => {
@@ -177,6 +183,8 @@ vi.mock("../services/analytics/visitorIp", () => ({ getVisitorIp: () => ({ ip: "
 vi.mock("../services/library/newContent", () => ({
   onContentPublished: libraryFanOut.onContentPublished,
 }));
+const identity = vi.hoisted(() => ({ checkIdentity: vi.fn() }));
+vi.mock("../services/identity/checks", () => identity);
 
 import { env } from "../env";
 import { contentRouter } from "../trpc/content";
@@ -184,6 +192,7 @@ import { purgeDeletedItems } from "../services/content/purge";
 import { publicCardsFor } from "../services/content/publicView";
 import { keepOwnedContentIds } from "../services/content/blockConfig";
 import { sanitizeBlockConfig } from "../utils/sanitizeBlockConfig";
+import { __setFeatureFlagOverridesForTests } from "../services/featureFlags";
 
 const OWNER = 7;
 const caller = (sub: number | null) =>
@@ -239,6 +248,9 @@ beforeEach(() => {
   libraryFanOut.onContentPublished.mockClear();
   quotaState.taken = 0n;
   cf.r2ObjectExists.mockResolvedValue(false);
+  __setFeatureFlagOverridesForTests({});
+  identity.checkIdentity.mockReset();
+  identity.checkIdentity.mockResolvedValue({ pass: false, reason: "not_shared" });
   Object.assign(env, {
     CONTENT_UPLOADS_ENABLED: true,
     CF_ACCOUNT_ID: "acct",
@@ -549,24 +561,48 @@ describe("public reads", () => {
 });
 
 describe("report", () => {
-  it("records a report on a public item and raises an alert for CSAM", async () => {
+  it("sends a report into Safety intake and raises an alert for CSAM (#28 R3)", async () => {
     const item = addItem({ publishState: "PUBLISHED" });
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
     await expect(
       caller(null).report({ publicId: item.publicId, reason: "csam", details: "  see 0:12  " })
-    ).resolves.toEqual({ received: true });
-    expect(db.reports[0]).toMatchObject({
-      reason: "csam",
-      details: "see 0:12",
-      reporterUserId: null,
-    });
+    ).resolves.toEqual({ received: true, hidden: true, form: null });
+    expect(safetyIntake.intakeReport).toHaveBeenCalledWith(
+      expect.objectContaining({ publicId: item.publicId }),
+      { reason: "csam", details: "see 0:12", reporterUserId: null }
+    );
     expect(error).toHaveBeenCalledWith(
       "[content] ALERT csam report",
       expect.stringContaining(item.publicId)
     );
-    // A report never takes anything down by itself
-    expect(db.items[0]).toMatchObject({ publishState: "PUBLISHED", moderationState: "CLEAR" });
     error.mockRestore();
+    // "This is me and I did not agree" continues on the Take It Down form
+    await expect(
+      caller(null).report({ publicId: item.publicId, reason: "ncii" })
+    ).resolves.toMatchObject({
+      form: "takedown",
+    });
+  });
+
+  it("lets a fan who passed the Over 18 check report an 18+ item", async () => {
+    __setFeatureFlagOverridesForTests({ adultContent: true });
+    const item = addItem({ publishState: "PUBLISHED", adult: true });
+    // Without the pass the item does not exist for the fan (identity checks 4.4)
+    await expect(
+      caller(8).report({ publicId: item.publicId, reason: "adult" })
+    ).rejects.toMatchObject({ code: "NOT_FOUND" });
+    identity.checkIdentity.mockResolvedValue({
+      pass: true,
+      validUntil: new Date(Date.now() + 86_400_000),
+      tier: "STANDARD",
+    });
+    await expect(
+      caller(8).report({ publicId: item.publicId, reason: "adult" })
+    ).resolves.toEqual({ received: true, hidden: false, form: null });
+    expect(safetyIntake.intakeReport).toHaveBeenCalledWith(
+      expect.objectContaining({ publicId: item.publicId }),
+      { reason: "adult", details: null, reporterUserId: 8 }
+    );
   });
 
   it("is limited to 10 an hour and hides drafts", async () => {

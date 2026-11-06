@@ -29,6 +29,7 @@ import { CaptionsSection, ItemPreview } from "./ItemMedia";
 import { AccessPicker, type EditorAccess, type EditorGating } from "./AccessPicker";
 import { isFeatureOn } from "../../../config/featureFlags";
 import { PublishCard } from "./PublishCard";
+import { AdultItemSection } from "./adult/AdultItemSection";
 import { RetryProcessing } from "./RetryProcessing";
 import type { ContentUploadKind } from "@repo/constants";
 
@@ -52,6 +53,8 @@ interface EditorItem {
   failureReason: string | null;
   allowDownload: boolean;
   adult: boolean;
+  /** #28 F1: the classifier or a reviewer marked it explicit; the 18+ switch stays on */
+  adultLocked?: boolean;
   chapters: unknown;
   durationMs: number | null;
   pageCount: number | null;
@@ -468,15 +471,18 @@ export function ItemEditor({ publicId, onBack }: { publicId: string; onBack: () 
           </div>
           <div className="px-[13px] py-[8px]">
             <Switch
-              checked={adult}
+              checked={adult || data.adultLocked === true}
+              disabled={data.adultLocked === true}
               label={e.adult}
-              description={e.adultHelp}
+              description={data.adultLocked ? e.adultLocked : e.adultHelp}
               onChange={next => {
                 setAdult(next);
                 autosave.change({ adult: next });
               }}
             />
           </div>
+          {/* #28 R4 (5.3): who appears, AI label, confirmation, submit for review */}
+          {adult && isFeatureOn("adultContent") && <AdultItemSection publicId={publicId} />}
         </div>
       </section>
 

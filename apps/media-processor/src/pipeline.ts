@@ -149,7 +149,10 @@ class Run {
   async classify(frames: Frame[]): Promise<void> {
     const result = await this.deps.classifier.classify(this.job, frames);
     if (result.verdict === "explicit" && !this.job.adult) {
-      const held = await this.report("classifier", "held", { reason: result.label });
+      const held = await this.report("classifier", "held", {
+        reason: result.label,
+        explicit: true,
+      });
       if (held !== "applied") throw new Stop(`stopped:classifier:${held}`);
       return;
     }
@@ -158,7 +161,8 @@ class Run {
       if (held !== "applied") throw new Stop(`stopped:classifier:${held}`);
       return;
     }
-    await this.ok("classifier");
+    // A labeled item passes, and the API locks its 18+ label on (#28 F1)
+    await this.ok("classifier", result.verdict === "explicit" ? { explicit: true } : {});
   }
 }
 
