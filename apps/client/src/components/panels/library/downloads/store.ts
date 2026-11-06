@@ -475,17 +475,27 @@ export async function checkDownloads(
 ): Promise<LibraryDownloadsCheck | null> {
   const index = readIndex(account);
   if (!index.items.length) return null;
-  const result = await api.downloadsCheck({
-    device: deviceId(),
-    ids: index.items.map(item => item.id).slice(0, LIBRARY_DOWNLOADS.checkMax),
-  });
-  const removedIds = new Map(result.removed.map(entry => [entry.id, entry.reason]));
+  // The schema takes at most checkMax ids: check in chunks, so a fan with more
+  // copies than that still has every one of them revalidated before the window
+  // moves
+  const ids = index.items.map(item => item.id);
+  const checked: LibraryDownloadsCheck["removed"] = [];
+  let checkedAt = "";
+  for (let at = 0; at < ids.length; at += LIBRARY_DOWNLOADS.checkMax) {
+    const result = await api.downloadsCheck({
+      device: deviceId(),
+      ids: ids.slice(at, at + LIBRARY_DOWNLOADS.checkMax),
+    });
+    checked.push(...result.removed);
+    checkedAt = result.checkedAt;
+  }
+  const removedIds = new Map(checked.map(entry => [entry.id, entry.reason]));
   const gone = index.items.filter(item => removedIds.has(item.id));
   for (const entry of gone) await deleteFile(entry.publicId);
   const fresh = readIndex(account);
   saveIndex({
     ...fresh,
-    lastCheckAt: result.checkedAt,
+    lastCheckAt: checkedAt,
     items: fresh.items.filter(item => !removedIds.has(item.id)),
     // The fan removed those themselves; only the others need telling
     removed: [
@@ -495,7 +505,11 @@ export async function checkDownloads(
         .filter(entry => entry.reason !== "removed"),
     ],
   });
-  return result;
+  return {
+    allowed: readIndex(account).items.map(item => item.id),
+    removed: checked,
+    checkedAt,
+  };
 }
 
 /** The player source for a copy that may open now, or null to stream. */

@@ -64,10 +64,10 @@ import { CreatorRow, CreatorsFooter } from "./YourCreators";
 
 const C = LIBRARY_COPY;
 const SIDE_CREATORS = 5;
-/** FL-5: Downloads needs Cache Storage */
-const downloadsOn = typeof caches !== "undefined";
 
 export function LibraryHome() {
+  // FL-5: Downloads sits behind fanLibrary and needs Cache Storage
+  const downloadsOn = isFeatureOn("fanLibrary") && typeof caches !== "undefined";
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const filter = readFilter(params);

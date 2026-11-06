@@ -7,7 +7,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
-import type { LibraryDownloadGrant, LibraryItem } from "@repo/constants";
+import { LIBRARY_DOWNLOADS, type LibraryDownloadGrant, type LibraryItem } from "@repo/constants";
 import { LIBRARY_COPY } from "../copy";
 import { DownloadsPage, formatBytes } from "./DownloadsPage";
 import {
@@ -190,6 +190,29 @@ describe("the access check", () => {
     expect(readIndex(FAN).items).toEqual([]);
     expect(readIndex(FAN).removed).toEqual([{ title: "Studio tour", reason: "access" }]);
     expect(readIndex(FAN).lastCheckAt).toBe("2026-11-05T12:00:00.000Z");
+  });
+
+  it("checks every copy, in chunks the schema accepts", async () => {
+    const total = LIBRARY_DOWNLOADS.checkMax + 1;
+    const items = Array.from({ length: total }, (_, index) => ({
+      id: index.toString(16).padStart(32, "0"),
+      publicId: index.toString(16).padStart(16, "0"),
+      kind: "video",
+      title: `Item ${index}`,
+    }));
+    localStorage.setItem(
+      `amped.downloads.${FAN}`,
+      JSON.stringify({ account: FAN, lastCheckAt: null, items, removed: [] })
+    );
+    resetDownloadsForTests();
+    const api = fakeApi();
+    await checkDownloads(api, FAN);
+    const sent = api.calls.check as Array<{ ids: string[] }>;
+    expect(sent.map(call => call.ids.length)).toEqual([
+      LIBRARY_DOWNLOADS.checkMax,
+      total - LIBRARY_DOWNLOADS.checkMax,
+    ]);
+    expect(readIndex(FAN).items).toHaveLength(total);
   });
 
   it("opens offline for 30 days after the last check, then asks for a connection", async () => {
