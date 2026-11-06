@@ -46,6 +46,12 @@ export type CheckoutSheetExtra = {
   creatorImage: string | null;
   creatorImageFileId: number | null;
   creatorThemeId: number | null;
+  /**
+   * AB-1: the business seller of a merchant offer (hex id). Quote and prepare then run
+   * checkMerchant and pay the merchant's payout wallet as the merchant row (M1, M11).
+   * Null for a creator's sale.
+   */
+  merchantId: string | null;
 };
 
 /**
@@ -92,6 +98,7 @@ export async function resolveTarget(
       path: `/${item.user.handle}/c/${item.publicId ?? target.id}`,
       amountUnits: null,
       accessPeriodDays: null,
+      merchantId: null,
       ...creatorExtra(item.user),
     },
   };
@@ -147,6 +154,7 @@ async function resolveOffer(idHex: string) {
       adult: true,
       amountUnits: true,
       accessPeriodDays: true,
+      merchantId: true,
       creator: { select: { ...CREATOR_SELECT, storeSettings: { select: { status: true } } } },
       items: {
         select: {
@@ -194,6 +202,7 @@ async function resolveOffer(idHex: string) {
       path: `/${offer.creator.handle}/store/${offer.slug}`,
       amountUnits: offer.amountUnits,
       accessPeriodDays: offer.accessPeriodDays,
+      merchantId: offer.merchantId ? Buffer.from(offer.merchantId).toString("hex") : null,
       ...creatorExtra(offer.creator),
     },
   };

@@ -7,6 +7,7 @@ import { ampedPayAddress } from "./onchain";
 import { paymentSettings } from "./settings";
 import { markRefunded } from "../store/sales";
 import { settlePendingJoinsOnce } from "../memberships/core";
+import { applyDuePayoutWallets } from "../merchants/payoutWallets";
 import {
   PREPARED_TTL_MS,
   decodePaymentLogs,
@@ -213,6 +214,8 @@ export function startPaymentsWorker() {
       // MB-1: joins whose submit response was lost
       if (env.AMPEDMEMBERSHIPS_ADDRESS) await settlePendingJoinsOnce();
       if (ticks % LOG_PASS_EVERY === 0) await indexPaymentLogsOnce();
+      // AB-1: approved merchant payout wallets take effect 24 hours after approval (M2)
+      if (ticks % LOG_PASS_EVERY === 0) await applyDuePayoutWallets();
     } catch (error) {
       console.error("[payments worker] tick failed", error);
     } finally {

@@ -19,7 +19,8 @@ Dependencies, out of scope but pinned: OpenZeppelin Contracts and Contracts Upgr
 2. Every payment pays all recipients in one transaction and the shares sum exactly to the amount. The creator receives the rounding remainder.
 3. The platform share goes only to the treasury and is between the on chain fee floor and 10%. The creator receives at least the creator minimum.
 4. A payment reference is used once. A refund happens once, returns the full amount to the payer, and needs the creator's signature.
-5. No role can set any value outside its fixed range. The fee ceiling (10%) and the USDC address cannot change.
+5. No role can set any value outside its fixed range. The fee ceilings (10% on a creator payment, 20% on a merchant payment) and the USDC address cannot change.
+   - Merchant payments (M11, `docs/features/authbase-storefront.md` 3.13): recipient role 4 merchant takes the creator's place. A split has exactly one creator row or exactly one merchant row, never both. With a merchant row the platform row may sit between `feeFloorBps` and `MAX_MERCHANT_FEE_BPS` (2,000). `refund` treats the merchant row like the creator row. No storage layout change.
 6. Only the Safe can unpause, change addresses, change roles or upgrade. The Coinbase pauser can only pause. The relayer can only submit payments and refunds.
 7. The contract holds no USDC between transactions.
 

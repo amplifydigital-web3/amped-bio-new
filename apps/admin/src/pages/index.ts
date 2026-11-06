@@ -15,3 +15,4 @@ export { AdminFeatureFlags } from "./AdminFeatureFlags";
 export { PaymentsOverview } from "./payments/PaymentsOverview";
 export { PaymentsSettings } from "./payments/PaymentsSettings";
 export { PaymentsLog } from "./payments/PaymentsLog";
+export { AdminMerchants } from "./AdminMerchants";
