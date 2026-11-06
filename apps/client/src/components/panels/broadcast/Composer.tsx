@@ -1,13 +1,19 @@
 import { useMemo, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { TRPCClientError } from "@trpc/client";
-import { Bold, Inbox, Italic, Link2, Send } from "lucide-react";
+import { Bold, Italic, Link2, Send } from "lucide-react";
 import {
   BROADCAST_ALTERNATIVES,
+  BROADCAST_AUDIENCES,
   BROADCAST_LIMITS,
   BROADCAST_POLICY,
   TELEGRAM_APP_STRINGS,
+  BROADCAST_UI,
+  TESTNET_NOTICE,
+  audienceHasPool,
+  broadcastMentionsPool,
   checkBroadcastContent,
+  type BroadcastAudience,
 } from "@repo/constants";
 import {
   Button,
@@ -20,18 +26,31 @@ import {
   DialogTitle,
   Input,
   Notice,
+  cn,
   trpc,
   trpcClient,
 } from "@repo/ui";
 import { toast } from "@/components/ui/toast";
 import { BroadcastBody, BroadcastFooter, Avatar } from "./shared";
+import { isFeatureOn } from "../../../config/featureFlags";
 
-const TELEGRAM_ON = import.meta.env.VITE_SHOW_TELEGRAM === "true";
+const TELEGRAM_ON = isFeatureOn("telegram");
+
+export type AudienceCounts = { pool: number; followers: number; total: number };
+
+/** How many people an audience reaches (Both is deduplicated on the server). */
+export function reachOf(audience: BroadcastAudience, counts: AudienceCounts) {
+  if (audience === "POOL_MEMBERS") return counts.pool;
+  if (audience === "FOLLOWERS") return counts.followers;
+  return counts.total;
+}
 
 interface ComposerProps {
   chainId: string;
-  poolName: string;
-  members: number;
+  /** Null without a pool: only Followers can be picked */
+  poolName: string | null;
+  counts: AudienceCounts;
+  initialAudience?: BroadcastAudience;
   creatorName: string;
   creatorAvatar?: string | null;
   leftToday: number;
@@ -48,14 +67,16 @@ const newKey = () =>
     : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
 /**
- * Board br1: My Pool, New broadcast. Phase 1 sends to all members' Amped
- * inbox. The word list warns and never blocks (Rob, 2026-10-04): a flagged
- * message needs one extra confirm, then sends.
+ * Inbox, Broadcast, New broadcast (M9, spec 8.6 item 3). The audience picker sends to
+ * pool stakers, followers, or both, with each count and the deduplicated total before
+ * send. Phase 1 lands in the Amped.Bio inbox. The word list warns and never blocks
+ * (Rob, 2026-10-04): a flagged message needs one extra confirm, then sends.
  */
 export function Composer({
   chainId,
   poolName,
-  members,
+  counts,
+  initialAudience,
   creatorName,
   creatorAvatar,
   leftToday,
@@ -75,14 +96,26 @@ export function Composer({
   const keyRef = useRef(newKey());
   const bodyRef = useRef<HTMLTextAreaElement>(null);
 
+  const hasPool = poolName !== null;
+  const [audience, setAudience] = useState<BroadcastAudience>(() =>
+    initialAudience && (hasPool || !audienceHasPool(initialAudience))
+      ? initialAudience
+      : hasPool
+        ? "POOL_MEMBERS"
+        : "FOLLOWERS"
+  );
+  const reach = reachOf(audience, counts);
   const flags = useMemo(() => checkBroadcastContent(title, body), [title, body]);
   const phrases = [...new Set(flags.map(f => f.phrase))];
-  const memberLabel = `${members.toLocaleString()} ${members === 1 ? "member" : "members"}`;
+  const memberLabel = BROADCAST_UI.people(reach);
+  // bc-pool-terms: the Testnet notice shows for a pool audience or pool language
+  const testnet = audienceHasPool(audience) || broadcastMentionsPool(title, body);
 
   const send = useMutation({
     mutationFn: (confirmFlags: boolean) =>
       trpcClient.broadcast.creator.send.mutate({
         chainId,
+        audience,
         title,
         body,
         idempotencyKey: keyRef.current,
@@ -98,7 +131,7 @@ export function Composer({
           ? {
               type: "info",
               title: "Sent for review",
-              description: "Amped reviews your first broadcast before it reaches members.",
+              description: BROADCAST_UI.firstSend,
             }
           : { type: "success", title: `Sending to ${memberLabel}` }
       );
@@ -117,7 +150,8 @@ export function Composer({
       ? `Titles are ${BROADCAST_LIMITS.titleMax} characters or fewer.`
       : undefined;
   const bodyTooLong = body.length > BROADCAST_LIMITS.bodyMax;
-  const ready = title.trim() && body.trim() && !titleError && !bodyTooLong && leftToday > 0;
+  const ready =
+    title.trim() && body.trim() && !titleError && !bodyTooLong && leftToday > 0 && reach > 0;
 
   // Wrap the selection in Markdown markers (bold, italic) or a link
   const wrap = (before: string, after: string, placeholder: string) => {
@@ -151,24 +185,54 @@ export function Composer({
           if (ready) submit();
         }}
       >
-        <div>
-          <span className="block text-prism-label font-semibold text-prism-ink">Send to</span>
-          <div className="prism-lens-thumb mt-2 flex items-start gap-3 rounded-prism-13 px-4 py-3">
-            <Inbox
-              aria-hidden
-              className="mt-0.5 h-5 w-5 shrink-0 text-prism-nav"
-              strokeWidth={1.5}
-            />
-            <div className="min-w-0">
-              <span className="block text-prism-label font-semibold text-prism-ink">
-                All members
-              </span>
-              <span className="block text-prism-meta font-normal text-prism-ink-2">
-                Everyone with a stake in {poolName}. {memberLabel} get it in their Amped inbox.
-              </span>
-            </div>
+        <fieldset>
+          <legend className="block text-prism-label font-semibold text-prism-ink">
+            {BROADCAST_UI.audienceLegend}
+          </legend>
+          <div className="mt-2 grid gap-2 sm:grid-cols-3">
+            {BROADCAST_AUDIENCES.map(value => {
+              const disabled = audienceHasPool(value) && !hasPool;
+              const n = reachOf(value, counts);
+              return (
+                <label
+                  key={value}
+                  className={cn(
+                    "flex min-h-touch focus-within:ring-2 focus-within:ring-prism-nav cursor-pointer flex-col gap-1 rounded-prism-13 px-4 py-3",
+                    audience === value ? "prism-lens-thumb" : "prism-row",
+                    disabled && "cursor-not-allowed opacity-60"
+                  )}
+                >
+                  <span className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name="broadcast-audience"
+                      value={value}
+                      checked={audience === value}
+                      disabled={disabled}
+                      onChange={() => setAudience(value)}
+                      aria-label={BROADCAST_UI.audience[value].label}
+                      aria-describedby={`broadcast-audience-${value}`}
+                      className="h-5 w-5 accent-prism-nav"
+                    />
+                    <span className="text-prism-label font-semibold text-prism-ink">
+                      {BROADCAST_UI.audience[value].label}
+                    </span>
+                  </span>
+                  <span
+                    id={`broadcast-audience-${value}`}
+                    className="text-prism-meta tabular-nums text-prism-ink-2"
+                  >
+                    {disabled ? BROADCAST_UI.noPool : BROADCAST_UI.people(n)}
+                  </span>
+                </label>
+              );
+            })}
           </div>
-        </div>
+          <p className="mt-2 text-prism-meta text-prism-ink-2" aria-live="polite">
+            {BROADCAST_UI.audienceHelp[audience]}{" "}
+            {reach > 0 ? BROADCAST_UI.total(reach) : BROADCAST_UI.emptyAudience[audience]}
+          </p>
+        </fieldset>
 
         {showTelegram && telegram && (
           <div>
@@ -260,7 +324,7 @@ export function Composer({
               rows={8}
               aria-describedby="broadcast-body-help"
               className="block w-full resize-y bg-transparent px-4 py-3 font-prism text-prism-body text-prism-ink outline-none placeholder:text-prism-ink-3"
-              placeholder="An update about your work for the members of your pool."
+              placeholder="An update about your work."
             />
           </div>
           <p id="broadcast-body-help" className="text-prism-meta text-prism-ink-3">
@@ -274,8 +338,7 @@ export function Composer({
             variant="warning"
             title={`${phrases.map(p => `"${p}"`).join(", ")} ${phrases.length === 1 ? "is" : "are"} on the broadcast word list.`}
           >
-            Members still get it if you send. Try &ldquo;{BROADCAST_ALTERNATIVES[2]}&rdquo; or
-            &ldquo;
+            It still sends if you choose. Try &ldquo;{BROADCAST_ALTERNATIVES[2]}&rdquo; or &ldquo;
             {BROADCAST_ALTERNATIVES[3]}&rdquo; instead.{" "}
             <button
               type="button"
@@ -301,14 +364,14 @@ export function Composer({
           </Button>
           <Button type="submit" size="lg" disabled={!ready || send.isPending}>
             <Send aria-hidden />
-            {send.isPending ? "Sending…" : `Send to ${memberLabel}`}
+            {send.isPending ? "Sending…" : BROADCAST_UI.sendTo(reach)}
           </Button>
         </div>
         <p className="text-right text-prism-meta text-prism-ink-3">
           {leftToday > 0
             ? `${leftToday} ${leftToday === 1 ? "send" : "sends"} left today.`
             : "No sends left today. You can send again tomorrow."}
-          {nextSendReviewed && " Your first broadcast is reviewed before it goes out."}
+          {nextSendReviewed && ` ${BROADCAST_UI.firstSend}`}
         </p>
       </form>
 
@@ -322,7 +385,7 @@ export function Composer({
                 {creatorName}
               </span>
               <span className="block truncate text-prism-meta text-prism-ink-2">
-                {poolName}, now
+                {BROADCAST_UI.audience[audience].line}, now
               </span>
             </div>
           </div>
@@ -333,8 +396,11 @@ export function Composer({
             <BroadcastBody body={body} />
           ) : (
             <p className="text-prism-body text-prism-ink-3">
-              Your message shows here as members will see it.
+              Your message shows here as people will see it.
             </p>
+          )}
+          {testnet && (
+            <p className="text-prism-meta font-semibold text-prism-warning-ink">{TESTNET_NOTICE}</p>
           )}
           <BroadcastFooter creatorName={creatorName} />
         </div>
@@ -346,8 +412,8 @@ export function Composer({
             <DialogTitle>Send with these words?</DialogTitle>
             <DialogDescription>
               {phrases.map(p => `"${p}"`).join(", ")} {phrases.length === 1 ? "is" : "are"} on the
-              broadcast word list. Members get the message as written. Amped keeps a record of
-              flagged broadcasts and can remove one that breaks the policy.
+              broadcast word list. Everyone in the audience gets the message as written. Amped keeps
+              a record of flagged broadcasts and can remove one that breaks the policy.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

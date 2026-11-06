@@ -1,8 +1,22 @@
 import { InlineKeyboard, type Bot, type Context } from "grammy";
 import { prisma } from "@repo/database";
-import { TELEGRAM_BOT_BUTTONS, TELEGRAM_BOT_STRINGS } from "@repo/constants";
+import {
+  TELEGRAM_BOT_BUTTONS,
+  TELEGRAM_BOT_STRINGS,
+  parseTelegramStartPayload,
+} from "@repo/constants";
 import { env } from "../../env";
+import { isFeatureOn } from "../featureFlags";
 import { findByTelegramId, recordLinkEvent, setGlobalTelegramDelivery } from "./accounts";
+import { userIdForLinkCode } from "./linkCodes";
+import {
+  handleChatMigration,
+  handleGroupChatMember,
+  handleGroupMemberUpdate,
+  handleJoinRequest,
+  handleJoinStart,
+} from "./groups";
+import { handleChosenInline, handleInlineQuery } from "./inline";
 import {
   handleCreators,
   handleDmStart,
@@ -17,10 +31,10 @@ import {
  * packages/constants/src/telegram.ts (the counsel reviewed bot copy).
  *
  * Phase 0 handles /start, /stop, /help, /privacy and my_chat_member in private
- * chats. Phase 1 (./dm.ts) adds /start dm_{handle}, /creators, fan and creator
- * text messages and the creator picker. join_ and ref_ payloads arrive with
- * groups; until then they are answered as a plain /start. The bot never answers
- * in a group.
+ * chats. Phase 1 (./dm.ts) adds /start m_{code}, /creators, fan and creator
+ * text messages and the creator picker. Phase 2 (./groups.ts, ./inline.ts) adds
+ * /start j_{code}, the bot joining groups, join requests, member updates and
+ * inline cards. The bot never posts in a group.
  */
 
 const MAX_CREATOR_BUTTONS = 5;
@@ -90,9 +104,30 @@ export async function handleStart(ctx: Context) {
     await recordLinkEvent(account.userId, account.telegramUserId, "bot_started", "start_command");
   }
 
-  // Message me on Telegram: t.me/<bot>?start=dm_{handle}
-  const payload = typeof ctx.match === "string" ? ctx.match.trim() : "";
-  if (payload.startsWith("dm_") && (await handleDmStart(ctx, account, payload.slice(3)))) return;
+  // Message me on Telegram: t.me/<bot>?start=m_{code}. dm_{handle} stays readable for
+  // buttons already on published pages (spec r3 3.5).
+  const payload = parseTelegramStartPayload(typeof ctx.match === "string" ? ctx.match : "");
+  if (payload.kind === "message") {
+    const creatorId = await userIdForLinkCode(payload.code);
+    if (creatorId === null) {
+      await ctx.reply(TELEGRAM_BOT_STRINGS.dmNotFound);
+      return;
+    }
+    if (await handleDmStart(ctx, account, { userId: creatorId })) return;
+  } else if (payload.kind === "legacy_dm") {
+    if (await handleDmStart(ctx, account, { handle: payload.handle })) return;
+  } else if (payload.kind === "join" && isFeatureOn("telegramGroups")) {
+    // Join group: t.me/<bot>?start=j_{code} (spec r3 3.5)
+    const creatorId = await userIdForLinkCode(payload.code);
+    if (creatorId === null) {
+      await ctx.reply(TELEGRAM_BOT_STRINGS.dmNotFound);
+      return;
+    }
+    if (creatorId !== account.userId) {
+      await handleJoinStart(ctx, account, creatorId);
+      return;
+    }
+  }
 
   const [user, creators] = await Promise.all([
     prisma.user.findUnique({
@@ -144,7 +179,12 @@ export async function handlePrivacy(ctx: Context) {
 /** The user blocked or unblocked the bot in their private chat (spec 3.5). */
 export async function handlePrivateChatMember(ctx: Context) {
   const update = ctx.myChatMember;
-  if (!update || update.chat.type !== "private") return;
+  if (!update) return;
+  if (update.chat.type === "group" || update.chat.type === "supergroup") {
+    await handleGroupChatMember(ctx);
+    return;
+  }
+  if (update.chat.type !== "private") return;
   const account = await findByTelegramId(update.from.id);
   if (!account) return;
   const status = update.new_chat_member.status;
@@ -182,4 +222,11 @@ export function installBotHandlers(bot: Bot) {
   // A handler error propagates out of bot.handleUpdate, so the sender loop
   // records it on the inbox row and retries the update
   bot.on("my_chat_member", handlePrivateChatMember);
+  // Phase 2: groups and inline cards. registerTelegramWebhook (./client.ts) adds
+  // these update kinds to allowed_updates while the telegramGroups flag is on.
+  bot.on("chat_join_request", handleJoinRequest);
+  bot.on("chat_member", handleGroupMemberUpdate);
+  bot.on("message:migrate_to_chat_id", handleChatMigration);
+  bot.on("inline_query", handleInlineQuery);
+  bot.on("chosen_inline_result", handleChosenInline);
 }

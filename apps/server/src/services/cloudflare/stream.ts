@@ -164,6 +164,21 @@ export function updateStreamVideo(uid: string, meta: Record<string, string>): Pr
   });
 }
 
+/**
+ * Takedown (content-takedown.md TD1): a closed list stops browser playback of a
+ * hidden video within a minute, since Stream cannot revoke a single token.
+ * Restoring puts the configured origins back.
+ */
+export const STREAM_CLOSED_ORIGINS = ["takedown.invalid"];
+
+export function setStreamAllowedOrigins(uid: string, origins: string[]): Promise<StreamVideo> {
+  return streamJson<StreamVideo>(`/${uid}`, {
+    method: "POST",
+    // requireSignedURLs is sent again so this edit can never open a video to unsigned playback
+    body: JSON.stringify({ allowedOrigins: origins, requireSignedURLs: true }),
+  });
+}
+
 export async function deleteStreamVideo(uid: string): Promise<void> {
   const response = await fetch(accountUrl(`/${uid}`), {
     method: "DELETE",
@@ -193,6 +208,38 @@ export function createStreamClip(
       meta,
     }),
   });
+}
+
+/**
+ * Uploads a WebVTT caption track for one language (fan library spec 3.5). Stream
+ * adds it to the HLS and DASH manifests, so the player needs no separate URL.
+ * PUT /accounts/{account}/stream/{uid}/captions/{language} with a multipart file.
+ * Docs (checked 23 Oct 2026): https://developers.cloudflare.com/stream/edit-videos/adding-captions/
+ */
+export async function putStreamCaptions(uid: string, lang: string, vtt: string): Promise<void> {
+  const form = new FormData();
+  form.append("file", new Blob([vtt], { type: "text/vtt" }), `${lang}.vtt`);
+  const response = await fetch(accountUrl(`/${uid}/captions/${encodeURIComponent(lang)}`), {
+    method: "PUT",
+    headers: authHeaders(),
+    body: form,
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+  });
+  if (!response.ok) {
+    throw new StreamApiError(`Stream captions PUT failed: ${response.status}`, response.status);
+  }
+}
+
+export async function deleteStreamCaptions(uid: string, lang: string): Promise<void> {
+  const response = await fetch(accountUrl(`/${uid}/captions/${encodeURIComponent(lang)}`), {
+    method: "DELETE",
+    headers: authHeaders(),
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+  });
+  // 404 means it is already gone, which is the goal
+  if (!response.ok && response.status !== 404) {
+    throw new StreamApiError(`Stream captions DELETE failed: ${response.status}`, response.status);
+  }
 }
 
 /** Turns on the MP4 download, only for videos with downloads allowed (called at READY, PR 4). */

@@ -7,6 +7,7 @@ import {
   Lock,
   MoreHorizontal,
   Pencil,
+  ShieldCheck,
   ShieldOff,
   Unlock,
 } from "lucide-react";
@@ -29,6 +30,7 @@ import {
   type RouterOutputs,
 } from "@repo/ui";
 import { CopyButton } from "../../kit/CopyButton";
+import { SellerCheckDialog } from "./SellerCheckDialog";
 import { ConfirmDialog, retryToast } from "../../kit/parts";
 import { WordBadge } from "../../kit/WordBadge";
 import { AssignSheet, type AssignAccount } from "../handles/AssignSheet";
@@ -249,6 +251,7 @@ export function UsersSlab({
   const [twoFactorUser, setTwoFactorUser] = useState<AdminUser | null>(null);
   const [twoFactorBusy, setTwoFactorBusy] = useState(false);
   const [giving, setGiving] = useState<AssignAccount | null>(null);
+  const [sellerUser, setSellerUser] = useState<AdminUser | null>(null);
 
   useEffect(() => setBlockOverride({}), [users]);
 
@@ -478,6 +481,10 @@ export function UsersSlab({
                                   Turn off two factor
                                 </MenuItem>
                               )}
+                              <MenuItem onSelect={() => setSellerUser(user)}>
+                                <ShieldCheck aria-hidden />
+                                Seller check
+                              </MenuItem>
                               <MenuSeparator />
                               <MenuItem
                                 onSelect={() =>
@@ -510,6 +517,7 @@ export function UsersSlab({
         onAssigned={onChanged}
       />
       <EditUserDialog user={editing} onClose={() => setEditing(null)} onSaved={onChanged} />
+      <SellerCheckDialog user={sellerUser} onClose={() => setSellerUser(null)} />
       <ConfirmDialog
         open={!!twoFactorUser}
         onOpenChange={open => !open && setTwoFactorUser(null)}

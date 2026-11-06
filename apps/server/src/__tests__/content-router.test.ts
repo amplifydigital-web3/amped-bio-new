@@ -55,6 +55,10 @@ const db = vi.hoisted(() => {
         const row = items.find(item => matches(item, where));
         return row ? { ...row } : null;
       }),
+      findFirst: vi.fn(async ({ where }: any) => {
+        const row = items.find(item => matches(item, where));
+        return row ? { ...row } : null;
+      }),
       findMany: vi.fn(async ({ where, take }: any) =>
         items
           .filter(row => matches(row, where))
@@ -103,6 +107,13 @@ const db = vi.hoisted(() => {
       ),
     },
     uploadedFile: { aggregate: vi.fn(async () => ({ _sum: { size: 1000n } })) },
+    user: {
+      findFirst: vi.fn(async ({ where }: any) =>
+        where.handle === "maya"
+          ? { id: 7, handle: "maya", name: "Maya", image: null, image_file_id: null }
+          : null
+      ),
+    },
     $transaction: vi.fn(async (fn: any) => fn(prisma)),
   };
   return { prisma, items, assets };
@@ -149,6 +160,16 @@ const quota = vi.hoisted(() => ({
   commitBytes: vi.fn(async () => {}),
 }));
 
+const identity = vi.hoisted(() => ({
+  checkIdentity: vi.fn(
+    async (_userId: number, _kind: string): Promise<any> => ({
+      pass: false,
+      reason: "not_linked",
+    })
+  ),
+}));
+vi.mock("../services/identity/checks", () => identity);
+
 vi.mock("@repo/database", () => ({ prisma: db.prisma, Prisma: { JsonNull: "JsonNull" } }));
 vi.mock("../utils/auth", () => ({ auth: { api: {} } }));
 vi.mock("../utils/rateLimit", () => ({ hitRateLimit: vi.fn(async () => 1) }));
@@ -171,6 +192,7 @@ vi.mock("../services/uploadVerification", () => ({
 
 import { env } from "../env";
 import { contentRouter } from "../trpc/content";
+import { __setFeatureFlagOverridesForTests } from "../services/featureFlags";
 
 const MB = 1024 * 1024;
 const owner = contentRouter.createCaller({ user: { sub: 7 } } as never);
@@ -523,5 +545,194 @@ describe("ownership and the rest", () => {
         file: 500 * MB,
       },
     });
+  });
+});
+
+describe("the 18+ label after processing (#28 F1)", () => {
+  /** An item that finished processing with the 18+ label on. */
+  async function readyAdult(overrides: Record<string, unknown> = {}) {
+    const { publicId } = await owner.createUpload(audio);
+    const row = db.items.find(item => item.publicId === publicId)!;
+    Object.assign(row, {
+      status: "READY",
+      adult: true,
+      moderationState: "CLEAR",
+      explicitAt: null,
+      ...overrides,
+    });
+    return { publicId, row };
+  }
+
+  it("refuses to take the label off an item the classifier found explicit", async () => {
+    const { publicId, row } = await readyAdult({ explicitAt: new Date() });
+    expect((await owner.get({ publicId })).adultLocked).toBe(true);
+    await expect(owner.update({ publicId, adult: false })).rejects.toMatchObject({
+      code: "FORBIDDEN",
+      message: "A reviewer marked this 18+. Ask for a review if this is wrong.",
+    });
+    expect(row).toMatchObject({ adult: true, moderationState: "CLEAR" });
+    // Other edits still save
+    await owner.update({ publicId, title: "Late set" });
+    expect(row.title).toBe("Late set");
+  });
+
+  it("holds a READY item for review when the label comes off, so publish is refused", async () => {
+    const { publicId, row } = await readyAdult();
+    expect((await owner.get({ publicId })).adultLocked).toBe(false);
+    const updated = await owner.update({ publicId, adult: false });
+    expect(updated).toMatchObject({ adult: false, moderationState: "held" });
+    expect(row.moderationReason).toBe("adult_label_removed");
+    await expect(owner.publish({ publicId })).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+      message: "This item is in review. You can publish it once a reviewer clears it.",
+    });
+  });
+
+  it("leaves a still processing item to the classifier, and labeling on never holds", async () => {
+    const { publicId } = await owner.createUpload(audio);
+    const row = db.items.find(item => item.publicId === publicId)!;
+    Object.assign(row, { status: "PROCESSING", adult: true });
+    await owner.update({ publicId, adult: false });
+    expect(row).toMatchObject({ adult: false, moderationState: "PENDING" });
+
+    const ready = await readyAdult({ adult: false });
+    await owner.update({ publicId: ready.publicId, adult: true });
+    expect(ready.row).toMatchObject({ adult: true, moderationState: "CLEAR" });
+  });
+
+  it("refuses to publish an unlabeled item the classifier found explicit", async () => {
+    // The race the label lock alone does not close: the label came off while the
+    // queued job still ran with it on, so the item is CLEAR with no label.
+    const { publicId } = await readyAdult({ adult: false, explicitAt: new Date() });
+    await expect(owner.publish({ publicId })).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+      message:
+        "This item was found 18+. It needs the 18+ label and a review before it can be published.",
+    });
+  });
+
+  it("keeps the hold reason a reviewer already wrote when the label comes off", async () => {
+    const { publicId, row } = await readyAdult({
+      moderationState: "HELD",
+      moderationReason: "safety_review",
+    });
+    await owner.update({ publicId, adult: false });
+    expect(row).toMatchObject({
+      moderationState: "HELD",
+      moderationReason: "safety_review",
+      publishState: "DRAFT",
+    });
+  });
+});
+
+describe("18+ before the gating engine (identity checks 4.4, A1)", () => {
+  const pass = { pass: true, validUntil: new Date(Date.now() + 86_400_000), tier: "STANDARD" };
+  const fan = contentRouter.createCaller({ user: { sub: 20 } } as never);
+
+  /** A finished, cleared, published 18+ item of @maya (user 7). */
+  async function publishedAdult() {
+    const { publicId } = await owner.createUpload(audio);
+    const row = db.items.find(item => item.publicId === publicId)!;
+    Object.assign(row, {
+      status: "READY",
+      adult: true,
+      moderationState: "CLEAR",
+      publishState: "PUBLISHED",
+      publishedAt: new Date(),
+      deletedAt: null,
+      explicitAt: new Date(),
+    });
+    return { publicId, row };
+  }
+
+  beforeEach(() => {
+    __setFeatureFlagOverridesForTests({});
+    identity.checkIdentity.mockReset();
+    identity.checkIdentity.mockResolvedValue({ pass: false, reason: "not_linked" });
+  });
+
+  it("keeps the shelf closed while the adultContent flag is off", async () => {
+    await publishedAdult();
+    identity.checkIdentity.mockResolvedValue(pass);
+    expect(await fan.listAdultForBio({ handle: "maya" })).toEqual({
+      open: false,
+      reason: "closed",
+    });
+    expect(identity.checkIdentity).not.toHaveBeenCalled();
+  });
+
+  it("answers only the refusal before a pass: no title, cover or count", async () => {
+    __setFeatureFlagOverridesForTests({ adultContent: true });
+    await publishedAdult();
+    for (const reason of ["not_linked", "not_shared", "under_18", "unavailable"] as const) {
+      identity.checkIdentity.mockResolvedValue({ pass: false, reason });
+      const result = await fan.listAdultForBio({ handle: "maya" });
+      expect(result).toEqual({ open: false, reason });
+      expect(JSON.stringify(result)).not.toContain("Low Tide");
+    }
+    expect(identity.checkIdentity).toHaveBeenCalledWith(20, "age_over_18");
+  });
+
+  it("lists 18+ items, and only 18+ items, after an Over 18 pass", async () => {
+    __setFeatureFlagOverridesForTests({ adultContent: true });
+    const { publicId } = await publishedAdult();
+    const clean = await owner.createUpload({ ...audio, fileName: "Public.mp3" });
+    Object.assign(db.items.find(item => item.publicId === clean.publicId)!, {
+      status: "READY",
+      moderationState: "CLEAR",
+      publishState: "PUBLISHED",
+      deletedAt: null,
+    });
+    identity.checkIdentity.mockResolvedValue(pass);
+    const result = await fan.listAdultForBio({ handle: "maya" });
+    expect(result.open).toBe(true);
+    const ids = result.open ? result.page.items.map(card => card.publicId) : [];
+    expect(ids).toEqual([publicId]);
+    const item = await fan.getAdult({ handle: "maya", publicId });
+    expect(item).toMatchObject({ open: true, item: { publicId } });
+    // The public item page never serves it
+    await expect(fan.getPublic({ handle: "maya", publicId })).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
+  });
+
+  it("publishes 18+ only with the flag on and the creator's Over 18 and seller passes", async () => {
+    const { publicId, row } = await publishedAdult();
+    Object.assign(row, { publishState: "DRAFT" });
+    await expect(owner.publish({ publicId })).rejects.toMatchObject({
+      message: "18+ items can not be published yet.",
+    });
+
+    __setFeatureFlagOverridesForTests({ adultContent: true });
+    identity.checkIdentity.mockImplementation(async (_id: number, kind: string) =>
+      kind === "age_over_18" ? pass : { pass: false, reason: "no_name" }
+    );
+    await expect(owner.publish({ publicId })).rejects.toMatchObject({
+      code: "FORBIDDEN",
+      message: "18+ needs a verified seller. Finish Get paid, then try again.",
+    });
+
+    identity.checkIdentity.mockResolvedValue({ pass: false, reason: "not_shared" });
+    await expect(owner.publish({ publicId })).rejects.toMatchObject({
+      message: "18+ needs your own Over 18 check. Pass it in Authbase, then try again.",
+    });
+
+    identity.checkIdentity.mockResolvedValue(pass);
+    expect(await owner.publish({ publicId })).toMatchObject({ publishState: "published" });
+    expect(identity.checkIdentity).toHaveBeenCalledWith(7, "seller");
+  });
+
+  it("asks for the creator's passes to turn the label on once 18+ can open", async () => {
+    const { publicId } = await owner.createUpload(audio);
+    await owner.update({ publicId, adult: true });
+    expect(identity.checkIdentity).not.toHaveBeenCalled();
+    await owner.update({ publicId, adult: false });
+
+    __setFeatureFlagOverridesForTests({ adultContent: true });
+    await expect(owner.update({ publicId, adult: true })).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
+    identity.checkIdentity.mockResolvedValue(pass);
+    expect(await owner.update({ publicId, adult: true })).toMatchObject({ adult: true });
   });
 });

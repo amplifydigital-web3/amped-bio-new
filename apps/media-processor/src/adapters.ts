@@ -8,8 +8,8 @@
  *                       before general availability; it is a launch gate.
  *   CLASSIFIER=mock     staging: a title containing "qa-explicit" is explicit.
  *   CLASSIFIER=none     no vendor yet. With CLASSIFIER_REQUIRED=true (production)
- *                       every image and video is HELD for a reviewer, so nothing
- *                       unclassified is published (fail closed).
+ *                       every image, video and document page render is HELD for a
+ *                       reviewer, so nothing unclassified is published (fail closed).
  * A vendor adapter implements the same interface and is selected by the var.
  */
 import type { ContentJob } from "@repo/constants/src/contentJob";

@@ -21,6 +21,12 @@ vi.mock("../utils/email/email", () => ({
   sendEmailChangeVerification: vi.fn(),
 }));
 vi.mock("../services/rns", () => ({ assertRnsBinding: vi.fn() }));
+// Content takedown 4.3: page publish and unpublish move the creator's items at the edge
+const edge = vi.hoisted(() => ({
+  markCreatorItemsDirty: vi.fn(async () => 0),
+  syncCreatorEdge: vi.fn(async () => {}),
+}));
+vi.mock("../services/content/edge", () => edge);
 vi.mock("@repo/database", () => {
   type Where = {
     OR?: { handle: string }[];
@@ -160,6 +166,8 @@ describe("user.unpublishPage", () => {
     expect(result).toEqual({ handle: "maya", pageStatus: "UNPUBLISHED", changed: true });
     expect(state.users.get(9)?.page_status).toBe("UNPUBLISHED");
     expect(state.follows).toEqual([{ follower_id: 7, creator_id: 9 }]);
+    expect(edge.markCreatorItemsDirty).toHaveBeenCalledWith(9, expect.anything());
+    expect(edge.syncCreatorEdge).toHaveBeenCalledWith(9);
   });
 
   it("unpublishing an unpublished page is a no-op", async () => {

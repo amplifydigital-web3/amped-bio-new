@@ -1,12 +1,12 @@
 import { Fragment, useEffect, useState } from "react";
 import { ChevronRight, MoreHorizontal } from "lucide-react";
 import { Link, useLocation } from "react-router";
-import { BottomSheet, BottomSheetContent, Tooltip, cn } from "@repo/ui";
+import { BottomSheet, BottomSheetContent, Tooltip, cn, useAuth } from "@repo/ui";
 import {
-  ADMIN_DESTINATIONS,
   GROUP_LABELS,
   GROUP_ORDER,
   destinationForPath,
+  destinationsFor,
   isMacPlatform,
   shortcutLabel,
   type AdminDestination,
@@ -36,6 +36,8 @@ function ItemLabel({ current, children }: { current: boolean; children: string }
 
 export function AdminRail() {
   const { pathname } = useLocation();
+  const { authUser } = useAuth();
+  const destinations = destinationsFor(authUser?.role);
   const current = destinationForPath(pathname)?.id;
   const mac = isMacPlatform();
 
@@ -45,7 +47,7 @@ export function AdminRail() {
       className="prism-dock fixed bottom-[21px] left-[21px] top-[21px] z-30 hidden w-[89px] overflow-y-auto rounded-prism-34 px-[3px] py-[13px] font-prism md:block"
     >
       {GROUP_ORDER.map((group, index) => {
-        const items = ADMIN_DESTINATIONS.filter(item => item.group === group);
+        const items = destinations.filter(item => item.group === group);
         if (items.length === 0) return null;
         const label = GROUP_LABELS[group];
         return (
@@ -149,8 +151,10 @@ export function AdminMobileDock() {
   const current = destinationForPath(pathname)?.id;
   const [sheetOpen, setSheetOpen] = useState(false);
   const keyboardOpen = useKeyboardOpen();
-  const dock = ADMIN_DESTINATIONS.filter(item => item.dock);
-  const more = ADMIN_DESTINATIONS.filter(item => !item.dock);
+  const { authUser } = useAuth();
+  const destinations = destinationsFor(authUser?.role);
+  const dock = destinations.filter(item => item.dock);
+  const more = destinations.filter(item => !item.dock);
   const moreCurrent = more.find(item => item.id === current);
 
   return (

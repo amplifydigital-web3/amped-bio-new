@@ -4,6 +4,7 @@ import { USDC_EIP3009_ABI } from "@repo/web3";
 import { env } from "../../env";
 import { paymentChain, paymentClient, usdcAddress } from "./chain";
 import { recordUsdcTransfers, transfersFromLogs } from "./events";
+import { isFeatureOn } from "../featureFlags";
 
 /**
  * USDC indexer (spec 3.4): every 30 seconds, reads USDC Transfer logs to and
@@ -19,10 +20,14 @@ import { recordUsdcTransfers, transfersFromLogs } from "./events";
 
 export const INDEXER_TICK_MS = 30_000;
 export const CONFIRMATIONS = 12n;
-/** First run looks back this far */
-export const INITIAL_LOOKBACK = 200n;
-/** Most blocks read per tick, inside public RPC log range limits */
-export const MAX_RANGE = 500n;
+/**
+ * Most blocks read per tick. The public Base RPC (sepolia.base.org) rejects
+ * eth_getLogs spanning more than 200 blocks with a 413. Base makes a block
+ * every 2 seconds, about 15 per tick, so the indexer still catches up.
+ */
+export const MAX_RANGE = 200n;
+/** First run looks back this far, kept inside MAX_RANGE */
+export const INITIAL_LOOKBACK = MAX_RANGE - 1n;
 const ADDRESS_CHUNK = 100;
 const TRANSFER_EVENT = getAbiItem({ abi: USDC_EIP3009_ABI, name: "Transfer" });
 
@@ -112,11 +117,11 @@ export async function indexUsdcOnce(): Promise<number> {
 let timer: NodeJS.Timeout | null = null;
 let running = false;
 
-/** Started from bootstrap.ts. No-op until USDC_ENABLED. */
+/** Started from bootstrap.ts. Each tick is a no-op while the usdc flag is off. */
 export function startUsdcIndexer() {
-  if (!env.USDC_ENABLED || timer) return;
+  if (timer) return;
   const tick = async () => {
-    if (running) return;
+    if (running || !isFeatureOn("usdc")) return;
     running = true;
     try {
       await indexUsdcOnce();

@@ -6,6 +6,7 @@ import { fromCents } from "./amounts";
 import { isOnrampConfigured } from "./coinbase";
 import { onrampPausedSetting } from "./pause";
 import { PROVIDER } from "./sessions";
+import { isFeatureOn } from "../featureFlags";
 
 export { onrampPausedSetting, setOnrampPaused } from "./pause";
 
@@ -81,7 +82,7 @@ export async function onrampOverview(now = new Date()) {
 
   return {
     network: paymentChain.name,
-    enabled: env.ONRAMP_ENABLED,
+    enabled: isFeatureOn("onramp"),
     configured: isOnrampConfigured(),
     webhookConfigured: Boolean(env.CDP_ONRAMP_WEBHOOK_SECRET),
     sandbox: env.ONRAMP_SANDBOX,

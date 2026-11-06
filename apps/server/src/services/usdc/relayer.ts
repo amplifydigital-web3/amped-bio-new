@@ -8,6 +8,7 @@ import {
 } from "viem";
 import { USDC_EIP3009_ABI } from "@repo/web3";
 import { env } from "../../env";
+import { gasLines } from "../payments/settings";
 import { CdpClient, CdpError } from "./cdp";
 import { cdpNetwork, paymentClient, usdcAddress } from "./chain";
 import { splitAuthorizationSignature, type TransferAuthorization } from "./authorization";
@@ -15,7 +16,7 @@ import { splitAuthorizationSignature, type TransferAuthorization } from "./autho
 /**
  * The relayer (spec 3.4, decision 2): a CDP Server Wallet account on Base.
  * Coinbase holds the key; the CDP Policy Engine limits the account to the
- * USDC contract, the two authorization functions and ETH value 0. The account
+ * USDC contract, the two authorization functions, AmpedPay.pay (PAY-2) and ETH value 0. The account
  * submits the fan's signed authorization and pays Base gas, so the fan never
  * holds ETH. Gas is funded from the treasury and tracked in Admin, Money.
  */
@@ -42,6 +43,11 @@ export interface Relayer {
   /** ETH balance and whether it is below the alarm and stop lines. */
   gas(): Promise<{ wei: bigint; eth: string; alarm: boolean; stopped: boolean }>;
   submit(auth: TransferAuthorization, signature: Hex, idempotencyKey: string): Promise<Hex>;
+  /**
+   * Sends one call to a contract the relayer's CDP policy allows (AmpedPay.pay for PAY-2).
+   * Estimates first so a revert never reaches CDP, and refuses below the gas stop line.
+   */
+  call(to: Address, data: Hex, idempotencyKey: string): Promise<Hex>;
 }
 
 export function isRelayerConfigured() {
@@ -60,12 +66,23 @@ export function encodeAuthorizationCall(auth: TransferAuthorization, signature: 
   });
 }
 
-export function gasState(wei: bigint) {
+/**
+ * Relayer gas against the alarm and stop lines. The lines are AmpedPay settings changed
+ * through the admin two person flow (spec docs/features/ampedpay.md 3.3); the env values
+ * are the fallback until a change is approved.
+ */
+export function gasState(
+  wei: bigint,
+  lines: { alarmEth: string; stopEth: string } = {
+    alarmEth: env.RELAYER_GAS_ALARM_ETH,
+    stopEth: env.RELAYER_GAS_STOP_ETH,
+  }
+) {
   return {
     wei,
     eth: formatEther(wei),
-    alarm: wei < parseEther(env.RELAYER_GAS_ALARM_ETH),
-    stopped: wei < parseEther(env.RELAYER_GAS_STOP_ETH),
+    alarm: wei < parseEther(lines.alarmEth),
+    stopped: wei < parseEther(lines.stopEth),
   };
 }
 
@@ -91,31 +108,28 @@ class CdpRelayer implements Relayer {
 
   async gas() {
     const wei = await paymentClient().getBalance({ address: await this.address() });
-    return gasState(wei);
+    return gasState(wei, await gasLines());
   }
 
-  async submit(auth: TransferAuthorization, signature: Hex, idempotencyKey: string): Promise<Hex> {
+  submit(auth: TransferAuthorization, signature: Hex, idempotencyKey: string): Promise<Hex> {
+    return this.call(usdcAddress(), encodeAuthorizationCall(auth, signature), idempotencyKey);
+  }
+
+  async call(to: Address, data: Hex, idempotencyKey: string): Promise<Hex> {
     const from = await this.address();
     const { stopped } = await this.gas();
     if (stopped) throw new RelayerError("out_of_gas", "Relayer ETH is below the stop line");
 
-    const data = encodeAuthorizationCall(auth, signature);
     // Estimate here so a revert (used nonce, expired, blocklisted, short balance) never reaches CDP
     try {
-      await paymentClient().estimateGas({ account: from, to: usdcAddress(), data, value: 0n });
+      await paymentClient().estimateGas({ account: from, to, data, value: 0n });
     } catch (error) {
-      console.warn("[usdc relayer] the authorization would revert", error);
-      throw new RelayerError("reverted", "The USDC contract would refuse this transfer");
+      console.warn("[usdc relayer] the call would revert", error);
+      throw new RelayerError("reverted", "The contract would refuse this call");
     }
 
     // CDP fills nonce, gas and fees; chainId is ignored in favor of network
-    const transaction = serializeTransaction({
-      chainId: 1,
-      type: "eip1559",
-      to: usdcAddress(),
-      data,
-      value: 0n,
-    });
+    const transaction = serializeTransaction({ chainId: 1, type: "eip1559", to, data, value: 0n });
     try {
       const { transactionHash } = await this.cdp.sendEvmTransaction(
         from,
