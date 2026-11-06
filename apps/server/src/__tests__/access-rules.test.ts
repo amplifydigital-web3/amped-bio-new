@@ -261,3 +261,35 @@ describe("member rules (G5)", () => {
     expect(state.created).toHaveLength(0);
   });
 });
+
+describe("early access date (G6, delta 4)", () => {
+  const RULE = "ab".repeat(16);
+
+  it("stores tomorrow or later", async () => {
+    const tomorrow = new Date();
+    tomorrow.setUTCHours(0, 0, 0, 0);
+    tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+    await createRule(10, { kind: "follower", params: {}, opensToAllAt: tomorrow });
+    expect(state.created[0]!.opensToAllAt).toEqual(tomorrow);
+  });
+
+  it("refuses a past date from a direct caller, not only in the picker", async () => {
+    await expect(
+      createRule(10, {
+        kind: "follower",
+        params: {},
+        opensToAllAt: new Date(Date.now() - 1_000),
+      })
+    ).rejects.toThrow("Choose tomorrow or a later date.");
+    expect(state.created).toHaveLength(0);
+  });
+
+  it("clears the date and still checks a new one on update", async () => {
+    await updateRule(10, RULE, { opensToAllAt: null });
+    expect(state.updated[0]).toMatchObject({ opensToAllAt: null });
+    await expect(
+      updateRule(10, RULE, { opensToAllAt: new Date(Date.now() - 1_000) })
+    ).rejects.toThrow("Choose tomorrow or a later date.");
+    expect(state.updated).toHaveLength(1);
+  });
+});

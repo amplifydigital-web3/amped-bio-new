@@ -151,3 +151,65 @@ export const accessRuleInputSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("all"), params: ACCESS_RULE_PARAMS.all }),
 ]);
 export type AccessRuleInput = z.infer<typeof accessRuleInputSchema>;
+
+// ── Access insights (G6, spec 3.10 deltas 7 to 9) ───────────────────────────
+// Totals only: by rule, by refusal reason and by item. Never a fan's name, handle,
+// avatar or wallet, and no per fan rows or times. A bucket of 1 to 4 viewers leaves the
+// server as "under_5", so a small count can never point at one fan.
+
+export const ACCESS_STATS_RANGES = ["7d", "30d", "90d"] as const;
+export type AccessStatsRange = (typeof ACCESS_STATS_RANGES)[number];
+export const ACCESS_STATS_MIN_BUCKET = 5;
+/** Items shown in By item, most locked views first */
+export const ACCESS_STATS_ITEMS_MAX = 20;
+
+/** Distinct viewers in a bucket. 1 to 4 is "under_5". */
+export type AccessStatCount = number | "under_5";
+
+export type AccessStatRow = {
+  /** Distinct viewers who saw it locked */
+  lockedViewers: AccessStatCount;
+  /** Distinct viewers who tried to open it (refused or opened) */
+  triedViewers: AccessStatCount;
+  /** Distinct viewers who opened it */
+  openedViewers: AccessStatCount;
+  /** Opened per tried, whole percent. Null when either side is under 5 */
+  openRate: number | null;
+};
+
+export type AccessRulesStats = {
+  range: AccessStatsRange;
+  totals: AccessStatRow;
+  rules: Array<
+    AccessStatRow & {
+      ruleId: string;
+      kind: AccessRuleKind;
+      summary: string;
+      /** The creator's name for a saved rule; null for a rule set on one item or block */
+      name: string | null;
+      /** Items and blocks that use it */
+      uses: number;
+      opensToAllAt: string | null;
+    }
+  >;
+  reasons: Array<{ reason: AccessReason; viewers: AccessStatCount }>;
+  items: Array<
+    AccessStatRow & {
+      type: "content" | "block";
+      id: string;
+      /** The item title or the block label, never a fan detail */
+      label: string;
+    }
+  >;
+};
+
+/** Suppress small buckets (spec 3.10 delta 8). Zero stays zero. */
+export function accessStatCount(viewers: number): AccessStatCount {
+  return viewers > 0 && viewers < ACCESS_STATS_MIN_BUCKET ? "under_5" : viewers;
+}
+
+/** Opened per tried, only when both are 5 or more. */
+export function accessOpenRate(opened: number, tried: number): number | null {
+  if (opened < ACCESS_STATS_MIN_BUCKET || tried < ACCESS_STATS_MIN_BUCKET) return null;
+  return Math.round((opened / tried) * 100);
+}
