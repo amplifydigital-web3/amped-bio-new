@@ -29,6 +29,7 @@ import { matchReserved } from "../services/reservedHandles";
 import { enforceRateLimits } from "../utils/rateLimit";
 import { getVisitorIp } from "../services/analytics/visitorIp";
 import { publicCardsFor } from "../services/content/publicView";
+import { hasAdultItems } from "../services/content/adult";
 import { publicBlocksFor } from "../services/access/blocks";
 import type { ContentBlockConfig, ContentCard, StoreBioBlock } from "@repo/constants";
 import { storeForBio } from "../services/store/public";
@@ -242,6 +243,7 @@ const appRouter = router({
         groupDoorResult,
         contentResult,
         messageDoorResult,
+        adultResult,
         storeBlockResult,
       ] = await Promise.allSettled([
         getPublicTheme(Number(theme_id)),
@@ -270,6 +272,10 @@ const appRouter = router({
           ? publicCardsFor(user_id, contentIds)
           : Promise.resolve({} as Record<string, ContentCard>),
         hasMessageBlock ? messageDoor(user_id) : Promise.resolve(null),
+        // Identity checks 4.4: one "Adult items" card, no title, cover or count
+        user.page_status === "PUBLISHED" && user.block === "no"
+          ? hasAdultItems(user_id)
+          : Promise.resolve(false),
         // Public stores only, never the owner's preview; a suspended page shows none
         hasStoreBlock && user.handle && user.page_status === "PUBLISHED" && user.block === "no"
           ? storeForBio({ id: user_id, handle: user.handle.toLowerCase(), name })
@@ -352,6 +358,8 @@ const appRouter = router({
           "store block"
         ),
         indexable: isUserIndexable(user, publicBlocks.length),
+        // True when the page has a listed 18+ item and the adultContent flag is on. Fails closed.
+        hasAdult: adultResult.status === "fulfilled" && adultResult.value,
       };
 
       return result;

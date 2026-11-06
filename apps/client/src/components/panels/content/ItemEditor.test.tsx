@@ -112,6 +112,20 @@ describe("ItemEditor (cs3)", () => {
     expect(screen.getAllByText("Later")).toHaveLength(6);
   });
 
+  it("locks the 18+ switch on for an item the classifier found explicit", async () => {
+    mocks.get.mockResolvedValue(item({ adult: true, adultLocked: true }));
+    renderWithProviders(<ItemEditor publicId={ID} onBack={vi.fn()} />);
+    const toggle = await screen.findByRole("switch", { name: "18+ label" });
+    expect(toggle).toHaveAttribute("aria-checked", "true");
+    expect(toggle).toBeDisabled();
+    expect(
+      screen.getByText("A reviewer marked this 18+. Ask for a review if this is wrong.")
+    ).toBeInTheDocument();
+    fireEvent.click(toggle);
+    await new Promise(resolve => setTimeout(resolve, 900));
+    expect(mocks.update).not.toHaveBeenCalled();
+  });
+
   it("explains a failed item and keeps the details", async () => {
     mocks.get.mockResolvedValue(item({ status: "failed", failureReason: "stream:ERR_DURATION" }));
     renderWithProviders(<ItemEditor publicId={ID} onBack={vi.fn()} />);
