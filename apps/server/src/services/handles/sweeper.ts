@@ -215,8 +215,8 @@ export async function sweepReservedHandles(now = new Date()): Promise<SweepResul
     redirectsEnded: 0,
   };
   await expireRows(now, result);
-  if (result.rowsExpired > 0) await bumpReservedVersion();
   await renameDue(now, result);
+  if (result.rowsExpired > 0 || result.renamed > 0) await bumpReservedVersion();
   await endRedirects(now, result);
   await applyRetention(now);
   return result;

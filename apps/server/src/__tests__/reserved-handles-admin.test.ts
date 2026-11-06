@@ -51,6 +51,7 @@ import {
 } from "../services/reservedHandles";
 import { assertHandleAllowed, changeHandle } from "../services/pageHandle";
 import { handlesAdminRouter } from "../trpc/admin/handles";
+import handleRouter from "../trpc/handle";
 import { sendHandleAssigned, sendHandleNotice } from "../utils/email/email";
 import { uuidv7 } from "../utils/uuid-v7";
 import { prisma } from "@repo/database";
@@ -252,6 +253,35 @@ describe("reserve (spec 7.3)", () => {
     expect(audits()).toHaveLength(0);
   });
 
+  it("re-reserves a hold whose end date passed before the sweeper deleted it", async () => {
+    await handles.reserve(ADMIN, {
+      word: "dealhold",
+      kind: "EXACT",
+      category: "HOLD",
+      reason: "First window",
+      expiresAt: new Date(Date.now() + DAY),
+      holders: [],
+    });
+    rowFor("dealhold")!.expiresAt = new Date(Date.now() - 1000);
+
+    await expect(
+      handles.reserve(ADMIN, {
+        word: "dealhold",
+        kind: "EXACT",
+        category: "HOLD",
+        reason: "Second window",
+        expiresAt: new Date(Date.now() + DAY),
+        holders: [],
+      })
+    ).resolves.toMatchObject({ word: "dealhold" });
+
+    expect(rowFor("dealhold")).toMatchObject({ reason: "Second window", assignedUserId: null });
+    expect(audits("handle.expired")).toEqual([
+      expect.objectContaining({ actorId: null, subject: "dealhold" }),
+    ]);
+    expect(audits("handle.reserve")).toHaveLength(2);
+  });
+
   it("refuses with CONFLICT when the holders changed since Continue", async () => {
     addUser(10, "northlight");
     await expect(
@@ -435,6 +465,29 @@ describe("assign and unassign (spec 7.4, 7.5)", () => {
     expect(amped.assignedUserId).toBeNull();
     expect(audits("handle.unassign")[0]).toMatchObject({ actorId: null, subject: "amped" });
     expect((await matchReserved("amped")).reserved).toBe(true);
+  });
+
+  it("bumps the matcher version when the holder moves off its assigned word", async () => {
+    addUser(10, "amped-company");
+    const amped = rowFor("amped")!;
+    await handles.assign(ADMIN, {
+      id: hex(amped.id),
+      userId: 10,
+      reason: "x",
+      redirectOld: false,
+      notify: false,
+    });
+    const before = Number(fake.redis.get(RESERVED_VERSION_KEY) ?? "0");
+
+    const caller = handleRouter.createCaller({
+      user: { sub: 10, role: "user" },
+      req: { headers: {} },
+    } as never);
+    await caller.redeem({ newHandle: "ampedhq" });
+
+    expect(amped.assignedUserId).toBeNull();
+    expect(Number(fake.redis.get(RESERVED_VERSION_KEY) ?? "0")).toBe(before + 1);
+    await expect(assertHandleAllowed("amped", 10)).rejects.toThrow("This handle is reserved");
   });
 
   it("unassign keeps the handle as Exempt by default", async () => {
@@ -725,6 +778,15 @@ describe("reads", () => {
     expect(lines[0]).toBe("time,admin,action,word,target,reason");
     expect(lines[1]).toContain(',@rob,handle.reserve,northlight,,"Brand, ""talks"""');
     expect(csv).not.toContain("@example.com");
+  });
+
+  it("refuses an export range longer than 366 days", async () => {
+    await expect(
+      handles.exportLog({
+        from: new Date(Date.now() - 367 * DAY),
+        to: new Date(),
+      })
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
   });
 });
 

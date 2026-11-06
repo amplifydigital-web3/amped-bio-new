@@ -433,6 +433,37 @@ export async function reserve(
 
   const result = await prisma.$transaction(
     async tx => {
+      // A hold whose end date passed may still have its row until the sweeper
+      // deletes it: clear it now so re-reserving does not hit the unique index
+      const now = new Date();
+      const expired = await tx.reservedHandle.findMany({
+        where: { word, expiresAt: { lte: now } },
+      });
+      if (expired.length > 0) {
+        await tx.reservedHandle.deleteMany({ where: { word, expiresAt: { lte: now } } });
+        for (const row of expired) {
+          await tx.handleNotice.updateMany({
+            where: { reservedWord: row.word, state: { in: ["NOTICE_SENT", "FAILED"] } },
+            data: { state: "CANCELLED", deadline: null },
+          });
+          await writeAudit(tx, {
+            actorId: null,
+            action: "handle.expired",
+            targetUserId: row.assignedUserId,
+            subject: row.word,
+            reason: "End date passed",
+            before: {
+              word: row.word,
+              kind: row.kind,
+              category: row.category,
+              reason: row.reason,
+              expiresAt: row.expiresAt,
+              assignedUserId: row.assignedUserId,
+            },
+          });
+        }
+      }
+
       await assertNotReserved(tx, word, input.kind);
 
       const total = await countColliding(tx, word, input.kind);
@@ -1197,6 +1228,8 @@ export async function logActors() {
 }
 
 const EXPORT_MAX_ROWS = 10_000;
+/** One year plus a day: the admin UI exports a year at a time */
+const EXPORT_MAX_DAYS = 366;
 
 function csvCell(value: string): string {
   return /[",\n\r]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
@@ -1207,6 +1240,9 @@ function csvCell(value: string): string {
  * word, target handle, reason. No email and no before or after JSON.
  */
 export async function exportLog(input: { from: Date; to: Date; action?: LogFilter }) {
+  if (input.to.getTime() - input.from.getTime() > EXPORT_MAX_DAYS * DAY_MS) {
+    badRequest(`Choose a range of ${EXPORT_MAX_DAYS} days or less.`);
+  }
   const rows = await prisma.adminAuditLog.findMany({
     where: logWhere(input),
     orderBy: { createdAt: "asc" },

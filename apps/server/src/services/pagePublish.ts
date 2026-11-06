@@ -3,6 +3,7 @@ import { Prisma, prisma } from "@repo/database";
 import { uuidv7 } from "../utils/uuid-v7";
 import { enforceRateLimits } from "../utils/rateLimit";
 import { changeHandle, HANDLE_TAKEN_MESSAGE } from "./pageHandle";
+import { bumpReservedVersion } from "./reservedHandles";
 import { markCreatorItemsDirty, syncCreatorEdge } from "./content/edge";
 
 /**
@@ -45,6 +46,7 @@ export async function publishPage(userId: number, handle?: string): Promise<Page
   await limitVisibilityWrites(userId);
 
   try {
+    let unassigned = false;
     const result = await prisma.$transaction(async (tx): Promise<PageVisibilityResult> => {
       const user = await tx.user.findUnique({
         where: { id: userId },
@@ -67,7 +69,10 @@ export async function publishPage(userId: number, handle?: string): Promise<Page
       // Reserved handles (Build Board D2): a new handle goes through the one
       // handle write, which checks reserved and taken words
       if (handleChanges) {
-        await changeHandle(tx, userId, next, { extra: { page_status: "PUBLISHED" } });
+        const change = await changeHandle(tx, userId, next, {
+          extra: { page_status: "PUBLISHED" },
+        });
+        unassigned = change.unassigned;
       } else {
         await tx.user.update({ where: { id: userId }, data: { page_status: "PUBLISHED" } });
       }
@@ -91,6 +96,7 @@ export async function publishPage(userId: number, handle?: string): Promise<Page
       await markCreatorItemsDirty(userId, tx);
       return { handle: next, pageStatus: "PUBLISHED", changed: true };
     });
+    if (unassigned) await bumpReservedVersion();
     if (result.changed) await syncCreatorEdge(userId);
     return result;
   } catch (error) {

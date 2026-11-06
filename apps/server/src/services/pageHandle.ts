@@ -88,7 +88,12 @@ export type ChangeHandleOptions = {
   source?: "self" | "admin" | "system";
 };
 
-export type ChangeHandleResult = { oldHandle: string | null; changed: boolean };
+export type ChangeHandleResult = {
+  oldHandle: string | null;
+  changed: boolean;
+  /** True when an assigned reserved word was cleared, so the matcher cache is stale */
+  unassigned: boolean;
+};
 
 /**
  * Every handle write goes through here (spec 4.10 and 7.5): the reserved
@@ -100,6 +105,8 @@ export type ChangeHandleResult = { oldHandle: string | null; changed: boolean };
  *   reserved), with one `handle.unassign` audit row;
  * - on a change by the owner, open notices for the old handle close as
  *   CHOSE_NEW.
+ * `unassigned` tells the caller that owns the transaction to bump the matcher
+ * version after commit, so other instances stop granting the old holder the word.
  * The landing page renders per request (force-dynamic), so there is no cache
  * to revalidate.
  */
@@ -118,7 +125,7 @@ export async function changeHandle(
   const oldHandle = user.handle?.toLowerCase() ?? null;
 
   await db.user.update({ where: { id: userId }, data: { ...extra, handle }, select: { id: true } });
-  if (oldHandle === handle) return { oldHandle, changed: false };
+  if (oldHandle === handle) return { oldHandle, changed: false, unassigned: false };
 
   await db.handleRedirect.deleteMany({ where: { oldHandle: handle } });
 
@@ -131,6 +138,7 @@ export async function changeHandle(
     });
   }
 
+  let unassigned = false;
   const assigned = await db.reservedHandle.findUnique({
     where: { assignedUserId: userId },
     select: { id: true, word: true },
@@ -140,6 +148,7 @@ export async function changeHandle(
       where: { id: assigned.id },
       data: { assignedUserId: null },
     });
+    unassigned = true;
     await writeAudit(db, {
       actorId: null,
       action: "handle.unassign",
@@ -158,5 +167,5 @@ export async function changeHandle(
     });
   }
 
-  return { oldHandle, changed: true };
+  return { oldHandle, changed: true, unassigned };
 }

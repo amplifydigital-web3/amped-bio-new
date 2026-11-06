@@ -25,7 +25,7 @@ import {
   type PublicRnsIdentity,
 } from "../services/rnsIdentity";
 import { changeHandle, newHandleSchema } from "../services/pageHandle";
-import { matchReserved } from "../services/reservedHandles";
+import { bumpReservedVersion, matchReserved } from "../services/reservedHandles";
 import { resolveHandleRedirect } from "../services/handles/redirects";
 import { enforceRateLimits } from "../utils/rateLimit";
 import { getVisitorIp } from "../services/analytics/visitorIp";
@@ -156,7 +156,10 @@ const appRouter = router({
       const userId = ctx.user!.sub;
 
       try {
-        await prisma.$transaction(tx => changeHandle(tx, userId, newHandle));
+        const result = await prisma.$transaction(tx => changeHandle(tx, userId, newHandle));
+        // The account may have moved off a reserved word assigned to it: other
+        // instances must stop treating it as the holder before it can redeem it back
+        if (result.unassigned) await bumpReservedVersion();
 
         return {
           success: true,
