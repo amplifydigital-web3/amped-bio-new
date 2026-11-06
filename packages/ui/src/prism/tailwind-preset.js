@@ -14,6 +14,7 @@
 // nothing on screen until a component uses a prism class.
 
 import { prismMotion, prismStagger } from "./motion-tokens.js";
+import { effectAnimations, effectKeyframes } from "./effect-keyframes.js";
 
 /** Section 3. Color tokens. */
 export const prismColors = {
@@ -162,6 +163,11 @@ const motionBase = {
   "@keyframes prism-pulse": {
     "40%": { transform: "scale(1.8)", opacity: "0.5" },
   },
+  // v1.1 typing indicator (Amped Messages): dots fade 0.4 to 1 in sequence over 1.2 s
+  "@keyframes prism-typing": {
+    "0%, 80%, 100%": { opacity: "0.4" },
+    "40%": { opacity: "1" },
+  },
 
   // View Transitions (section 3.4). The shell stays put; only named parts move.
   // Names go on while a transition runs (motion.ts), so glass keeps its blur.
@@ -260,6 +266,8 @@ function prismComponents({ addComponents, addBase }) {
       "--prism-stagger": prismStagger,
     },
     ...motionBase,
+    // Theme effect keyframes, one copy for every app (Theme Engine v2, spec 3.4)
+    ...effectKeyframes,
     ".prism-font": {
       fontFamily: '"Figtree", ui-sans-serif, system-ui, sans-serif',
       fontVariantNumeric: "tabular-nums",
@@ -643,6 +651,8 @@ const prismPreset = {
       ringColor: {
         "prism-focus": prismColors["create-ink"],
       },
+      // Theme effect animations (Theme Engine v2, spec 3.4); keyframes in addBase
+      animation: effectAnimations,
     },
   },
   plugins: [prismComponents],

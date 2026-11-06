@@ -174,6 +174,27 @@ export class CdpClient {
   }
 
   /**
+   * CDP signs EIP-712 typed data with the account's key and applies the account's policies
+   * first. AmpedPay's Safe proposer uses it to sign Safe transactions it proposes as a
+   * delegate (docs/features/ampedpay.md 3.6). Integers in the message are decimal strings.
+   */
+  signEvmTypedData(
+    address: string,
+    body: {
+      domain: Record<string, unknown>;
+      types: Record<string, { name: string; type: string }[]>;
+      primaryType: string;
+      message: Record<string, unknown>;
+    }
+  ) {
+    return this.request<{ signature: `0x${string}` }>(
+      "POST",
+      `/v2/evm/accounts/${address}/sign/typed-data`,
+      { body, walletAuth: true }
+    );
+  }
+
+  /**
    * CDP signs and broadcasts an RLP encoded EIP-1559 transaction. CDP fills
    * nonce, gas and fees and applies the account's policies first.
    */

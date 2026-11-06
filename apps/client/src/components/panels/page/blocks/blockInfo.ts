@@ -1,5 +1,6 @@
-import { TELEGRAM_APP_STRINGS, type BlockType } from "@repo/constants";
+import { MESSAGE_UI, STORE_COPY, TELEGRAM_APP_STRINGS, type BlockType } from "@repo/constants";
 import { getPlatformName, getPlatformUrl, platforms, type PlatformId } from "@/utils/platforms";
+import { isFeatureOn } from "../../../../config/featureFlags";
 
 // Titles, meta lines and validity for block rows (Screen Review 036 I05, I10)
 // and the preview (006 I08). One place so the list, the preview and the public
@@ -35,10 +36,18 @@ export function blockTitle(block: BlockType) {
       return "Followers";
     case "rnsid":
       return "RNS ID";
+    case "message":
+      return MESSAGE_UI.blockFields.title;
     case "telegram_message":
-      return TELEGRAM_APP_STRINGS.messageBlockTitle;
+      return isFeatureOn("messages")
+        ? MESSAGE_UI.blockFields.title
+        : TELEGRAM_APP_STRINGS.messageBlockTitle;
     case "telegram_group":
       return TELEGRAM_APP_STRINGS.groupBlockTitle;
+    case "content":
+      return block.config.label || "Content";
+    case "store":
+      return block.config.label || STORE_COPY.block.name;
     default:
       return "Text";
   }
@@ -98,9 +107,18 @@ export function blockMeta(block: BlockType) {
       };
       return styles[block.config.style] ?? "Nameplate";
     }
+    case "message":
     case "telegram_message":
     case "telegram_group":
       return block.config.label ?? "";
+    case "content": {
+      const n = block.config.publicIds?.length ?? 0;
+      const layout =
+        { featured: "Featured", grid: "Grid", list: "List" }[block.config.layout] ?? "Featured";
+      return `${layout}, ${n === 1 ? "1 item" : `${n} items`}`;
+    }
+    case "store":
+      return "Up to 6 products, Visit store";
     case "text":
       return stripTags(block.config.content ?? "");
     default:
@@ -112,6 +130,7 @@ export const NEED_LABEL: Record<Exclude<BlockNeed, null>, string> = {
   link: "Needs a link",
   pool: "Needs a pool",
   text: "Needs text",
+  content: "Needs items",
 };
 
 // ---------------------------------------------------------------------------

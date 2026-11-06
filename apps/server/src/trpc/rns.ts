@@ -14,6 +14,7 @@ import {
 } from "../services/rnsIdentity";
 import { isAuthbaseConfigured } from "../services/authbase";
 import { env } from "../env";
+import { isFeatureOn } from "../services/featureFlags";
 
 async function accountRns(userId: number) {
   return prisma.user.findUnique({
@@ -148,12 +149,12 @@ export const rnsRouter = router({
           : null,
       /** 112 D1: the attributes the block can show (flag on and Authbase shared a value) */
       sharedAttributes:
-        env.RNS_PUBLIC_ATTRIBUTES && result.verification.state === "verified"
+        isFeatureOn("rnsPublicAttributes") && result.verification.state === "verified"
           ? (Object.keys(result.verification.attributes ?? {}) as AuthbaseAttributeKey[])
           : [],
       /** off: Authbase is not configured or the public identity flag is off; no badge row */
       verification:
-        isAuthbaseConfigured() && env.RNS_PUBLIC_IDENTITY
+        isAuthbaseConfigured() && isFeatureOn("rnsPublicIdentity")
           ? result.verification
           : { state: "off" as const },
       identity: result.identity,

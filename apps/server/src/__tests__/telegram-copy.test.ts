@@ -74,3 +74,31 @@ describe("Telegram copy compliance", () => {
     for (const s of publicStrings) expect(s).not.toMatch(/@\w+/);
   });
 });
+
+describe("content gating copy (C8, content gating 4.3)", () => {
+  it("fails on retired labels and member words on a stake gate", async () => {
+    const { checkGatingCopy } = await import("../../../../scripts/check-compliance-copy");
+    expect(checkGatingCopy(["Pool members"], []).map(hit => hit.rule)).toContain("gating:retired");
+    expect(checkGatingCopy(["Members with a minimum stake"], []).map(hit => hit.rule)).toContain(
+      "gating:retired"
+    );
+    expect(checkGatingCopy([], ["Join as a member"]).map(hit => hit.phrase)).toEqual(["member"]);
+    expect(checkGatingCopy(["Earn more"], []).map(hit => hit.phrase)).toEqual(["earn"]);
+    expect(checkGatingCopy(["Pool fans"], ["Pool fans"])).toEqual([]);
+  });
+
+  it("fails on a stake gate component without the notices", async () => {
+    const { checkStakeGateSources } = await import("../../../../scripts/check-compliance-copy");
+    const { mkdtempSync, writeFileSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const { tmpdir } = await import("node:os");
+    const dir = mkdtempSync(join(tmpdir(), "gate-"));
+    writeFileSync(join(dir, "ok.tsx"), "<p>{TESTNET_NOTICE}</p><p>{ACCESS_STAKE_DISCLOSURE}</p>");
+    writeFileSync(join(dir, "bad.tsx"), "<p>Pool fans, 100 tREVO</p>");
+    expect(checkStakeGateSources(dir, ["ok.tsx"])).toEqual([]);
+    expect(checkStakeGateSources(dir, ["bad.tsx"]).map(hit => hit.phrase)).toEqual([
+      "TESTNET_NOTICE",
+      "ACCESS_STAKE_DISCLOSURE",
+    ]);
+  });
+});

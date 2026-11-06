@@ -25,6 +25,13 @@ import { normalizeApiError } from "./lib/browserDeps";
 import { refreshContent } from "./lib/uploads";
 import { useAutosave, type AutosaveStatus } from "./lib/useAutosave";
 import { takeDeferred } from "./lib/deferredSaves";
+import { CaptionsSection, ItemPreview } from "./ItemMedia";
+import { AccessPicker, type EditorAccess, type EditorGating } from "./AccessPicker";
+import { isFeatureOn } from "../../../config/featureFlags";
+import { PublishCard } from "./PublishCard";
+import { AdultItemSection } from "./adult/AdultItemSection";
+import { RetryProcessing } from "./RetryProcessing";
+import type { ContentUploadKind } from "@repo/constants";
 
 type Patch = {
   title?: string;
@@ -46,10 +53,16 @@ interface EditorItem {
   failureReason: string | null;
   allowDownload: boolean;
   adult: boolean;
+  /** #28 F1: the classifier or a reviewer marked it explicit; the 18+ switch stays on */
+  adultLocked?: boolean;
   chapters: unknown;
   durationMs: number | null;
   pageCount: number | null;
   totalBytes: number;
+  assets?: Array<{ role: string; lang: string | null }>;
+  /** Content gating (C8): set while the accessGating flag is on */
+  access?: EditorAccess | null;
+  gating?: EditorGating | null;
 }
 
 const e = CONTENT_COPY.editor;
@@ -97,7 +110,10 @@ function SaveStatus({ status, onRetry }: { status: AutosaveStatus; onRetry: () =
 
 const RULES = ["everyone", "followers", "members", "pool", "stake", "paid", "any"] as const;
 
-/** Who can open this (cs3). PR 5 is Public only; the other rules show Later (spec 3.16). */
+/**
+ * Who can open this (cs3) while the accessGating flag is off: Everyone only, the
+ * other rules show Later. With the flag on, AccessPicker (content gating 4.1).
+ */
 function AccessCard() {
   const headingId = useId();
   return (
@@ -295,6 +311,13 @@ export function ItemEditor({ publicId, onBack }: { publicId: string; onBack: () 
         {status.key === "failed" && (
           <Notice variant="error" title={e.failedTitle}>
             {failureLine(data.failureReason)} {e.failedKeep}
+            <div className="mt-[13px]">
+              <RetryProcessing
+                publicId={publicId}
+                kind={data.kind as ContentUploadKind}
+                onChange={() => void item.refetch()}
+              />
+            </div>
           </Notice>
         )}
         {status.key === "blocked" && (
@@ -302,6 +325,8 @@ export function ItemEditor({ publicId, onBack }: { publicId: string; onBack: () 
             {CONTENT_COPY.card.blockedLine}
           </Notice>
         )}
+
+        <ItemPreview item={data} />
 
         <Input
           label={e.title}
@@ -430,6 +455,8 @@ export function ItemEditor({ publicId, onBack }: { publicId: string; onBack: () 
           </section>
         )}
 
+        <CaptionsSection item={data} />
+
         <div className="divide-y divide-prism-line overflow-hidden rounded-prism-13 border border-prism-line bg-white/60">
           <div className="px-[13px] py-[8px]">
             <Switch
@@ -444,23 +471,34 @@ export function ItemEditor({ publicId, onBack }: { publicId: string; onBack: () 
           </div>
           <div className="px-[13px] py-[8px]">
             <Switch
-              checked={adult}
+              checked={adult || data.adultLocked === true}
+              disabled={data.adultLocked === true}
               label={e.adult}
-              description={e.adultHelp}
+              description={data.adultLocked ? e.adultLocked : e.adultHelp}
               onChange={next => {
                 setAdult(next);
                 autosave.change({ adult: next });
               }}
             />
           </div>
+          {/* #28 R4 (5.3): who appears, AI label, confirmation, submit for review */}
+          {adult && isFeatureOn("adultContent") && <AdultItemSection publicId={publicId} />}
         </div>
       </section>
 
       <div className="min-w-0 space-y-[21px]">
-        <AccessCard />
+        <PublishCard
+          item={data}
+          // The item is gone: leave without flushing edits to it
+          onDeleted={onBack}
+        />
+        {isFeatureOn("accessGating") ? (
+          <AccessPicker publicId={publicId} access={data.access} gating={data.gating} />
+        ) : (
+          <AccessCard />
+        )}
         <div className="prism-glass-clear space-y-[13px] !rounded-prism-21 p-[21px]">
           <SaveStatus status={autosave.status} onRetry={() => void autosave.flush()} />
-          <p className="text-prism-meta text-prism-ink-2">{e.publishLater}</p>
         </div>
       </div>
     </div>

@@ -4,7 +4,8 @@ import {
   DM_RULE_KINDS,
   DM_RULE_LABELS,
   TELEGRAM_APP_STRINGS as S,
-  TESTNET_LINE,
+  TESTNET_NOTICE,
+  type DmRuleKind,
 } from "@repo/constants";
 import { cn } from "@repo/ui";
 import { FieldError } from "../page/blocks/LinkFields";
@@ -20,6 +21,9 @@ export type { RuleValue };
  * recommended. Members only waits on Memberships; the pool tiles need a pool.
  * The stake tile adds an amount well in tREVO with the testnet line verbatim.
  * The amount stays here: the page, the bot and the Mini App never show it.
+ *
+ * The group card (board tg5) passes its own `kinds` and `helpers`: three tiles,
+ * with the hourly check named in the helper lines.
  */
 export function RuleTiles({
   value,
@@ -27,19 +31,27 @@ export function RuleTiles({
   hasPool,
   disabled = false,
   stakeError,
+  kinds = DM_RULE_KINDS,
+  helpers = DM_RULE_HELPERS,
+  legend = S.ruleTitle,
 }: {
   value: RuleValue;
   onChange: (next: RuleValue) => void;
   hasPool: boolean;
   disabled?: boolean;
   stakeError?: string | null;
+  /** The tiles to offer, in order. Fan messages offers all five. */
+  kinds?: readonly DmRuleKind[];
+  /** The line under each tile */
+  helpers?: Record<DmRuleKind, string>;
+  legend?: string;
 }) {
   const name = useId();
   const stakeId = useId();
   return (
     <fieldset className="space-y-[13px]" disabled={disabled}>
-      <legend className="sr-only">{S.ruleTitle}</legend>
-      {DM_RULE_KINDS.map(kind => {
+      <legend className="sr-only">{legend}</legend>
+      {kinds.map(kind => {
         const unavailable =
           kind === "PAID_MEMBER" || ((kind === "POOL_MEMBER" || kind === "STAKE_MIN") && !hasPool);
         const note =
@@ -47,7 +59,7 @@ export function RuleTiles({
             ? S.paidMembersSoon
             : unavailable
               ? S.needsPoolHint
-              : DM_RULE_HELPERS[kind];
+              : helpers[kind];
         const selected = value.ruleKind === kind;
         return (
           <div
@@ -110,7 +122,7 @@ export function RuleTiles({
                 </div>
                 {stakeError && <FieldError id={`${stakeId}-error`}>{stakeError}</FieldError>}
                 <p id={`${stakeId}-testnet`} className="text-prism-meta text-prism-ink-2">
-                  {TESTNET_LINE}
+                  {TESTNET_NOTICE}
                 </p>
               </div>
             )}

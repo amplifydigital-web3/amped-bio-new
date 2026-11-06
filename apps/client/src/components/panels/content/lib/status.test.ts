@@ -55,4 +55,34 @@ describe("failureLine", () => {
     );
     expect(failureLine(null)).toMatch(/Processing did not finish/);
   });
+
+  it("shows a removed item with its restore date (PR 6)", () => {
+    const status = itemStatus({
+      status: "deleted",
+      publishState: "draft",
+      moderationState: "clear",
+      processingStep: null,
+      failureReason: null,
+      restorableUntil: "2026-11-22T10:00:00.000Z",
+    });
+    expect(status).toMatchObject({
+      key: "removed",
+      label: "Removed",
+      line: "Restore until Nov 22",
+    });
+  });
+
+  it("shows a Safety hide and a removal the edge has not confirmed (takedown tk1)", () => {
+    expect(itemStatus({ ...base, publishState: "published", hiddenBySafety: true })).toMatchObject({
+      key: "hidden",
+      label: "Hidden by Safety",
+      tone: "danger",
+    });
+    expect(itemStatus({ ...base, hiddenBySafety: true, stoppingDelivery: true }).line).toBe(
+      "Stopping delivery"
+    );
+    expect(
+      itemStatus({ ...base, status: "deleted", restorableUntil: null, stoppingDelivery: true })
+    ).toMatchObject({ key: "removed", line: "Stopping delivery" });
+  });
 });

@@ -24,7 +24,9 @@ const captureAllOperations = (): AllOperations => {
 
 describe("withNumericIdCoercion", () => {
   const allOperations = captureAllOperations();
-  const idBytes = new Uint8Array([1, 161, 99, 207, 244, 113, 115, 57, 135, 43, 146, 163, 107, 44, 232, 199]);
+  const idBytes = new Uint8Array([
+    1, 161, 99, 207, 244, 113, 115, 57, 135, 43, 146, 163, 107, 44, 232, 199,
+  ]);
   const idBase64 = Buffer.from(idBytes).toString("base64");
 
   it("returns Bytes ids as base64 so String(id) can be sent back to Prisma", async () => {

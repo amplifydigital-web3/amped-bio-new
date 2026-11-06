@@ -12,7 +12,14 @@ import {
   AdminOAuthClients,
   AdminBroadcasts,
   AdminTelegram,
+  AdminMessaging,
+  AdminSafety,
   AdminMoney,
+  AdminFeatureFlags,
+  PaymentsOverview,
+  PaymentsSettings,
+  PaymentsLog,
+  AdminMerchants,
 } from "./pages";
 
 function AppRouter() {
@@ -39,8 +46,18 @@ function AppRouter() {
           <Route path="pools" element={<AdminPools />} />
           <Route path="oauth-clients" element={<AdminOAuthClients />} />
           <Route path="broadcasts" element={<AdminBroadcasts />} />
+          {/* Amped Messages (#2 r4, M7): Messaging replaces Telegram in the rail. Telegram
+              stays reachable here for bot health and groups until M8 removes it. */}
+          <Route path="messaging" element={<AdminMessaging />} />
+          <Route path="safety" element={<AdminSafety />} />
           <Route path="telegram" element={<AdminTelegram />} />
           <Route path="money" element={<AdminMoney />} />
+          <Route path="feature-flags" element={<AdminFeatureFlags />} />
+          {/* AmpedPay admin controls (Build Board #50): boards a1, a2 and a4 */}
+          <Route path="payments" element={<PaymentsOverview />} />
+          <Route path="payments/settings" element={<PaymentsSettings />} />
+          <Route path="payments/log" element={<PaymentsLog />} />
+          <Route path="merchants" element={<AdminMerchants />} />
           {/* ndau conversions moved to the support portal; old links land on the dashboard */}
           <Route path="ndau-conversions" element={<Navigate to="/" replace />} />
         </Route>

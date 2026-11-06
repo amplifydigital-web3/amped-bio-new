@@ -17,64 +17,64 @@ Direction from Rob:
 
 ### 1.1 What is on development now (0b0382d, 12 Oct 2026)
 
-| Area | State | Source |
-|---|---|---|
-| Content models | None. No `ContentItem`, `ContentAsset`, `AccessRule`, `AccessGrant`, `MembershipPlan`, `Membership`, `Offer`, `Purchase`, split or payment models | `packages/database/prisma/schema.prisma` |
-| Uploads | `UploadedFile` (Int id, `s3_key`, `bucket`, status). `upload.ts` presigns PUTs for avatars, backgrounds and pool images on the public bucket `amped-bio`. Confirm calls HeadObject only: no size or real type check | `apps/server/src/trpc/upload.ts`, `services/S3Service.ts` |
-| AWS SDK | v2 still signs PUTs (`getSignedUrlPromise`). v3 is used for HeadObject and GET | `S3Service.ts`, `apps/server/package.json` |
-| Cloudflare | No R2, Stream, Images or Workers code. No `CF_` or `R2_` env | repo search |
-| Blocks | `link`, `media` (embed only), `text`, `pool`, `referral`, `follow`, `followers`, `rnsid`. No content, store or membership block | `packages/constants/src/blocks.ts` |
-| Public site | `[handle]` has `page.tsx`, `not-found.tsx` and `opengraph-image.tsx`. No subroutes | `apps/landingpage/src/app/[handle]` |
-| Email exposure | Fixed. `getHandle` returns no email | `apps/server/src/trpc/handle.ts` |
-| Reserved handles | None. Not needed for this spec: every new public route sits under `/{handle}/` | handle checks |
-| Wallet | `UserWallet` (one address per user). Chains: Libertas Testnet and Revochain Devnet. No Base, no USDC | `packages/web3/src/index.ts` |
-| Payments | Docs only. The USDC wallet spec merged as docs in #301. No contracts, relayer or routers | `docs/features/usdc-wallet-onramp.md` |
-| Fan Graph | `Follow`, `FollowBlock`, `FollowRemoval` live. Follow and Followers blocks merged | schema, #293 |
-| Inbox | `BroadcastDelivery` is the inbox row. No `InboxItem` | schema |
-| Account deletion | None | admin users router |
-| Server hosting | Express in a Docker container (`apps/server/Dockerfile`). Long running, so webhooks and jobs run in process | `apps/server` |
-| Rules | New tables use UUID v7 `Bytes @id @db.Binary(16)`. Migrations applied by hand. Vitest tests with every change. Privacy changes follow `docs/legal/privacy-parameters.md` | `AGENTS.md` |
+| Area             | State                                                                                                                                                                                                               | Source                                                    |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| Content models   | None. No `ContentItem`, `ContentAsset`, `AccessRule`, `AccessGrant`, `MembershipPlan`, `Membership`, `Offer`, `Purchase`, split or payment models                                                                   | `packages/database/prisma/schema.prisma`                  |
+| Uploads          | `UploadedFile` (Int id, `s3_key`, `bucket`, status). `upload.ts` presigns PUTs for avatars, backgrounds and pool images on the public bucket `amped-bio`. Confirm calls HeadObject only: no size or real type check | `apps/server/src/trpc/upload.ts`, `services/S3Service.ts` |
+| AWS SDK          | v2 still signs PUTs (`getSignedUrlPromise`). v3 is used for HeadObject and GET                                                                                                                                      | `S3Service.ts`, `apps/server/package.json`                |
+| Cloudflare       | No R2, Stream, Images or Workers code. No `CF_` or `R2_` env                                                                                                                                                        | repo search                                               |
+| Blocks           | `link`, `media` (embed only), `text`, `pool`, `referral`, `follow`, `followers`, `rnsid`. No content, store or membership block                                                                                     | `packages/constants/src/blocks.ts`                        |
+| Public site      | `[handle]` has `page.tsx`, `not-found.tsx` and `opengraph-image.tsx`. No subroutes                                                                                                                                  | `apps/landingpage/src/app/[handle]`                       |
+| Email exposure   | Fixed. `getHandle` returns no email                                                                                                                                                                                 | `apps/server/src/trpc/handle.ts`                          |
+| Reserved handles | None. Not needed for this spec: every new public route sits under `/{handle}/`                                                                                                                                      | handle checks                                             |
+| Wallet           | `UserWallet` (one address per user). Chains: Libertas Testnet and Revochain Devnet. No Base, no USDC                                                                                                                | `packages/web3/src/index.ts`                              |
+| Payments         | Docs only. The USDC wallet spec merged as docs in #301. No contracts, relayer or routers                                                                                                                            | `docs/features/usdc-wallet-onramp.md`                     |
+| Fan Graph        | `Follow`, `FollowBlock`, `FollowRemoval` live. Follow and Followers blocks merged                                                                                                                                   | schema, #293                                              |
+| Inbox            | `BroadcastDelivery` is the inbox row. No `InboxItem`                                                                                                                                                                | schema                                                    |
+| Account deletion | None                                                                                                                                                                                                                | admin users router                                        |
+| Server hosting   | Express in a Docker container (`apps/server/Dockerfile`). Long running, so webhooks and jobs run in process                                                                                                         | `apps/server`                                             |
+| Rules            | New tables use UUID v7 `Bytes @id @db.Binary(16)`. Migrations applied by hand. Vitest tests with every change. Privacy changes follow `docs/legal/privacy-parameters.md`                                            | `AGENTS.md`                                               |
 
 ### 1.2 What changed since the 26 Sep spec
 
-| Topic | 26 Sep spec | Now | Why |
-|---|---|---|---|
-| Files, audio, images | AWS S3 private bucket and CloudFront | Cloudflare R2 private bucket behind our media gateway Worker | Rob, 12 Oct: all in on Cloudflare. No egress fee |
-| Video | Mux, then Cloudflare Stream (8 Oct) | Cloudflare Stream, uploaded straight from the browser | Rob, 8 Oct |
-| Processing | SQS, Lambda, GuardDuty, Rekognition | Cloudflare Queues, a processor Worker and a Cloudflare Container (ffmpeg, sharp, ClamAV, poppler, qpdf) | One vendor. GuardDuty only scans S3 |
-| Selling | "Payments on hold. Paid is Later" | Creators sell items and bundles and run a membership, paid in USDC from the fan's wallet to the creator's wallet | Rob, 8 to 12 Oct |
-| Store | None | A storefront on the creator page, in the creator's brand | Rob, 12 Oct |
-| Visibility | Public or Members only (stake rules) | Public, Followers, Members, Pool fans, Fans with a minimum stake, Paid, and any of these combined | Gating engine and memberships specs |
-| Adult content | None in v1 | Allowed behind age verification (#28) | Rob, 8 Oct |
-| Fan side | Bio block and a content page | Plus the creator feed page, the store, the shared player, progress and the Library (#26) | Fan Library spec |
-| Live | Out of scope | Kind `live` and replays (#27) | Live streaming spec |
-| Ids | Int autoincrement | UUID v7 `Binary(16)` | `AGENTS.md` |
+| Topic                | 26 Sep spec                          | Now                                                                                                              | Why                                              |
+| -------------------- | ------------------------------------ | ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| Files, audio, images | AWS S3 private bucket and CloudFront | Cloudflare R2 private bucket behind our media gateway Worker                                                     | Rob, 12 Oct: all in on Cloudflare. No egress fee |
+| Video                | Mux, then Cloudflare Stream (8 Oct)  | Cloudflare Stream, uploaded straight from the browser                                                            | Rob, 8 Oct                                       |
+| Processing           | SQS, Lambda, GuardDuty, Rekognition  | Cloudflare Queues, a processor Worker and a Cloudflare Container (ffmpeg, sharp, ClamAV, poppler, qpdf)          | One vendor. GuardDuty only scans S3              |
+| Selling              | "Payments on hold. Paid is Later"    | Creators sell items and bundles and run a membership, paid in USDC from the fan's wallet to the creator's wallet | Rob, 8 to 12 Oct                                 |
+| Store                | None                                 | A storefront on the creator page, in the creator's brand                                                         | Rob, 12 Oct                                      |
+| Visibility           | Public or Members only (stake rules) | Public, Followers, Members, Pool fans, Fans with a minimum stake, Paid, and any of these combined                | Gating engine and memberships specs              |
+| Adult content        | None in v1                           | Allowed behind age verification (#28)                                                                            | Rob, 8 Oct                                       |
+| Fan side             | Bio block and a content page         | Plus the creator feed page, the store, the shared player, progress and the Library (#26)                         | Fan Library spec                                 |
+| Live                 | Out of scope                         | Kind `live` and replays (#27)                                                                                    | Live streaming spec                              |
+| Ids                  | Int autoincrement                    | UUID v7 `Binary(16)`                                                                                             | `AGENTS.md`                                      |
 
 ### 1.3 The Cloudflare pieces we use, and what each one controls (checked 12 Oct 2026)
 
-| Piece | What we use it for | What it controls | Key limits |
-|---|---|---|---|
-| R2, one private bucket `amped-content` | Originals of images, audio, documents and files. Renditions, previews, waveforms, covers, store banners | No public access and no `r2.dev` URL. Reads only through the gateway Worker binding. Writes through presigned PUTs on the S3 endpoint | $0.015 per GB month, Class A $4.50 and Class B $0.36 per million, egress free. Presigned URLs work only on `<account>.r2.cloudflarestorage.com`, never on a custom domain. Multipart: 5 MiB to 5 GiB parts, 10,000 parts |
-| Queues | The API publishes a job after completeUpload and after the Stream webhook | At least once delivery, so every step is idempotent. Dead letter queue after 3 retries | 5,000 messages a second per queue |
-| Media gateway Worker on `media.ampedusercontent.com` | Serves every R2 byte to viewers | Verifies our short lived token, streams from the R2 binding with Range, sets security headers, caches by object key after the token check, honors the takedown list | Cached file size 512 MB below Enterprise. Larger files stream uncached |
-| Stream | All video: upload, encode, signed HLS and DASH, preview clips, captions, MP4 downloads, live (#27) | `requireSignedURLs` on every video. RS256 tokens we sign with our own key. `allowedOrigins` amped.bio and app.amped.bio. One signed webhook | $5 per 1,000 minutes stored (prepaid), $1 per 1,000 minutes delivered, encoding free. Token `exp` at most 24 hours. Audio only files are refused (`ERR_NON_VIDEO`). Basic upload under 200 MB, TUS above. Max 30 GB |
-| Containers | ffmpeg (audio), sharp (images), ClamAV (malware), poppler and qpdf (documents) | Called only by the processor Worker, with no internet. Reads and writes R2 only through the Worker | Workers Paid plan. Instance up to 4 vCPU, 12 GiB |
-| CSAM Scanning Tool | Second layer on the media zone | Hashes images as they pass through the cache and blocks matches | Not a pre publish check. Private and uncached content is not scanned |
-| WAF and rate limits | Gateway abuse limits | Per IP request limits on `media.ampedusercontent.com` | |
+| Piece                                           | What we use it for                                                                                      | What it controls                                                                                                                                                    | Key limits                                                                                                                                                                                                               |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| R2, one private bucket `amped-content`          | Originals of images, audio, documents and files. Renditions, previews, waveforms, covers, store banners | No public access and no `r2.dev` URL. Reads only through the gateway Worker binding. Writes through presigned PUTs on the S3 endpoint                               | $0.015 per GB month, Class A $4.50 and Class B $0.36 per million, egress free. Presigned URLs work only on `<account>.r2.cloudflarestorage.com`, never on a custom domain. Multipart: 5 MiB to 5 GiB parts, 10,000 parts |
+| Queues                                          | The API publishes a job after completeUpload and after the Stream webhook                               | At least once delivery, so every step is idempotent. Dead letter queue after 3 retries                                                                              | 5,000 messages a second per queue                                                                                                                                                                                        |
+| Media gateway Worker on `usercontent.amped.bio` | Serves every R2 byte to viewers                                                                         | Verifies our short lived token, streams from the R2 binding with Range, sets security headers, caches by object key after the token check, honors the takedown list | Cached file size 512 MB below Enterprise. Larger files stream uncached                                                                                                                                                   |
+| Stream                                          | All video: upload, encode, signed HLS and DASH, preview clips, captions, MP4 downloads, live (#27)      | `requireSignedURLs` on every video. RS256 tokens we sign with our own key. `allowedOrigins` amped.bio and app.amped.bio. One signed webhook                         | $5 per 1,000 minutes stored (prepaid), $1 per 1,000 minutes delivered, encoding free. Token `exp` at most 24 hours. Audio only files are refused (`ERR_NON_VIDEO`). Basic upload under 200 MB, TUS above. Max 30 GB      |
+| Containers                                      | ffmpeg (audio), sharp (images), ClamAV (malware), poppler and qpdf (documents)                          | Called only by the processor Worker, with no internet. Reads and writes R2 only through the Worker                                                                  | Workers Paid plan. Instance up to 4 vCPU, 12 GiB                                                                                                                                                                         |
+| CSAM Scanning Tool                              | Second layer on the media zone                                                                          | Hashes images as they pass through the cache and blocks matches                                                                                                     | Not a pre publish check. Private and uncached content is not scanned                                                                                                                                                     |
+| WAF and rate limits                             | Gateway abuse limits                                                                                    | Per IP request limits on `usercontent.amped.bio`                                                                                                                    |                                                                                                                                                                                                                          |
 
 Not used: R2 presigned GET for viewers (no custom domain, no headers, no takedown check), Cloudflare Images (decision 10), WAF HMAC token auth (needs Pro and makes the bucket public on that domain).
 
 ### 1.4 How creator stores work elsewhere
 
-| Product | Fee to the creator | Store and branding | Take | Avoid |
-|---|---|---|---|---|
-| Gumroad | 10% plus 50 cents per direct sale, plus card processing. 30% on its marketplace | One storefront, limited branding | Product page with what is included. Bundles | 13% to 15% all in. Fees kept on refunds |
-| Stan Store | 0% platform fee, $29 or $99 a month, plus processing | Mobile first store in the link in bio. Custom domain on the $99 plan | The store is the link in bio. One tap from bio to product | A monthly fee before the first sale |
-| Patreon shop and post sales | 5% on shop digital products. Post sales 5% to 12% by plan, plus processing. $3 minimum | Inside the Patreon page. Members whose tier includes a post keep access; others buy or upgrade | Item sold alone and also included in the membership | Selling public posts. App store markup on iOS |
-| Fourthwall | Digital products 5% (0% on Pro at $19 a month). Memberships 5%. Plus processing | Branded site, free domain on Pro | Membership and products in one branded store | Merch and fulfilment scope |
-| Ko-fi | 0% to 5% on shop and memberships, plus processing | Shop tab on the profile | Simple shop tab | Monthly only memberships |
-| Linktree | Payment Lock and digital products, plus processing | Inside the Linktree page | Selling from the link in bio | Handing over a raw link anyone can share |
-| Amped.Bio | 5% taken in the same transaction, no processing fee, no monthly fee | The store is the creator's page, in the creator's theme, and the checkout carries the creator's brand | | |
+| Product                     | Fee to the creator                                                                     | Store and branding                                                                                    | Take                                                      | Avoid                                         |
+| --------------------------- | -------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- | --------------------------------------------------------- | --------------------------------------------- |
+| Gumroad                     | 10% plus 50 cents per direct sale, plus card processing. 30% on its marketplace        | One storefront, limited branding                                                                      | Product page with what is included. Bundles               | 13% to 15% all in. Fees kept on refunds       |
+| Stan Store                  | 0% platform fee, $29 or $99 a month, plus processing                                   | Mobile first store in the link in bio. Custom domain on the $99 plan                                  | The store is the link in bio. One tap from bio to product | A monthly fee before the first sale           |
+| Patreon shop and post sales | 5% on shop digital products. Post sales 5% to 12% by plan, plus processing. $3 minimum | Inside the Patreon page. Members whose tier includes a post keep access; others buy or upgrade        | Item sold alone and also included in the membership       | Selling public posts. App store markup on iOS |
+| Fourthwall                  | Digital products 5% (0% on Pro at $19 a month). Memberships 5%. Plus processing        | Branded site, free domain on Pro                                                                      | Membership and products in one branded store              | Merch and fulfilment scope                    |
+| Ko-fi                       | 0% to 5% on shop and memberships, plus processing                                      | Shop tab on the profile                                                                               | Simple shop tab                                           | Monthly only memberships                      |
+| Linktree                    | Payment Lock and digital products, plus processing                                     | Inside the Linktree page                                                                              | Selling from the link in bio                              | Handing over a raw link anyone can share      |
+| Amped.Bio                   | 5% taken in the same transaction, no processing fee, no monthly fee                    | The store is the creator's page, in the creator's theme, and the checkout carries the creator's brand |                                                           |                                               |
 
 Prices and fees are from the vendors' pages or reviews read on 12 Oct 2026 (sources at the end).
 
@@ -84,7 +84,7 @@ Prices and fees are from the vendors' pages or reviews read on 12 Oct 2026 (sour
 2. **Bytes never touch the API.** Browsers upload straight to R2 or Stream. The API signs and records.
 3. **Stream, do not hand over.** Video and audio play through signed streams, documents in a viewer. Downloads are a per item choice.
 4. **One access path.** Every byte a viewer gets is behind a token that the API signs only after the gating engine says yes.
-5. **User content on its own domain.** `ampedusercontent.com`, never amped.bio. A hostile file cannot read amped.bio cookies.
+5. **User content on its own host.** `usercontent.amped.bio` (staging `usercontent.staging.amped.bio`), which never serves the app. Every response carries a sandbox CSP and `nosniff`, so a file cannot run script or read cookies. Rob chose amped.bio subdomains over a separate registrable domain on 3 Nov 2026 and accepted the tradeoffs in 3.6.
 6. **Scan before publish.** Malware, CSAM and the adult classifier run before an item can go live.
 7. **The store is the page.** The store renders in the creator's theme at the creator's own address. Every checkout names the creator, and the fan pays the creator.
 8. **Sell what is already uploaded.** A product is an offer over items in the library. One upload can be free, in the membership and for sale at once.
@@ -93,19 +93,19 @@ Prices and fees are from the vendors' pages or reviews read on 12 Oct 2026 (sour
 
 Same assumptions as the 26 Sep spec, so the numbers compare: 30% of creators active in a month. Each active creator stores 20 video minutes and 0.3 GB of other files, fans watch 200 minutes and pull 2 GB of other files per active creator, 10 images per active creator go through the classifier. List prices on 12 Oct 2026.
 
-| Line | 1k creators (300 active) | 10k (3,000 active) | 100k (30,000 active) |
-|---|---|---|---|
-| Stream storage ($5 per 1,000 min) | $30 | $300 | $3,000 |
-| Stream delivery ($1 per 1,000 min) | $60 | $600 | $6,000 |
-| R2 storage ($0.015 per GB, 10 GB free) | $1 | $13 | $135 |
-| R2 operations (Class A and B, free tier applied) | $0 | $2 | $81 |
-| R2 egress | $0 | $0 | $0 |
-| Workers Paid, gateway requests, Queues | $5 | $5 | $20 |
-| Containers for processing and malware scans | $5 | $30 | $250 |
-| Adult classifier (about $0.001 per image) | $3 | $30 | $300 |
-| PhotoDNA | $0 | $0 | $0 |
-| **Total** | **about $104** | **about $980** | **about $9,790** |
-| 8 Oct stack (S3, CloudFront, GuardDuty, Stream) | about $106 | about $1,480 | about $14,990 |
+| Line                                             | 1k creators (300 active) | 10k (3,000 active) | 100k (30,000 active) |
+| ------------------------------------------------ | ------------------------ | ------------------ | -------------------- |
+| Stream storage ($5 per 1,000 min)                | $30                      | $300               | $3,000               |
+| Stream delivery ($1 per 1,000 min)               | $60                      | $600               | $6,000               |
+| R2 storage ($0.015 per GB, 10 GB free)           | $1                       | $13                | $135                 |
+| R2 operations (Class A and B, free tier applied) | $0                       | $2                 | $81                  |
+| R2 egress                                        | $0                       | $0                 | $0                   |
+| Workers Paid, gateway requests, Queues           | $5                       | $5                 | $20                  |
+| Containers for processing and malware scans      | $5                       | $30                | $250                 |
+| Adult classifier (about $0.001 per image)        | $3                       | $30                | $300                 |
+| PhotoDNA                                         | $0                       | $0                 | $0                   |
+| **Total**                                        | **about $104**           | **about $980**     | **about $9,790**     |
+| 8 Oct stack (S3, CloudFront, GuardDuty, Stream)  | about $106               | about $1,480       | about $14,990        |
 
 - The saving is CloudFront egress and GuardDuty. It grows with scale: about $500 a month at 10k creators and $5,200 at 100k.
 - Stream is about 90% of the total. Delivered minutes drive it. Volume pricing is available from Cloudflare above that scale.
@@ -132,17 +132,17 @@ Creators upload video, audio, images, documents and files once. Each item can be
 
 ### Decisions already made
 
-| # | Decision | Answer | When |
-|---|---|---|---|
-| 1 | Storage and delivery | Cloudflare all in: R2 private bucket, media gateway Worker, Stream for video. Replaces S3 and CloudFront | Rob, 12 Oct |
-| 2 | Video vendor | Cloudflare Stream, signed tokens, no DRM | Rob, 8 Oct |
-| 3 | Adult content | Allowed behind age verification, rules on #28 | Rob, 8 Oct |
-| 4 | Stake gated content and counsel | Ship and review in parallel | Rob, 8 Oct |
-| 5 | Default quotas | 5 GB and 300 video minutes per creator. 2 GB per video, 500 MB per audio or ZIP, 100 MB per document, 25 MB per image. All configurable | Rob, 8 Oct |
-| 6 | Where the store lives | On the creator page, `amped.bio/{handle}/store`, in the creator's theme | Rob, 12 Oct |
-| 7 | Payment flow rules | The on-ramp only loads the wallet and lives only in Wallet. The fan pays the creator, not Amped.Bio. Creator payments run in a creator branded sheet. Amped.Bio's own goods use the Amped.Bio gateway | Rob, 8 Oct |
-| 8 | Split | Server signed split table: creator, promoters, partners, Amped.Bio at 5%, in one transaction | Rob, 10 Oct |
-| 9 | Vocabulary | Members means paid membership. Stake rules read Pool fans and Fans with a minimum stake | Rob, 10 Oct |
+| #   | Decision                        | Answer                                                                                                                                                                                                | When        |
+| --- | ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| 1   | Storage and delivery            | Cloudflare all in: R2 private bucket, media gateway Worker, Stream for video. Replaces S3 and CloudFront                                                                                              | Rob, 12 Oct |
+| 2   | Video vendor                    | Cloudflare Stream, signed tokens, no DRM                                                                                                                                                              | Rob, 8 Oct  |
+| 3   | Adult content                   | Allowed behind age verification, rules on #28                                                                                                                                                         | Rob, 8 Oct  |
+| 4   | Stake gated content and counsel | Ship and review in parallel                                                                                                                                                                           | Rob, 8 Oct  |
+| 5   | Default quotas                  | 5 GB and 300 video minutes per creator. 2 GB per video, 500 MB per audio or ZIP, 100 MB per document, 25 MB per image. All configurable                                                               | Rob, 8 Oct  |
+| 6   | Where the store lives           | On the creator page, `amped.bio/{handle}/store`, in the creator's theme                                                                                                                               | Rob, 12 Oct |
+| 7   | Payment flow rules              | The on-ramp only loads the wallet and lives only in Wallet. The fan pays the creator, not Amped.Bio. Creator payments run in a creator branded sheet. Amped.Bio's own goods use the Amped.Bio gateway | Rob, 8 Oct  |
+| 8   | Split                           | Server signed split table: creator, promoters, partners, Amped.Bio at 5%, in one transaction                                                                                                          | Rob, 10 Oct |
+| 9   | Vocabulary                      | Members means paid membership. Stake rules read Pool fans and Fans with a minimum stake                                                                                                               | Rob, 10 Oct |
 
 ### Decisions for Rob (recommended answer first)
 
@@ -181,26 +181,26 @@ Creators upload video, audio, images, documents and files once. Each item can be
 
 Existing boards cs1 to cs5 (Prism 2.2, 2 Oct) stay with the changes the design QA lists. New boards cs6 to cs8 and st1 to st10 are drawn after the decisions above are answered. Screen Review rows 151 to 163 are proposed in the design QA.
 
-| Board | Surface | What it shows | State |
-|---|---|---|---|
-| cs1 | Content, Library tab, desktop | Storage and video minutes meter, filter chips, item grid with one status each: Public, a rule name (Followers, Members, Pool fans, Paid 3 USDC, Members or Paid), Processing, Draft, In review. Tabs Library, Store, Live | Update: tabs and rule names |
-| cs2 | Upload dialog | Limits and space left, rights and scanning notice, per file stage (Uploading, Scanning, Processing, Ready, Blocked with the fix). Closing keeps uploads going | Update: no change to layout, Stream TUS progress for video |
-| cs3 | Item editor, desktop | Title, description, cover, chapters, captions file, Allow downloads, 18+ label, Who can open this (the gating picker with Everyone, Followers, Members, Pool fans, Fans with a minimum stake, Paid, and Any of), preview length, Sell in store shortcut, live preview as a member and as a locked fan | Update: picker, 18+, Sell in store |
-| cs4 | Content block on a bio, phone | Creator theme only. Public items play inline. Locked items show a blurred cover and the rule. Paid items show the amount. Report content | Update: Paid label |
-| cs5 | Locked item page, phone | Preview player, unlock card naming the rule and the fan's state, the right action per rule (Follow, Join, Buy, Go to the pool), disclosures only for stake rules | Update: Join and Buy actions in the creator branded sheet |
-| cs6 | Creator feed page, phone and desktop | `amped.bio/{handle}/content`, newest first, kind chips, locked cards with no media reference | New (from #26) |
-| cs7 | Item page after purchase, phone | Player or viewer, Download when allowed, Part of {bundle}, Resume, Save | New |
-| cs8 | Upload and library empty, loading and error states | Build QA states, drawn this time | New |
-| st1 | Store tab, Storefront, desktop | Store name, tagline, banner upload and crop, layout chips (Grid, List, Feature), section order list, featured picker (up to 3), About, refund line, thank you note, live phone preview in the creator theme, Store live switch with the readiness checklist | New |
-| st2 | Store tab, Products, desktop | Product list with cover, kind (Item, Bundle), amount, access, status, sales count, sort handle. New product | New |
-| st3 | Product editor, desktop | Kind, items picker from the library (bundle up to 50), title, slug, description, cover, amount in USDC, access period chips (Forever, 30 days, 365 days), Also in membership switch, 18+ inherited from items, preview of the product card and page | New |
-| st4 | Store tab, Membership, desktop | The #25 plan editor moved here: name, benefits, monthly and yearly amounts with the saving line, status, member count switch, link to People, Members | New (moves mb1 plan card) |
-| st5 | Store tab, Sales, desktop | Totals (sales, members, net this month), orders list (buyer name and handle, product, amount, fee, promoter, net, date, status, transaction link), Refund in the row menu, Export CSV, link to Wallet Activity | New |
-| st6 | Storefront, phone, creator theme | Banner, avatar, store name, tagline, Follow, membership card, Featured, products by kind with chips, Free, About, refund line, Powered by Amped.Bio | New |
-| st7 | Storefront, desktop, creator theme | Same sections, 3 column product grid, membership card in the right column | New |
-| st8 | Product page, phone, creator theme | Cover or preview player, title, what is included (kinds, lengths, pages, sizes), access line, amount, Buy, Join when also in membership, Report. Owned state: Open and Download | New |
-| st9 | Pay sheet for a bundle, phone, creator theme | mb6 extended: bundle line with item count, Referred by @promoter when attributed, Includes the Amped.Bio fee of 5%, required checkbox, Pay 12 USDC, wallet note, Powered by Amped.Bio | New (extends mb6) |
-| st10 | Store block on a bio, phone | Row or grid of up to 6 products with amounts and Visit store | New |
+| Board | Surface                                            | What it shows                                                                                                                                                                                                                                                                                         | State                                                      |
+| ----- | -------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| cs1   | Content, Library tab, desktop                      | Storage and video minutes meter, filter chips, item grid with one status each: Public, a rule name (Followers, Members, Pool fans, Paid 3 USDC, Members or Paid), Processing, Draft, In review. Tabs Library, Store, Live                                                                             | Update: tabs and rule names                                |
+| cs2   | Upload dialog                                      | Limits and space left, rights and scanning notice, per file stage (Uploading, Scanning, Processing, Ready, Blocked with the fix). Closing keeps uploads going                                                                                                                                         | Update: no change to layout, Stream TUS progress for video |
+| cs3   | Item editor, desktop                               | Title, description, cover, chapters, captions file, Allow downloads, 18+ label, Who can open this (the gating picker with Everyone, Followers, Members, Pool fans, Fans with a minimum stake, Paid, and Any of), preview length, Sell in store shortcut, live preview as a member and as a locked fan | Update: picker, 18+, Sell in store                         |
+| cs4   | Content block on a bio, phone                      | Creator theme only. Public items play inline. Locked items show a blurred cover and the rule. Paid items show the amount. Report content                                                                                                                                                              | Update: Paid label                                         |
+| cs5   | Locked item page, phone                            | Preview player, unlock card naming the rule and the fan's state, the right action per rule (Follow, Join, Buy, Go to the pool), disclosures only for stake rules                                                                                                                                      | Update: Join and Buy actions in the creator branded sheet  |
+| cs6   | Creator feed page, phone and desktop               | `amped.bio/{handle}/content`, newest first, kind chips, locked cards with no media reference                                                                                                                                                                                                          | New (from #26)                                             |
+| cs7   | Item page after purchase, phone                    | Player or viewer, Download when allowed, Part of {bundle}, Resume, Save                                                                                                                                                                                                                               | New                                                        |
+| cs8   | Upload and library empty, loading and error states | Build QA states, drawn this time                                                                                                                                                                                                                                                                      | New                                                        |
+| st1   | Store tab, Storefront, desktop                     | Store name, tagline, banner upload and crop, layout chips (Grid, List, Feature), section order list, featured picker (up to 3), About, refund line, thank you note, live phone preview in the creator theme, Store live switch with the readiness checklist                                           | New                                                        |
+| st2   | Store tab, Products, desktop                       | Product list with cover, kind (Item, Bundle), amount, access, status, sales count, sort handle. New product                                                                                                                                                                                           | New                                                        |
+| st3   | Product editor, desktop                            | Kind, items picker from the library (bundle up to 50), title, slug, description, cover, amount in USDC, access period chips (Forever, 30 days, 365 days), Also in membership switch, 18+ inherited from items, preview of the product card and page                                                   | New                                                        |
+| st4   | Store tab, Membership, desktop                     | The #25 plan editor moved here: name, benefits, monthly and yearly amounts with the saving line, status, member count switch, link to People, Members                                                                                                                                                 | New (moves mb1 plan card)                                  |
+| st5   | Store tab, Sales, desktop                          | Totals (sales, members, net this month), orders list (buyer name and handle, product, amount, fee, promoter, net, date, status, transaction link), Refund in the row menu, Export CSV, link to Wallet Activity                                                                                        | New                                                        |
+| st6   | Storefront, phone, creator theme                   | Banner, avatar, store name, tagline, Follow, membership card, Featured, products by kind with chips, Free, About, refund line, Powered by Amped.Bio                                                                                                                                                   | New                                                        |
+| st7   | Storefront, desktop, creator theme                 | Same sections, 3 column product grid, membership card in the right column                                                                                                                                                                                                                             | New                                                        |
+| st8   | Product page, phone, creator theme                 | Cover or preview player, title, what is included (kinds, lengths, pages, sizes), access line, amount, Buy, Join when also in membership, Report. Owned state: Open and Download                                                                                                                       | New                                                        |
+| st9   | Pay sheet for a bundle, phone, creator theme       | mb6 extended: bundle line with item count, Referred by @promoter when attributed, Includes the Amped.Bio fee of 5%, required checkbox, Pay 12 USDC, wallet note, Powered by Amped.Bio                                                                                                                 | New (extends mb6)                                          |
+| st10  | Store block on a bio, phone                        | Row or grid of up to 6 products with amounts and Visit store                                                                                                                                                                                                                                          | New                                                        |
 
 The join sheet (mb3), the paid unlock sheet (mb6), the membership card (mb2, mb10) and the four locked cards (mb5) come from the memberships spec unchanged except where this table says so.
 
@@ -210,9 +210,26 @@ The join sheet (mb3), the paid unlock sheet (mb6), the membership card (mb2, mb1
 export const CONTENT_KINDS = ["video", "audio", "image", "document", "file", "live"] as const;
 
 export const CONTENT_ALLOWED_TYPES = {
-  video: { mimes: ["video/mp4", "video/quicktime", "video/webm", "video/x-matroska"], exts: ["mp4", "mov", "webm", "mkv"] },
-  audio: { mimes: ["audio/mpeg", "audio/wav", "audio/x-wav", "audio/mp4", "audio/x-m4a", "audio/aac", "audio/flac"], exts: ["mp3", "wav", "m4a", "aac", "flac"] },
-  image: { mimes: ["image/jpeg", "image/png", "image/webp", "image/gif", "image/heic"], exts: ["jpg", "jpeg", "png", "webp", "gif", "heic"] },
+  video: {
+    mimes: ["video/mp4", "video/quicktime", "video/webm", "video/x-matroska"],
+    exts: ["mp4", "mov", "webm", "mkv"],
+  },
+  audio: {
+    mimes: [
+      "audio/mpeg",
+      "audio/wav",
+      "audio/x-wav",
+      "audio/mp4",
+      "audio/x-m4a",
+      "audio/aac",
+      "audio/flac",
+    ],
+    exts: ["mp3", "wav", "m4a", "aac", "flac"],
+  },
+  image: {
+    mimes: ["image/jpeg", "image/png", "image/webp", "image/gif", "image/heic"],
+    exts: ["jpg", "jpeg", "png", "webp", "gif", "heic"],
+  },
   document: { mimes: ["application/pdf", "application/epub+zip"], exts: ["pdf", "epub"] },
   file: { mimes: ["application/zip"], exts: ["zip"] },
 } as const;
@@ -225,13 +242,20 @@ export const STORE_PRODUCT_KINDS = ["single", "bundle"] as const; // #27 adds "t
 export const STORE_BUNDLE_MAX_ITEMS = 50;
 export const STORE_FEATURED_MAX = 3;
 export const STORE_LAYOUTS = ["grid", "list", "feature"] as const;
-export const STORE_SECTIONS = ["membership", "featured", "products", "free", "live", "about"] as const;
+export const STORE_SECTIONS = [
+  "membership",
+  "featured",
+  "products",
+  "free",
+  "live",
+  "about",
+] as const;
 export const STORE_ACCESS_PERIODS = [null, 30, 365] as const; // null = forever
-export const STORE_AMOUNT_MIN_UNITS = 500_000n;          // 0.50 USDC (#25 decision 7)
-export const STORE_AMOUNT_MAX_UNITS = 1_000_000_000n;    // 1,000 USDC
-export const PROMOTER_BPS_MIN = 100;  // 1%
+export const STORE_AMOUNT_MIN_UNITS = 500_000n; // 0.50 USDC (#25 decision 7)
+export const STORE_AMOUNT_MAX_UNITS = 1_000_000_000n; // 1,000 USDC
+export const PROMOTER_BPS_MIN = 100; // 1%
 export const PROMOTER_BPS_MAX = 3000; // 30%
-export const PLATFORM_FEE_BPS = 500;  // 5%, server config, adjustable after the pilot
+export const PLATFORM_FEE_BPS = 500; // 5%, server config, adjustable after the pilot
 ```
 
 - Not accepted: SVG, HTML, executables, scripts, Office files, RAR, 7z, AVI.
@@ -477,20 +501,20 @@ model BlockedContentHash {
 
 **R2 bucket `amped-content`** (production) and `amped-content-staging`. Standard storage class, automatic location with the North America hint. Public access and `r2.dev` off. Bucket CORS allows `PUT` from `https://app.amped.bio` (and the staging app host) with `Content-Type`, exposes `ETag`, max age 3600.
 
-| Prefix | Contents | Written by | Read by | Lifecycle |
-|---|---|---|---|---|
-| `incoming/{publicId}/original.{ext}` | Raw upload | Browser (presigned PUT or multipart) | Processor only | Deleted when processing ends. Expire after 7 days. Incomplete multipart aborted after 1 day |
-| `originals/{publicId}/original.{ext}` | Clean original, kept for documents, files and downloadable items | Processor | Gateway (signed) | Deleted with the item |
-| `audio/{publicId}/{variant}.m4a` | AAC rendition and the preview cut | Processor | Gateway (signed) | Deleted with the item |
-| `derived/{publicId}/{role}/{variant}` | Image renditions, covers, blur, page previews, waveforms, poster frames | Processor | Gateway (signed) | Deleted with the item |
-| `quarantine/{publicId}/...` | Malware positives | Processor | Trust and safety only (no gateway route) | Expire after 30 days |
+| Prefix                                | Contents                                                                | Written by                           | Read by                                  | Lifecycle                                                                                   |
+| ------------------------------------- | ----------------------------------------------------------------------- | ------------------------------------ | ---------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `incoming/{publicId}/original.{ext}`  | Raw upload                                                              | Browser (presigned PUT or multipart) | Processor only                           | Deleted when processing ends. Expire after 7 days. Incomplete multipart aborted after 1 day |
+| `originals/{publicId}/original.{ext}` | Clean original, kept for documents, files and downloadable items        | Processor                            | Gateway (signed)                         | Deleted with the item                                                                       |
+| `audio/{publicId}/{variant}.m4a`      | AAC rendition and the preview cut                                       | Processor                            | Gateway (signed)                         | Deleted with the item                                                                       |
+| `derived/{publicId}/{role}/{variant}` | Image renditions, covers, blur, page previews, waveforms, poster frames | Processor                            | Gateway (signed)                         | Deleted with the item                                                                       |
+| `quarantine/{publicId}/...`           | Malware positives                                                       | Processor                            | Trust and safety only (no gateway route) | Expire after 30 days                                                                        |
 
 - Keys never contain the numeric user id or the email.
 - Video bytes never land in R2. The browser uploads to Stream (3.5). A downloadable video uses Stream's MP4 download, not a kept original.
 - The R2 API token used by the server has Object Read and Write on this bucket only. The gateway reads through a Worker binding. The processor has its own binding.
 - The existing public S3 bucket `amped-bio` is unchanged until Phase 5.
 
-**Stream.** One Stream library on the same Cloudflare account. Every video is created with `requireSignedURLs: true`, `allowedOrigins: ["amped.bio", "app.amped.bio"]` (staging hosts on staging) and `meta: { publicId, env }`. Preview clips are separate videos created with the clip API and carry `meta.clipOf`. One signing key (`POST /stream/keys`), its private key in the server secret store.
+**Stream.** One Stream library on the one Cloudflare account, shared by staging and production. `meta.env` tells them apart. Every video is created with `requireSignedURLs: true`, `allowedOrigins: ["amped.bio", "app.amped.bio"]` (staging hosts on staging) and `meta: { publicId, env }`. Preview clips are separate videos created with the clip API and carry `meta.clipOf`. One signing key (`POST /stream/keys`), its private key in the server secret store.
 
 ### 3.5 Upload pipeline
 
@@ -533,34 +557,35 @@ browser                 API (tRPC)                         R2 / Stream          
 
 ### 3.6 Delivery
 
-**Media gateway** (`apps/media-gateway`, a Worker on `media.ampedusercontent.com`, a separate registrable domain). Every R2 byte a viewer receives passes through it.
+**Media gateway** (`apps/media-gateway`, a Worker on `usercontent.amped.bio`, staging `usercontent.staging.amped.bio`). Every R2 byte a viewer receives passes through it.
 
-- **Token.** The API signs `v1.{kid}.{payload}.{sig}`: payload base64url JSON `{ k: r2Key, r: role, exp, dl, fn?, j? }`, signature HMAC SHA-256 with the key named by `kid`. Two keys are active during rotation (`MEDIA_TOKEN_KEYS` in the API secret store and as Worker secrets). URL: `https://media.ampedusercontent.com/{r2Key}?t={token}`.
+- **Token.** The API signs `v1.{kid}.{payload}.{sig}`: payload base64url JSON `{ k: r2Key, r: role, exp, dl, fn?, j? }`, signature HMAC SHA-256 with the key named by `kid`. Two keys are active during rotation (`MEDIA_TOKEN_KEYS` in the API secret store and as Worker secrets). URL: `https://usercontent.amped.bio/{r2Key}?t={token}`.
 - **Worker steps.** Verify the signature and `exp`. Confirm the path equals `k`. Check the takedown list (Workers KV `blocked:{publicId}`, written by the API on block and delete). Look up the cache by key without the token. On a miss, `env.CONTENT.get(key, { range, onlyIf })` and stream the body. Cache objects up to 512 MB: the Worker stores its own copy with `Cache-Control: public, max-age=86400` under the token free key (the Cache API refuses `private` responses) and sends the viewer the headers below. Return 403 with no body on any failure.
 - **Headers.** `X-Content-Type-Options: nosniff`, `Content-Security-Policy: sandbox; default-src 'none'`, `Cross-Origin-Resource-Policy: cross-origin`, `Cache-Control: private` with `max-age` the lesser of 300 seconds and the token's remaining life on every response (the token carries no gated flag), `Content-Disposition: attachment; filename="{fn}"` when `dl` is set, `Accept-Ranges: bytes`, and `Access-Control-Allow-Origin` for `https://app.amped.bio` and `https://amped.bio` (staging hosts on staging) so the PDF viewer and waveform fetches work.
 - **Abuse.** WAF rate limit per IP on the zone. Logs keep the key and status, never the token.
+- **Host on amped.bio (Rob, 3 Nov 2026).** The gateway host is a subdomain of amped.bio, not a separate registrable domain. What protects the app: the host serves no app pages, every response has `sandbox` CSP (an opaque origin with no script, no cookies and no storage), `nosniff`, a type from the allowlist, and SVG, HTML and scripts are never served. What remains, accepted: (1) the session cookie is scoped to `.amped.bio` (`COOKIE_DOMAIN`), so browsers send it to the media host; a zone Transform Rule removes `Cookie` on both media hosts before the Worker sees it. (2) The media host is same site with `app.amped.bio`, so the sandbox header is the only barrier between a file and the app; a test asserts it on every response. (3) Web filters and Safe Browsing judge the registrable domain, so adult or abusive content on the media host can affect the reputation of all of amped.bio, including the app and email. Moving the host later to a separate domain is a config change (`MEDIA_GATEWAY_ORIGIN` and the gateway route).
 
 **Video.** The shared player (#26) plays the Stream HLS manifest (hls.js, native HLS on Safari) with a Stream token: RS256 JWT with `sub` video uid, `kid`, `exp`, `nbf`, signed with our Stream key. Thumbnails use the same token. MP4 downloads use a token with `downloadable: true`. The Stream iframe player is not used in the app.
 
 **Audio** plays in an `audio` element from a gateway URL with Range support. **Documents** open in the in app PDF viewer from a gateway URL. **Images** load renditions by width.
 
-| Asset | Public item | Gated item |
-|---|---|---|
-| Image renditions, covers, posters | 24 hours, expiry rounded to the hour so server HTML stays cacheable | 5 minutes |
-| Blur cover | 24 hours, served to everyone | 24 hours, served to everyone |
-| Document viewer | 1 hour | 5 minutes |
-| Audio | 24 hours | duration plus 10 minutes, at most 4 hours |
-| Stream playback token | duration plus 30 minutes, at most 6 hours | duration plus 10 minutes, at most 4 hours |
-| Preview clip token, audio preview | 1 hour | 1 hour |
-| Download, R2 original | 2 minutes, single use | 2 minutes, single use |
-| Download, Stream MP4 | 2 minutes | 2 minutes |
-| Store banner and product covers | 24 hours, rounded | 24 hours, rounded (covers are never gated) |
+| Asset                             | Public item                                                         | Gated item                                 |
+| --------------------------------- | ------------------------------------------------------------------- | ------------------------------------------ |
+| Image renditions, covers, posters | 24 hours, expiry rounded to the hour so server HTML stays cacheable | 5 minutes                                  |
+| Blur cover                        | 24 hours, served to everyone                                        | 24 hours, served to everyone               |
+| Document viewer                   | 1 hour                                                              | 5 minutes                                  |
+| Audio                             | 24 hours                                                            | duration plus 10 minutes, at most 4 hours  |
+| Stream playback token             | duration plus 30 minutes, at most 6 hours                           | duration plus 10 minutes, at most 4 hours  |
+| Preview clip token, audio preview | 1 hour                                                              | 1 hour                                     |
+| Download, R2 original             | 2 minutes, single use                                               | 2 minutes, single use                      |
+| Download, Stream MP4              | 2 minutes                                                           | 2 minutes                                  |
+| Store banner and product covers   | 24 hours, rounded                                                   | 24 hours, rounded (covers are never gated) |
 
 - **Access check** follows the gating engine contract. The client calls `access.check({ resource: { type: "content", id: publicId } })` for the state, then `access.issueGrant` and `content.getReadUrl({ publicId, grant })` to open. `getReadUrl` calls `verifyAccessGrant` and signs with expiry `min(TTL above, grant expiry)`, except the stream rule. Public items need no grant.
 - **Stream rule.** Stream checks the token on every segment and stops at expiry, and the browser fetches audio in Range requests through the gateway for the whole play. So a Stream token and a gated audio URL both live the item duration plus 10 minutes (4 hours at most) even though a grant lives 10 minutes. A fan who loses access finishes that play session and is refused on the next. The gating engine spec records this exception for video and audio.
 - **Previews.** A locked viewer never holds a token for the full video or audio. `content.getPreview` signs the clip uid or the audio preview key only.
 - **Downloads.** `getReadUrl({ download: true })` counts downloads per buyer per item per day in Redis (decision 24) and puts a `jti` in the token. The gateway enforces single use with a Durable Object keyed by `jti` (KV is eventually consistent, so it cannot). Stream MP4 downloads are not single use: they carry a 2 minute token with `downloadable: true`, and the API turns on the MP4 download (`POST /stream/{uid}/downloads`) at READY, only for videos with downloads allowed.
-- **Takedown.** Block or delete writes the KV entry and purges the cache key. R2 tokens stop working within KV propagation (about 60 seconds). Stream videos are set `requireSignedURLs` already, so a blocked video is also deleted from Stream or has its signing denied by `getReadUrl`.
+- **Takedown.** Superseded by `docs/features/content-takedown.md` (C7a): edge states OPEN, PRIVATE and BLOCKED, the `private:` key for old public URLs, and the Stream hide. Original text: Block or delete writes the KV entry and purges the cache key. R2 tokens stop working within KV propagation (about 60 seconds). Stream videos are set `requireSignedURLs` already, so a blocked video is also deleted from Stream or has its signing denied by `getReadUrl`.
 - **Server rendering.** Bio, feed, store and product pages render gated items locked, with blur covers only. Full URLs are fetched by the browser after hydration and never appear in server HTML, page caches, JSON-LD, share tags, the sitemap or `llms.txt`.
 - **18+.** `getReadUrl`, `getPreview` and every public list refuse 18+ items for viewers without a passed age check (#28).
 - **Broadcast attachments.** A broadcast references items by `publicId`. `getReadUrl` accepts a grant for `{ type: "broadcast", id }` and confirms the item is attached to that broadcast. Emails never carry media URLs.
@@ -570,8 +595,14 @@ browser                 API (tRPC)                         R2 / Stream          
 Three new block types in `packages/constants/src/blocks.ts` (`BaseBlockType` gains `content`, `store`, `membership`; the union is listed in five places per the Telegram readiness note, all five change):
 
 ```ts
-export type ContentBlock = BaseBlock<"content", { label?: string; layout: "featured" | "grid" | "list"; publicIds: string[] }>; // 1 to 12
-export type StoreBlock = BaseBlock<"store", { label?: string; layout: "row" | "grid"; offerIds: string[]; showVisitStore: boolean }>; // 1 to 6
+export type ContentBlock = BaseBlock<
+  "content",
+  { label?: string; layout: "featured" | "grid" | "list"; publicIds: string[] }
+>; // 1 to 12
+export type StoreBlock = BaseBlock<
+  "store",
+  { label?: string; layout: "row" | "grid"; offerIds: string[]; showVisitStore: boolean }
+>; // 1 to 6
 export type MembershipBlock = BaseBlock<"membership", {}>; // singleton, renders the #25 membership card
 ```
 
@@ -581,12 +612,12 @@ export type MembershipBlock = BaseBlock<"membership", {}>; // singleton, renders
 
 **Public routes** (`apps/landingpage/src/app/[handle]/`):
 
-| Route | Renders | Index |
-|---|---|---|
-| `/{handle}/c/{publicId}` | Item page. Public: the player or viewer. Locked: preview and the unlock card. Paid: Part of {product} with Buy. Owned: Open, Download | Public items only |
-| `/{handle}/content` | Creator feed page (#26): every published item newest first, kind chips, locked cards with no media reference | Yes when the creator has a public item |
-| `/{handle}/store` | Storefront (3.8) | Yes when live |
-| `/{handle}/store/{slug}` | Product page (3.8) | Yes when active and not 18+ |
+| Route                    | Renders                                                                                                                               | Index                                  |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| `/{handle}/c/{publicId}` | Item page. Public: the player or viewer. Locked: preview and the unlock card. Paid: Part of {product} with Buy. Owned: Open, Download | Public items only                      |
+| `/{handle}/content`      | Creator feed page (#26): every published item newest first, kind chips, locked cards with no media reference                          | Yes when the creator has a public item |
+| `/{handle}/store`        | Storefront (3.8)                                                                                                                      | Yes when live                          |
+| `/{handle}/store/{slug}` | Product page (3.8)                                                                                                                    | Yes when active and not 18+            |
 
 All four use the same `getHandle` path and return not found for an unpublished page, a suspended account or a store that is not live.
 
@@ -602,10 +633,12 @@ All four use the same `getHandle` path and return not found for an unpublished p
 | Products | All active products in the creator's sort order, kind chips (All, Video, Audio, Downloads, Bundles), product cards with cover, title, kind, length or item count, amount, access line | none active |
 | Free | Public items, newest 6, View all opens `/{handle}/content` | none public |
 | Live | Upcoming ticketed and members only streams from #27 | #27 not live or none scheduled |
-| About | The About text and the refund line | always shows the refund line |
-| Footer | Powered by Amped.Bio mark, Report store | never |
+| About | The About text | no About text |
+| Buying here | Seller name, the refund summary from the store policy, Read the store policy (store policy spec 3.4, board sp5) | never |
+| Footer | Store policy, Report store, Powered by Amped.Bio mark | never |
 
-- The creator picks the section order in Storefront settings. Header and Footer are fixed.
+- The creator picks the section order in Storefront settings. Header, Buying here and Footer are fixed.
+- The store policy lives at `/{handle}/store/policy` and in the Store tab, Policy (`docs/features/store-policy.md`, boards sp1 to sp4).
 - Product cards never show staking words, pool figures or tREVO. Amounts read `3 USDC`. The word price is not used in copy.
 - Layouts: Grid (2 columns on phones, 3 on desktop), List (one row per product), Feature (first product full width, then grid).
 - Signed out fans see the full store. Buy and Join open sign up with `?next=` back to the product.
@@ -616,7 +649,7 @@ All four use the same `getHandle` path and return not found for an unpublished p
 
 - Cover or the preview player (the first previewable item), title, description.
 - What is included: one row per item with kind, length, pages or file size, and a lock or check per the viewer's access.
-- Access line: Yours to keep, or Access for 30 days, or Access for 365 days.
+- Access line: In your Library, or Access for 30 days, or Access for 365 days. "In your Library" replaces "Yours to keep" because the store policy grants a licence, not ownership (store policy spec 3.4, For counsel item 3; SP-Q45).
 - Amount and Buy. When Also in membership is on: Join to open this and N more, beside Buy.
 - Members of the plan see Included in your membership and Open.
 - Owners (buyers with access) see Open, and Download per item when allowed. A bought bundle opens a list of its items.
@@ -629,6 +662,8 @@ All four use the same `getHandle` path and return not found for an unpublished p
 2. USDC on Base ready in the wallet (#29).
 3. One active product or an active membership plan.
 4. Email verified (the verification grace rule ends at go live, because sales send receipts).
+
+This list is superseded by `docs/features/store-catalog.md` section 2 (seven items, including the seller check, the store policy and adult setup).
 
 Pausing the store hides it and stops new sales. Existing buyers and members keep access.
 
@@ -694,39 +729,39 @@ Recipient { address to; uint16 bps; uint8 role; } // role: 0 creator, 1 platform
 
 `apps/server/src/trpc/content.ts` and `store.ts`, registered in `apps/server/src/trpc/index.ts`. Public outputs select explicit fields and never include email, wallet address or numeric user id.
 
-| Procedure | Auth | Purpose |
-|---|---|---|
-| `content.createUpload` | private | Validate, reserve quota, return the R2 or Stream target |
-| `content.signParts` | private, owner | Presign R2 part URLs |
-| `content.completeUpload` | private, owner | Verify size and type, start processing |
-| `content.abortUpload` | private, owner | Abort and release quota |
-| `content.retryProcessing` | private, owner | Retry a FAILED item, once an hour |
-| `content.list` | private | Library, filters, cursor |
-| `content.get` | private, owner | Item with assets and rule |
-| `content.update` | private, owner | Title, description, cover, chapters, captions, downloads, preview, 18+, rule |
-| `content.publish`, `content.unpublish` | private, owner | Publish needs READY and moderation CLEAR |
-| `content.delete`, `content.restore` | private, owner | Soft delete, purge after 30 days, restore within 30 |
-| `content.getStorage` | private | Quota and use by kind |
-| `content.listForBio` | public | Cards for a content block |
-| `content.feed` | public | Creator feed page (#26) |
-| `content.getPublic` | public | Item page metadata |
-| `content.getPreview` | public | Blur cover, preview clip token, audio preview |
-| `content.getReadUrl` | public for public items, private with grant | Gateway URLs and Stream tokens |
-| `content.report` | public, rate limited | Report an item |
-| `store.settings.get`, `store.settings.update` | private | Storefront settings |
-| `store.setLive` | private | Runs the checklist, sets live or paused |
-| `store.products.list`, `get`, `upsert`, `setStatus`, `reorder` | private | Product catalog |
-| `store.public` | public | Storefront payload for a handle (sections, products, plan summary, free items) |
-| `store.product` | public | Product page payload, with the viewer's access when signed in |
-| `store.listForBio` | public | Cards for a Store block |
-| `store.sales` | private | Orders, totals, CSV |
-| `store.report` | public, rate limited | Report a store or a product |
-| `store.promoters.list`, `upsert`, `setStatus` | private | Promoter codes (Phase 4) |
-| `store.promoter.mine` | private | A promoter's codes and attributed sales |
-| `admin.content.queue`, `admin.content.decide` | admin | Held items, reports, clear, block, restore |
-| `admin.copyright.*` | admin | Record notice, act, counter notice, restore |
-| `admin.store.partners.*` | admin | Partner split rows with consent date |
-| `admin.store.pause` | admin | Pause a store |
+| Procedure                                                      | Auth                                        | Purpose                                                                        |
+| -------------------------------------------------------------- | ------------------------------------------- | ------------------------------------------------------------------------------ |
+| `content.createUpload`                                         | private                                     | Validate, reserve quota, return the R2 or Stream target                        |
+| `content.signParts`                                            | private, owner                              | Presign R2 part URLs                                                           |
+| `content.completeUpload`                                       | private, owner                              | Verify size and type, start processing                                         |
+| `content.abortUpload`                                          | private, owner                              | Abort and release quota                                                        |
+| `content.retryProcessing`                                      | private, owner                              | Retry a FAILED item, once an hour                                              |
+| `content.list`                                                 | private                                     | Library, filters, cursor                                                       |
+| `content.get`                                                  | private, owner                              | Item with assets and rule                                                      |
+| `content.update`                                               | private, owner                              | Title, description, cover, chapters, captions, downloads, preview, 18+, rule   |
+| `content.publish`, `content.unpublish`                         | private, owner                              | Publish needs READY and moderation CLEAR                                       |
+| `content.delete`, `content.restore`                            | private, owner                              | Soft delete, purge after 30 days, restore within 30                            |
+| `content.getStorage`                                           | private                                     | Quota and use by kind                                                          |
+| `content.listForBio`                                           | public                                      | Cards for a content block                                                      |
+| `content.feed`                                                 | public                                      | Creator feed page (#26)                                                        |
+| `content.getPublic`                                            | public                                      | Item page metadata                                                             |
+| `content.getPreview`                                           | public                                      | Blur cover, preview clip token, audio preview                                  |
+| `content.getReadUrl`                                           | public for public items, private with grant | Gateway URLs and Stream tokens                                                 |
+| `content.report`                                               | public, rate limited                        | Report an item                                                                 |
+| `store.settings.get`, `store.settings.update`                  | private                                     | Storefront settings                                                            |
+| `store.setLive`                                                | private                                     | Runs the checklist, sets live or paused                                        |
+| `store.products.list`, `get`, `upsert`, `setStatus`, `reorder` | private                                     | Product catalog                                                                |
+| `store.public`                                                 | public                                      | Storefront payload for a handle (sections, products, plan summary, free items) |
+| `store.product`                                                | public                                      | Product page payload, with the viewer's access when signed in                  |
+| `store.listForBio`                                             | public                                      | Cards for a Store block                                                        |
+| `store.sales`                                                  | private                                     | Orders, totals, CSV                                                            |
+| `store.report`                                                 | public, rate limited                        | Report a store or a product                                                    |
+| `store.promoters.list`, `upsert`, `setStatus`                  | private                                     | Promoter codes (Phase 4)                                                       |
+| `store.promoter.mine`                                          | private                                     | A promoter's codes and attributed sales                                        |
+| `admin.content.queue`, `admin.content.decide`                  | admin                                       | Held items, reports, clear, block, restore                                     |
+| `admin.copyright.*`                                            | admin                                       | Record notice, act, counter notice, restore                                    |
+| `admin.store.partners.*`                                       | admin                                       | Partner split rows with consent date                                           |
+| `admin.store.pause`                                            | admin                                       | Pause a store                                                                  |
 
 - `getReadUrl` refuses any item that is not READY, not moderation CLEAR, or has a served asset whose scan is not CLEAN or an allowed SKIPPED (re-encoded assets only).
 - `getReadUrl`, `getPreview`, `report` and the public store procedures are rate limited per IP and per user (30 a minute).
@@ -749,10 +784,10 @@ Recipient { address to; uint16 bps; uint8 role; } // role: 0 creator, 1 platform
 - Type allowlist enforced three times: declared type at `createUpload`, magic bytes at `completeUpload`, and re-encoding or transcoding.
 - Image EXIF and location removed. Container and document metadata removed.
 - Malware scan before any file is downloadable.
-- User content on `ampedusercontent.com` with a sandbox CSP and `nosniff`. No SVG, HTML or scripts.
+- User content on `usercontent.amped.bio` with a sandbox CSP and `nosniff`. No SVG, HTML or scripts. The zone strips the `Cookie` header before the gateway (3.17 step 8).
 - No public bucket, no `r2.dev`, no presigned GET for viewers.
 - Presigned uploads bind type and length.
-- Quotas per user. `CONTENT_UPLOADS_ENABLED` and `STORE_SALES_ENABLED` stop uploads or sales during an incident.
+- Quotas per user. The site_settings feature flags `contentUploads` and `storeSales` (`packages/constants/src/feature-flags.ts`, switched in admin, Feature flags, no redeploy) stop uploads or sales during an incident. `CONTENT_UPLOADS_ENABLED` stays only as the server fallback while no admin row is set; there is no `STORE_SALES_ENABLED` (store catalog section 2).
 - Secrets in the server secret store: R2 keys, Stream API token, Stream signing key, Stream webhook secret, media token keys, processor secret, PhotoDNA and classifier keys. Worker secrets set with `wrangler secret`.
 - Logs never include tokens or full signed URLs.
 
@@ -761,7 +796,7 @@ Recipient { address to; uint16 bps; uint8 role; } // role: 0 creator, 1 platform
 - No earn, yield, return, profit, invest, investment, passive income, income or gains on any content or store surface (`CONTENT_BANNED_TERMS` in `packages/constants/src/compliance.ts`). Store and checkout surfaces also ban stake, staking, pool and tREVO (#25 3.9). Locked states for stake rules follow `ACCESS_BANNED_TERMS` and show `ACCESS_STAKE_DISCLOSURE`.
 - Amounts read `3 USDC`. The word price is not used in shipped copy.
 - The fee line reads its percentage from `PLATFORM_FEE_BPS`. A change to the fee updates every sheet and receipt, and counsel reads the new line before it ships.
-- Approved words: members only, membership, join, buy, yours to keep, access, support, library, drop, store.
+- Approved words: members only, membership, join, buy, access, support, library, drop, store. "Yours to keep" is withdrawn (SP-Q45, pending counsel's choice of word).
 - Protection claims: "streams through a protected player". Never "cannot be copied" or DRM.
 - Safety claims: "every upload is scanned before it goes live". Never "100% safe".
 - No "share anything".
@@ -785,37 +820,37 @@ Recipient { address to; uint16 bps; uint8 role; } // role: 0 creator, 1 platform
 
 Events follow the analytics registry (#11). No email. Viewer identity is hashed. Ids are public ids.
 
-| Event | Properties |
-|---|---|
-| `content_upload_started`, `_completed`, `_failed`, `_aborted` | kind, size_bucket, upload_id, resumed, reason_code |
-| `content_processing_failed` | kind, step, reason_code |
-| `content_ready` | kind, size_mb, seconds_to_ready |
-| `content_blocked` | kind, reason_code (malware, policy; CSAM only in the restricted system) |
-| `content_unsafe_served` | kind, reason_code |
-| `content_published` | kind, rule_kind |
-| `content_viewed` | kind, gated, surface (bio, item, feed, store, library, broadcast) |
-| `content_locked_impression`, `content_unlock_clicked`, `content_unlocked` | rule_kind, seconds_since_impression |
-| `content_downloaded` | kind |
-| `store_live`, `store_paused` | products, has_plan |
-| `store_viewed` | source (bio, direct, share, promoter), layout |
-| `product_viewed` | kind, source |
-| `product_buy_clicked`, `product_join_clicked` | kind |
-| `product_purchased` | kind, amount_bucket, promoter (true or false), seconds_from_view |
-| `promoter_code_created`, `promoter_sale` | bps_bucket |
-| `content_adoption_snapshot` | creators, uploading_creators_month, published_items, live_stores, active_products (daily) |
+| Event                                                                     | Properties                                                                                |
+| ------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `content_upload_started`, `_completed`, `_failed`, `_aborted`             | kind, size_bucket, upload_id, resumed, reason_code                                        |
+| `content_processing_failed`                                               | kind, step, reason_code                                                                   |
+| `content_ready`                                                           | kind, size_mb, seconds_to_ready                                                           |
+| `content_blocked`                                                         | kind, reason_code (malware, policy; CSAM only in the restricted system)                   |
+| `content_unsafe_served`                                                   | kind, reason_code                                                                         |
+| `content_published`                                                       | kind, rule_kind                                                                           |
+| `content_viewed`                                                          | kind, gated, surface (bio, item, feed, store, library, broadcast)                         |
+| `content_locked_impression`, `content_unlock_clicked`, `content_unlocked` | rule_kind, seconds_since_impression                                                       |
+| `content_downloaded`                                                      | kind                                                                                      |
+| `store_live`, `store_paused`                                              | products, has_plan                                                                        |
+| `store_viewed`                                                            | source (bio, direct, share, promoter), layout                                             |
+| `product_viewed`                                                          | kind, source                                                                              |
+| `product_buy_clicked`, `product_join_clicked`                             | kind                                                                                      |
+| `product_purchased`                                                       | kind, amount_bucket, promoter (true or false), seconds_from_view                          |
+| `promoter_code_created`, `promoter_sale`                                  | bps_bucket                                                                                |
+| `content_adoption_snapshot`                                               | creators, uploading_creators_month, published_items, live_stores, active_products (daily) |
 
 KPIs at 90 days after general availability (proposed):
 
-| KPI | Target | Measurement |
-|---|---|---|
-| Creators who upload in a month | 30% | snapshot |
-| Upload success | 98% | completed over started, excluding user aborts |
-| Time to Ready for a 1 GB video | under 5 minutes at p95 | `seconds_to_ready` |
-| Creators with a live store | 15% of creators with a published page | snapshot |
-| Store view to purchase | 2% | `product_purchased` over `store_viewed` sessions |
-| Share of sales through promoters | 10% | `product_purchased` with promoter true |
-| Valid DMCA notices actioned in 1 business day | 100% | DMCA events |
-| Unsafe files served | 0 | `content_unsafe_served` plus the restricted CSAM count |
+| KPI                                           | Target                                | Measurement                                            |
+| --------------------------------------------- | ------------------------------------- | ------------------------------------------------------ |
+| Creators who upload in a month                | 30%                                   | snapshot                                               |
+| Upload success                                | 98%                                   | completed over started, excluding user aborts          |
+| Time to Ready for a 1 GB video                | under 5 minutes at p95                | `seconds_to_ready`                                     |
+| Creators with a live store                    | 15% of creators with a published page | snapshot                                               |
+| Store view to purchase                        | 2%                                    | `product_purchased` over `store_viewed` sessions       |
+| Share of sales through promoters              | 10%                                   | `product_purchased` with promoter true                 |
+| Valid DMCA notices actioned in 1 business day | 100%                                  | DMCA events                                            |
+| Unsafe files served                           | 0                                     | `content_unsafe_served` plus the restricted CSAM count |
 
 ### 3.14 Acceptance criteria
 
@@ -849,14 +884,14 @@ KPIs at 90 days after general availability (proposed):
 
 All dates are proposed. Each phase ships behind its flags and starts with the pilot creators.
 
-| Phase | Ships | Needs first | Gate before production |
-|---|---|---|---|
-| 0. Prerequisites (October) | PR 1. Cloudflare setup (3.17). DMCA agent, Content Policy, seller terms draft, classifier vendor. 25 pilot creators | Nothing | None |
-| 1. Free content (November to December, 3 to 4 weeks of build) | PR 2 to PR 7: library, uploads, processing, gateway, item page, feed page, content block, trust and safety | Phase 0 | Invite only beta. Cloudflare CSAM Scanning Tool on, DMCA agent and policy published, Terms and Content Policy updated, privacy notice recipients added. PhotoDNA live before general availability |
-| 2. Gated content | PR 8: rule picker, locked cards, previews, grants, broadcast attachments. Followers, Pool fans and Fans with a minimum stake | Gating engine core (#21 phases 0 and 1) on development | Counsel receives the stake copy in parallel (decision 4) |
-| 3. Store and sales | PR 9 and PR 10: storefront, products, bundles, store block, pay sheet, Sales, refunds | #29 USDC wallet on development. AmpedPay with the split table deployed on Base Sepolia (#15). `paid` kind live in the engine | AmpedPay audit, counsel on seller terms, custody and tax (#25 3.12), privacy notice |
-| 4. Membership in the store and promoters | PR 11 and PR 12: Membership tab, membership card and block, Members or Paid items, promoter codes, partner rows | AmpedMemberships deployed (#25 phase C) | AmpedMemberships audit, counsel on recurring consent copy |
-| 5. Later | Custom store domains, AI captions, discount codes, watermarking and PDF stamping, move avatars and backgrounds to R2 and close the public S3 bucket, EU bucket if counsel asks | | |
+| Phase                                                         | Ships                                                                                                                                                                          | Needs first                                                                                                                  | Gate before production                                                                                                                                                                            |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0. Prerequisites (October)                                    | PR 1. Cloudflare setup (3.17). DMCA agent, Content Policy, seller terms draft, classifier vendor. 25 pilot creators                                                            | Nothing                                                                                                                      | None                                                                                                                                                                                              |
+| 1. Free content (November to December, 3 to 4 weeks of build) | PR 2 to PR 7: library, uploads, processing, gateway, item page, feed page, content block, trust and safety                                                                     | Phase 0                                                                                                                      | Invite only beta. Cloudflare CSAM Scanning Tool on, DMCA agent and policy published, Terms and Content Policy updated, privacy notice recipients added. PhotoDNA live before general availability |
+| 2. Gated content                                              | PR 8: rule picker, locked cards, previews, grants, broadcast attachments. Followers, Pool fans and Fans with a minimum stake                                                   | Gating engine core (#21 phases 0 and 1) on development                                                                       | Counsel receives the stake copy in parallel (decision 4)                                                                                                                                          |
+| 3. Store and sales                                            | PR 9 and PR 10: storefront, products, bundles, store block, pay sheet, Sales, refunds                                                                                          | #29 USDC wallet on development. AmpedPay with the split table deployed on Base Sepolia (#15). `paid` kind live in the engine | AmpedPay audit, counsel on seller terms, custody and tax (#25 3.12), privacy notice                                                                                                               |
+| 4. Membership in the store and promoters                      | PR 11 and PR 12: Membership tab, membership card and block, Members or Paid items, promoter codes, partner rows                                                                | AmpedMemberships deployed (#25 phase C)                                                                                      | AmpedMemberships audit, counsel on recurring consent copy                                                                                                                                         |
+| 5. Later                                                      | Custom store domains, AI captions, discount codes, watermarking and PDF stamping, move avatars and backgrounds to R2 and close the public S3 bucket, EU bucket if counsel asks |                                                                                                                              |                                                                                                                                                                                                   |
 
 The critical path is outside this spec: the gating engine has no build plan yet and lives only on the old fork branch, and AmpedPay with the split table is not started. Phase 1 needs neither and can start now.
 
@@ -864,43 +899,43 @@ The critical path is outside this spec: the gating engine has no build plan yet 
 
 Thirteen PRs including this one. Each from a fresh `development`, each targeting `development`, reviewed by Gustavo, conventional commit prefixes, flags off in production. Every PR runs locally before opening: `pnpm run typecheck`, `pnpm run build`, `pnpm --filter server test`, `pnpm run format:check`, and for the Workers `pnpm --filter media-gateway test` and `pnpm --filter media-processor test`. A PR with a migration says "migration applied by hand after merge", and Gustavo applies it on staging before the flag goes on. No PR touches `main`. Sizes assume one engineer.
 
-| PR | Branch | Size | Phase | Depends on |
-|---|---|---|---|---|
-| 0 | `docs/content-system-store` | done | | |
-| 1 | `fix/uploads-sdk-v3-validation` | 1.5 days | 0 | |
-| 2 | `feat/content-foundation` | 4 days | 1 | 1, Cloudflare setup |
-| 3 | `feat/media-gateway` | 2.5 days | 1 | 2 |
-| 4 | `feat/media-processor` | 5 days | 1 | 2 |
-| 5 | `feat/content-library-ui` | 5 days | 1 | 2 |
-| 6 | `feat/content-public-pages` | 3 days | 1 | 3, 5 |
-| 7 | `feat/content-trust-safety` | 4 days | 1 | 4, 6 |
-| 8 | `feat/content-gating` | 4 days | 2 | 7, #21 core |
-| 9 | `feat/store-catalog` | 5 days | 3 | 8 |
-| 10 | `feat/store-checkout` | 4 days | 3 | 9, #29, #15 AmpedPay |
-| 11 | `feat/store-membership` | 3 days | 4 | 10, #25 phase C |
-| 12 | `feat/store-promoters` | 3 days | 4 | 10, split table in AmpedPay |
+| PR  | Branch                          | Size     | Phase | Depends on                  |
+| --- | ------------------------------- | -------- | ----- | --------------------------- |
+| 0   | `docs/content-system-store`     | done     |       |                             |
+| 1   | `fix/uploads-sdk-v3-validation` | 1.5 days | 0     |                             |
+| 2   | `feat/content-foundation`       | 4 days   | 1     | 1, Cloudflare setup         |
+| 3   | `feat/media-gateway`            | 2.5 days | 1     | 2                           |
+| 4   | `feat/media-processor`          | 5 days   | 1     | 2                           |
+| 5   | `feat/content-library-ui`       | 5 days   | 1     | 2                           |
+| 6   | `feat/content-public-pages`     | 3 days   | 1     | 3, 5                        |
+| 7   | `feat/content-trust-safety`     | 4 days   | 1     | 4, 6                        |
+| 8   | `feat/content-gating`           | 4 days   | 2     | 7, #21 core                 |
+| 9   | `feat/store-catalog`            | 5 days   | 3     | 8                           |
+| 10  | `feat/store-checkout`           | 4 days   | 3     | 9, #29, #15 AmpedPay        |
+| 11  | `feat/store-membership`         | 3 days   | 4     | 10, #25 phase C             |
+| 12  | `feat/store-promoters`          | 3 days   | 4     | 10, split table in AmpedPay |
 
 About 44 engineer days in total. PRs 3, 4 and 5 can run in parallel after PR 2.
 
 **PR 1. `fix/uploads-sdk-v3-validation`.** Replaces the v2 `getSignedUrlPromise` PUT signing in `S3Service` with `@aws-sdk/s3-request-presigner` and removes `aws-sdk` from `apps/server/package.json`. Confirm steps compare HeadObject `ContentLength` with the declared size and read the first 4 KB to check the real type. Tests for both. Closes the Build Board fix cards Remove AWS SDK v2 and Enforce upload size and file type. No user facing change.
 
-**PR 2. `feat/content-foundation`.** Migration for `ContentItem`, `ContentAsset`, `UserStorageQuota`, `ContentReport`, `CopyrightNotice`, `BlockedContentHash`. `packages/constants/src/content.ts`. `apps/server/src/services/cloudflare/` with `r2.ts` (S3 client on the R2 endpoint, presigned PUT and multipart), `stream.ts` (TUS upload URL, clip, captions, downloads, token signing), `mediaToken.ts` (gateway token signer, shared format in `packages/constants/src/mediaToken.ts`). `content` router: createUpload, signParts, completeUpload, abortUpload, list, get, update, getStorage. Routes `POST /webhooks/cloudflare-stream` and `POST /internal/content/processed`. Env and secrets per 3.17. Flags `CONTENT_UPLOADS_ENABLED=false`, `VITE_CONTENT=false`. Tests: validation, quota reservation, webhook and callback signatures, token format.
+**PR 2. `feat/content-foundation`.** Migration for `ContentItem`, `ContentAsset`, `UserStorageQuota`, `ContentReport`, `CopyrightNotice`, `BlockedContentHash`. `packages/constants/src/content.ts`. `apps/server/src/services/cloudflare/` with `r2.ts` (S3 client on the R2 endpoint, presigned PUT and multipart), `stream.ts` (TUS upload URL, clip, captions, downloads, token signing), `mediaToken.ts` (gateway token signer, shared format in `packages/constants/src/mediaToken.ts`). `content` router: createUpload, signParts, completeUpload, abortUpload, list, get, update, getStorage. Routes `POST /webhooks/cloudflare-stream` and `POST /internal/content/processed`. Env and secrets per 3.17. Feature flags `contentUploads` and `content`, off (site_settings; the env names are fallbacks only). Tests: validation, quota reservation, webhook and callback signatures, token format.
 
 **PR 3. `feat/media-gateway`.** New `apps/media-gateway` (Wrangler, TypeScript, R2 binding `CONTENT`, KV binding `TAKEDOWN`). Token verify with two key rotation, path match, takedown check, cache by key, Range, headers per 3.6. Tests with the Workers Vitest pool. CI gains typecheck and test for the Worker. Deploy is `wrangler deploy` run by Gustavo per environment until deploy automation exists.
 
 **PR 4. `feat/media-processor`.** New `apps/media-processor`: Queue consumer Worker plus a Container image (ffmpeg, sharp, ClamAV with a daily signature update, poppler, qpdf). The API publishes jobs and serves them on `POST /internal/content/job`. Steps per 3.5 with idempotent writes. PhotoDNA and classifier adapters with a mock adapter on staging until keys arrive. Callback client. Dead letter queue handling. Tests per step with fixture files (EICAR, GPS PNG, renamed EXE, zip bomb, 30 second MP3).
 
-**PR 5. `feat/content-library-ui`.** Content destination with the Library tab (cs1), upload dialog with R2 multipart and `tus-js-client` for video (cs2), item editor with Public only (cs3; other rules show Later), storage meter, empty, loading and error states (cs8). Autosave. Flag `VITE_CONTENT`.
+**PR 5. `feat/content-library-ui`.** Content destination with the Library tab (cs1), upload dialog with R2 multipart and `tus-js-client` for video (cs2), item editor with Public only (cs3; other rules show Later), storage meter, empty, loading and error states (cs8). Autosave. Feature flag `content`.
 
 **PR 6. `feat/content-public-pages`.** `content` block type in the five places, block editor, landingpage routes `/{handle}/c/{publicId}` and `/{handle}/content`, `listForBio`, `feed`, `getPublic`, `getReadUrl` for public items, publish, unpublish, delete, restore, the purge job, Report content, JSON-LD for public items, sitemap and `llms.txt` entries. Boards cs4, cs6, cs7.
 
-**PR 7. `feat/content-trust-safety`.** Admin content queue and decisions in `apps/admin`, DMCA tools, hash blocklist actions, CSAM evidence path and alerting, KV takedown writes and cache purge, the 18+ refusals in every public procedure (#28 hook), analytics events, the copy scan over content components. Phase 1 launch gate items are checked off in the PR description.
+**PR 7 (split 3 Nov 2026).** Superseded: C7a `feat/content-takedown` (`docs/features/content-takedown.md`) and the Safety PRs R1 to R3 (`docs/features/adult-content-review.md` 16a). The original scope, kept for the record: `feat/content-trust-safety`. Admin content queue and decisions in `apps/admin`, DMCA tools, hash blocklist actions, CSAM evidence path and alerting, KV takedown writes and cache purge, the 18+ refusals in every public procedure (#28 hook), analytics events, the copy scan over content components. Phase 1 launch gate items are checked off in the PR description.
 
 **PR 8. `feat/content-gating`.** Registers the `content` resolver, the rule picker in the item editor (Everyone, Followers, Members, Pool fans, Fans with a minimum stake, Paid, Any of), locked cards, `getPreview` with clip tokens and audio previews, grant to URL exchange, the stream rule, broadcast attachments, cs5. Members and Paid show Later until PR 10 and PR 11.
 
-**PR 9. `feat/store-catalog`.** Migration for `StoreSettings`, `Offer`, `OfferItem` and the `offerItems` back relation on `ContentItem`. `store` router for settings, products, public, product, listForBio. Store tab with Storefront and Products (st1, st2, st3), storefront and product pages (st6, st7, st8), `store` block type (st10), product rule writing. The store renders for its owner in preview only while `STORE_SALES_ENABLED` is off.
+**PR 9. `feat/store-catalog`.** Migration for `StoreSettings`, `Offer`, `OfferItem` and the `offerItems` back relation on `ContentItem`. `store` router for settings, products, public, product, listForBio. Store tab with Storefront and Products (st1, st2, st3), storefront and product pages (st6, st7, st8), `store` block type (st10), product rule writing. The store renders for its owner in preview only while the `storeSales` feature flag is off.
 
-**PR 10. `feat/store-checkout`.** Migration for `SplitRecipient` (read by the split builder, empty until admins add partners) and the `Purchase` columns. `via` on `payments.quote` and `pay.prepare`, the pay sheet additions (st9), purchase to access wiring, `Offer.salesCount` from the indexer, Library Purchased rows, the go live checklist and `store.setLive`, Sales view with CSV and refunds (st5), the store copy scan. Flag `STORE_SALES_ENABLED` plus the pilot allowlist.
+**PR 10. `feat/store-checkout`.** Migration for `SplitRecipient` (read by the split builder, empty until admins add partners) and the `Purchase` columns. `via` on `payments.quote` and `pay.prepare`, the pay sheet additions (st9), purchase to access wiring, `Offer.salesCount` from the indexer, Library Purchased rows, the go live checklist and `store.setLive`, Sales view with CSV and refunds (st5), the store copy scan. Feature flag `storeSales` plus the pilot allowlist.
 
 **PR 11. `feat/store-membership`.** Membership tab with the plan editor (st4), membership card on the store and the `membership` block type, Also in membership on products, `any(member, paid)` rule writing, Join from the product page.
 
@@ -908,18 +943,69 @@ About 44 engineer days in total. PRs 3, 4 and 5 can run in parallel after PR 2.
 
 ### 3.17 Setup checklist (before PR 2 reaches staging)
 
-1. Two Cloudflare accounts (production and staging) on Workers Paid. Containers enabled.
-2. Register `ampedusercontent.com` (production account) and `ampedusercontent-staging.com` (staging account) and add each as a zone on its account. A Worker custom domain needs a zone on the Worker's own account, and the staging gateway binds the staging bucket, so staging needs its own domain. Hosts `media.ampedusercontent.com` and `media.ampedusercontent-staging.com`.
-3. R2 buckets `amped-content` and `amped-content-staging`. Public access and `r2.dev` off. CORS per 3.4. Lifecycle: abort multipart after 1 day, `incoming/` expires after 7 days (uploads that never finished processing), `quarantine/` expires after 30 days.
-4. R2 API tokens: one per environment, Object Read and Write on its bucket only.
-5. Queues `content-ingest` and `content-ingest-staging`, each with a dead letter queue (`-dlq`). No bucket event notification: the API publishes jobs after completeUpload (3.5 step 3). An API token per account with Queues Edit, for the API.
-6. KV namespaces `takedown` and `takedown-staging`.
-7. Stream allows one webhook per account, so staging runs on its own Cloudflare account (its own Stream library, R2 bucket, Queue, KV and Workers). On each account: create the signing key, set the webhook URL to `https://{api host}/webhooks/cloudflare-stream`, record the webhook secret. Prepay storage for the pilot (start at 10,000 minutes) with an alarm at 80%.
-8. WAF rate limit on the media hosts. Turn on the CSAM Scanning Tool for the zone.
-9. Secrets in the server secret store: `CF_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `CF_STREAM_API_TOKEN`, `CF_STREAM_KEY_ID`, `CF_STREAM_KEY_PEM`, `CF_STREAM_WEBHOOK_SECRET`, `MEDIA_GATEWAY_ORIGIN`, `MEDIA_TOKEN_KEYS`, `CONTENT_PROCESSOR_SECRET`, `CF_QUEUES_API_TOKEN`, `CF_CONTENT_QUEUE_ID`, `CF_STREAM_CUSTOMER_CODE`, `PHOTODNA_KEY`, `CLASSIFIER_API_KEY`. Worker secrets: `MEDIA_TOKEN_KEYS` (gateway), `CONTENT_PROCESSOR_SECRET`, `PHOTODNA_KEY`, `CLASSIFIER_API_KEY` (processor).
+One Cloudflare account for staging and production (Rob, 3 Nov 2026). Separation is per resource and per credential, not per account. Handoff: `docs/fixes/single-account-usercontent.md`.
+
+1. One Cloudflare account on Workers Paid. Containers enabled.
+2. The `amped.bio` zone on that account (DNS moved to Cloudflare if it is elsewhere). Hosts `usercontent.amped.bio` (production gateway), `usercontent.staging.amped.bio` (staging gateway) and `stream-hooks.amped.bio` (webhook router).
+3. R2 buckets `amped-content` and `amped-content-staging`. Public access and `r2.dev` off. CORS per 3.4. Lifecycle: abort multipart after 1 day, `incoming/` expires after 7 days, `quarantine/` expires after 30 days.
+4. R2 API tokens: one per environment, Object Read and Write on its own bucket only. Never an account wide R2 token.
+5. Queues `content-ingest` and `content-ingest-staging`, each with a dead letter queue (`-dlq`). No bucket event notification: the API publishes jobs after completeUpload (3.5 step 3). A Queues Edit token per environment. Cloudflare cannot scope it to one queue, so each API keeps its own token and only its own queue id.
+6. KV namespaces `takedown` and `takedown-staging`. Paste both ids into `apps/media-gateway/wrangler.jsonc`.
+7. Stream allows one webhook per account. Deploy `apps/stream-webhook-router` (`pnpm --filter @repo/stream-webhook-router run deploy`) and set the account webhook to `https://stream-hooks.amped.bio/cloudflare-stream`. The router verifies with the account secret and forwards by `meta.env`, re-signed with a forward secret per environment, which each API holds as `CF_STREAM_WEBHOOK_SECRET`. Create one Stream signing key per environment. Prepay storage for the pilot (start at 10,000 minutes) with an alarm at 80%; staging test videos count against the same minutes.
+8. Zone rules: WAF rate limit on both media hosts; a Request Header Transform Rule that removes `Cookie` on both media hosts; the CSAM Scanning Tool on for the zone.
+9. Secrets in the server secret store, separate values per environment: `CF_ACCOUNT_ID` (same value), `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `CF_STREAM_API_TOKEN`, `CF_STREAM_KEY_ID`, `CF_STREAM_KEY_PEM`, `CF_STREAM_WEBHOOK_SECRET` (the forward secret), `MEDIA_GATEWAY_ORIGIN`, `MEDIA_TOKEN_KEYS`, `CONTENT_PROCESSOR_SECRET`, `CF_QUEUES_API_TOKEN`, `CF_CONTENT_QUEUE_ID`, `CF_STREAM_CUSTOMER_CODE` (same value), `PHOTODNA_KEY`, `CLASSIFIER_API_KEY`. Worker secrets: `MEDIA_TOKEN_KEYS` (gateway), `CONTENT_PROCESSOR_SECRET`, `PHOTODNA_KEY`, `CLASSIFIER_API_KEY` (processor), `STREAM_WEBHOOK_SECRET`, `PRODUCTION_FORWARD_SECRET`, `STAGING_FORWARD_SECRET` (router).
 10. Open the classifier vendor account. Apply for PhotoDNA Cloud Service during beta so it is live before general availability.
 11. Register the DMCA agent. Publish the copyright policy page.
-12. Wrangler access for Gustavo per environment.
+12. Deploys: CI only for production (merge to the live branch), with a scoped API token. Account membership and Wrangler access are account wide, so keep the member list short.
+
+Known limits of one account, accepted: the Stream API token and Stream signing keys work on every video in the account, so a staging credential can read, sign or delete a production video if it knows the uid; Workers and Queues tokens are account wide; one wrong `--env` flag reaches the other environment. Revisit two accounts before general availability.
+
+### 3.19 Full QA fixes, 3 Nov 2026 (rows 127, 129, 151 to 156)
+
+Screen Review Full QA against development 98db33f, content gating C8 (`docs/features/content-gating.md`, PR #418 and #433), store catalog C9 (#419), store policy (#420) and mobile checkout (#412). Where this section and an earlier part of 3.1 disagree, this section wins. Where C8 and this section disagree on gating, C8 wins. QA2 boards are on the Content system and Store and paid cards design pages.
+
+**Boards.**
+
+| Row | Was | Now |
+|---|---|---|
+| 151 | cs1, desktop only, rail without Inbox and People, filters Gated and For sale | cs-q1 (1440) and cs-q2 (390). The shipped rail (`apps/client/src/components/shell/destinations.ts`). Filters from `CONTENT_COPY.filters` (`apps/client/src/components/panels/content/copy.ts`): All, kinds, Drafts, In review, Recently removed. Gated and For sale join with C8 and C9 |
+| 152 | cs2, desktop only | cs2 plus the phone sheet on cs-q2. Lines read `CONTENT_COPY.upload` and `CONTENT_COPY.errors` verbatim. The `contentUploads` flag off state ("Uploads are not open yet") is drawn |
+| 153 | cs3, Members and Paid live, "Any of", no testnet line, no people | cs-q3 (1440) and cs-q4 (390). Picker per C8 4.1. People in this item with the release status per person |
+| 154 | cs4 (phone superseded by s1 per C8 4.2) | s1 plus st-q1. Every button reads `$N USDC` (mobile checkout D6). A Pool fans card shows `TESTNET_NOTICE` once in the block |
+| 155 | cs5 (phone superseded by s1), stake panel with member words | s1 plus st-q1 and st-q2: Pool fans state per C8 4.2, Paid state with the seller line under Buy, unavailable state when the seller check fails (gating spec 3.4). Supersedes Screen Review row 371 |
+| 156 | cs8 | cs8 plus cs-q5: uploads closed, load error, blocked, in review, recently removed, failed with the code line |
+| 127 | cs6 | cs6 plus cs-q6: Images chip (`SITE_CONTENT_COPY.kinds`), locked cards carry the rule summary only, a Pool fans card adds `TESTNET_NOTICE` |
+| 129 | cs7 | cs7 plus the store policy link on the purchase row (store policy 3.4) |
+
+**Rules the boards and the build follow.**
+
+1. Amounts on fan surfaces read `$N USDC` (mobile checkout D6). Locked cards carry the gate summary from `ACCESS_RULE_SUMMARIES` and no amount until PR 10; after PR 10 the Buy button carries the amount, never the card text.
+2. Any surface that shows a pool or tREVO, including a Pool fans card or label on the bio, the feed or the item page, shows `TESTNET_NOTICE` (`packages/constants/src/testnet.ts`) once per surface. Stake unlock steps show it above `ACCESS_STAKE_DISCLOSURE` (C8 4.2, 4.3). No board types the disclosure; boards show the constant slot until counsel returns the text.
+3. A bundle only item reads the summary Paid. "In a bundle" is not a rule label.
+4. Locked item page with a Buy or Join action shows "Sold by {seller}. Store policy" under the action bar (store policy 3.4, product page row). The pay sheet carries the counsel sentences "Sold by {seller} on Amped.bio. Your purchase is from {seller}, not from Amped." and the Store policy link, with no discretion sentence (CK-D1, Rob 3 Nov).
+5. When the owner fails `checkIdentity(seller)`, `paid` and `member` rules answer `kind_unavailable` with hint `unavailable` (gating spec 3.4). The item page shows "Not available right now" with Back to the page. Existing buyers keep access.
+6. **People in this item.** The item editor lists every tagged person with their release status with this creator (store policy section 4, performer release `RELEASE_VERSION` 1). The release is signed once per performer per creator at the People invite. Each item records which release covers each tagged performer: the item's people rows point to the `AppearingPerson` row (with its `releaseVersion` and `creatorSignedAt`) for that creator (adult content review section 10, store policy 4.3). Surfaces the release excludes are greyed out (store policy 4.2). `content.publish` refuses with `PRECONDITION_FAILED`, "Every person in this item needs a release with you first.", while a tagged performer has no valid release with the item's creator. The editor disables Publish and shows the same line with Send release.
+
+**Code changes required (build steps).**
+
+| File | Function or line | Change | PR |
+|---|---|---|---|
+| `apps/client/src/components/panels/content/copy.ts` | `CONTENT_COPY.editor.rules` (lines 281 to 289) | Labels from `ACCESS_RULE_SUMMARIES`: `any` reads "Any of these"; Followers helper "Anyone who follows you on Amped. Free for fans."; Members and Paid helper "Needs a verified seller" with "Verify to sell." when the seller check fails | C8 |
+| `apps/client/src/components/panels/content/ItemEditor.tsx` | `AccessCard` | Render `TESTNET_NOTICE` under the picker when Pool fans, Fans with a minimum stake or an Any of these with a stake leaf is shown | C8 |
+| `apps/client/src/components/panels/content/ItemEditor.tsx` and `PublishCard.tsx` | publish action | People in this item section and the publish refusal in rule 6 | R4 (store policy) |
+| `apps/server/src/trpc/content.ts` | `content.publish` | Refuse while a tagged performer lacks a valid release (rule 6) | R4 |
+| `apps/landingpage/src/app/[handle]/c/[publicId]/page.tsx` | `generateMetadata`, `robots` (line 46) | `index: false` for a locked item (C8 3.2); today every item is indexed | C8 |
+| `apps/landingpage/src/components/content/ContentCardView.tsx`, `FeedPageView.tsx`, `ItemPageView.tsx` | locked card and page | Import `TESTNET_NOTICE` and render it per rule 2; seller line per rule 4 after PR 10 | C8, PR 10 |
+| `scripts/check-compliance-copy.ts` | scan | Fail on a pool or tREVO surface without `TESTNET_NOTICE`, and on "In a bundle" used as a rule label | C8 |
+
+**Acceptance additions.**
+
+26. A Pool fans card on the bio, the feed or the item page renders `TESTNET_NOTICE` verbatim, imported from `@repo/constants`.
+27. Publish refuses an item with a tagged performer who has no valid release with that creator, in the API and in the editor.
+28. A locked item page for a gated item renders `noindex`.
+29. Every editor board ships at 1440 and 390.
+
+**For counsel.** Nothing new. `ACCESS_STAKE_DISCLOSURE` text is pending under C8 "For counsel".
 
 ### 3.18 Edits this spec makes to other specs
 
@@ -980,9 +1066,14 @@ About 44 engineer days in total. PRs 3, 4 and 5 can run in parallel after PR 2.
 
 ## Revision log
 
+- 2026-11-03: QA fixes. Access line "In your Library" in place of "Yours to keep" (SP-Q45).
+- 2026-11-03: Store policy. Buying here replaces the refund line, footer link, policy route, go live items now in `docs/features/store-catalog.md` section 2. See `docs/features/store-policy.md`.
+- 2026-11-03: Full QA fixes (3.19): QA2 boards, testnet and seller line rules, People in this item and the release check on publish, code steps with files, feature flags replace env switches.
+
 - 2026-09-26: First spec. S3 and CloudFront, Mux, Public or Members only, payments on hold.
 - 2026-10-08: Rob's decisions applied on the fork: Cloudflare Stream for video, adult content behind age verification, CSAM vendor to discuss, Phase 2 counsel review in parallel.
 - 2026-10-12: Full rewrite on `development`. Rob chose Cloudflare all in (R2, the media gateway Worker, Stream, Queues, Containers) and a creator store on the creator page where fans buy memberships and content directly from the creator. Added the store, products and bundles, store branding, the membership tab, checkout through the creator branded sheet, the split table with promoters and partners, the Sales view, UUID v7 keys, the Fan Library and Live streaming amendments, a new cost model, 13 PRs and the Cloudflare setup checklist.
 - 2026-10-12 (later): Rob moved PhotoDNA to after beta to keep development fast. Decision 11 answered with beta guardrails: invite only beta, Cloudflare CSAM Scanning Tool on, Report and admin takedown in Phase 1, a no op hash match adapter, PhotoDNA before general availability. Phase 0, Phase 1 gate, 3.5, 3.11, 3.14 and 3.17 updated.
 - 2026-10-17: PR 3 (media gateway). Staging media host moves to `media.ampedusercontent-staging.com` on its own domain, because a Worker custom domain needs a zone on the same account and staging runs on its own account (3.17 step 2). Token lifetime capped at 25 hours on both sides (`MEDIA_TOKEN_MAX_LIFETIME_SECONDS`). Viewer `Cache-Control` is `private` with at most 5 minutes on every gateway response, since the token does not carry a gated flag.
 - 2026-10-17 (later): PR 4 (media processor). The API publishes processing jobs to the Queue after completeUpload and the Stream webhook, instead of an R2 event notification, because an event can arrive before the upload is verified (3.5 step 3, 3.17 step 5). The processor fetches each job from the API (`POST /internal/content/job`). CSAM matching runs after normalize, on what a viewer would see. Poppler and qpdf replace pdfium. Video is not malware scanned. The Stream clip and MP4 downloads are set by the API at READY. Production holds every image and video for review until the classifier vendor is live. A 2 hour PROCESSING sweep and an `incoming/` lifecycle rule of 7 days are added.
+- 2026-11-03: One Cloudflare account for staging and production, and the media host moves to `usercontent.amped.bio` (staging `usercontent.staging.amped.bio`), both by Rob. New `apps/stream-webhook-router` Worker because Stream allows one webhook per account: it routes by `meta.env` and re-signs per environment. The API ignores a Stream event tagged for another environment. Principle 5, 3.4, 3.6, 3.11 and 3.17 updated. The second domain is no longer needed.

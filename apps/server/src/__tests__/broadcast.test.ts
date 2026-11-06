@@ -47,6 +47,27 @@ vi.mock("@repo/database", () => ({
 }));
 
 vi.mock("../utils/auth", () => ({ auth: { api: {} } }));
+
+// M9: the audience is frozen with the access engine; services/broadcast/audience has its
+// own tests (broadcast-audience.test.ts)
+const audience = vi.hoisted(() => ({
+  resolve: vi.fn(),
+  counts: vi.fn(),
+}));
+vi.mock("../services/broadcast/audience", () => ({
+  resolveAudience: audience.resolve,
+  audienceCounts: audience.counts,
+}));
+const people = (
+  userIds: number[],
+  extra: Partial<{ emailConsent: number[]; poolIds: number[] }> = {}
+) => ({
+  userIds,
+  emailConsent: new Set(extra.emailConsent ?? []),
+  poolIds: new Set(extra.poolIds ?? userIds),
+  pool: (extra.poolIds ?? userIds).length,
+  followers: 0,
+});
 vi.mock("../services/S3Service", () => ({
   s3Service: { getFileUrl: (k: string) => `https://cdn/${k}` },
 }));
@@ -60,13 +81,9 @@ import {
 } from "../services/broadcast";
 import { broadcastCreatorRouter } from "../trpc/broadcast/creator";
 import { broadcastsAdminRouter } from "../trpc/admin/broadcasts";
-import { env } from "../env";
-
-const envMock = env as { BROADCAST_INVITE_ONLY: boolean };
 
 beforeEach(() => {
   vi.clearAllMocks();
-  envMock.BROADCAST_INVITE_ONLY = true;
   db.$transaction.mockImplementation((arg: unknown) =>
     typeof arg === "function" ? (arg as (tx: typeof db) => unknown)(db) : Promise.all(arg as [])
   );
@@ -179,8 +196,13 @@ describe("fan-out", () => {
 
   it("writes one delivery per member with skipDuplicates and marks it sent", async () => {
     db.broadcast.updateMany.mockResolvedValue({ count: 1 });
-    db.broadcast.findUnique.mockResolvedValue({ id: 5, poolId: 9, creatorUserId: 1 });
-    db.$queryRaw.mockResolvedValue([{ userId: 2 }, { userId: 3 }]);
+    db.broadcast.findUnique.mockResolvedValue({
+      id: 5,
+      poolId: 9,
+      audienceKind: "POOL_MEMBERS",
+      creatorUserId: 1,
+    });
+    audience.resolve.mockResolvedValue(people([2, 3]));
     db.broadcastDelivery.count.mockResolvedValue(2);
     expect(await processBroadcast(5)).toBe("sent");
     const call = db.broadcastDelivery.createMany.mock.calls[0][0];
@@ -191,6 +213,65 @@ describe("fan-out", () => {
         data: expect.objectContaining({ status: "SENT", recipientCount: 2 }),
       })
     );
+    expect(audience.resolve).toHaveBeenCalledWith("POOL_MEMBERS", 1, 9);
+  });
+
+  it("M9: a followers broadcast needs no pool and skips email without consent", async () => {
+    db.broadcast.updateMany.mockResolvedValue({ count: 1 });
+    db.broadcast.findUnique.mockResolvedValue({
+      id: 6,
+      poolId: null,
+      audienceKind: "FOLLOWERS",
+      creatorUserId: 1,
+    });
+    audience.resolve.mockResolvedValue(people([2, 3, 4], { emailConsent: [3], poolIds: [] }));
+    db.broadcastDelivery.count.mockResolvedValue(3);
+    expect(await processBroadcast(6)).toBe("sent");
+    expect(audience.resolve).toHaveBeenCalledWith("FOLLOWERS", 1, null);
+    const rows = db.broadcastDelivery.createMany.mock.calls[0][0].data;
+    expect(rows).toEqual([
+      expect.objectContaining({
+        userId: 2,
+        emailStatus: "NOT_ELIGIBLE",
+        emailSkipReason: "no_email_consent",
+      }),
+      expect.objectContaining({
+        userId: 3,
+        emailStatus: "NOT_ELIGIBLE",
+        emailSkipReason: "phase1_inbox_only",
+      }),
+      expect.objectContaining({ userId: 4, emailSkipReason: "no_email_consent" }),
+    ]);
+  });
+
+  it("M9: in a Both broadcast a pool staker keeps the stake time email opt in", async () => {
+    db.broadcast.updateMany.mockResolvedValue({ count: 1 });
+    db.broadcast.findUnique.mockResolvedValue({
+      id: 7,
+      poolId: 9,
+      audienceKind: "POOL_AND_FOLLOWERS",
+      creatorUserId: 1,
+    });
+    audience.resolve.mockResolvedValue(people([2, 3], { poolIds: [2] }));
+    db.broadcastDelivery.count.mockResolvedValue(2);
+    await processBroadcast(7);
+    const rows = db.broadcastDelivery.createMany.mock.calls[0][0].data;
+    expect(rows.map((r: { emailSkipReason: string }) => r.emailSkipReason)).toEqual([
+      "phase1_inbox_only",
+      "no_email_consent",
+    ]);
+  });
+
+  it("M9: an audience with the pool and no pool fails", async () => {
+    db.broadcast.updateMany.mockResolvedValue({ count: 1 });
+    db.broadcast.findUnique.mockResolvedValue({
+      id: 8,
+      poolId: null,
+      audienceKind: "POOL_AND_FOLLOWERS",
+      creatorUserId: 1,
+    });
+    expect(await processBroadcast(8)).toBe("failed");
+    expect(audience.resolve).not.toHaveBeenCalled();
   });
 
   it("counts each claim as an attempt and only claims under the cap (QA-034)", async () => {
@@ -209,8 +290,9 @@ describe("fan-out", () => {
       poolId: 9,
       creatorUserId: 1,
       sendAttempts: 2,
+      audienceKind: "POOL_MEMBERS",
     });
-    db.$queryRaw.mockRejectedValue(new Error("db down"));
+    audience.resolve.mockRejectedValue(new Error("db down"));
     expect(await processBroadcast(5)).toBe("failed");
     expect(db.broadcast.update).not.toHaveBeenCalled();
   });
@@ -222,8 +304,9 @@ describe("fan-out", () => {
       poolId: 9,
       creatorUserId: 1,
       sendAttempts: BROADCAST_MAX_SEND_ATTEMPTS,
+      audienceKind: "POOL_MEMBERS",
     });
-    db.$queryRaw.mockRejectedValue(new Error("db down"));
+    audience.resolve.mockRejectedValue(new Error("db down"));
     expect(await processBroadcast(5)).toBe("failed");
     expect(db.broadcast.update).toHaveBeenCalledWith({
       where: { id: 5 },
@@ -288,7 +371,8 @@ describe("send", () => {
       pausedAt: null,
     });
     db.broadcast.count.mockResolvedValue(0);
-    db.$queryRaw.mockResolvedValue([{ n: 12 }]);
+    db.$queryRaw.mockResolvedValue([]);
+    audience.resolve.mockResolvedValue(people(Array.from({ length: 12 }, (_, i) => i + 2)));
     db.broadcast.create.mockImplementation(({ data }: { data: { status: string } }) =>
       Promise.resolve({ id: 77, status: data.status })
     );
@@ -300,9 +384,10 @@ describe("send", () => {
     expect(db.broadcast.create).not.toHaveBeenCalled();
   });
 
-  it("refuses an owner without an invite while invite only", async () => {
+  it("sends without an invite: the invite pilot ended in M2", async () => {
     ready({ invited: false });
-    await expect(caller.send(input)).rejects.toThrow("invite only");
+    const res = await caller.send(input);
+    expect(res.status).toBe("QUEUED");
   });
 
   it("holds the first broadcast for review", async () => {
@@ -435,5 +520,87 @@ describe("compliance copy check (spec 3.8, acceptance 17)", () => {
     );
     const hits = strings.flatMap(s => findBannedTerms(s).map(h => `${h.phrase} in "${s.trim()}"`));
     expect(hits).toEqual([]);
+  });
+});
+
+describe("send to an audience (M9)", () => {
+  const caller = broadcastCreatorRouter.createCaller({ user: { sub: 1 } } as never);
+  const base = {
+    chainId: "1",
+    title: "New release",
+    body: "It is out now.",
+    idempotencyKey: "key-m9-123",
+  };
+
+  function ready() {
+    db.broadcast.findUnique.mockResolvedValue(null);
+    db.creatorPool.findFirst.mockResolvedValue(null);
+    db.user.findUnique.mockResolvedValue({ email_verified: true, block: "no" });
+    db.broadcastSenderStatus.findUnique.mockResolvedValue({
+      firstApprovedAt: new Date(),
+      pausedAt: null,
+    });
+    db.broadcast.count.mockResolvedValue(0);
+    db.$queryRaw.mockResolvedValue([]);
+    db.broadcast.create.mockImplementation(({ data }: { data: { status: string } }) =>
+      Promise.resolve({ id: 78, status: data.status })
+    );
+  }
+
+  it("sends to followers without a pool", async () => {
+    ready();
+    audience.resolve.mockResolvedValue(people([5, 6], { poolIds: [] }));
+    expect((await caller.send({ ...base, audience: "FOLLOWERS" })).status).toBe("QUEUED");
+    expect(audience.resolve).toHaveBeenCalledWith("FOLLOWERS", 1, null);
+    expect(db.broadcast.create.mock.calls[0][0].data).toMatchObject({
+      poolId: null,
+      audienceKind: "FOLLOWERS",
+      recipientEstimate: 2,
+    });
+  });
+
+  it("an audience with the pool needs the creator's own pool", async () => {
+    ready();
+    await expect(caller.send({ ...base, audience: "POOL_AND_FOLLOWERS" })).rejects.toThrow(
+      "You do not own a pool on this network."
+    );
+    db.creatorPool.findFirst.mockResolvedValue({ id: 9, name: "Tide", poolAddress: "0x" });
+    audience.resolve.mockResolvedValue(people([2, 3, 4], { poolIds: [2] }));
+    await caller.send({ ...base, audience: "POOL_AND_FOLLOWERS" });
+    expect(audience.resolve).toHaveBeenLastCalledWith("POOL_AND_FOLLOWERS", 1, 9);
+    expect(db.broadcast.create.mock.calls[0][0].data).toMatchObject({
+      poolId: 9,
+      audienceKind: "POOL_AND_FOLLOWERS",
+      recipientEstimate: 3,
+    });
+  });
+
+  it("refuses an empty audience with the audience's own line", async () => {
+    ready();
+    audience.resolve.mockResolvedValue(people([], { poolIds: [] }));
+    await expect(caller.send({ ...base, audience: "FOLLOWERS" })).rejects.toThrow(
+      "Nobody follows you yet."
+    );
+    expect(db.broadcast.create).not.toHaveBeenCalled();
+  });
+
+  it("an older client with no audience still sends to pool stakers", async () => {
+    ready();
+    db.creatorPool.findFirst.mockResolvedValue({ id: 9, name: "Tide", poolAddress: "0x" });
+    audience.resolve.mockResolvedValue(people([2]));
+    await caller.send(base);
+    expect(db.broadcast.create.mock.calls[0][0].data.audienceKind).toBe("POOL_MEMBERS");
+  });
+
+  it("audienceCounts returns pool, followers and the deduplicated total", async () => {
+    db.creatorPool.findFirst.mockResolvedValue({ id: 9, name: "Tide" });
+    audience.counts.mockResolvedValue({ pool: 3, followers: 10, total: 11 });
+    expect(await caller.audienceCounts({ chainId: "1" })).toEqual({
+      hasPool: true,
+      pool: 3,
+      followers: 10,
+      total: 11,
+    });
+    expect(audience.counts).toHaveBeenCalledWith(1, 9);
   });
 });

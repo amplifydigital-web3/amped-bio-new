@@ -22,6 +22,7 @@ import { fromCents, toCents, toUsdcUnits } from "./amounts";
 import { isOnrampConfigured, onrampApi } from "./coinbase";
 import { onrampPausedSetting } from "./pause";
 import { partnerUserRefFor } from "./refs";
+import { coinbaseRedirectUrl } from "./redirect";
 import { decryptOnrampToken, encryptOnrampToken } from "./secret";
 import type { OnrampRegion } from "./region";
 
@@ -506,10 +507,6 @@ export async function createCoinbaseSession(
     },
   });
 
-  const redirect = new URL("/wallet", env.APP_URL);
-  redirect.searchParams.set("fund", "usdc");
-  redirect.searchParams.set("session", sessionId);
-
   try {
     const response = await onrampApi().createOnrampSession({
       purchaseCurrency: "USDC",
@@ -520,7 +517,7 @@ export async function createCoinbaseSession(
       country: input.region.country,
       subdivision:
         input.region.country === "US" ? (input.region.subdivision ?? undefined) : undefined,
-      redirectUrl: redirect.toString(),
+      redirectUrl: coinbaseRedirectUrl(env.APP_URL, sessionId, safeReturnTo(input.returnTo)),
       clientIp: input.clientIp,
       partnerUserRef,
     });

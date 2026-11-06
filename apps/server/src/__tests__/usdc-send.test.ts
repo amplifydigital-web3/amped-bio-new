@@ -80,6 +80,7 @@ const relayer = {
   address: vi.fn(async () => getAddress("0x9999999999999999999999999999999999999999")),
   gas: vi.fn(),
   submit: vi.fn(),
+  call: vi.fn(),
 } satisfies Relayer;
 
 function readContractDefault({ functionName }: { functionName: string }) {
@@ -634,6 +635,10 @@ describe("indexer", () => {
     });
     expect(nextRange(head - CONFIRMATIONS, head)).toBeNull();
     expect(nextRange(100n, head)).toEqual({ from: 101n, to: 100n + MAX_RANGE });
+    // The public Base RPC rejects eth_getLogs over more than 200 blocks
+    for (const range of [nextRange(null, head), nextRange(100n, head)]) {
+      expect(range!.to - range!.from + 1n).toBeLessThanOrEqual(200n);
+    }
   });
 
   it("writes one row per log, skips logs touching no member and is idempotent", async () => {

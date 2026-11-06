@@ -3,7 +3,6 @@ import { z } from "zod";
 import { prisma } from "@repo/database";
 import { DM_RULE_KINDS, TELEGRAM_APP_STRINGS, TELEGRAM_LIMITS } from "@repo/constants";
 import { privateProcedure, router } from "../trpc";
-import { env } from "../../env";
 import { enforceRateLimits } from "../../utils/rateLimit";
 import { getCreatorSettings } from "../../services/messaging/access";
 import {
@@ -59,8 +58,8 @@ export const messagingCreatorRouter = router({
       creatorPoolIds(userId),
     ]);
     return {
-      enabled: settings?.enabled ?? false,
-      ruleKind: settings?.ruleKind ?? "FOLLOWER",
+      enabled: !!settings && settings.ruleKind !== "NOBODY",
+      ruleKind: settings && settings.ruleKind !== "NOBODY" ? settings.ruleKind : "FOLLOWER",
       stakeMin: settings?.stakeMin ?? null,
       dailyNewThreadCap: settings?.dailyNewThreadCap ?? TELEGRAM_LIMITS.dailyNewThreadCapDefault,
       replyFromTelegram: settings?.replyFromTelegram ?? true,
@@ -71,7 +70,8 @@ export const messagingCreatorRouter = router({
         telegramLinked: !!account,
         telegramReachable: isReachable(account),
         hasPool: poolIds.length > 0,
-        invited: !env.MESSAGING_INVITE_ONLY || !!settings?.invitedAt,
+        // The invite pilot ended in PR M2 (msg-invite)
+        invited: true,
       },
     };
   }),
@@ -119,16 +119,15 @@ export const messagingCreatorRouter = router({
       if (input.enabled) {
         if (user?.page_status !== "PUBLISHED") throw precondition(E.notPublished);
         if (!user?.email_verified) throw precondition(E.emailNotVerified);
-        if (!account || (replyFromTelegram && !isReachable(account))) {
-          throw precondition(E.notLinked);
-        }
-        if (env.MESSAGING_INVITE_ONLY && !settings?.invitedAt) throw precondition(E.notInvited);
+        if (!account) throw precondition(E.notLinked);
+        // Linked, but Start was never pressed in the bot or the bot is blocked
+        if (replyFromTelegram && !isReachable(account)) throw precondition(E.botNotStarted);
         if (settings?.pausedAt) throw precondition(E.paused);
       }
 
+      // PR M2: the enabled flag is now the NOBODY rule
       const data = {
-        enabled: input.enabled,
-        ruleKind: input.ruleKind,
+        ruleKind: input.enabled ? input.ruleKind : ("NOBODY" as const),
         stakeMin,
         dailyNewThreadCap:
           input.dailyNewThreadCap ??
@@ -136,12 +135,12 @@ export const messagingCreatorRouter = router({
           TELEGRAM_LIMITS.dailyNewThreadCapDefault,
         replyFromTelegram,
       };
-      await prisma.creatorMessagingSettings.upsert({
+      await prisma.messagingSettings.upsert({
         where: { userId },
         create: { userId, ...data },
         update: data,
       });
-      if (settings?.ruleKind !== input.ruleKind || settings?.enabled !== input.enabled) {
+      if (settings?.ruleKind !== data.ruleKind) {
         emitTelegramEvent("dm_rule_set", { rule_kind: input.ruleKind, enabled: input.enabled });
       }
       return { ok: true };
