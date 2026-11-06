@@ -10,6 +10,7 @@ const state = vi.hoisted(() => ({
   merchant: { id: Buffer.alloc(16, 1), status: "active" } as Record<string, unknown> | null,
   endpoints: [] as Record<string, unknown>[],
   deliveries: [] as Record<string, any>[],
+  idempotency: [] as Record<string, any>[],
   purchase: null as Record<string, any> | null,
   offers: [] as Record<string, unknown>[],
 }));
@@ -53,6 +54,18 @@ vi.mock("@repo/database", () => ({
       update: vi.fn(async ({ where, data }: { where: { id: Buffer }; data: object }) =>
         Object.assign(state.deliveries.find(d => d.id.equals(where.id))!, data)
       ),
+      deleteMany: vi.fn(async ({ where }: { where: { createdAt: { lt: Date } } }) => {
+        const before = state.deliveries.length;
+        state.deliveries = state.deliveries.filter(d => !(d.createdAt < where.createdAt.lt));
+        return { count: before - state.deliveries.length };
+      }),
+    },
+    partnerIdempotencyKey: {
+      deleteMany: vi.fn(async ({ where }: { where: { createdAt: { lt: Date } } }) => {
+        const before = state.idempotency.length;
+        state.idempotency = state.idempotency.filter(d => !(d.createdAt < where.createdAt.lt));
+        return { count: before - state.idempotency.length };
+      }),
     },
     purchase: {
       findUnique: vi.fn(async () => state.purchase),
@@ -78,6 +91,7 @@ import {
   setWebhookResolverForTests,
   signWebhook,
   verifyWebhook,
+  purgePartnerData,
 } from "../services/partners/webhooks";
 import { OrderError, reportFulfillment } from "../services/partners/orders";
 
@@ -89,6 +103,7 @@ beforeEach(() => {
   state.keys = [];
   state.endpoints = [];
   state.deliveries = [];
+  state.idempotency = [];
   state.merchant = { id: MERCHANT, status: "active" };
   state.offers = [{ id: Buffer.alloc(16, 5), externalCode: "STANDARD" }];
   state.purchase = {
@@ -243,6 +258,22 @@ describe("delivery", () => {
     await deliverDueWebhooks(now);
     expect(posted).not.toHaveBeenCalled();
     expect(state.deliveries[0]).toMatchObject({ status: "failed", lastError: "blocked_host" });
+  });
+
+  it("keeps deliveries 30 days and idempotency records 7 (privacy notice section 10)", async () => {
+    const now = new Date("2026-12-01T00:00:00Z");
+    const day = 86_400_000;
+    state.deliveries = [
+      { id: Buffer.alloc(16, 1), createdAt: new Date(now.getTime() - 31 * day) },
+      { id: Buffer.alloc(16, 2), createdAt: new Date(now.getTime() - 29 * day) },
+    ];
+    state.idempotency = [
+      { id: Buffer.alloc(16, 3), createdAt: new Date(now.getTime() - 8 * day) },
+      { id: Buffer.alloc(16, 4), createdAt: new Date(now.getTime() - 6 * day) },
+    ];
+    expect(await purgePartnerData(now)).toEqual({ deliveries: 1, idempotency: 1 });
+    expect(state.deliveries).toHaveLength(1);
+    expect(state.idempotency).toHaveLength(1);
   });
 });
 
