@@ -159,7 +159,7 @@ The verify link carries `order_ref`, so Authbase can check the chain before it s
 
 ### 3.8 Merchant Console
 
-A thin app at partners.amped.bio, Prism 2.2, built from the store admin components that already exist (product editor, Sales table, store policy editor). The Authbase team signs in with Amped.Bio accounts that are members of the merchant. Two factor is required for Owner and Finance.
+A thin app at partners.amped.bio, Prism 2.2, built from the store admin components that already exist (product editor, Sales table, store policy editor). The Authbase team signs in with Amped.Bio accounts that are members of the merchant. A fresh two factor code is required for every money or secret change an Owner or Finance member makes (price, refund, API key, signing secret).
 
 | Page | Built from | Does |
 | --- | --- | --- |
@@ -183,7 +183,7 @@ REST at `https://api.amped.bio/partners/v1` (staging `api.staging.amped.bio`). B
 | `GET /orders/{order_ref}` | Status, offer, external code, payer, RNS name, chain, tx hash, amount, shares, fulfillment state, timestamps |
 | `GET /orders` | Paged list. Filters: status, wallet, RNS name, product, created range |
 | `GET /entitlements?wallet=0x...` | Paid orders with no completed fulfillment |
-| `POST /orders/{order_ref}/fulfillment` | `started`, `in_review`, `verified` (tier, valid_until), `not_passed` (reason text), `expired` |
+| `POST /orders/{order_ref}/fulfillment` | `started`, `in_review`, `verified` (tier, valid_until), `not_passed` (reason text), `attempts_used` 0 to 3 |
 | `POST /orders/{order_ref}/refund` | Starts the AmpedPay refund (3.11). Returns the data Authbase signs |
 | `GET /products`, `PUT /products/{code}` | Same catalog as p2 |
 
@@ -193,23 +193,23 @@ Authbase builds no new endpoint. It reads the order on `/verify` (3.6).
 
 ### 3.10 Data model
 
-Reuse first. One migration.
+Reuse first. One additive migration per PR (AB-1 merchants, AB-2 service offers, AB-4 keys and webhooks, AB-6 seller overrides). Every new table uses a UUIDv7 `BINARY(16)` id.
 
 | Model | Status | Change |
 | --- | --- | --- |
 | `Offer` | reused | `kind` (content, service), `fulfillment` (library, external), `externalCode`, `rank`, `placement`, `features`, `tag`, `merchantId` |
-| `Purchase` | reused | `fulfillmentState` (none, paid, started, in_review, verified, not_passed), `rnsName` |
+| `Purchase` | reused | `fulfillmentState` (null, paid, started, in_review, verified, not_passed), `rnsName` |
 | `CheckoutIntent` | reused | none |
-| `Merchant` | new | id, userId (merchant account), name, status (pending, active, suspended), feeBps (Authbase 2000; null uses `platform_fee_bps`), approvedBy, approvedAt |
-| `MerchantMember` | new | merchantId, userId, role |
-| `MerchantPayoutWallet` | new | merchantId, chainId, address, ownershipSig, status (pending, effective, retired), effectiveAt, proposedBy, approvedBy, screenedAt |
-| `MerchantApiKey` | new | merchantId, prefix, hash, mode (test, live), lastUsedAt, revokedAt |
-| `WebhookEndpoint`, `WebhookDelivery` | new | url, secretHash, events, status; eventId, attempt, responseCode, nextRetryAt. Any seller can use them later |
-| `MerchantAuditLog` | new | merchantId, actorId, action, before, after, createdAt |
+| `Merchant` | new | id, slug, name, status (pending, active, suspended), feeBps (Authbase 2000), businessCheck, storePolicyUrl, returnUrl, approvedAt, suspendedAt, createdById |
+| `MerchantMember` | new | merchantId, userId, role (owner, finance, developer, viewer), addedById |
+| `MerchantPayoutWallet` | new | merchantId, address, status (proposed, approved, effective, replaced, rejected, cancelled), proofMessage, proofSignature, proposedById, approvedById, approvedAt, effectiveAt, replacedAt. One payment chain per deployment, so no chainId column |
+| `MerchantApiKey` | new | merchantId, name, prefix, keyHash (sha256, unique), mode (test, live), lastUsedAt, revokedAt |
+| `WebhookEndpoint`, `WebhookDelivery` | new | url, secretBox (AES-256-GCM, shown once), events, status; eventId, attempt, responseCode, nextRetryAt. Any seller can use them later |
+| `MerchantAuditLog` | new | merchantId, actorId (0 for the system), action, detail, createdAt |
 
 UUIDv7 ids, per AGENTS.md. `feeBps` stays inside `feeFloorBps` and the merchant ceiling (3.13).
 
-`SellerOverride` (new, AB-6): userId, reason, endsAt, createdBy, createdAt, endedAt, endedReason. One active row per user. Logged in `AdminChange`.
+`SellerOverride` (new, AB-6): userId, reason, endsAt, createdById, createdAt, revokedAt, revokedById, reminderSentAt, endedNoticeAt. One active row per user, enforced when an override is set. Logged in `AdminChange`.
 
 ### 3.11 Refunds
 

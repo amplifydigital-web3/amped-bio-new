@@ -30,7 +30,7 @@ Buy now is disabled at or below the tier the user already holds. While a paid, u
 - **One rail.** The payment is an AmpedPay `pay()` on Base, like paid content. Authbase's payout wallet takes 80% and the Amped.Bio treasury 20% in the same transaction. The contract gains a merchant recipient role with its own 20% ceiling. Creator payments keep the 10% ceiling.
 - **Proof of payment, three ways.** Authbase gets a signed `order.paid` webhook at the first confirmation. It can look the order up in the Partner API. It can read the `Paid` event on chain by the order reference without trusting Amped.Bio's servers.
 - **Refunds** run through AmpedPay. Authbase signs from its payout wallet, the treasury returns the Amped.Bio share, and the user gets back exactly what they paid.
-- **Flags.** `authbaseStorefront`, `partnerApi` and `merchantConsole` in site settings, off in production until launch.
+- **Flags.** `authbaseStorefront` (the storefront and merchant offers), `partnerApi` (`/partners/v1` and webhooks) and `sellerRequiresEnhanced` (AB-6) in site settings, off in production until launch. The console host itself has no flag: access needs a `MerchantMember` account, and the storefront and API are off until their flags are on.
 - **Network.** Base Sepolia with test USDC on staging. Base mainnet after the AmpedPay audit.
 
 ## Competition
