@@ -2092,11 +2092,12 @@ export const poolsFanRouter = router({
             functionName: "nodeTotalDelegation",
             args: [node as Address],
           })),
+          // One failed node read must fail the request: a partial sum would be
+          // cached for 15 minutes and shown as the network total
+          allowFailure: false,
         });
-        for (const result of delegationResults) {
-          if (result.status === "success") {
-            totalSystemStake += result.result as bigint;
-          }
+        for (const delegation of delegationResults) {
+          totalSystemStake += delegation as bigint;
         }
 
         const result = {
