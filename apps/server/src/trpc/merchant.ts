@@ -148,10 +148,13 @@ export const merchantRouter = router({
           amountUnits: z.string().regex(/^[1-9]\d{0,12}$/),
           rank: z.number().int().min(0).max(99),
           status: z.enum(["draft", "active", "paused", "archived"]),
+          // A price change is a money change: a fresh code, like the admin page (spec 3.8)
+          code2fa: z.string().trim().max(12),
         })
       )
       .mutation(async ({ ctx, input }) => {
         await requireFinance(input.merchantId, ctx.user!.sub);
+        await assertTwoFactorCode(ctx.user!.sub, input.code2fa, ctx.req.headers);
         try {
           return await upsertMerchantOffer({
             merchantId: input.merchantId,

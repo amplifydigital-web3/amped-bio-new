@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Button, ErrorCard, trpc } from "@repo/ui";
 import { usdc, useMerchant } from "../merchant";
-import { Badge, Field, PageTitle, Panel, Table, td, th, tr } from "../parts";
+import { Badge, CodeField, Field, PageTitle, Panel, Table, td, th, tr } from "../parts";
 
 // Board p2: the checks Authbase sells on the Identity tab. The product code matches the check
 // Authbase runs (STANDARD, ENHANCED). Owners and Finance edit; the price shows as $N USDC.
@@ -35,12 +35,14 @@ export function Products() {
   const queryClient = useQueryClient();
   const list = useQuery(trpc.merchant.console.products.queryOptions({ merchantId: merchant.id }));
   const [form, setForm] = useState<Form>(EMPTY);
+  const [code, setCode] = useState("");
   const canEdit = merchant.role === "owner" || merchant.role === "finance";
   const save = useMutation({
     ...trpc.merchant.console.saveProduct.mutationOptions(),
     onSuccess: () => {
       toast.success("Product saved.");
       setForm(EMPTY);
+      setCode("");
       void queryClient.invalidateQueries({
         queryKey: trpc.merchant.console.products.queryKey({ merchantId: merchant.id }),
       });
@@ -168,8 +170,9 @@ export function Products() {
               </select>
             </label>
           </div>
+          <CodeField value={code} onChange={setCode} />
           <Button
-            disabled={save.isPending || !units || !form.code || !form.title}
+            disabled={save.isPending || !units || !form.code || !form.title || code.length !== 6}
             onClick={() =>
               save.mutate({
                 merchantId: merchant.id,
@@ -186,6 +189,7 @@ export function Products() {
                 amountUnits: units,
                 rank: Number(form.rank) || 0,
                 status: form.status,
+                code2fa: code,
               })
             }
           >
