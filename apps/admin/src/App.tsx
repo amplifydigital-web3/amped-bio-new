@@ -15,6 +15,7 @@ import {
   AdminMessaging,
   AdminSafety,
   AdminMoney,
+  AdminHandles,
   AdminFeatureFlags,
   PaymentsOverview,
   PaymentsSettings,
@@ -52,6 +53,7 @@ function AppRouter() {
           <Route path="safety" element={<AdminSafety />} />
           <Route path="telegram" element={<AdminTelegram />} />
           <Route path="money" element={<AdminMoney />} />
+          <Route path="handles" element={<AdminHandles />} />
           <Route path="feature-flags" element={<AdminFeatureFlags />} />
           {/* AmpedPay admin controls (Build Board #50): boards a1, a2 and a4 */}
           <Route path="payments" element={<PaymentsOverview />} />
