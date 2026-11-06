@@ -9,6 +9,7 @@ import {
   type BlockReveal,
   accessRuleInputSchema,
   type AccessCheckPageResult,
+  ACCESS_STATS_RANGES,
 } from "@repo/constants";
 import { prisma } from "@repo/database";
 import { privateProcedure, publicProcedure, router } from "./trpc";
@@ -28,6 +29,7 @@ import { isLockable } from "../services/access/blocks";
 import { sanitizeBlockConfig } from "../utils/sanitizeBlockConfig";
 import { enforceRateLimits } from "../utils/rateLimit";
 import { isFeatureOn } from "../services/featureFlags";
+import { accessRulesStats } from "../services/access/stats";
 
 const ruleIdInput = z.string().regex(/^[0-9a-f]{32}$/);
 const opensToAllAtInput = z.string().datetime().nullable().optional();
@@ -208,6 +210,17 @@ export const accessRouter = router({
           input: input.rule,
         });
         return { ok: true };
+      }),
+
+    /**
+     * Access insights for People, Access (G6, spec 3.10 delta 8). Aggregates only: by
+     * rule, by refusal reason and by item. A bucket under 5 viewers is "under_5".
+     */
+    stats: privateProcedure
+      .input(z.object({ range: z.enum(ACCESS_STATS_RANGES).default("30d") }))
+      .query(async ({ ctx, input }) => {
+        requireEnabled();
+        return accessRulesStats(ctx.user!.sub, input.range);
       }),
 
     delete: privateProcedure

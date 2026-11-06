@@ -8,7 +8,7 @@ import { cn } from "@repo/ui";
 import { contentItemPath } from "@/lib/content";
 import { trpcClient } from "@/lib/trpc";
 import { ContentCardLink } from "./ContentCardView";
-import { useCardDecisions } from "./gating";
+import { StakeNotices, useCardDecisions } from "./gating";
 import { ReportContentButton } from "./ReportDialog";
 import { SITE_CONTENT_COPY as copy } from "./copy";
 import { CREATOR_FOCUS_RING } from "./theme";
@@ -149,6 +149,8 @@ export function FeedPageView({
         </div>
       ) : (
         <>
+          {/* GQ2-2: one stake notice above the list when any card is behind a stake rule */}
+          {items.some(card => card.gate?.stake) && <StakeNotices />}
           <ul className="mt-[21px] hidden grid-cols-2 gap-x-[21px] gap-y-[34px] sm:grid lg:grid-cols-4">
             {items.map(card => (
               <li key={card.publicId}>

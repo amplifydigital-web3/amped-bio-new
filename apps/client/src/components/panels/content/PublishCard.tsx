@@ -7,6 +7,7 @@ import { messageForApiError } from "./lib/uploadTask";
 import { normalizeApiError } from "./lib/browserDeps";
 import { refreshContent } from "./lib/uploads";
 import { toast } from "@/components/ui/toast";
+import { isFeatureOn } from "@/config/featureFlags";
 
 const e = CONTENT_COPY.editor;
 
@@ -43,15 +44,18 @@ export function PublishCard({ item, onDeleted }: { item: PublishItem; onDeleted:
   const held = item.moderationState === "held";
   const blocked = item.status === "blocked" || item.moderationState === "blocked";
   const cleared = item.moderationState === "clear";
-  // Only a ready, cleared, non 18+ item publishes: the server refuses the rest
-  const canPublish = ready && cleared && !held && !blocked && !item.adult;
+  // Only a ready, cleared item publishes. 18+ publishes once the adultContent flag is
+  // on (A1); the server still asks for the creator's Over 18 and seller passes.
+  const adultOpen = isFeatureOn("adultContent");
+  const adultWaits = item.adult && !adultOpen;
+  const canPublish = ready && cleared && !held && !blocked && !adultWaits;
   const publishReason = blocked
     ? e.publishBlocked
     : held
       ? e.publishReview
       : !ready
         ? e.publishProcessing
-        : item.adult
+        : adultWaits
           ? e.publishAdult
           : e.publishNotClear;
   const key: readonly unknown[] = trpc.content.get.queryKey({ publicId: item.publicId });
@@ -113,7 +117,7 @@ export function PublishCard({ item, onDeleted }: { item: PublishItem; onDeleted:
 
       {published && item.adult && (
         <Notice variant="warning" title={e.adult}>
-          {e.publishAdult}
+          {adultOpen ? e.publishAdultOpen : e.publishAdult}
         </Notice>
       )}
 

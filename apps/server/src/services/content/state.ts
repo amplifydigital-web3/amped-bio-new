@@ -144,6 +144,9 @@ export async function applyStreamWebhook(body: StreamWebhookBody): Promise<Strea
  */
 export type ProcessorCallbackResult = "not_found" | "ignored" | "applied" | "blocked";
 
+/** Moderation reason when an item found explicit lost its 18+ label (#28 F1). */
+export const ADULT_LABEL_REMOVED = "adult_label_removed";
+
 /** R2 prefixes the processor may report; anything else is rejected (untrusted toolbox). */
 const ASSET_KEY_PREFIXES = ["originals", "audio", "derived"];
 
@@ -221,6 +224,10 @@ export async function applyProcessorCallback(
   }
 
   const metadata = {
+    // The classifier found the file explicit (#28 F1): the 18+ label locks on
+    ...(callback.step === "classifier" && callback.explicit === true && !item.explicitAt
+      ? { explicitAt: new Date() }
+      : {}),
     ...(callback.sha256 ? { sha256: callback.sha256 } : {}),
     ...(callback.durationMs !== undefined ? { durationMs: callback.durationMs } : {}),
     ...(callback.pageCount !== undefined ? { pageCount: callback.pageCount } : {}),
@@ -285,9 +292,25 @@ export async function applyProcessorCallback(
         }
       }
       if (callback.step !== "done") {
+        // #28 F1: the queued job carries the 18+ label from when it was enqueued, so
+        // a label taken off mid-processing still reports this item explicit. The
+        // unlabeled item is held for a reviewer instead of clearing to the public
+        // pages, and stays held when "done" arrives.
+        const unlabeledExplicit =
+          callback.step === "classifier" && callback.explicit === true && !item.adult;
         await prisma.contentItem.update({
           where: { id: item.id },
-          data: { ...metadata, processingStep: callback.step },
+          data: {
+            ...metadata,
+            processingStep: callback.step,
+            ...(unlabeledExplicit
+              ? {
+                  moderationState: "HELD" as const,
+                  moderationReason: ADULT_LABEL_REMOVED,
+                  ...edgeDirty(),
+                }
+              : {}),
+          },
         });
         return "applied";
       }

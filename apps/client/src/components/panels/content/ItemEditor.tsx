@@ -53,6 +53,8 @@ interface EditorItem {
   failureReason: string | null;
   allowDownload: boolean;
   adult: boolean;
+  /** #28 F1: the classifier or a reviewer marked it explicit; the 18+ switch stays on */
+  adultLocked?: boolean;
   chapters: unknown;
   durationMs: number | null;
   pageCount: number | null;
@@ -469,9 +471,10 @@ export function ItemEditor({ publicId, onBack }: { publicId: string; onBack: () 
           </div>
           <div className="px-[13px] py-[8px]">
             <Switch
-              checked={adult}
+              checked={adult || data.adultLocked === true}
+              disabled={data.adultLocked === true}
               label={e.adult}
-              description={e.adultHelp}
+              description={data.adultLocked ? e.adultLocked : e.adultHelp}
               onChange={next => {
                 setAdult(next);
                 autosave.change({ adult: next });
