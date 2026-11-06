@@ -110,6 +110,12 @@ const sig65 = z.string().regex(/^0x[0-9a-fA-F]{130}$/);
 export const membershipJoinPrepareSchema = z.object({
   handle: z.string().trim().min(1).max(64),
   interval: z.enum(MEMBERSHIP_INTERVALS),
+  /** C12: the promoter code from ?via= on the join link */
+  via: z
+    .string()
+    .trim()
+    .regex(/^[A-Za-z0-9_-]{1,32}$/)
+    .optional(),
   /** The fan's live wallet, refused when it is not the account's wallet */
   signer: z
     .string()
@@ -154,6 +160,10 @@ export interface MembershipPlanOut {
 export interface MembershipPlanPublic {
   id: string;
   handle: string;
+  /** The seller named on the join sheet: the live store policy's seller name */
+  sellerName: string;
+  /** The live store policy version the join links */
+  policyVersion: number | null;
   name: string;
   description: string | null;
   benefits: string[];
@@ -217,6 +227,8 @@ export type MembershipJoinPrepareResult =
       storePolicyVersion: number | null;
       signer: `0x${string}`;
       typed: MembershipJoinTypedData;
+      /** C12: Referred by @handle when a promoter row is in the join table */
+      promoterHandle: string | null;
     }
   | { refused: true; reason: MembershipRefusal; shortBy?: string };
 
@@ -317,6 +329,49 @@ export const MEMBERSHIP_COPY = {
     signature: "The signature did not match. Start again.",
     relayer: "The payment could not be sent. Nothing left your wallet. Try again.",
   } satisfies Record<MembershipRefusal, string>,
+  /** The join sheet (mobile checkout 11, board c2) */
+  join: {
+    title: (handle: string) => `Join @${handle}`,
+    intervals: { every_30_days: "Every 30 days", yearly: "Yearly" } satisfies Record<
+      MembershipInterval,
+      string
+    >,
+    review: (amount: string, interval: MembershipInterval) =>
+      `${amount} today, then ${amount} ${MEMBERSHIP_INTERVAL_WORDS[interval]} from your wallet. Cancel any time.`,
+    consent: (seller: string, interval: MembershipInterval) =>
+      interval === "yearly"
+        ? `I agree to yearly renewals and to ${seller}'s store policy.`
+        : `I agree to renewals every 30 days and to ${seller}'s store policy.`,
+    fee: (percent: number) => `Includes the Amped.Bio fee of ${percent}%`,
+    details: "Details",
+    allowance: (amount: string) =>
+      `Your wallet lets Amped.Bio memberships take up to ${amount} for renewals. You can cancel any time.`,
+    commit: (amount: string) => `Join for ${amount}`,
+    policy: "Store policy",
+    notTaking: "Not taking new members right now",
+    member: "You are a member",
+    signing: "Confirm in your wallet",
+    sending: "Joining",
+    /** Still landing after the poll: never say nothing was taken, the join may be on chain */
+    pending: "Your join is still confirming. It will show in your Library in a moment.",
+    done: "You are a member.",
+    open: "Open in your Library",
+    short: (shortBy: string) => `Your wallet needs ${shortBy} more.`,
+    addUsdc: "Add USDC",
+    rejected: "You cancelled in your wallet. Nothing was taken.",
+    notFound: "This membership is not available.",
+  },
+  /** The storefront membership card and the product page line (MB-2, board st4 and s3) */
+  card: {
+    heading: "Membership",
+    amount: (amount: string) => `${amount} every 30 days`,
+    yearly: (amount: string, saving: number | null) =>
+      saving ? `or ${amount} a year, save ${saving}%` : `or ${amount} a year`,
+    members: (count: number) => `${count} members`,
+    join: "Join",
+    alsoIn: (plan: string) => `Also included in ${plan}.`,
+    joinInstead: "Join instead",
+  },
   plan: {
     errors: {
       amountEvery30Days: "Choose $1 to $500 USDC every 30 days.",

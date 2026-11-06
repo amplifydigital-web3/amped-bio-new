@@ -6,9 +6,16 @@
  * 18+ products never appear (A1 lists them after an age pass).
  */
 import { prisma } from "@repo/database";
-import type { StoreProductPublic, StorePublic, StoreSection } from "@repo/constants";
+import {
+  STORE_BLOCK_PRODUCTS_MAX,
+  type StoreBioBlock,
+  type StoreProductPublic,
+  type StorePublic,
+  type StoreSection,
+} from "@repo/constants";
 import { findPublicCreator } from "../content/publicView";
 import { publicOffers } from "./products";
+import { publicPlan } from "../memberships/plans";
 import { liveVersion, publicPolicy, versionSummary } from "./policy";
 import { storeIsPublic } from "./settings";
 
@@ -54,8 +61,44 @@ export async function storePublic(
       summary: summary?.summary ?? "",
       policyVersion: summary?.version ?? 0,
     },
+    membership: await publicPlan(creator.handle, viewerUserId, now),
     preview,
   };
+}
+
+/**
+ * The store block on the bio (st10, store-catalog.md 6). Public stores only: the
+ * owner's preview never reaches the bio, so the block hides until go live and
+ * hides again when the store pauses or loses its last active product. Featured
+ * products lead, then the rest in the creator's order, up to 6. 18+ products
+ * are never listed (publicOffers leaves them out).
+ */
+export async function storeForBio(
+  creator: { id: number; handle: string; name: string | null },
+  now = new Date()
+): Promise<StoreBioBlock | null> {
+  const store = await prisma.storeSettings.findUnique({ where: { userId: creator.id } });
+  if (!store || !storeIsPublic(store)) return null;
+  // No policy, no store (visibleStore): the block links to a page fans could not open
+  if (!(await liveVersion(creator.id))) return null;
+  const cards = (await publicOffers(creator.id, now)).map(offer => offer.card);
+  if (cards.length === 0) return null;
+  const featuredIds = (store.featuredOfferIds as string[] | null) ?? [];
+  const featured = featuredIds.flatMap(id => cards.filter(card => card.id === id));
+  const rest = cards.filter(card => !featuredIds.includes(card.id));
+  return {
+    handle: creator.handle,
+    name: store.name ?? creator.name ?? `@${creator.handle}`,
+    productCount: cards.length,
+    products: [...featured, ...rest].slice(0, STORE_BLOCK_PRODUCTS_MAX),
+  };
+}
+
+/** store.listForBio: the same read by handle, for a page that refreshes the block. */
+export async function storeForBioByHandle(handle: string, now = new Date()) {
+  const creator = await findPublicCreator(handle);
+  if (!creator) return null;
+  return storeForBio(creator, now);
 }
 
 export async function storeProductPublic(
@@ -76,6 +119,9 @@ export async function storeProductPublic(
     description: offer.description,
     items: offer.items,
     policyVersion: summary?.version ?? 0,
+    membership: offer.card.alsoInMembership
+      ? await publicPlan(found.creator.handle, viewerUserId, now)
+      : null,
     preview: found.preview,
   };
 }

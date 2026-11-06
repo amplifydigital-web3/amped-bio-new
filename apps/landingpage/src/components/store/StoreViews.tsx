@@ -4,7 +4,9 @@ import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import {
+  MEMBERSHIP_COPY,
   STORE_COPY,
+  type MembershipPlanPublic,
   usdcDollarsLabel,
   type StorePolicyPublic,
   type StoreProductCard,
@@ -25,9 +27,98 @@ import { ReportStoreButton } from "./ReportStore";
 
 const LINK_ROW = "inline-flex min-h-[44px] items-center underline-offset-2 hover:underline";
 
+const withVia = (path: string, via: string | null) =>
+  via ? `${path}${path.includes("?") ? "&" : "?"}via=${encodeURIComponent(via)}` : path;
 const storePath = (handle: string) => `/${handle}/store`;
-const productPath = (handle: string, slug: string) => `/${handle}/store/${slug}`;
+const productPath = (handle: string, slug: string, via: string | null = null) =>
+  withVia(`/${handle}/store/${slug}`, via);
 const policyPath = (handle: string, v?: number) => `/${handle}/store/policy${v ? `?v=${v}` : ""}`;
+
+/** Join opens the app's join sheet (MB-2): the fan signs in and signs there. */
+const joinUrl = (handle: string, via: string | null = null) =>
+  withVia(`${process.env.NEXT_PUBLIC_PANEL_URL || "https://app.amped.bio"}/join/@${handle}`, via);
+
+/**
+ * The promoter code from ?via= (C12, content spec 3.9). It rides in the URL from the store
+ * to the product page, Buy and Join. No cookie: holding it is attribution tracking, which
+ * waits for counsel's classification under docs/legal/privacy-parameters.md.
+ */
+export function usePromoterVia(): string | null {
+  const [via, setVia] = useState<string | null>(null);
+  useEffect(() => {
+    const raw = new URLSearchParams(window.location.search).get("via")?.trim() ?? "";
+    setVia(/^[A-Za-z0-9_-]{1,32}$/.test(raw) ? raw : null);
+  }, []);
+  return via;
+}
+
+/** Storefront membership card (MB-2, board st4): the plan, its amounts and Join. */
+export function MembershipCard({
+  plan,
+  preview = false,
+}: {
+  plan: MembershipPlanPublic;
+  preview?: boolean;
+}) {
+  const C = MEMBERSHIP_COPY.card;
+  const via = usePromoterVia();
+  return (
+    <section
+      aria-label={C.heading}
+      className="flex flex-col gap-[13px] rounded-[13px] border border-current/20 p-[16px]"
+    >
+      <div>
+        <p className="text-[14px] opacity-75">{C.heading}</p>
+        <h2 className="text-[20px] font-bold leading-[26px]">{plan.name}</h2>
+        {plan.description ? (
+          <p className="mt-[6px] whitespace-pre-line text-[15px] leading-[22px]">
+            {plan.description}
+          </p>
+        ) : null}
+      </div>
+      {plan.benefits.length ? (
+        <ul className="list-disc pl-[21px] text-[15px] leading-[22px]">
+          {plan.benefits.map(benefit => (
+            <li key={benefit}>{benefit}</li>
+          ))}
+        </ul>
+      ) : null}
+      <div>
+        <p className="text-[17px] font-bold">
+          {C.amount(usdcDollarsLabel(plan.amountEvery30Days))}
+        </p>
+        {plan.amountYearly ? (
+          <p className="text-[14px] opacity-80">
+            {C.yearly(usdcDollarsLabel(plan.amountYearly), plan.yearlySavingPercent)}
+          </p>
+        ) : null}
+        {plan.memberCount ? (
+          <p className="text-[14px] opacity-80">{C.members(plan.memberCount)}</p>
+        ) : null}
+      </div>
+      {preview ? (
+        <span
+          aria-disabled
+          className="inline-flex min-h-[55px] items-center justify-center rounded-[13px] px-[21px] text-[17px] font-bold opacity-60"
+          style={{ backgroundColor: "var(--amped-btn)", color: "var(--amped-font)" }}
+        >
+          {C.join}
+        </span>
+      ) : (
+        <a
+          href={joinUrl(plan.handle, via)}
+          className={cn(
+            "inline-flex min-h-[55px] items-center justify-center rounded-[13px] px-[21px] text-[17px] font-bold",
+            CREATOR_FOCUS_RING
+          )}
+          style={{ backgroundColor: "var(--amped-btn)", color: "var(--amped-font)" }}
+        >
+          {C.join}
+        </a>
+      )}
+    </section>
+  );
+}
 
 function kindLabel(card: StoreProductCard): string {
   if (card.kind === "bundle") return `Bundle, ${card.itemCount} items`;
@@ -90,9 +181,10 @@ function ProductCard({
   card: StoreProductCard;
   large?: boolean;
 }) {
+  const via = usePromoterVia();
   return (
     <Link
-      href={productPath(handle, card.slug)}
+      href={productPath(handle, card.slug, via)}
       className={cn(
         "group flex flex-col overflow-hidden rounded-[13px] border border-current/15",
         CREATOR_FOCUS_RING
@@ -137,7 +229,14 @@ export function StorefrontView({ store }: { store: StorePublic }) {
       ? "grid grid-cols-1 gap-[13px]"
       : "grid grid-cols-2 gap-[13px] sm:grid-cols-3";
 
+  // The membership card sits where the creator placed it; an older order without it puts it first
+  const order = store.sectionOrder.includes("membership")
+    ? store.sectionOrder
+    : ["membership", ...store.sectionOrder];
   const sections: Record<string, ReactNode> = {
+    membership: store.membership ? (
+      <MembershipCard key="membership" plan={store.membership} preview={store.preview} />
+    ) : null,
     featured: store.featured.length ? (
       <section key="featured" aria-label="Featured" className="grid gap-[13px] sm:grid-cols-2">
         {store.featured.map(card => (
@@ -207,7 +306,7 @@ export function StorefrontView({ store }: { store: StorePublic }) {
         </div>
       </header>
 
-      {store.sectionOrder.map(section => sections[section] ?? null)}
+      {order.map(section => sections[section] ?? null)}
       {!store.products.length ? <p className="text-[16px]">No products yet.</p> : null}
 
       <section
@@ -236,13 +335,14 @@ export function StorefrontView({ store }: { store: StorePublic }) {
 }
 
 export function ProductPageView({ product }: { product: StoreProductPublic }) {
+  const via = usePromoterVia();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const buy = async () => {
     setBusy(true);
     setError(null);
     try {
-      await startProductCheckout({ offerId: product.id, source: "store" });
+      await startProductCheckout({ offerId: product.id, source: "store", via });
     } catch (failure) {
       setError(failure instanceof Error && failure.message ? failure.message : "Try again.");
       setBusy(false);
@@ -298,6 +398,19 @@ export function ProductPageView({ product }: { product: StoreProductPublic }) {
         style={{ backgroundColor: "var(--amped-container)" }}
       >
         <p className="text-[14px]">{STORE_COPY.accessLine(product.accessPeriodDays)}</p>
+        {product.membership ? (
+          <p className="text-[14px]">
+            {MEMBERSHIP_COPY.card.alsoIn(product.membership.name)}{" "}
+            {product.preview ? null : (
+              <a
+                href={joinUrl(product.handle, via)}
+                className={cn(LINK_ROW, "font-bold", CREATOR_FOCUS_RING)}
+              >
+                {MEMBERSHIP_COPY.card.joinInstead}
+              </a>
+            )}
+          </p>
+        ) : null}
         <button
           type="button"
           onClick={buy}

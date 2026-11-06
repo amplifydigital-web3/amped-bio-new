@@ -25,10 +25,57 @@ function choiceOf(flag: Flag): Choice {
   return flag.override ? "on" : "off";
 }
 
-function envLine(flag: Flag): string {
-  const names = [flag.env.server, flag.env.client, flag.env.landing].filter(Boolean);
-  const fallback = names.length ? names.join(", ") : "none";
-  return `Environment: ${fallback}. Default ${flag.default ? "on" : "off"}.`;
+type EnvSource = Flag["env"][number];
+
+const APP_LABEL: Record<EnvSource["app"], string> = {
+  server: "the API",
+  client: "the editor",
+  landing: "the landing page",
+};
+
+/**
+ * The API used to send the names as one object ({ server, client, landing }).
+ * Reading both shapes keeps this page working while the API and the admin are
+ * deployed at different times: an older API lists the names with no value.
+ */
+function envSources(flag: Flag): EnvSource[] {
+  const env = flag.env as unknown;
+  if (Array.isArray(env)) return env as EnvSource[];
+  const names = (env ?? {}) as Partial<Record<EnvSource["app"], string>>;
+  return (["server", "client", "landing"] as const)
+    .filter(app => Boolean(names[app]))
+    .map(app => ({ app, variable: names[app]!, value: null }));
+}
+
+// What the API can and cannot read. Its own variables are live; the VITE_* and
+// NEXT_PUBLIC_* ones are inlined into each app bundle at build time, so only the
+// deployed app knows those values.
+function EnvList({ flag }: { flag: Flag }) {
+  const sources = envSources(flag);
+  return (
+    <div className="space-y-1 text-prism-meta text-prism-ink-2">
+      {sources.length === 0 ? (
+        <p>No environment variable: without a row this flag uses the default.</p>
+      ) : (
+        <>
+          <p>Environment fallback, used when the row is dropped:</p>
+          <ul className="space-y-0.5">
+            {sources.map(source => (
+              <li key={`${source.app}:${source.variable}`}>
+                <span className="font-prism-mono text-prism-code-sm">{source.variable}</span>
+                {source.value === null
+                  ? source.app === "server"
+                    ? " — the API reads this variable live and reports its value once the API is on the same version."
+                    : ` — read by ${APP_LABEL[source.app]} at build time, so the API cannot show its value.`
+                  : ` = ${source.value ? "true" : "false"} — the API reads this variable live.`}
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+      <p>Default {flag.default ? "on" : "off"}.</p>
+    </div>
+  );
 }
 
 function FlagRow({ flag }: { flag: Flag }) {
@@ -74,7 +121,7 @@ function FlagRow({ flag }: { flag: Flag }) {
           )}
         </p>
         <p className="text-prism-meta text-prism-ink-2">{flag.description}</p>
-        <p className="text-prism-meta text-prism-ink-2">{envLine(flag)}</p>
+        <EnvList flag={flag} />
       </div>
       <div
         role="radiogroup"
@@ -109,7 +156,8 @@ export function AdminFeatureFlags() {
         <Info aria-hidden className="mt-0.5 h-4 w-4 shrink-0" />
         Changes reach the API within 15 seconds and the editor and public site on their next page
         load. Environment drops the saved value, so each app uses its own environment variable
-        again.
+        again. The API reads its own variables live; the editor and landing page inline theirs into
+        the bundle at build time, so those values are listed by name only.
       </p>
       {flags.isPending ? (
         <div aria-busy className="space-y-2">

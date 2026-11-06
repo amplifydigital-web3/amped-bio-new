@@ -41,9 +41,11 @@ export type CheckoutSheetExtra = {
   path: string;
   /** The product's amount (C9); null for a content target, which uses the checkout amount */
   amountUnits: bigint | null;
+  /** A product's access period in days (C9); null keeps it in the Library */
+  accessPeriodDays: number | null;
   creatorImage: string | null;
   creatorImageFileId: number | null;
-  creatorThemeId: string | null;
+  creatorThemeId: number | null;
 };
 
 /**
@@ -89,6 +91,7 @@ export async function resolveTarget(
       kind: String(item.kind ?? "file"),
       path: `/${item.user.handle}/c/${item.publicId ?? target.id}`,
       amountUnits: null,
+      accessPeriodDays: null,
       ...creatorExtra(item.user),
     },
   };
@@ -113,7 +116,7 @@ type CreatorRow = {
   page_status: string;
   image: string | null;
   image_file_id: number | null;
-  theme: string | null;
+  theme: number | null;
 };
 
 function creatorSells(user: CreatorRow): boolean {
@@ -143,6 +146,7 @@ async function resolveOffer(idHex: string) {
       status: true,
       adult: true,
       amountUnits: true,
+      accessPeriodDays: true,
       creator: { select: { ...CREATOR_SELECT, storeSettings: { select: { status: true } } } },
       items: {
         select: {
@@ -189,6 +193,7 @@ async function resolveOffer(idHex: string) {
       kind: offer.kind,
       path: `/${offer.creator.handle}/store/${offer.slug}`,
       amountUnits: offer.amountUnits,
+      accessPeriodDays: offer.accessPeriodDays,
       ...creatorExtra(offer.creator),
     },
   };

@@ -4,6 +4,7 @@
  * Client, server and landing share every schema, limit and line here.
  */
 import { z } from "zod";
+import type { MembershipPlanPublic } from "./memberships";
 import { CONTENT_PUBLIC_ID_REGEX } from "./contentKeys";
 import type { ContentImageSet } from "./contentPlayer";
 
@@ -211,6 +212,12 @@ export function requiredConfirmations(adult: boolean): StorePolicyConfirmation[]
 
 const PART_B =
   "**{{store_name}} Store Policy**\n\nEffective {{effective_date}}\n\n## 1. Who you are buying from\n\nThis store is run by {{seller_name}} (@{{handle}}). When you buy\ncontent or a membership here, you buy it from me. I am the seller.\nAmped.bio provides the storefront and checkout. Amped is not the seller.\n\n## 2. Age\n\nYou must be 18 or older to buy from this store. To see any 18+ content,\nyou must pass the Amped age check. Do not share your account or let\nanyone under 18 use it.\n\n## 3. What you get\n\nWhen you buy an item or join a membership, you get a personal, limited\nlicence to view that content on your own devices through Amped. You do\nnot own the content. You may not download it outside Amped's features,\nrecord it, share it, repost it, resell it or use it to train AI.\n\nOne time purchases stay in your Library while the item is in my store\nand your account is in good standing. Membership content is available\nwhile your membership is active.\n\n## 4. Prices and payment\n\nPrices are shown in USDC, for example \\$10 USDC. You pay with USDC from\nyour Amped wallet through Amped checkout. The price you see is the price\nyou pay. Any network fee is shown before you confirm. Payments run on a\npublic blockchain, so the wallet address used is visible on chain.\n\n## 5. Memberships\n\n- Memberships are monthly or yearly at the price shown when you join.\n\n- Your membership renews each period. You get a reminder 3 days before\n  each charge.\n\n- If your wallet balance is short at renewal, you have a 7 day grace\n  period to top up. After that, your membership ends.\n\n- You can cancel at any time in My Memberships. You keep access to the\n  end of the period you paid for.\n\n- If I change a membership price, the new price applies from your next\n  period after I give notice.\n\n## 6. Refunds\n\n{{refund_terms}}\n\nRefunds are paid in USDC to your Amped wallet. The law where you live\nmay give you more rights. Nothing in this policy limits them.\n\n## 7. Custom requests\n\nIf I accept a custom request, we agree the description, price and\ndelivery time in messages before you pay. I only make content within my\nown rules and the Amped Adult Content Policy. I may decline any request.\n\n## 8. Messages and conduct\n\nBe respectful. No harassment, threats, requests to meet in person, or\nrequests for anything illegal. I may block anyone who breaks these\nrules.\n\n{{section_9}}## 10. Leaks and copyright\n\nMy content is mine. Sharing it outside Amped breaks this policy and may\nbreak the law. If you do, I may end your access and send takedown\nnotices.\n\n## 11. Privacy\n\nI can see your Amped handle, what you buy from me and the messages you\nsend me. I cannot see your legal name, your age check details or your\nwallet balance. Amped's privacy notice explains how Amped handles your\ninformation.\n\n## 12. Problems and reports\n\nContact me through {{contact_method}}. If you appear in content on\nAmped without your consent, use the Take It Down form on Amped.bio.\nAmped acts within 48 hours. To report anything else that breaks the\nrules, use the report link on the item.\n\n## 13. Changes\n\nI may update this policy. The effective date above shows the latest\nversion. The version in force when you buy applies to that purchase.\n";
+
+/** Section 5 of Part B, verbatim, left out when the store has no membership plan (MB-2). */
+const MEMBERSHIPS_SECTION = PART_B.slice(
+  PART_B.indexOf("## 5. Memberships"),
+  PART_B.indexOf("## 6. Refunds")
+);
 const OPTION_A =
   "Digital content opens as soon as your payment\nconfirms, so sales are final. If an item does not open or is not as\ndescribed, message me within 7 days and I will fix it or refund you in\nfull.";
 const OPTION_B =
@@ -230,13 +237,18 @@ export function renderStandardPolicy(fields: {
   email: string | null;
   effectiveDate: string;
   adult: boolean;
+  /** MB-2 (store policy 5.2): section 5 renders only for a store with a membership plan */
+  memberships?: boolean;
 }): string {
   const refundTerms =
     fields.refund.option === "A"
       ? OPTION_A
       : OPTION_B.replaceAll("{{refund_days}}", String(fields.refund.days));
   const contact = fields.email ? `Amped messages or ${fields.email}` : "Amped messages";
-  return PART_B.replace("{{section_9}}", fields.adult ? SECTION_9 : "")
+  const body =
+    fields.memberships === false ? PART_B.replace(MEMBERSHIPS_SECTION, "") : PART_B;
+  return body
+    .replace("{{section_9}}", fields.adult ? SECTION_9 : "")
     .replaceAll("{{refund_terms}}", refundTerms)
     .replaceAll("{{store_name}}", fields.storeName)
     .replaceAll("{{seller_name}}", fields.sellerName)
@@ -306,6 +318,8 @@ export type StoreProductCard = {
   itemCount: number;
   cover: ContentImageSet | null;
   itemKinds: string[];
+  /** MB-2: members open this product's items too */
+  alsoInMembership: boolean;
 };
 
 export type StorePublic = {
@@ -320,8 +334,23 @@ export type StorePublic = {
   featured: StoreProductCard[];
   products: StoreProductCard[];
   buyingHere: { summary: string; policyVersion: number };
+  /** MB-2: the membership card, when the creator has an active plan */
+  membership: MembershipPlanPublic | null;
   /** Only true for the owner while the store is not live or sales are off */
   preview: boolean;
+};
+
+/** Store block (st10): products shown on the bio, featured first. */
+export const STORE_BLOCK_PRODUCTS_MAX = 6;
+
+/** What the store block renders. Null from the server means the block hides. */
+export type StoreBioBlock = {
+  handle: string;
+  /** The store's name, used when the block's heading is empty */
+  name: string;
+  /** Every active product, for the row label ("3 products") */
+  productCount: number;
+  products: StoreProductCard[];
 };
 
 export type StoreProductPublic = StoreProductCard & {
@@ -336,6 +365,8 @@ export type StoreProductPublic = StoreProductCard & {
     pageCount: number | null;
   }[];
   policyVersion: number;
+  /** MB-2: the plan that also opens this product, when it is Also in membership */
+  membership: MembershipPlanPublic | null;
   preview: boolean;
 };
 
@@ -447,5 +478,16 @@ export const STORE_COPY = {
     pastVersion: (version: number, from: string, to: string) =>
       `Version ${version}, in force ${from} to ${to}.`,
     seeCurrent: "See the current policy.",
+  },
+  block: {
+    name: "Store",
+    description: "Up to 6 of your products and a link to your store.",
+    heading: "Heading",
+    headingHelp: "Leave empty to show your store name.",
+    count: (n: number) => (n === 1 ? "1 product" : `${n} products`),
+    visitStore: "Visit store",
+    notLive: "Shows on your page once your store is live.",
+    noProducts: "Shows on your page once you have an active product.",
+    goToStore: "Open Store",
   },
 } as const;

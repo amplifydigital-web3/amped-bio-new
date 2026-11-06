@@ -101,8 +101,14 @@ export async function upsertOffer(userId: number, input: OfferUpsertInput) {
       max: bounds.max.toString(),
     });
   }
-  // Memberships (MB-1) add plans; until then no creator has one
-  if (input.alsoInMembership) throw new OfferError("no_plan");
+  // Also in membership (MB-2): members open the product's items too; needs a plan
+  if (input.alsoInMembership) {
+    const plan = await prisma.membershipPlan.findUnique({
+      where: { creatorUserId: userId },
+      select: { id: true },
+    });
+    if (!plan) throw new OfferError("no_plan");
+  }
 
   const items = await resolveItems(userId, input.itemPublicIds);
   const cover = input.coverItemPublicId
@@ -136,7 +142,7 @@ export async function upsertOffer(userId: number, input: OfferUpsertInput) {
     coverItemId: cover ? Buffer.from(cover.id) : null,
     amountUnits: amount,
     accessPeriodDays: input.accessPeriodDays,
-    alsoInMembership: false,
+    alsoInMembership: input.alsoInMembership,
     adult: false,
   };
   const itemRows = items.map((item, position) => ({
@@ -319,6 +325,7 @@ function cardOf(offer: OfferWithItems, cover: ReturnType<typeof buildProductCove
     itemCount: offer.items.length,
     cover: cover ?? null,
     itemKinds: [...new Set(offer.items.map(row => fromDbKind(row.contentItem.kind)))],
+    alsoInMembership: offer.alsoInMembership,
   };
 }
 

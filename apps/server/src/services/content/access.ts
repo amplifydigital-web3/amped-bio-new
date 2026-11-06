@@ -21,6 +21,8 @@ export const PUBLIC_ITEM_WHERE = {
   accessRuleId: null,
   adult: false,
   deletedAt: null,
+  // A Safety hide (content takedown 4.6) closes the item everywhere
+  hiddenAt: null,
 } satisfies Prisma.ContentItemWhereInput;
 
 /**
@@ -35,6 +37,7 @@ export const LISTED_ITEM_WHERE = {
   moderationState: "CLEAR",
   adult: false,
   deletedAt: null,
+  hiddenAt: null,
 } satisfies Prisma.ContentItemWhereInput;
 
 /** Creators whose items may appear publicly: a published page, not suspended. */
@@ -46,7 +49,10 @@ export const PUBLIC_CREATOR_WHERE = {
 type ItemFields = Pick<
   ContentItem,
   "status" | "publishState" | "moderationState" | "accessRuleId" | "adult" | "deletedAt"
->;
+> & {
+  /** Safety hide. Optional so callers that do not load it read "not hidden" */
+  hiddenAt?: Date | null;
+};
 type CreatorFields = { page_status: string; block: string };
 
 export function isPublicItem(item: ItemFields, creator: CreatorFields | null): boolean {
@@ -57,15 +63,21 @@ export function isPublicItem(item: ItemFields, creator: CreatorFields | null): b
     item.accessRuleId === null &&
     !item.adult &&
     item.deletedAt === null &&
+    !item.hiddenAt &&
     creator !== null &&
     creator.page_status === PUBLIC_CREATOR_WHERE.page_status &&
     creator.block === PUBLIC_CREATOR_WHERE.block
   );
 }
 
-/** The owner previews any finished item that was not blocked. */
-export function ownerCanOpen(item: Pick<ContentItem, "status" | "moderationState">): boolean {
-  return item.status === "READY" && item.moderationState !== "BLOCKED";
+/**
+ * The owner previews any finished item that was not blocked. A Safety hide closes
+ * it to the owner too (content takedown 4.8): nobody gets a token while it holds.
+ */
+export function ownerCanOpen(
+  item: Pick<ContentItem, "status" | "moderationState"> & { hiddenAt?: Date | null }
+): boolean {
+  return item.status === "READY" && item.moderationState !== "BLOCKED" && !item.hiddenAt;
 }
 
 /**
@@ -116,6 +128,7 @@ export function isListedItem(
     item.moderationState === "CLEAR" &&
     !item.adult &&
     item.deletedAt === null &&
+    !item.hiddenAt &&
     creator !== null &&
     creator.page_status === PUBLIC_CREATOR_WHERE.page_status &&
     creator.block === PUBLIC_CREATOR_WHERE.block

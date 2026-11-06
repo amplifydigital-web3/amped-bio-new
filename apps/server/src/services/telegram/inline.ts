@@ -10,6 +10,7 @@ import {
 import { env } from "../../env";
 import { getFileUrl } from "../../utils/fileUrlResolver";
 import { settingsOpen } from "../messaging/access";
+import { isFeatureOn } from "../featureFlags";
 import { emitTelegramEvent } from "./events";
 import { primaryGroup } from "./groups";
 import { encodeLinkCode } from "./linkCodes";
@@ -65,7 +66,7 @@ export async function cardKeyboard(
         `https://t.me/${botUsername}?start=${telegramPayload.message(code)}`
       );
   }
-  if (env.TELEGRAM_GROUPS && (await primaryGroup(creator.id))?.inviteLink) {
+  if (isFeatureOn("telegramGroups") && (await primaryGroup(creator.id))?.inviteLink) {
     keyboard
       .row()
       .url(
@@ -80,7 +81,7 @@ export async function cardKeyboard(
 export async function handleInlineQuery(ctx: Context) {
   const query = ctx.inlineQuery;
   if (!query) return;
-  if (!env.TELEGRAM_GROUPS) {
+  if (!isFeatureOn("telegramGroups")) {
     await ctx.answerInlineQuery([], { cache_time: CACHE_SECONDS });
     return;
   }

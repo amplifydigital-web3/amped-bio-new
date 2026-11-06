@@ -25,6 +25,7 @@ import {
 } from "viem";
 import { prisma } from "@repo/database";
 import {
+  AMPEDPAY_CONTRACT,
   MEMBERSHIP_ALLOWANCE_PERIODS,
   MEMBERSHIP_LIMITS,
   MEMBERSHIP_PERIOD_SECONDS,
@@ -56,6 +57,7 @@ import { paymentsReady } from "../payments/ready";
 import { paymentSettings } from "../payments/settings";
 import { accountAddress, paymentsCdp } from "../payments/accounts";
 import { liveVersion, versionSummary } from "../store/policy";
+import { resolvePromoter } from "../store/promoters";
 
 const BPS = 10_000;
 const hex = (id: Uint8Array) => Buffer.from(id).toString("hex");
@@ -162,11 +164,21 @@ export function hashJoin(table: JoinTable, chainId: number, contract: Address): 
 export function joinRecipients(
   creator: Address,
   treasury: Address,
-  platformFeeBps: number
+  platformFeeBps: number,
+  promoter: { to: Address; bps: number } | null = null
 ): JoinRecipient[] {
+  const promoterBps = promoter?.bps ?? 0;
   return [
-    { to: getAddress(creator), bps: BPS - platformFeeBps, role: SPLIT_ROLES.creator },
+    {
+      to: getAddress(creator),
+      bps: BPS - platformFeeBps - promoterBps,
+      role: SPLIT_ROLES.creator,
+    },
     { to: getAddress(treasury), bps: platformFeeBps, role: SPLIT_ROLES.platform },
+    // C12: the promoter row is stored with the subscription and paid on every renewal
+    ...(promoter
+      ? [{ to: getAddress(promoter.to), bps: promoterBps, role: SPLIT_ROLES.promoter }]
+      : []),
   ];
 }
 
@@ -238,7 +250,7 @@ export async function allowanceFor(
 
 export async function prepareJoin(
   fanUserId: number,
-  input: { handle: string; interval: MembershipInterval; signer?: string },
+  input: { handle: string; interval: MembershipInterval; signer?: string; via?: string },
   now = new Date()
 ): Promise<MembershipJoinPrepareResult> {
   const creator = await prisma.user.findFirst({
@@ -315,7 +327,23 @@ export async function prepareJoin(
 
   const treasury = await readTreasury(contract);
   if (!treasury) return { refused: true, reason: "paused" };
-  const recipients = joinRecipients(creatorAddress, treasury, settings.platformFeeBps);
+  const promoter = await resolvePromoter({
+    via: input.via,
+    creatorUserId: creator.id,
+    targetId: hex(plan.id),
+    buyerUserId: fanUserId,
+    payer: member,
+    platformFeeBps: settings.platformFeeBps,
+    minCreatorBps: AMPEDPAY_CONTRACT.defaults.minCreatorBps,
+    now,
+    screen: true,
+  });
+  const recipients = joinRecipients(
+    creatorAddress,
+    treasury,
+    settings.platformFeeBps,
+    promoter ? { to: promoter.to, bps: promoter.bps } : null
+  );
   const id = uuidv7();
   const nowSeconds = BigInt(Math.floor(now.getTime() / 1000));
   const validBefore = nowSeconds + BigInt(MEMBERSHIP_LIMITS.joinWindowSeconds);
@@ -368,12 +396,14 @@ export async function prepareJoin(
       joinHash,
       permitValue: allowance,
       storePolicyVersionId: live?.id ?? null,
+      promoterCodeId: promoter?.codeId ?? null,
     },
   });
 
   return {
     refused: false,
     membershipId: hex(id),
+    promoterHandle: promoter?.handle ?? null,
     amount: price.toString(),
     fee: periodFee(price, recipients).toString(),
     interval: input.interval,

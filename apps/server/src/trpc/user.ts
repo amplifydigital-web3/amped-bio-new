@@ -14,6 +14,7 @@ import { newHandleSchema } from "../services/pageHandle";
 import { publishPage, unpublishPage } from "../services/pagePublish";
 import { getFileUrl } from "../utils/fileUrlResolver";
 import { publicCount } from "../services/follow/rules";
+import { applicableThemeId } from "../services/theme/looks";
 import { batchPoolFanCreatorIds } from "../services/follow/poolFans";
 import { computeRnsIdentity, parseRnsDisplay } from "../services/rnsIdentity";
 import type { Background, ThemeConfig } from "@repo/constants";
@@ -193,7 +194,8 @@ export const userRouter = router({
           name,
           // Bio HTML is stored only after the shared allowlist sanitizer runs
           description: sanitizeRichText(description),
-          theme: `${theme}`,
+          // TE-4a: an id of the creator's own look or a marketplace theme; 0 clears it
+          theme: await applicableThemeId(userId, theme),
           image,
           reward_business_id,
         },

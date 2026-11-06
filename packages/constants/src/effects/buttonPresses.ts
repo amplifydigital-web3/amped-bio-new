@@ -29,6 +29,47 @@ const press = (
   addedIn: 2,
 });
 
+/** Phase 3c: Click spark on the 2D canvas engine, 8 lines in 233 ms. */
+const CLICK_SPARK: EffectEntry = {
+  ...press(
+    "click-spark",
+    "Click spark",
+    "Sparks burst from where you tap",
+    {
+      kind: "canvas",
+      module: "click-spark",
+    },
+    "canvas"
+  ),
+  tier: "plus",
+};
+
+/**
+ * Phase 3e: Jelly press. The button itself squashes and springs back in
+ * 377 ms; the click goes through at once.
+ */
+const JELLY_PRESS: EffectEntry = {
+  ...press(
+    "jelly-press",
+    "Jelly press",
+    "The button squashes and springs back",
+    {
+      kind: "waapi",
+      trigger: "press",
+      target: "self",
+      keyframes: () => [
+        { transform: "scale(1, 1)" },
+        { transform: "scale(1.06, 0.9)" },
+        { transform: "scale(0.97, 1.04)" },
+        { transform: "scale(1, 1)" },
+      ],
+      options: () => ({ duration: 377, easing: "cubic-bezier(0.2,0,0,1)" }),
+    },
+    "waapi"
+  ),
+  tier: "plus",
+};
+
 export const BUTTON_PRESS_EFFECTS: readonly EffectEntry[] = [
   newLayerNone("buttonPress", "No press effect", "button"),
   // One circle from the press point grows to 2.5 times the button width in
@@ -59,4 +100,6 @@ export const BUTTON_PRESS_EFFECTS: readonly EffectEntry[] = [
     },
     "css"
   ),
+  CLICK_SPARK,
+  JELLY_PRESS,
 ];
