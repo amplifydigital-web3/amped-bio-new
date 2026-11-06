@@ -724,6 +724,7 @@ Drafted for counsel. Nothing here is on a board as final text.
 
 ## Revision log
 
+- 2026-11-05: R7 built (`feat/classifier-docs`, on R5). Document page renders go through the classifier; files of creators with 18+ on are held for an 18+ review case at READY. Handoff `docs/fixes/classifier-docs.md`.
 - 2026-11-05: R5 built (`feat/safety-creators-appeals`, on R4). Creator profile, turn off 18+, suspend with second lead approval (immediate for D6 cases), appeals with the Take It Down notice rule, log and CSV export, Settings form. Handoff `docs/fixes/safety-creators-appeals.md`.
 - 2026-11-05: R4 built (`feat/adult-setup`, on R3). Setup checklist, People with invites, release signing and countersigning, withdraw (7.4), item people, AI label and recording dates, submit for review, `releaseAllowsSurface`. Handoff `docs/fixes/adult-setup.md`.
 - 2026-11-05: R3 built (`feat/takedown`, on R2). New report reasons and intake (child report hides with the abuse guard), Take It Down form, status and desk, copyright notice, counter notice and desk, footer links. Handoff `docs/fixes/takedown.md`.

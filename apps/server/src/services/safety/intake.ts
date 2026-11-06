@@ -49,7 +49,10 @@ export async function onCsamMatch(item: ItemRef, matcher: string | null): Promis
 export async function onReviewHold(item: ItemRef, source: string): Promise<void> {
   try {
     await openCase({
-      type: source === "adult_label_removed" ? "ADULT_REVIEW" : "CLASSIFIER_HOLD",
+      type:
+        source === "adult_label_removed" || source === "adult_file_review"
+          ? "ADULT_REVIEW"
+          : "CLASSIFIER_HOLD",
       contentItemId: item.id,
       creatorUserId: item.userId,
       source,
