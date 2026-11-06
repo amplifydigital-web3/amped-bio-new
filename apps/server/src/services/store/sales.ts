@@ -227,6 +227,8 @@ export async function listSales(
   const rows = await prisma.purchase.findMany({
     where: {
       creatorUserId,
+      // AB-2: a merchant's order is not the Owner account's creator sale; the Console shows it
+      merchantId: null,
       status: { in: [...SOLD_STATUSES] },
     },
     ...(cursor ? { cursor: { id: Buffer.from(cursor, "hex") }, skip: 1 } : {}),
@@ -240,6 +242,7 @@ export async function listSales(
   const month = await prisma.purchase.findMany({
     where: {
       creatorUserId,
+      merchantId: null,
       status: { in: [...REFUNDABLE_STATUSES] },
       createdAt: monthRange(salesMonthOf(now)),
     },
@@ -283,6 +286,7 @@ export async function salesCsv(creatorUserId: number, month: string): Promise<st
   const rows = await prisma.purchase.findMany({
     where: {
       creatorUserId,
+      merchantId: null,
       status: { in: [...SOLD_STATUSES] },
       createdAt: monthRange(month),
     },
