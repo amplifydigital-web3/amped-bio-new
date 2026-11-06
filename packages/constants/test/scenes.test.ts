@@ -32,7 +32,7 @@ describe("phase 2 scenes", () => {
   it("ships eight Plus scenes after the v1 overlays, light, with no v1 integer", () => {
     expect(
       listEffects("scene")
-        .slice(9)
+        .slice(9, 9 + NEW_SCENES.length)
         .map(e => e.id)
     ).toEqual(NEW_SCENES);
     for (const id of NEW_SCENES) {

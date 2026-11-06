@@ -21,7 +21,7 @@ import { Button } from "../button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "../dialog";
 import { Switch } from "../Switch";
 import { cn } from "../utils";
-import { TESTNET_NOTICE } from "./states";
+import { Notice, TESTNET_NOTICE } from "./states";
 
 /**
  * Screen Review 109: the RNS chip on a creator page and the identity sheet it
@@ -207,7 +207,8 @@ function Fact({
 }) {
   return (
     <div className="flex items-start gap-[13px]">
-      <span className="prism-lens flex h-touch w-touch shrink-0 items-center justify-center rounded-prism-13">
+      {/* One lens per region: fact tiles sit on the nav tint, not G3 glass */}
+      <span className="flex h-touch w-touch shrink-0 items-center justify-center rounded-prism-13 bg-prism-nav-tint">
         <Icon aria-hidden className="h-[21px] w-[21px] text-prism-nav" />
       </span>
       <div className="min-w-0 pt-1">
@@ -307,16 +308,17 @@ export function RnsIdentityDialog({
                 : RNS_IDENTITY_COPY.linked}
           </DialogDescription>
           {/* 112 D8: a hidden badge on a current check never reads Not verified */}
-          {identity.chip === "name" && (
-            <p
-              className={cn(
-                "text-prism-meta font-semibold",
-                identity.checkHidden ? "text-prism-ink-2" : "text-prism-warning-ink"
-              )}
-            >
-              {identity.checkHidden ? RNS_IDENTITY_COPY.hiddenCaution : RNS_IDENTITY_COPY.caution}
-            </p>
-          )}
+          {identity.chip === "name" &&
+            (identity.checkHidden ? (
+              <p className="text-prism-meta font-semibold text-prism-ink-2">
+                {RNS_IDENTITY_COPY.hiddenCaution}
+              </p>
+            ) : (
+              // Board 109 Not verified: the caution sits on the solid notice, never glass
+              <Notice variant="warning" className="text-left">
+                <p className="text-prism-meta font-semibold">{RNS_IDENTITY_COPY.caution}</p>
+              </Notice>
+            ))}
         </div>
 
         <div className="space-y-[13px]">

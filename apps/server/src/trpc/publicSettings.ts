@@ -3,8 +3,23 @@ import { prisma } from "@repo/database";
 import { z } from "zod";
 import { BANNER_PANELS, SITE_SETTINGS } from "@repo/constants";
 import { publicFeatureFlagOverrides } from "../services/featureFlags";
+import { baseFontHref } from "../services/fonts/fontMirror";
 
 export const publicSettingsRouter = router({
+  // Theme Engine v2 fonts (2b PR 2): the mirrored base stylesheet (the ten
+  // families both apps load) on the media host, or null while fontDelivery is
+  // off or the mirror is not ready (the apps then keep the Google link)
+  fontDelivery: publicProcedure
+    .input(z.void())
+    .output(z.object({ baseHref: z.string().url().nullable() }))
+    .query(async () => {
+      try {
+        return { baseHref: await baseFontHref() };
+      } catch (error) {
+        console.error("[fontDelivery] base stylesheet failed:", error);
+        return { baseHref: null };
+      }
+    }),
   getBanner: publicProcedure
     .input(z.void()) // Define empty input
     .output(
