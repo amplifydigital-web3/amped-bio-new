@@ -71,6 +71,7 @@ export function OptionTile({
   accessibleDescription,
   tier,
   cost,
+  badge,
 }: {
   label: string;
   /** Second label line (Particles descriptions) */
@@ -90,6 +91,8 @@ export function OptionTile({
   tier?: "core" | "plus" | "showcase";
   /** Cost dot before the label, with the word for screen readers (Light or Heavy). */
   cost?: "still" | "light" | "heavy";
+  /** A small pill after the label (VAR on variable fonts, board 02), and its spoken word. */
+  badge?: { text: string; spoken: string };
 }) {
   const activate = () => {
     if (!disabled) onSelect();
@@ -99,6 +102,7 @@ export function OptionTile({
     label,
     tier === "plus" ? "Plus" : tier === "showcase" ? "Showcase" : null,
     cost === "heavy" ? "Heavy" : cost === "light" ? "Light" : null,
+    badge?.spoken ?? null,
   ]
     .filter(Boolean)
     .join(", ");
@@ -182,6 +186,14 @@ export function OptionTile({
           />
         )}
         {label}
+        {badge && (
+          <span
+            aria-hidden
+            className="ml-1.5 inline-block rounded-full bg-prism-nav-tint px-1.5 align-[1px] text-[10px] font-semibold leading-[15px] tracking-[0.04em] text-prism-nav-pressed"
+          >
+            {badge.text}
+          </span>
+        )}
       </p>
       {description && <p className="text-prism-meta text-prism-ink-2">{description}</p>}
     </div>

@@ -1,6 +1,7 @@
 import { Router, type Response } from "express";
 import { env } from "../env";
 import { readEmailOffToken, setMessageNotificationPrefs } from "../services/notifications/bell";
+import { readUpdatesOffToken, turnUpdatesOff } from "../services/library/newContent";
 
 /**
  * Turn off Amped Messages reminder emails from the email footer (PR M4, spec 7.4 item 3).
@@ -13,8 +14,17 @@ const messageEmailRouter: Router = Router();
 
 const escape = (text: string) => text.replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`);
 
-function page(res: Response, status: number, title: string, body: string) {
-  const settings = new URL("/account?open=messages", env.APP_URL).toString();
+function page(
+  res: Response,
+  status: number,
+  title: string,
+  body: string,
+  settingsLink: { path: string; label: string } = {
+    path: "/account?open=messages",
+    label: "Account, Messages",
+  }
+) {
+  const settings = new URL(settingsLink.path, env.APP_URL).toString();
   res
     .status(status)
     .type("html")
@@ -37,7 +47,7 @@ button{width:100%;min-height:55px;border:0;border-radius:13px;background:#5650a2
 button:focus-visible{outline:3px solid #16152b;outline-offset:3px}
 a{color:#5650a2}
 </style></head><body><main><div class="card"><h1>${escape(title)}</h1>${body}
-<p style="margin:21px 0 0;font-size:13px">You can change this any time in <a href="${escape(settings)}">Account, Messages</a>.</p>
+<p style="margin:21px 0 0;font-size:13px">You can change this any time in <a href="${escape(settings)}">${escape(settingsLink.label)}</a>.</p>
 </div></main></body></html>`);
 }
 
@@ -68,6 +78,61 @@ messageEmailRouter.post("/messages-off", async (req, res) => {
     return page(res, 500, "Something went wrong", "<p>Try again in a minute.</p>");
   }
   return page(res, 200, "Message emails are off", "<p>Messages still arrive in your Inbox.</p>");
+});
+
+/**
+ * Stop a creator's daily Library email from its footer (Fan Library FL-6). Turns
+ * Email me updates off on that one follow, the same switch as the Library status
+ * sheet. GET shows one button; POST changes it, for the reason above.
+ */
+const LIBRARY_LINK = { path: "/library", label: "your Library" };
+
+messageEmailRouter.get("/updates-off", (req, res) => {
+  const token = typeof req.query.t === "string" ? req.query.t : "";
+  if (readUpdatesOffToken(token) === null) {
+    return page(
+      res,
+      400,
+      "This link is not valid",
+      "<p>Open the link from the email again.</p>",
+      LIBRARY_LINK
+    );
+  }
+  return page(
+    res,
+    200,
+    "Stop emails from this creator?",
+    `<p>You will stop getting the daily email about this creator's new items. You keep following them, and their items stay in your Library.</p>
+<form method="post" action="updates-off"><input type="hidden" name="t" value="${escape(token)}"><button type="submit">Stop these emails</button></form>`,
+    LIBRARY_LINK
+  );
+});
+
+messageEmailRouter.post("/updates-off", async (req, res) => {
+  const token = typeof req.body?.t === "string" ? req.body.t : "";
+  const target = readUpdatesOffToken(token);
+  if (target === null) {
+    return page(
+      res,
+      400,
+      "This link is not valid",
+      "<p>Open the link from the email again.</p>",
+      LIBRARY_LINK
+    );
+  }
+  try {
+    await turnUpdatesOff(target.userId, target.creatorUserId);
+  } catch (error) {
+    console.error("[library-email] turn off failed:", error);
+    return page(res, 500, "Something went wrong", "<p>Try again in a minute.</p>", LIBRARY_LINK);
+  }
+  return page(
+    res,
+    200,
+    "Emails from this creator are off",
+    "<p>You still follow them. New items stay in your Library.</p>",
+    LIBRARY_LINK
+  );
 });
 
 export default messageEmailRouter;

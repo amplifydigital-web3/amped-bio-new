@@ -28,6 +28,8 @@ function afterFirstPaint(run: () => void): () => void {
   return () => window.clearTimeout(timer);
 }
 
+const NO_PLUGINS: readonly string[] = [];
+
 export interface ParticlesLayerProps {
   /** A scene overlay entry. Null, none or retired entries render nothing (041 I06). */
   entry: EffectEntry | null;
@@ -49,6 +51,7 @@ export function ParticlesLayer({
   const still = reducedMotion || paused;
   const host = useRef<HTMLDivElement>(null);
 
+  const plugins = entry?.render.kind === "particles" ? entry.render.plugins : NO_PLUGINS;
   const base = useMemo(() => {
     if (!entry || entry.retired || entry.render.kind !== "particles") return null;
     return entry.render.options(clampParams(entry, params), colors);
@@ -65,7 +68,11 @@ export function ParticlesLayer({
         .then(runtime =>
           cancelled
             ? undefined
-            : runtime.mountParticles(element, particleLayerOptions(base, { still, finePointer }))
+            : runtime.mountParticles(
+                element,
+                particleLayerOptions(base, { still, finePointer }),
+                plugins
+              )
         )
         .then(container => {
           if (cancelled) container?.destroy();
@@ -86,7 +93,7 @@ export function ParticlesLayer({
       cancelStart();
       destroy?.();
     };
-  }, [base, still]);
+  }, [base, still, plugins]);
 
   if (!base) return null;
   return <div ref={host} aria-hidden className={cn("pointer-events-none", className)} />;

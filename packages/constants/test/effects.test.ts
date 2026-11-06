@@ -127,29 +127,50 @@ describe("registry lookups", () => {
     expect(names).not.toContain("name.gradient");
     expect(listEffects("name", { includeRetired: true }).map(e => e.id)).toContain("name.gradient");
     // Pickers offer what the editor offers today
-    expect(listEffects("container").map(e => e.legacyId)).toEqual([0, 1, 2, 3, 4, 5, 7, 9]);
+    expect(
+      listEffects("container")
+        .filter(e => e.addedIn === 1)
+        .map(e => e.legacyId)
+    ).toEqual([0, 1, 2, 3, 4, 5, 7, 9]);
+    // Phase 3d premium surfaces come after, by id
+    expect(
+      listEffects("container")
+        .filter(e => e.addedIn === 2)
+        .map(e => e.id)
+    ).toEqual([
+      "container.liquid-glass",
+      "container.electric-border",
+      "container.star-border",
+      "container.spotlight",
+    ]);
     expect(
       listEffects("scene")
         .filter(e => e.addedIn === 1)
         .map(e => e.legacyId)
     ).toEqual([0, 1, 2, 3, 4, 5, 7, 8, 9]);
-    // The nine v1 overlays plus eight Plus scenes on the slim bundle (phase 2, board 01)
-    expect(listEffects("scene").length).toBe(17);
+    // The nine v1 overlays, eight Plus scenes on the slim bundle (phase 2, board 01),
+    // the twenty shader scenes (TE-3b), five emitter scenes and Comet trails (TE-3f)
+    expect(listEffects("scene").length).toBe(43);
     expect(
       listEffects("name")
         .filter(e => e.addedIn === 1)
         .map(e => e.legacyId)
     ).toEqual([0, 2, 6, 7, 8, 9]);
-    // The six v1 name effects plus nine core effects (phase 2, board 08)
-    expect(listEffects("name").length).toBe(15);
-    // The ten v1 styles plus Hard shadow (phase 2, board 07)
-    expect(listEffects("button").length).toBe(11);
-    // The ten v1 hovers plus five core hovers (phase 2, board 09)
-    expect(listEffects("buttonHover").length).toBe(15);
+    // The six v1 name effects, nine core effects (phase 2, board 08), Particle text (TE-3f),
+    // Fuzzy text (TE-3c), Weight pulse (TE-3e2) and Rotating words, Circular and
+    // Depth parallax (TE-3e)
+    expect(listEffects("name").length).toBe(21);
+    // The ten v1 styles plus Hard shadow (phase 2, board 07) and Specular (phase 3d)
+    expect(listEffects("button").length).toBe(12);
+    // The ten v1 hovers, five core hovers (phase 2, board 09), and Magnet, Lift
+    // and tilt and Jelly (TE-3e)
+    expect(listEffects("buttonHover").length).toBe(18);
     expect(listEffects("buttonPress").map(e => e.id)).toEqual([
       "buttonPress.none",
       "buttonPress.ripple",
       "buttonPress.dip",
+      "buttonPress.click-spark",
+      "buttonPress.jelly-press",
     ]);
   });
 
@@ -198,9 +219,18 @@ describe("no pixel change: the registry matches today's renderers", () => {
   });
 
   it("hover effects match the public page (the editor's drift is fixed in 1b)", () => {
+    // TE-3e: Strength reads CSS variables whose fallbacks are the shipped
+    // values, so with no variable set each class draws what v1 draws
+    const shipped = (className: string) =>
+      className
+        .replace(/scale-\[var\(--amped-hover-scale,1\.05\)\]/g, "scale-105")
+        .replace(/scale-\[var\(--amped-hover-scale,1\.1\)\]/g, "scale-110")
+        .replace(/translate-x-\[var\(--amped-hover-x,0\.5rem\)\]/g, "translate-x-2")
+        .replace(/rotate-\[var\(--amped-hover-rot,3deg\)\]/g, "rotate-3")
+        .replace(/0_0_var\(--amped-hover-glow,15px\)_/g, "0_0_15px_");
     for (const n of LEGACY_IDS) {
       const entry = findEffect(legacyEffectId("buttonEffect", n))!;
-      expect(classOf(entry)).toBe(publicStyles.getButtonEffectStyle(n));
+      expect(shipped(classOf(entry))).toBe(publicStyles.getButtonEffectStyle(n));
     }
   });
 

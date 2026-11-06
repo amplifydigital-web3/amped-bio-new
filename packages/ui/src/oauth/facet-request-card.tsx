@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Check, CircleAlert, EyeOff, Info, Loader2, ShieldCheck } from "lucide-react";
+import { Check, EyeOff, Info, Loader2, ShieldCheck } from "lucide-react";
 import { Button } from "../button";
 import { Notice } from "../prism/states";
 import { cn } from "../utils";
@@ -95,10 +95,10 @@ function RequesterArt({ requester }: { requester: FacetRequester }) {
   );
 }
 
-/** P03: the requested fact. G2 slab r21, icon tile 44 on nav tint, 26/33 fact, 13/16 source. */
+/** P03: the requested fact. G1 clear glass r21 (a slab is only for tables inside a value panel), icon tile 44 on nav tint, 26/33 fact, 13/16 source. */
 function FacetSlab({ facet }: { facet: FacetDescription }) {
   return (
-    <div className="prism-slab flex items-center gap-[21px] p-[21px]">
+    <div className="prism-glass-clear flex items-center gap-[21px] p-[21px]">
       <span
         aria-hidden
         className="inline-flex h-touch w-touch shrink-0 items-center justify-center rounded-prism-13 bg-prism-nav-tint"
@@ -232,16 +232,9 @@ export function FacetRequestCard({
 
           {/* 107 I06: error keeps the request; nothing is shared */}
           {state === "error" && (
-            <div
-              role="alert"
-              className="prism-raised flex items-start gap-3 rounded-prism-13 px-[13px] py-3 text-prism-body text-prism-ink"
-            >
-              <CircleAlert
-                aria-hidden
-                className="mt-0.5 h-[21px] w-[21px] shrink-0 text-prism-ink-2"
-              />
+            <Notice variant="error" role="alert">
               <p>Could not create the proof. Try again. Nothing was shared.</p>
-            </div>
+            </Notice>
           )}
 
           <Actions>

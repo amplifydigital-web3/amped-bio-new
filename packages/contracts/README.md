@@ -1,6 +1,6 @@
 # Amped.Bio contracts
 
-Solidity contracts for Amped.Bio payments. Built with Foundry. Spec: `docs/features/ampedpay.md` (Build Board #50).
+Solidity contracts for Amped.Bio payments. Built with Foundry. Specs: `docs/features/ampedpay.md` (Build Board #50) and `docs/features/ampedmemberships.md` (Build Board #51).
 
 This folder is not a pnpm workspace package. It has no `package.json`, so `pnpm install`, `turbo` and the lockfile ignore it.
 
@@ -8,6 +8,7 @@ This folder is not a pnpm workspace package. It has no `package.json`, so `pnpm 
 
 | Contract | What it does |
 | --- | --- |
+| `src/AmpedMemberships.sol` | Memberships in USDC on Base. At join the member signs the terms and a USDC permit; the contract pulls one period and stores the split. The relayer renews one period at a time inside the grace after each due date. Cancel by the member, by the member's signature, or by the platform. Pause, admin limits with fixed ranges, upgradeable behind the same Safe. |
 | `src/AmpedPay.sol` | One time payments in USDC on Base. The fan signs one `receiveWithAuthorization` whose nonce is the split hash. The contract pays every recipient of a split table signed by the Amped.Bio API, in one transaction. Full refunds, pause, and admin limits with fixed ranges. Upgradeable behind a transparent proxy owned by the Safe. |
 
 ## Setup
@@ -37,7 +38,10 @@ export AMPEDPAY_RELAYER=0x...       # Coinbase relayer account
 export AMPEDPAY_PAUSER=0x...        # Coinbase pauser account
 
 forge script script/DeployAmpedPay.s.sol --rpc-url base_sepolia --account <deployer> --broadcast --verify
+forge script script/DeployAmpedMemberships.s.sol --rpc-url base_sepolia --account <deployer> --broadcast --verify
 ```
+
+Both scripts read the same variables. AmpedMemberships needs no treasury allowance: it has no refund path.
 
 The script refuses to finish unless the ProxyAdmin is owned by the Safe, the Safe holds the admin and params roles, the relayer holds the relayer role, and the deployer holds no role. Record the printed addresses in `apps/*/.env.staging` and `docs/ops/ampedpay-staging.md`.
 

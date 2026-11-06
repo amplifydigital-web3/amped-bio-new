@@ -12,6 +12,10 @@
  * It also keeps position for signed in viewers (every 10 seconds of play, on
  * pause, on hide and on leave), refreshes signed URLs a minute before they
  * expire, and drives the lock screen through the Media Session API.
+ *
+ * FL-1 adds the queue the viewer builds (Play next, Add to queue), the up next
+ * list a page offers, autoplay (on by default, same creator only, never a
+ * locked item: queue.ts), Previous with a history, and the sleep timer.
  */
 import * as React from "react";
 import {
@@ -21,6 +25,15 @@ import {
   contentPlayCompleted,
 } from "@repo/constants";
 import { attachSource, type Attachment } from "./attach";
+import { isAccessEnded } from "./content";
+import {
+  PREVIOUS_RESTART_MS,
+  appendToQueue,
+  insertNext,
+  moveEntry,
+  pickNext,
+  sleepEndsAt,
+} from "./queue";
 import {
   clampSeek,
   matchCaption,
@@ -37,6 +50,9 @@ import {
   type PlayerSource,
   type PlayerState,
   type ProgressAdapter,
+  type QueueEntry,
+  type SleepChoice,
+  type SleepTimer,
   type SourceResolver,
 } from "./types";
 
@@ -44,7 +60,13 @@ export interface LoadOptions {
   /** Start here instead of the top (Resume) */
   startAtMs?: number | null;
   autoplay?: boolean;
+  /** Previous loads from the history without adding to it */
+  keepHistory?: boolean;
 }
+
+/** How many items Previous can step back through. */
+const HISTORY_LIMIT = 50;
+const SLEEP_OFF: SleepTimer = { choice: "off", endsAt: null };
 
 export interface PlayerApi {
   item: PlayerItem | null;
@@ -66,12 +88,38 @@ export interface PlayerApi {
   setVolume(volume: number): void;
   toggleMute(): void;
   cycleRate(): void;
+  setRate(rate: number): void;
   cycleCaptions(): void;
+  /** -1 turns captions off */
+  setCaptions(index: number): void;
   togglePip(): void;
   showAirplay(): void;
   toggleFullscreen(container: HTMLElement | null): void;
   retry(): void;
+  /** Stops play and dismisses the mini player. The queue stays. */
   close(): void;
+  /** Same as close: the name the mini player's swipe down and Stop use. */
+  stop(): void;
+  /** The viewer's queue, in play order */
+  queue: QueueEntry[];
+  /** The page's up next list (the creator's items, newest first) */
+  upNext: QueueEntry[];
+  autoplay: boolean;
+  sleep: SleepTimer;
+  /** Something may play after the current item */
+  canNext: boolean;
+  /** Previous goes back an item or restarts this one */
+  canPrevious: boolean;
+  setUpNext(entries: QueueEntry[]): void;
+  setAutoplay(on: boolean): void;
+  /** False when refused: locked, or the item playing now */
+  playNext(entry: QueueEntry): boolean;
+  addToQueue(entry: QueueEntry): boolean;
+  removeFromQueue(itemId: string): void;
+  moveQueueEntry(from: number, to: number): void;
+  next(): void;
+  previous(): void;
+  setSleepTimer(choice: SleepChoice): void;
   /** The full player's video well; null on unmount */
   registerSlot(itemId: string, element: HTMLElement | null): void;
   loadProgress(id: string): Promise<PlayerProgressSnapshot | null>;
@@ -138,12 +186,30 @@ export function PlayerProvider({
   progressRef.current = progress;
   const stateRef = React.useRef<PlayerState>(INITIAL_PLAYER_STATE);
   const loadToken = React.useRef(0);
+  const historyRef = React.useRef<QueueEntry[]>([]);
+  const playedRef = React.useRef<string[]>([]);
+  const sleepTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const endedRef = React.useRef<() => void>(() => {});
 
   const [state, setStateRaw] = React.useState<PlayerState>(INITIAL_PLAYER_STATE);
   const [current, setCurrent] = React.useState<Current | null>(null);
   const [fullPlayerShowing, setFullPlayerShowing] = React.useState(false);
   const [airplayAvailable, setAirplayAvailable] = React.useState(false);
   const [pipSupported, setPipSupported] = React.useState(false);
+  const [queue, setQueueState] = React.useState<QueueEntry[]>([]);
+  const queueRef = React.useRef<QueueEntry[]>([]);
+  const [upNext, setUpNextState] = React.useState<QueueEntry[]>([]);
+  const upNextRef = React.useRef<QueueEntry[]>([]);
+  const [autoplay, setAutoplayState] = React.useState(true);
+  const autoplayRef = React.useRef(true);
+  const [historySize, setHistorySize] = React.useState(0);
+  const [sleep, setSleepState] = React.useState<SleepTimer>(SLEEP_OFF);
+  const sleepRef = React.useRef<SleepTimer>(SLEEP_OFF);
+
+  const setQueue = React.useCallback((next: QueueEntry[]) => {
+    queueRef.current = next;
+    setQueueState(next);
+  }, []);
 
   const setState = React.useCallback((patch: Partial<PlayerState>) => {
     stateRef.current = { ...stateRef.current, ...patch };
@@ -279,6 +345,7 @@ export function PlayerProvider({
         case "ended":
           setState({ playing: false });
           writeProgress(true);
+          endedRef.current();
           break;
         case "durationchange":
           if (Number.isFinite(media.duration)) {
@@ -409,13 +476,20 @@ export function PlayerProvider({
           currentRef.current = { ...now, source: next };
           setCurrent(currentRef.current);
           scheduleRefresh(next.expiresAt, token);
-        } catch {
-          // Access may have ended (a fan who lost access finishes this play only)
-          setState({ error: "expired" });
+        } catch (error) {
+          if (isAccessEnded(error)) {
+            // A refused refresh stops playback (Fan Library FL-6, spec 3.4)
+            (now.item.kind === "video" ? videoRef.current : audioRef.current)?.pause();
+            setState({ error: "ended", playing: false });
+            return;
+          }
+          // Access ended, or the item was removed or hidden (takedown tk1): stop here
+          active()?.pause();
+          setState({ error: "expired", playing: false });
         }
       }, refreshDelayMs(expiresAt));
     },
-    [clearRefresh, setState]
+    [active, clearRefresh, setState]
   );
 
   const placeVideo = React.useCallback(() => {
@@ -451,7 +525,19 @@ export function PlayerProvider({
         if (options.autoplay) void media0.play().catch(() => {});
         return;
       }
-      if (existing) teardown();
+      if (existing) {
+        if (options.keepHistory !== false && existing.item.id !== item.id) {
+          historyRef.current = [
+            ...historyRef.current,
+            { item: existing.item, resolve: existing.resolve, canOpen: true },
+          ].slice(-HISTORY_LIMIT);
+          setHistorySize(historyRef.current.length);
+        }
+        teardown();
+      }
+      if (!playedRef.current.includes(item.id)) {
+        playedRef.current = [...playedRef.current, item.id].slice(-HISTORY_LIMIT * 4);
+      }
       const token = ++loadToken.current;
       currentRef.current = { item, resolve, source: null };
       setCurrent(currentRef.current);
@@ -473,8 +559,10 @@ export function PlayerProvider({
       let source: PlayerSource;
       try {
         source = await resolve();
-      } catch {
-        if (loadToken.current === token) setState({ error: "load", loading: false });
+      } catch (error) {
+        if (loadToken.current === token) {
+          setState({ error: isAccessEnded(error) ? "ended" : "load", loading: false });
+        }
         return;
       }
       if (loadToken.current !== token) return;
@@ -584,6 +672,24 @@ export function PlayerProvider({
     media.playbackRate = nextSpeed(media.playbackRate, PLAYER_SPEEDS);
   }, [active]);
 
+  const setRate = React.useCallback(
+    (rate: number) => {
+      const media = active();
+      if (media && PLAYER_SPEEDS.includes(rate as (typeof PLAYER_SPEEDS)[number])) {
+        media.playbackRate = rate;
+      }
+    },
+    [active]
+  );
+
+  const setCaptions = React.useCallback(
+    (index: number) => {
+      const count = currentRef.current?.source?.captions?.length ?? 0;
+      applyCaptions(index >= 0 && index < count ? index : -1);
+    },
+    [applyCaptions]
+  );
+
   const cycleCaptions = React.useCallback(() => {
     const count = currentRef.current?.source?.captions?.length ?? 0;
     applyCaptions(nextCaptionIndex(stateRef.current.captionIndex, count));
@@ -627,7 +733,15 @@ export function PlayerProvider({
     void load(now.item, now.resolve, { startAtMs: Math.round(at * 1000), autoplay: true });
   }, [active, load, teardown]);
 
+  const clearSleep = React.useCallback(() => {
+    if (sleepTimerRef.current) clearTimeout(sleepTimerRef.current);
+    sleepTimerRef.current = null;
+    sleepRef.current = SLEEP_OFF;
+    setSleepState(SLEEP_OFF);
+  }, []);
+
   const close = React.useCallback(() => {
+    clearSleep();
     teardown();
     loadToken.current += 1;
     currentRef.current = null;
@@ -635,7 +749,123 @@ export function PlayerProvider({
     setState(INITIAL_PLAYER_STATE);
     setSessionMetadata(null);
     placeVideo();
-  }, [placeVideo, setState, teardown]);
+  }, [clearSleep, placeVideo, setState, teardown]);
+
+  // ---------------------------------------------------------------- queue
+
+  const currentId = () => currentRef.current?.item.id ?? null;
+
+  const setUpNext = React.useCallback((entries: QueueEntry[]) => {
+    upNextRef.current = entries;
+    setUpNextState(entries);
+  }, []);
+
+  const setAutoplay = React.useCallback((on: boolean) => {
+    autoplayRef.current = on;
+    setAutoplayState(on);
+  }, []);
+
+  const playNext = React.useCallback(
+    (entry: QueueEntry) => {
+      const next = insertNext(queueRef.current, entry, currentId());
+      const added = next[0]?.item.id === entry.item.id;
+      setQueue(next);
+      return added;
+    },
+    [setQueue]
+  );
+
+  const addToQueue = React.useCallback(
+    (entry: QueueEntry) => {
+      const before = queueRef.current;
+      const next = appendToQueue(before, entry, currentId());
+      setQueue(next);
+      return next.length > before.length;
+    },
+    [setQueue]
+  );
+
+  const removeFromQueue = React.useCallback(
+    (itemId: string) => setQueue(queueRef.current.filter(entry => entry.item.id !== itemId)),
+    [setQueue]
+  );
+
+  const moveQueueEntry = React.useCallback(
+    (from: number, to: number) => setQueue(moveEntry(queueRef.current, from, to)),
+    [setQueue]
+  );
+
+  /** Plays what comes next. `auto` is the end of an item; otherwise the viewer asked. */
+  const advance = React.useCallback(
+    (auto: boolean) => {
+      const pick = pickNext({
+        current: currentRef.current?.item ?? null,
+        queue: queueRef.current,
+        upNext: upNextRef.current,
+        autoplay: auto ? autoplayRef.current : true,
+        played: playedRef.current,
+      });
+      if (!pick) return false;
+      if (pick.source === "queue") {
+        setQueue(queueRef.current.filter((_, index) => index !== pick.index));
+      }
+      void load(pick.entry.item, pick.entry.resolve, { autoplay: true });
+      return true;
+    },
+    [load, setQueue]
+  );
+
+  const next = React.useCallback(() => void advance(false), [advance]);
+
+  const previous = React.useCallback(() => {
+    const media = active();
+    const now = currentRef.current;
+    const back = historyRef.current.at(-1);
+    if (media && (media.currentTime * 1000 > PREVIOUS_RESTART_MS || !back)) {
+      seek(0);
+      return;
+    }
+    if (!back) return;
+    historyRef.current = historyRef.current.slice(0, -1);
+    setHistorySize(historyRef.current.length);
+    // The item left behind plays next again
+    if (now) setQueue(insertNext(queueRef.current, { ...now, canOpen: true }, back.item.id));
+    void load(back.item, back.resolve, { autoplay: true, keepHistory: false });
+  }, [active, load, seek, setQueue]);
+
+  const setSleepTimer = React.useCallback(
+    (choice: SleepChoice) => {
+      clearSleep();
+      if (choice === "off") return;
+      const endsAt = sleepEndsAt(choice);
+      const timer: SleepTimer = { choice, endsAt };
+      sleepRef.current = timer;
+      setSleepState(timer);
+      if (endsAt != null) {
+        sleepTimerRef.current = setTimeout(() => {
+          active()?.pause();
+          sleepTimerRef.current = null;
+          sleepRef.current = SLEEP_OFF;
+          setSleepState(SLEEP_OFF);
+        }, endsAt - Date.now());
+      }
+    },
+    [active, clearSleep]
+  );
+
+  // The end of an item: the sleep timer wins, then the queue and autoplay
+  endedRef.current = () => {
+    if (sleepRef.current.choice === "end") {
+      clearSleep();
+      return;
+    }
+    advance(true);
+  };
+
+  React.useEffect(
+    () => () => void (sleepTimerRef.current && clearTimeout(sleepTimerRef.current)),
+    []
+  );
 
   const registerSlot = React.useCallback(
     (itemId: string, element: HTMLElement | null) => {
@@ -667,6 +897,8 @@ export function PlayerProvider({
       ["seekforward", details => skip((details.seekOffset ?? PLAYER_SEEK_MS / 1000) * 1000)],
       ["seekto", details => details.seekTime != null && seek(details.seekTime * 1000)],
       ["stop", () => close()],
+      ["nexttrack", () => next()],
+      ["previoustrack", () => previous()],
     ];
     for (const [action, handler] of handlers) {
       try {
@@ -684,7 +916,7 @@ export function PlayerProvider({
         }
       }
     };
-  }, [close, pause, play, seek, skip]);
+  }, [close, next, pause, play, previous, seek, skip]);
 
   React.useEffect(() => {
     if (typeof navigator === "undefined" || !("mediaSession" in navigator)) return;
@@ -713,14 +945,39 @@ export function PlayerProvider({
     setVolume,
     toggleMute,
     cycleRate,
+    setRate,
     cycleCaptions,
+    setCaptions,
     togglePip,
     showAirplay,
     toggleFullscreen,
     retry,
     close,
+    stop: close,
     registerSlot,
     loadProgress,
+    queue,
+    upNext,
+    autoplay,
+    sleep,
+    canNext:
+      pickNext({
+        current: current?.item ?? null,
+        queue,
+        upNext,
+        autoplay: true,
+        played: playedRef.current,
+      }) !== null,
+    canPrevious: !!current && (historySize > 0 || state.started),
+    setUpNext,
+    setAutoplay,
+    playNext,
+    addToQueue,
+    removeFromQueue,
+    moveQueueEntry,
+    next,
+    previous,
+    setSleepTimer,
   };
 
   return (

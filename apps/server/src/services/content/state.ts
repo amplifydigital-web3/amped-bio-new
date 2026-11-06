@@ -18,6 +18,7 @@ import { publishContentJob } from "../cloudflare/queue";
 import { createStreamClip, enableStreamDownloads } from "../cloudflare/stream";
 import { env } from "../../env";
 import { purgeDeletedItems } from "./purge";
+import { edgeDirty } from "./edge";
 
 /** Items left in UPLOADING longer than this are failed and their bytes released. */
 export const UPLOADING_TIMEOUT_MS = 24 * 60 * 60 * 1000;
@@ -43,6 +44,8 @@ export async function failItem(
             moderationState: "BLOCKED",
             moderationReason: reason.slice(0, 255),
             processingStep: null,
+            // The edge loop applies BLOCKED within a minute (takedown 4.3)
+            ...edgeDirty(),
           }
         : { status: "FAILED", failureReason: reason.slice(0, 255), processingStep: null },
     });
@@ -242,6 +245,7 @@ export async function applyProcessorCallback(
           processingStep: callback.step,
           moderationState: "HELD",
           moderationReason: (callback.reason ?? "classifier").slice(0, 255),
+          ...edgeDirty(),
         },
       });
       return "applied";
