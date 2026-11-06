@@ -143,6 +143,51 @@ export async function publicCardsFor(
   return cards;
 }
 
+/**
+ * Cards for items already read (the Fan Library lists, FL-2), keyed by publicId.
+ * Items with a served asset that has not passed its scan are left out, as on
+ * every public surface. Cards carry covers only, never a playback URL.
+ */
+export async function cardsForItems(
+  items: ContentItem[],
+  now: Date = new Date()
+): Promise<Map<string, ContentCard>> {
+  const assets = await assetsByItem(items.map(item => item.id));
+  const cards = new Map<string, ContentCard>();
+  for (const item of items) {
+    const rows = assets.get(hex(item.id)) ?? [];
+    if (!servedAssetsClean(rows)) continue;
+    const cardRows = rows.filter(row => (CARD_ASSET_ROLES as readonly string[]).includes(row.role));
+    cards.set(item.publicId, buildCard(item, cardRows, now));
+  }
+  return cards;
+}
+
+/**
+ * Locked cards for gated items already read (the Fan Library Shop, FL-6), keyed
+ * by publicId: the blur cover and the rule summary, never a cover, rendition or
+ * token (content criterion 9). Items without a rule, or with a served asset
+ * that has not passed its scan, are left out.
+ */
+export async function lockedCardsForItems(
+  items: ContentItem[],
+  now: Date = new Date()
+): Promise<Map<string, ContentCard>> {
+  const gatedItems = items.filter(item => item.accessRuleId);
+  const [assets, gates] = await Promise.all([
+    assetsByItem(gatedItems.map(item => item.id)),
+    gatesOf(gatedItems),
+  ]);
+  const cards = new Map<string, ContentCard>();
+  for (const item of gatedItems) {
+    const rows = assets.get(hex(item.id)) ?? [];
+    const gate = gates.get(hex(item.accessRuleId!));
+    if (!gate || !servedAssetsClean(rows)) continue;
+    cards.set(item.publicId, buildLockedCard(item, rows, gate, now));
+  }
+  return cards;
+}
+
 /** True when the creator has at least one public item (the feed page is indexable). */
 export async function hasPublicContent(userId: number): Promise<boolean> {
   const count = await prisma.contentItem.count({
@@ -151,11 +196,23 @@ export async function hasPublicContent(userId: number): Promise<boolean> {
   return count > 0;
 }
 
+/**
+ * Which items a read covers. "public": the listed filter, never 18+. "adult": the
+ * same filter with 18+ instead, only for the signed in shelf after an Over 18 pass
+ * (identity checks 4.4). Server HTML, sitemaps and share tags never use "adult".
+ */
+export type ItemScope = "public" | "adult";
+
+function scopeWhere(scope: ItemScope) {
+  return scope === "adult" ? { ...listedItemWhere(), adult: true } : listedItemWhere();
+}
+
 /** The creator feed page: listed items, newest first (spec 3.7, board cs6). */
 export async function publicFeed(
   creator: PublicCreator,
   options: { kind?: ContentUploadKind; cursor?: string; limit: number },
-  now: Date = new Date()
+  now: Date = new Date(),
+  scope: ItemScope = "public"
 ): Promise<ContentFeedPage> {
   let cursorOk = false;
   if (options.cursor) {
@@ -168,7 +225,7 @@ export async function publicFeed(
   const items: ContentItem[] = await prisma.contentItem.findMany({
     where: {
       userId: creator.id,
-      ...listedItemWhere(),
+      ...scopeWhere(scope),
       ...(options.kind ? { kind: toDbKind(options.kind) } : {}),
     },
     orderBy: [{ publishedAt: "desc" }, { id: "desc" }],
@@ -206,10 +263,11 @@ export async function publicFeed(
 export async function publicItem(
   creator: PublicCreator,
   publicId: string,
-  now: Date = new Date()
+  now: Date = new Date(),
+  scope: ItemScope = "public"
 ): Promise<ContentPublicItem | null> {
   const item = await prisma.contentItem.findFirst({
-    where: { publicId, userId: creator.id, ...listedItemWhere() },
+    where: { publicId, userId: creator.id, ...scopeWhere(scope) },
   });
   if (!item) return null;
   const rows = (await assetsByItem([item.id])).get(hex(item.id)) ?? [];

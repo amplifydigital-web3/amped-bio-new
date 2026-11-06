@@ -52,7 +52,14 @@ const state = vi.hoisted(() => ({
   allowlistRow: null as string | null,
   allowlistReads: 0,
   allowlistError: false,
+  redis: null as null | {
+    get: () => Promise<string | null>;
+    set: (...args: unknown[]) => Promise<unknown>;
+    incr: (key: string) => Promise<number>;
+  },
   events: [] as unknown[],
+  memberRows: [] as Array<{ fanUserId: number | null }>,
+  memberWhere: null as unknown,
 }));
 
 vi.mock("../env", () => ({
@@ -65,7 +72,7 @@ vi.mock("../env", () => ({
   },
 }));
 vi.mock("../utils/cache", () => ({
-  getRedisClient: () => null,
+  getRedisClient: () => state.redis,
   cache: {
     get: vi.fn(async () => null),
     set: vi.fn(async () => undefined),
@@ -94,11 +101,24 @@ vi.mock("@repo/database", () => ({
     followBlock: {
       findUnique: vi.fn(async () => (state.followBlocked ? { user_id: FAN } : null)),
     },
+    // eligibleUserIds for stake kinds (broadcast audiences, M9)
+    stakedPool: {
+      findMany: vi.fn(async () => [
+        { stakeAmount: "5", userWallet: { userId: FAN } },
+        { stakeAmount: "0", userWallet: { userId: FAN + 1 } },
+      ]),
+    },
     accessRule: {
       findUnique: vi.fn(
         async ({ where }: { where: { id: Buffer } }) =>
           state.rules.get(Buffer.from(where.id).toString("hex")) ?? null
       ),
+    },
+    membership: {
+      findMany: vi.fn(async ({ where }: { where: unknown }) => {
+        state.memberWhere = where;
+        return state.memberRows;
+      }),
     },
     accessEvent: {
       create: vi.fn(async ({ data }: { data: unknown }) => {
@@ -129,9 +149,12 @@ import {
   clearResolvers,
   eligibleUserIds,
   open,
+  registerMembershipReader,
+  registerPaymentVerifier,
   registerResolver,
   viewerKey,
 } from "../services/access/engine";
+import { checkIdentity } from "../services/identity/checks";
 import {
   __resetStakeKindsAllowlistCacheForTests,
   STAKE_KINDS_ALLOWLIST_CACHE_MS,
@@ -169,6 +192,7 @@ function gateWith(ruleId: Buffer | null, adult = false) {
 beforeEach(() => {
   clearResolvers();
   registerResolver("block", { get: async () => state.gate });
+  registerPaymentVerifier(null);
   state.gate = null;
   state.owner = { id: OWNER, handle: "maya", block: "no", page_status: "PUBLISHED" };
   state.viewerBlock = "no";
@@ -183,6 +207,7 @@ beforeEach(() => {
   state.allowlistRow = null;
   state.allowlistReads = 0;
   state.allowlistError = false;
+  state.redis = null;
   __resetStakeKindsAllowlistCacheForTests();
   state.events = [];
   clearEventDedupe();
@@ -235,7 +260,7 @@ describe("preconditions", () => {
   });
 
   it("a kind that is not live yet refuses", async () => {
-    gateWith(addRule("paid", { offerId: "ab".repeat(16) }));
+    gateWith(addRule("member", { planId: 1 }));
     expect((await check(fan, resource)).reason).toBe("kind_unavailable");
   });
 });
@@ -379,6 +404,20 @@ describe("stake kinds (acceptance 1, 2, 7, 8)", () => {
         nextCursor: null,
       });
     }
+  });
+
+  it("eligibleUserIds with stakeAllowlist false reads stakers outside the pilot (M9 broadcasts)", async () => {
+    state.allowlist = "";
+    expect(
+      await eligibleUserIds(
+        { kind: "pool_member", params: { poolId: POOL } },
+        OWNER,
+        {},
+        {
+          stakeAllowlist: false,
+        }
+      )
+    ).toEqual({ userIds: [FAN], nextCursor: null });
   });
 
   it("only the owner's own pool counts", async () => {
@@ -525,6 +564,10 @@ describe("contract and keys", () => {
     expect(
       accessRuleInputSchema.safeParse({ kind: "paid", params: { offerId: "x" } }).success
     ).toBe(false);
+    expect(
+      accessRuleInputSchema.safeParse({ kind: "paid", params: { offerId: "ab".repeat(16) } })
+        .success
+    ).toBe(true);
   });
 
   it("parseRuleRow rejects unknown kinds and bad params", () => {
@@ -540,5 +583,369 @@ describe("contract and keys", () => {
     expect(key.startsWith("v:")).toBe(true);
     expect(key).not.toContain("203.0.113.9");
     expect(viewerKey(fan, OWNER)).toBe(`u:${FAN}`);
+  });
+});
+
+describe("paid (G4, spec 3.3 and decision 5)", () => {
+  const OFFER = "ab".repeat(16);
+  const pay = {
+    offer: null as null | { ownerUserId: number; status: string; amountUnits: bigint },
+    purchase: "none" as "purchased" | "confirming" | "pending" | "none",
+  };
+  const verifier = {
+    offer: vi.fn(async (_id: string) => pay.offer),
+    verifyPurchase: vi.fn(async (_userId: number, _id: string) => pay.purchase),
+  };
+  const sellerFails = { pass: false, reason: "not_verified" };
+
+  beforeEach(() => {
+    pay.offer = { ownerUserId: OWNER, status: "active", amountUnits: 5_000_000n };
+    pay.purchase = "none";
+    verifier.offer.mockClear();
+    verifier.verifyPurchase.mockClear();
+    vi.mocked(checkIdentity).mockClear();
+    registerPaymentVerifier(verifier);
+  });
+
+  it("refuses with kind_unavailable when no verifier is registered (default deny)", async () => {
+    registerPaymentVerifier(null);
+    gateWith(addRule("paid", { offerId: OFFER }));
+    expect(await check(fan, resource)).toMatchObject({
+      allowed: false,
+      reason: "kind_unavailable",
+      hint: { action: "unavailable" },
+    });
+  });
+
+  it("asks a signed out viewer to sign in, without reading purchases", async () => {
+    gateWith(addRule("paid", { offerId: OFFER }));
+    expect(await check(anon, resource)).toMatchObject({
+      reason: "not_signed_in",
+      hint: { action: "sign_in" },
+    });
+    expect(verifier.verifyPurchase).not.toHaveBeenCalled();
+  });
+
+  it("refuses a missing product or another creator's product", async () => {
+    gateWith(addRule("paid", { offerId: OFFER }));
+    pay.offer = null;
+    expect((await check(fan, resource)).reason).toBe("kind_unavailable");
+    pay.offer = { ownerUserId: 99, status: "active", amountUnits: 1n };
+    pay.purchase = "purchased";
+    expect((await check(fan, resource)).reason).toBe("kind_unavailable");
+  });
+
+  it("not bought: Buy with the product and its price", async () => {
+    gateWith(addRule("paid", { offerId: OFFER }));
+    expect(await check(fan, resource)).toMatchObject({
+      allowed: false,
+      reason: "not_purchased",
+      hint: { action: "buy", offerId: OFFER, priceDisplay: "5.00 USDC" },
+      rule: { kind: "paid", summary: "Paid" },
+    });
+    expect(verifier.verifyPurchase).toHaveBeenCalledWith(FAN, OFFER);
+  });
+
+  it("a final purchase passes with ok", async () => {
+    gateWith(addRule("paid", { offerId: OFFER }));
+    pay.purchase = "purchased";
+    expect(await check(fan, resource)).toMatchObject({ allowed: true, reason: "ok" });
+  });
+
+  it("soft unlock: the first confirmation passes with purchase_pending", async () => {
+    gateWith(addRule("paid", { offerId: OFFER }));
+    pay.purchase = "confirming";
+    expect(await check(fan, resource, { intent: "open" })).toMatchObject({
+      allowed: true,
+      reason: "purchase_pending",
+      hint: { action: "none" },
+    });
+  });
+
+  it("sent but not on chain refuses with purchase_pending and no Buy", async () => {
+    gateWith(addRule("paid", { offerId: OFFER }));
+    pay.purchase = "pending";
+    expect(await check(fan, resource)).toMatchObject({
+      allowed: false,
+      reason: "purchase_pending",
+      hint: { action: "none" },
+    });
+  });
+
+  it("a reorg, failure or refund closes access on the next check", async () => {
+    gateWith(addRule("paid", { offerId: OFFER }));
+    pay.purchase = "confirming";
+    expect((await check(fan, resource)).allowed).toBe(true);
+    pay.purchase = "none";
+    expect(await check(fan, resource)).toMatchObject({ allowed: false, reason: "not_purchased" });
+  });
+
+  it("a paused or archived product sells to no one new, buyers keep access", async () => {
+    gateWith(addRule("paid", { offerId: OFFER }));
+    pay.offer = { ownerUserId: OWNER, status: "paused", amountUnits: 5_000_000n };
+    expect(await check(fan, resource)).toMatchObject({
+      reason: "not_purchased",
+      hint: { action: "unavailable" },
+    });
+    pay.purchase = "purchased";
+    expect((await check(fan, resource)).allowed).toBe(true);
+  });
+
+  it("seller precondition: refuses new buyers, buyers keep access (spec 3.4)", async () => {
+    gateWith(addRule("paid", { offerId: OFFER }));
+    state.identity = sellerFails;
+    expect(await check(fan, resource)).toMatchObject({
+      allowed: false,
+      reason: "kind_unavailable",
+      hint: { action: "unavailable" },
+    });
+    pay.purchase = "purchased";
+    expect((await check(fan, resource)).allowed).toBe(true);
+  });
+
+  it("open re-runs the seller check fresh, render does not", async () => {
+    gateWith(addRule("paid", { offerId: OFFER }));
+    await check(fan, resource);
+    expect(vi.mocked(checkIdentity)).toHaveBeenLastCalledWith(OWNER, "seller", { fresh: false });
+    await check(fan, resource, { intent: "open" });
+    expect(vi.mocked(checkIdentity)).toHaveBeenLastCalledWith(OWNER, "seller", { fresh: true });
+  });
+
+  it("a blocked fan is refused even after buying (spec 3.4)", async () => {
+    gateWith(addRule("paid", { offerId: OFFER }));
+    pay.purchase = "purchased";
+    state.followBlocked = true;
+    expect((await check(fan, resource)).reason).toBe("blocked");
+  });
+
+  it("Any of these: Followers or Paid passes on the purchase", async () => {
+    const follower = addRule("follower", {});
+    const paid = addRule("paid", { offerId: OFFER });
+    gateWith(addRule("any", { ruleIds: [follower.toString("hex"), paid.toString("hex")] }));
+    expect((await check(fan, resource)).allowed).toBe(false);
+    pay.purchase = "purchased";
+    expect(await check(fan, resource)).toMatchObject({ allowed: true, reason: "ok" });
+  });
+
+  it("never caches a paid decision, so a refund closes access on the next check", async () => {
+    const redis = {
+      get: vi.fn(async (): Promise<string | null> => null),
+      set: vi.fn(async (..._args: unknown[]) => "OK"),
+      incr: vi.fn(async (_key: string) => 1),
+    };
+    state.redis = redis;
+
+    // Control: a follower render is cached, so the fake reaches the decision cache
+    gateWith(addRule("follower", {}));
+    state.follow = "active";
+    await check(fan, resource);
+    const decisionKeys = () =>
+      redis.set.mock.calls.map(call => String(call[0])).filter(key => key.startsWith("access:d:"));
+    expect(decisionKeys()).toHaveLength(1);
+
+    redis.set.mockClear();
+    gateWith(addRule("paid", { offerId: OFFER }));
+    pay.purchase = "purchased";
+    expect((await check(fan, resource)).allowed).toBe(true);
+    pay.purchase = "none";
+    expect((await check(fan, resource)).allowed).toBe(false);
+    // No decision was stored, so a refund is seen by the very next check (spec 3.8)
+    expect(decisionKeys()).toHaveLength(0);
+  });
+
+  it("open reveals on a soft unlock and never before", async () => {
+    gateWith(addRule("paid", { offerId: OFFER }));
+    const reveal = vi.fn(async (_d: AccessDecision) => "media-token");
+    pay.purchase = "pending";
+    expect((await open(fan, resource, reveal)).value).toBeUndefined();
+    pay.purchase = "confirming";
+    expect((await open(fan, resource, reveal)).value).toBe("media-token");
+    expect(reveal).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("member (G5, spec 3.3 and the memberships amendment)", () => {
+  const PLAN = "cd".repeat(16);
+  const mem = {
+    plan: null as null | { ownerUserId: number; status: string; amountEvery30Days: bigint },
+    state: "none" as "active" | "grace" | "ended" | "none",
+  };
+  const reader = {
+    plan: vi.fn(async (_id: string) => mem.plan),
+    membership: vi.fn(async (_userId: number, _creator: number) => mem.state),
+  };
+  const sellerFails = { pass: false, reason: "not_verified" };
+
+  beforeEach(() => {
+    mem.plan = { ownerUserId: OWNER, status: "active", amountEvery30Days: 4_990_000n };
+    mem.state = "none";
+    reader.plan.mockClear();
+    reader.membership.mockClear();
+    vi.mocked(checkIdentity).mockClear();
+    state.memberRows = [];
+    state.memberWhere = null;
+    registerMembershipReader(reader);
+  });
+
+  it("refuses with kind_unavailable when no reader is registered (default deny)", async () => {
+    registerMembershipReader(null);
+    gateWith(addRule("member", { planId: PLAN }));
+    expect(await check(fan, resource)).toMatchObject({
+      allowed: false,
+      reason: "kind_unavailable",
+      hint: { action: "unavailable" },
+    });
+  });
+
+  it("asks a signed out viewer to sign in, without reading memberships", async () => {
+    gateWith(addRule("member", { planId: PLAN }));
+    expect(await check(anon, resource)).toMatchObject({
+      reason: "not_signed_in",
+      hint: { action: "sign_in" },
+    });
+    expect(reader.membership).not.toHaveBeenCalled();
+  });
+
+  it("refuses a missing plan or another creator's plan, even for a member", async () => {
+    gateWith(addRule("member", { planId: PLAN }));
+    mem.plan = null;
+    expect((await check(fan, resource)).reason).toBe("kind_unavailable");
+    mem.plan = { ownerUserId: 99, status: "active", amountEvery30Days: 1n };
+    mem.state = "active";
+    expect((await check(fan, resource)).reason).toBe("kind_unavailable");
+  });
+
+  it("never joined: Join with the plan and its monthly price", async () => {
+    gateWith(addRule("member", { planId: PLAN }));
+    expect(await check(fan, resource)).toMatchObject({
+      allowed: false,
+      reason: "not_member",
+      hint: {
+        action: "join_membership",
+        planId: PLAN,
+        priceMonthlyDisplay: "4.99 USDC",
+        pastDue: false,
+      },
+      rule: { kind: "member", summary: "Members" },
+    });
+    expect(reader.membership).toHaveBeenCalledWith(FAN, OWNER);
+  });
+
+  it("an active member passes with ok", async () => {
+    gateWith(addRule("member", { planId: PLAN }));
+    mem.state = "active";
+    expect(await check(fan, resource)).toMatchObject({ allowed: true, reason: "ok" });
+  });
+
+  it("past due inside the grace passes with membership_past_due", async () => {
+    gateWith(addRule("member", { planId: PLAN }));
+    mem.state = "grace";
+    expect(await check(fan, resource, { intent: "open" })).toMatchObject({
+      allowed: true,
+      reason: "membership_past_due",
+    });
+  });
+
+  it("an ended membership refuses with membership_ended and Rejoin", async () => {
+    gateWith(addRule("member", { planId: PLAN }));
+    mem.state = "ended";
+    expect(await check(fan, resource)).toMatchObject({
+      allowed: false,
+      reason: "membership_ended",
+      hint: { action: "join_membership", planId: PLAN },
+    });
+  });
+
+  it("a paused or draft plan takes no one new, members keep access", async () => {
+    gateWith(addRule("member", { planId: PLAN }));
+    for (const status of ["paused", "draft"]) {
+      mem.plan = { ownerUserId: OWNER, status, amountEvery30Days: 4_990_000n };
+      mem.state = "none";
+      expect(await check(fan, resource)).toMatchObject({
+        reason: "not_member",
+        hint: { action: "unavailable" },
+      });
+      mem.state = "active";
+      expect((await check(fan, resource)).allowed).toBe(true);
+    }
+  });
+
+  it("seller precondition: refuses new joins, members keep access (spec 3.4)", async () => {
+    gateWith(addRule("member", { planId: PLAN }));
+    state.identity = sellerFails;
+    expect(await check(fan, resource)).toMatchObject({
+      allowed: false,
+      reason: "kind_unavailable",
+      hint: { action: "unavailable" },
+    });
+    mem.state = "active";
+    expect((await check(fan, resource)).allowed).toBe(true);
+  });
+
+  it("open re-runs the seller check fresh, render does not", async () => {
+    gateWith(addRule("member", { planId: PLAN }));
+    await check(fan, resource);
+    expect(vi.mocked(checkIdentity)).toHaveBeenLastCalledWith(OWNER, "seller", { fresh: false });
+    await check(fan, resource, { intent: "open" });
+    expect(vi.mocked(checkIdentity)).toHaveBeenLastCalledWith(OWNER, "seller", { fresh: true });
+  });
+
+  it("is never cached: a cancel past the period end closes on the next check", async () => {
+    gateWith(addRule("member", { planId: PLAN }));
+    mem.state = "active";
+    expect((await check(fan, resource)).allowed).toBe(true);
+    mem.state = "ended";
+    expect((await check(fan, resource)).reason).toBe("membership_ended");
+  });
+
+  it("a blocked fan is refused even as a member (spec 3.4)", async () => {
+    gateWith(addRule("member", { planId: PLAN }));
+    mem.state = "active";
+    state.followBlocked = true;
+    expect((await check(fan, resource)).reason).toBe("blocked");
+  });
+
+  it("All of these: Followers and Members needs both", async () => {
+    state.follow = "active";
+    const follower = addRule("follower", {});
+    const member = addRule("member", { planId: PLAN });
+    gateWith(addRule("all", { ruleIds: [follower.toString("hex"), member.toString("hex")] }));
+    expect((await check(fan, resource)).allowed).toBe(false);
+    mem.state = "active";
+    expect(await check(fan, resource)).toMatchObject({ allowed: true });
+  });
+
+  it("eligibleUserIds lists members with access now, never another creator's plan", async () => {
+    state.memberRows = [{ fanUserId: 21 }, { fanUserId: 22 }];
+    expect(
+      await eligibleUserIds({ kind: "member", params: { planId: PLAN } }, OWNER)
+    ).toMatchObject({ userIds: [21, 22] });
+    expect(state.memberWhere).toMatchObject({
+      planId: Buffer.from(PLAN, "hex"),
+      creatorUserId: OWNER,
+      fan: { block: "no" },
+      OR: [
+        { status: "active", currentPeriodEnd: { gt: expect.any(Date) } },
+        { status: "canceled", currentPeriodEnd: { gt: expect.any(Date) } },
+        { status: "past_due", pastDueSince: { gt: expect.any(Date) } },
+      ],
+    });
+    mem.plan = { ownerUserId: 99, status: "active", amountEvery30Days: 1n };
+    expect(
+      await eligibleUserIds({ kind: "member", params: { planId: PLAN } }, OWNER)
+    ).toEqual({ userIds: [], nextCursor: null });
+  });
+
+  it("the contract takes a 32 hex plan id and nothing else", () => {
+    expect(
+      accessRuleInputSchema.safeParse({ kind: "member", params: { planId: PLAN } }).success
+    ).toBe(true);
+    expect(
+      accessRuleInputSchema.safeParse({ kind: "member", params: { planId: "x" } }).success
+    ).toBe(false);
+    expect(
+      accessRuleInputSchema.safeParse({ kind: "member", params: { planId: PLAN, extra: 1 } })
+        .success
+    ).toBe(false);
   });
 });

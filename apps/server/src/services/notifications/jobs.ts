@@ -13,6 +13,7 @@ import { decryptMessageBody } from "../crypto/messageBody";
 import { isLive, publish } from "../realtime/bus";
 import { emailOffUrl, messageNotificationPrefs } from "./bell";
 import { hasSubscription, pushConfigured, sendPush, type PushPayload } from "./push";
+import { isDigestPayload, runDigest } from "../library/newContent";
 
 /**
  * Push and email jobs (Build Board #2 r4, PR M4, spec 7.2 "after commit" and 7.4).
@@ -54,8 +55,7 @@ export function emailDedupeKey(userId: number, conversationId: string): string {
   return `email:${userId}:${conversationId}`;
 }
 
-const isUniqueViolation = (error: unknown) =>
-  (error as { code?: string } | null)?.code === "P2002";
+const isUniqueViolation = (error: unknown) => (error as { code?: string } | null)?.code === "P2002";
 
 // ------------------------------------------------------------------ scheduling
 
@@ -130,15 +130,34 @@ export async function notifyBroadcastDelivered(broadcastId: number, now = new Da
       where: { broadcastId },
       select: { userId: true },
     });
+    const recipients = deliveries.map(d => d.userId);
+    // Mute a creator's broadcasts: the inbox copy still arrives, but no bell row
+    // and no push (NotificationPreference per creator, spec 8.6 item 1)
+    const muted = new Set(
+      recipients.length
+        ? (
+            await prisma.notificationPreference.findMany({
+              where: {
+                userId: { in: recipients },
+                creatorUserId: broadcast.creatorUserId,
+                mutedUntil: { gt: now },
+              },
+              select: { userId: true },
+            })
+          ).map(row => row.userId)
+        : []
+    );
+    const audience = recipients.filter(id => !muted.has(id));
+    if (!audience.length) return 0;
     const existing = new Set(
       (
         await prisma.notification.findMany({
-          where: { groupKey, userId: { in: deliveries.map(d => d.userId) } },
+          where: { groupKey, userId: { in: audience } },
           select: { userId: true },
         })
       ).map(n => n.userId)
     );
-    const fresh = deliveries.map(d => d.userId).filter(id => !existing.has(id));
+    const fresh = audience.filter(id => !existing.has(id));
     for (let i = 0; i < fresh.length; i += 500) {
       await prisma.notification.createMany({
         data: fresh.slice(i, i + 500).map(userId => ({
@@ -232,7 +251,8 @@ async function broadcastPushPayload(payload: BroadcastJobPayload): Promise<PushP
   return {
     title: `@${creator.handle ?? "creator"}`,
     body: `New broadcast: ${broadcast.title}`.slice(0, 100),
-    url: `/inbox?tab=broadcast&id=${payload.broadcastId}`,
+    // M9: the spec route; the client turns it into /inbox?tab=broadcast&b={id}
+    url: `/inbox/broadcast/${payload.broadcastId}`,
     tag: `bc-${payload.broadcastId}`,
   };
 }
@@ -357,7 +377,10 @@ export async function claimNextJob(now = new Date()): Promise<NotificationJob | 
   return null;
 }
 
-/** Run one claimed job to completion. A skipped email is DONE with the reason in error. */
+/**
+ * Run one claimed job to completion. A skipped email is DONE with the reason in error.
+ * Channels: push, email (message reminders) and digest (Fan Library daily email, FL-6).
+ */
 export async function runJob(job: NotificationJob, now = new Date()): Promise<string> {
   try {
     let outcome: string;
@@ -373,6 +396,11 @@ export async function runJob(job: NotificationJob, now = new Date()): Promise<st
         const result = await sendPush(job.userId, push);
         outcome = result.sent > 0 ? "sent" : "no_device";
       }
+    } else if (job.channel === "digest") {
+      // Fan Library daily email (FL-6). A bad payload is skipped, not retried.
+      outcome = isDigestPayload(job.payload)
+        ? await runDigest(job.userId, job.payload, now)
+        : "skipped";
     } else {
       outcome = await runEmailCheck(job.userId, job.payload as MessageJobPayload, now);
     }

@@ -28,7 +28,9 @@ model User {
   description        String? @map("littlelink_description") @db.LongText
   role               String  @default("user")
   block              String  @default("no")
-  theme              String?
+  // Theme Engine v2 TE-4a: the applied theme as an id (a look of the user's,
+  // or a marketplace row). Was a string holding the id; the migration casts it.
+  theme              Int?
   image_file_id      Int?
   reward_business_id String?
 
@@ -38,7 +40,8 @@ model User {
   show_follower_count       Boolean    @default(true)
   follow_disclosure_seen_at DateTime?
 
-  themes            Theme[]
+  themes            Theme[]            @relation("ThemeOwner")
+  appliedTheme      Theme?             @relation("AppliedTheme", fields: [theme], references: [id], onDelete: SetNull)
   blocks            Block[]
   confirmationCodes ConfirmationCode[]
   uploadedFiles     UploadedFile[]
@@ -67,7 +70,7 @@ model User {
   oauthAccessTokens  OauthAccessToken[]
   oauthConsents      OauthConsent[]
 
-  broadcastsSent          Broadcast[]               @relation("BroadcastCreator")
+  broadcastsSent          Broadcast[]              @relation("BroadcastCreator")
   broadcastDeliveries     BroadcastDelivery[]
   broadcastReports        BroadcastReport[]
   notificationPreferences NotificationPreference[]
@@ -75,20 +78,31 @@ model User {
   identityChecks          IdentityCheck[]
   identityReviewCases     IdentityReviewCase[]
   accessRules             AccessRule[]
-  checkoutIntents         CheckoutIntent[]          @relation("CheckoutIntentFan")
-  checkoutIntentsSold     CheckoutIntent[]          @relation("CheckoutIntentCreator")
+  checkoutIntents         CheckoutIntent[]         @relation("CheckoutIntentFan")
+  checkoutIntentsSold     CheckoutIntent[]         @relation("CheckoutIntentCreator")
+  storeSettings           StoreSettings?
+  offers                  Offer[]
+  storePolicyVersions     StorePolicyVersion[]
+  purchases               Purchase[]               @relation("PurchaseBuyer")
+  membershipPlan          MembershipPlan?
+  memberships             Membership[]             @relation("MembershipFan")
+  membershipsSold         Membership[]             @relation("MembershipCreator")
+  purchasesSold           Purchase[]               @relation("PurchaseCreator")
+  // Store promoters (C12): codes this creator gave out, and codes this account promotes
+  promoterCodesGiven      PromoterCode[]           @relation("PromoterCodeCreator")
+  promoterCodesHeld       PromoterCode[]           @relation("PromoterCodePromoter")
   telegramAccount         TelegramAccount?
   telegramGroups          TelegramGroup[]
   telegramLinkEvents      TelegramLinkEvent[]
   messagingSettings       MessagingSettings?
   messagingSenderStatus   MessagingSenderStatus?
-  threadsAsCreator        MessageThread[]           @relation("ThreadCreator")
-  threadsAsFan            MessageThread[]           @relation("ThreadFan")
+  threadsAsCreator        MessageThread[]          @relation("ThreadCreator")
+  threadsAsFan            MessageThread[]          @relation("ThreadFan")
   messageReports          MessageReport[]
   // Amped Messages (Build Board #2, revision 4), spec docs/features/messaging.md section 6
   conversationMembers     ConversationMember[]
-  directMessagesSent      DirectMessage[]           @relation("DirectMessageSender")
-  notifications           Notification[]            @relation("NotificationRecipient")
+  directMessagesSent      DirectMessage[]          @relation("DirectMessageSender")
+  notifications           Notification[]           @relation("NotificationRecipient")
   pushSubscriptions       PushSubscription[]
 
   // USDC in the wallet (#29): first time the fan opened USDC on Base. The
@@ -102,9 +116,13 @@ model User {
   onrampAuth          OnrampUserAuth?
 
   // Content system (Build Board #20), PR 2
-  contentItems   ContentItem[]
-  storageQuota   UserStorageQuota?
-  viewerProgress ViewerProgress[]
+  contentItems          ContentItem[]
+  storageQuota          UserStorageQuota?
+  viewerProgress        ViewerProgress[]
+  savedItems            SavedItem[]
+  downloadRecords       DownloadRecord[]
+  libraryVisits         LibraryCreatorVisit[] @relation("LibraryVisitsMade")
+  libraryVisitsReceived LibraryCreatorVisit[] @relation("LibraryVisitsReceived")
 
   @@unique([email])
   @@map("users")
@@ -190,12 +208,39 @@ model Theme {
   thumbnail_file_id Int?
   created_at        DateTime  @default(now())
   updated_at        DateTime? @updatedAt
+  // Theme Engine v2 TE-4a (spec 3.9): look (a creator's saved look, 10 per
+  // user) or marketplace (user_id null). config_version is 1 or 2, set on write.
+  kind              String    @default("look") @db.VarChar(16)
+  config_version    Int       @default(1)
+  // TE-4b (spec 3.9, decision 8): a read only, revocable share link at
+  // amped.bio/t/<share_slug>. 8 random base32 characters; null is not shared.
+  share_slug        String?   @unique @db.VarChar(48)
+  share_credit      Boolean   @default(true)
+  share_download    Boolean   @default(false)
+  // Counted on Use this look and Save to My looks, never on a view
+  share_uses        Int       @default(0)
 
-  user           User?          @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  user           User?          @relation("ThemeOwner", fields: [user_id], references: [id], onDelete: Cascade)
+  versions       ThemeVersion[]
+  appliedBy      User[]         @relation("AppliedTheme")
   category       ThemeCategory? @relation(fields: [category_id], references: [id], onDelete: SetNull)
   thumbnailImage UploadedFile?  @relation("ThemeThumbnailImage", fields: [thumbnail_file_id], references: [id], onDelete: SetNull)
 
   @@map("themes")
+}
+
+/// Theme Engine v2 TE-4a (spec 3.9): the last 20 saves of a look. A save within
+/// 10 minutes of the newest version replaces it, so one editing session is one
+/// version; restore always writes a new one.
+model ThemeVersion {
+  id        Bytes    @id @db.Binary(16)
+  themeId   Int      @map("theme_id")
+  config    Json
+  createdAt DateTime @default(now()) @map("created_at")
+  theme     Theme    @relation(fields: [themeId], references: [id], onDelete: Cascade)
+
+  @@index([themeId, createdAt])
+  @@map("theme_versions")
 }
 
 model Block {
@@ -870,8 +915,12 @@ enum BroadcastStatus {
   FAILED
 }
 
+// Amped Messages M9 (bc-audience): pool stakers, followers, or both. ALL_MEMBERS rows
+// became POOL_MEMBERS in 20261105120000_broadcast_audiences
 enum BroadcastAudienceKind {
-  ALL_MEMBERS
+  POOL_MEMBERS
+  FOLLOWERS
+  POOL_AND_FOLLOWERS
 }
 
 enum BroadcastEmailStatus {
@@ -895,8 +944,9 @@ enum BroadcastReportReason {
 model Broadcast {
   id                Int                   @id @default(autoincrement())
   creatorUserId     Int
+  // Set only when the audience includes the pool (M9)
   poolId            Int?
-  audienceKind      BroadcastAudienceKind @default(ALL_MEMBERS)
+  audienceKind      BroadcastAudienceKind @default(POOL_MEMBERS)
   title             String                @db.VarChar(120)
   body              String                @db.Text // Markdown subset, rendered with an allowlist
   sendEmail         Boolean               @default(false) // email arrives in phase 2
@@ -1001,6 +1051,9 @@ model NotificationPreference {
   pushEnabled         Boolean   @default(true)
   // Email reminder for a message unread after 30 minutes. On by default, one tap off.
   messageEmailEnabled Boolean   @default(true)
+  // Fan Library new content alerts (FL-6, fl-q5). Global row and per creator rows.
+  // null means on; false on either row turns the bell alert off for that creator.
+  newContentEnabled   Boolean?
   mutedUntil          DateTime?
   updatedAt           DateTime  @updatedAt
 
@@ -1227,7 +1280,8 @@ model UsdcSend {
 // indexer after the chain confirms it. Same shape as the memberships spec
 // PaymentEvent: payer and payee are set when each side is an Amped.Bio user,
 // so a send between two members is one row both of them see.
-// kind: usdc_transfer now; onramp, purchase and membership kinds arrive later.
+// kind: usdc_transfer; purchase_paid, purchase_share and purchase_refunded for AmpedPay
+// logs (PAY-2, refType purchase); membership kinds arrive later.
 model PaymentEvent {
   id          Bytes    @id @db.Binary(16)
   kind        String   @db.VarChar(24)
@@ -1244,10 +1298,17 @@ model PaymentEvent {
   // usdc_send when the transfer came from a gasless send
   refType     String?  @db.VarChar(16)
   refId       Bytes?   @db.Binary(16)
+  // AmpedPay logs only (PAY-2): the on chain paymentRef, the Share role (0 creator,
+  // 1 platform, 2 promoter, 3 partner), the split hash and the block hash for reorg checks
+  paymentRef  String?  @db.Char(66)
+  role        Int?
+  splitHash   String?  @db.Char(66)
+  blockHash   String?  @db.VarChar(66)
   occurredAt  DateTime
   createdAt   DateTime @default(now())
 
   @@unique([chainId, txHash, logIndex])
+  @@index([paymentRef])
   @@index([payerUserId, occurredAt])
   @@index([payeeUserId, occurredAt])
   @@map("payment_events")
@@ -1436,6 +1497,13 @@ enum ContentStatus {
   DELETED
 }
 
+/// What the edge holds for an item (C7a, content-takedown.md 4.1)
+enum ContentEdgeState {
+  OPEN
+  PRIVATE
+  BLOCKED
+}
+
 enum ContentPublishState {
   DRAFT
   PUBLISHED
@@ -1496,6 +1564,11 @@ model ContentItem {
   allowDownload    Boolean             @default(false) @map("allow_download")
   // Creator label 18+ (#28)
   adult            Boolean             @default(false)
+  // #28 R1 (adult content review 5.3): made or changed with AI. Null until the creator answers.
+  aiLabel          Boolean?            @map("ai_label")
+  // Set when the classifier returns explicit or a reviewer labels the item 18+ (#28 F1).
+  // While set, the owner can not turn the 18+ label off.
+  explicitAt       DateTime?           @map("explicit_at")
   moderationState  ModerationState     @default(PENDING) @map("moderation_state")
   moderationReason String?             @map("moderation_reason") @db.VarChar(255)
   durationMs       Int?                @map("duration_ms")
@@ -1510,21 +1583,154 @@ model ContentItem {
   publishedAt      DateTime?           @map("published_at")
   deletedAt        DateTime?           @map("deleted_at")
   purgeAfter       DateTime?           @map("purge_after")
+  // Takedown (C7a, content-takedown.md 4.3): what the edge (KV, Stream origins)
+  // holds for this item now, and when it may need to change
+  edgeState        ContentEdgeState    @default(OPEN) @map("edge_state")
+  edgeDirtyAt      DateTime?           @map("edge_dirty_at")
+  edgeAttempts     Int                 @default(0) @map("edge_attempts")
+  edgeError        String?             @map("edge_error") @db.VarChar(160)
+  // Safety hide (R1 sets and clears it through hideItems and restoreItems)
+  hiddenAt         DateTime?           @map("hidden_at")
+  // safety | child_safety | take_it_down | withdrawn
+  hiddenReason     String?             @map("hidden_reason") @db.VarChar(24)
   createdAt        DateTime            @default(now()) @map("created_at")
   updatedAt        DateTime            @updatedAt @map("updated_at")
 
-  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  assets         ContentAsset[]
-  reports        ContentReport[]
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assets          ContentAsset[]
+  reports         ContentReport[]
   // Gating engine (#21, G1): Restrict, so a rule in use cannot be deleted and a
   // gated item never turns public. Never SetNull.
-  accessRule     AccessRule?      @relation(fields: [accessRuleId], references: [id], onDelete: Restrict)
-  viewerProgress ViewerProgress[]
+  accessRule      AccessRule?      @relation(fields: [accessRuleId], references: [id], onDelete: Restrict)
+  viewerProgress  ViewerProgress[]
+  savedItems      SavedItem[]
+  offerItems      OfferItem[]
+  downloadRecords DownloadRecord[]
 
   @@index([userId, status])
   @@index([userId, publishState, publishedAt])
   @@index([accessRuleId])
+  @@index([edgeDirtyAt])
   @@map("content_items")
+}
+
+/// A creator's store (content PR 9, content spec 3.8, store-catalog.md). Created on first open.
+model StoreSettings {
+  id                  Bytes     @id @db.Binary(16)
+  userId              Int       @unique @map("user_id")
+  // draft | live | paused
+  status              String    @default("draft") @db.VarChar(12)
+  // null = the display name
+  name                String?   @db.VarChar(40)
+  tagline             String?   @db.VarChar(80)
+  // grid | list | feature
+  layout              String    @default("grid") @db.VarChar(12)
+  // STORE_SECTIONS in order, hidden sections omitted
+  sectionOrder        Json      @map("section_order")
+  // up to 3 Offer ids as hex
+  featuredOfferIds    Json      @map("featured_offer_ids")
+  about               String?   @db.VarChar(600)
+  thankYouNote        String?   @map("thank_you_note") @db.VarChar(280)
+  // { standard, custom } drafts and the shared seller name (store policy 3.1)
+  policyDraft         Json?     @map("policy_draft")
+  livePolicyVersionId Bytes?    @map("live_policy_version_id") @db.Binary(16)
+  // Go live step 1. Kept here until memberships add User.payment_terms_accepted_at (#25)
+  sellerTermsAcceptedAt DateTime? @map("seller_terms_accepted_at")
+  wentLiveAt          DateTime? @map("went_live_at")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("store_settings")
+}
+
+/// A product in a creator's store. kind single | bundle (ticket, tip and link arrive later).
+model Offer {
+  id               Bytes     @id @db.Binary(16)
+  creatorUserId    Int       @map("creator_user_id")
+  kind             String    @db.VarChar(12)
+  // draft | active | paused | archived
+  status           String    @default("draft") @db.VarChar(12)
+  slug             String    @db.VarChar(60)
+  title            String    @db.VarChar(80)
+  description      String?   @db.VarChar(2000)
+  // The item whose cover the product shows; null = the first item
+  coverItemId      Bytes?    @map("cover_item_id") @db.Binary(16)
+  amountUnits      BigInt    @map("amount_units")
+  // null = forever
+  accessPeriodDays Int?      @map("access_period_days")
+  alsoInMembership Boolean   @default(false) @map("also_in_membership")
+  // true when any item is 18+
+  adult            Boolean   @default(false)
+  sortOrder        Int       @default(0) @map("sort_order")
+  // confirmed purchases, kept by the payments indexer (C10)
+  salesCount       Int       @default(0) @map("sales_count")
+  activatedAt      DateTime? @map("activated_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  // Authbase storefront (AB-1): set when a business seller sells this offer. creatorUserId is then
+  // the merchant's first Owner account; checkMerchant replaces the creator's seller check
+  merchantId       Bytes?    @map("merchant_id") @db.Binary(16)
+  // AB-2 service offers (spec 3.3): library | external. external = the merchant fulfills it
+  // after payment (Authbase runs the ID check); no Library entry
+  fulfillment      String    @default("library") @db.VarChar(12)
+  // The merchant's own product code, sent back on every order (STANDARD, ENHANCED)
+  externalCode     String?   @map("external_code") @db.VarChar(32)
+  // Where the offer shows: rns_identity (the Identity tab storefront)
+  placement        String?   @db.VarChar(32)
+  // Up to four feature lines on the card
+  features         Json?
+  // Short card tag: For fans, For creators
+  tag              String?   @db.VarChar(24)
+  // Orders the cards left to right
+  rank             Int       @default(0)
+
+  creator  User        @relation(fields: [creatorUserId], references: [id], onDelete: Cascade)
+  merchant Merchant?   @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+  items    OfferItem[]
+
+  @@unique([creatorUserId, slug])
+  @@index([merchantId, status])
+  @@index([placement, status])
+  @@index([creatorUserId, status, sortOrder])
+  @@map("offers")
+}
+
+model OfferItem {
+  id            Bytes @id @db.Binary(16)
+  offerId       Bytes @map("offer_id") @db.Binary(16)
+  contentItemId Bytes @map("content_item_id") @db.Binary(16)
+  position      Int
+
+  offer       Offer       @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  contentItem ContentItem @relation(fields: [contentItemId], references: [id], onDelete: Cascade)
+
+  @@unique([offerId, contentItemId])
+  @@index([contentItemId])
+  @@map("offer_items")
+}
+
+/// A published store policy (store policy 3.3 and 3.6). Never edited; a publish adds a version.
+model StorePolicyVersion {
+  id              Bytes    @id @db.Binary(16)
+  creatorUserId   Int      @map("creator_user_id")
+  version         Int
+  // standard | custom
+  mode            String   @db.VarChar(8)
+  templateVersion Int?     @map("template_version")
+  // seller name source and value, refund option and days, contact
+  settings        Json
+  // custom only: the confirmations ticked and the time
+  confirmations   Json?
+  renderedText    String   @map("rendered_text") @db.Text
+  publishedAt     DateTime @default(now()) @map("published_at")
+
+  creator User @relation(fields: [creatorUserId], references: [id], onDelete: Cascade)
+
+  @@unique([creatorUserId, version])
+  @@map("store_policy_versions")
 }
 
 model ContentAsset {
@@ -1573,11 +1779,15 @@ model ContentReport {
   contentItemId  Bytes?   @map("content_item_id") @db.Binary(16)
   // Store products (PR 9); no relation until Offer exists
   offerId        Bytes?   @map("offer_id") @db.Binary(16)
+  // C10: a report against a whole store (Report store, reason store_policy)
+  storeUserId    Int?     @map("store_user_id")
   reporterUserId Int?     @map("reporter_user_id")
-  // copyright | csam | adult | harassment | malware | scam | other
+  // copyright | csam | adult | harassment | malware | scam | other | ncii | withdraw | store_policy
   reason         String   @db.VarChar(20)
   details        String?  @db.Text
   status         String   @default("open") @db.VarChar(20)
+  // #28 R1: the Safety case this report opened or joined
+  caseId         Bytes?   @map("case_id") @db.Binary(16)
   createdAt      DateTime @default(now()) @map("created_at")
 
   contentItem ContentItem? @relation(fields: [contentItemId], references: [id], onDelete: Cascade)
@@ -1609,12 +1819,19 @@ model CopyrightNotice {
 }
 
 model BlockedContentHash {
-  id        Bytes    @id @db.Binary(16)
-  sha256    String   @unique @db.Char(64)
-  // dmca | malware | policy
-  reason    String   @db.VarChar(20)
-  createdAt DateTime @default(now()) @map("created_at")
+  id        Bytes     @id @db.Binary(16)
+  sha256    String    @unique @db.Char(64)
+  // dmca (old rows) | copyright | malware | policy | ncii | csam | non_consent
+  reason    String    @db.VarChar(20)
+  // #28 R1 (adult content review 10): perceptual hash, the case and who added it.
+  // Unblock keeps the row for the record and sets removedAt.
+  phash     String?   @db.VarChar(64)
+  caseId    Bytes?    @map("case_id") @db.Binary(16)
+  addedById Int?      @map("added_by_id")
+  removedAt DateTime? @map("removed_at")
+  createdAt DateTime  @default(now()) @map("created_at")
 
+  @@index([phash])
   @@map("blocked_content_hashes")
 }
 
@@ -1638,6 +1855,69 @@ model ViewerProgress {
   @@index([userId, lastPlayedAt])
   @@index([contentItemId])
   @@map("viewer_progress")
+}
+
+// Fan Library (#26) FL-2: items a fan saved to their Library. Access is
+// rechecked on every read; a saved item the fan can no longer open is hidden,
+// not deleted, and shows again if access returns.
+model SavedItem {
+  id            Bytes    @id @db.Binary(16)
+  userId        Int      @map("user_id")
+  contentItemId Bytes    @map("content_item_id") @db.Binary(16)
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contentItem ContentItem @relation(fields: [contentItemId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, contentItemId])
+  @@index([userId, createdAt])
+  @@index([contentItemId])
+  @@map("saved_items")
+}
+
+/// Fan Library (#26) FL-5: one row per offline copy a fan keeps on one installed
+/// app. The file itself lives only in that browser's Cache Storage. `device` is a
+/// random id the app made at install, never a fingerprint. `removedAt` is set
+/// when the fan removes the copy or a check finds the fan may no longer open it.
+/// Personal data: deleted with the account. Creators never see these rows.
+model DownloadRecord {
+  id            Bytes     @id @db.Binary(16)
+  userId        Int       @map("user_id")
+  contentItemId Bytes     @map("content_item_id") @db.Binary(16)
+  /// Size the app stored, set once the file is saved
+  bytes         BigInt    @default(0)
+  /// The single use grant that fetched the file
+  grantJti      String    @map("grant_jti") @db.VarChar(64)
+  device        String    @db.VarChar(64)
+  createdAt     DateTime  @default(now()) @map("created_at")
+  removedAt     DateTime? @map("removed_at")
+  /// Why the copy went: removed (by the fan), access, unavailable, downloadsOff
+  removedReason String?   @map("removed_reason") @db.VarChar(16)
+
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contentItem ContentItem @relation(fields: [contentItemId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([userId, device])
+  @@index([contentItemId])
+  @@map("download_records")
+}
+
+// Fan Library (#26) FL-2: when a fan last opened a creator's section, for the
+// new count on Your creators. The creator is a user: there is no Bio table, so
+// the spec's bioId is creatorId here.
+model LibraryCreatorVisit {
+  id            Bytes    @id @db.Binary(16)
+  userId        Int      @map("user_id")
+  creatorId     Int      @map("creator_id")
+  lastVisitedAt DateTime @map("last_visited_at")
+
+  user    User @relation("LibraryVisitsMade", fields: [userId], references: [id], onDelete: Cascade)
+  creator User @relation("LibraryVisitsReceived", fields: [creatorId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, creatorId])
+  @@index([creatorId])
+  @@map("library_creator_visits")
 }
 
 // ===== Messaging on Telegram, phase 1: fan to creator messages (PR 3) =====
@@ -1775,24 +2055,24 @@ enum MessageReportReason {
 }
 
 model MessageReport {
-  id             Bytes               @id @db.Binary(16)
+  id              Bytes               @id @db.Binary(16)
   // Null on reports filed against conversations (PR M2)
-  threadId       Bytes?              @db.Binary(16)
-  messageId      Bytes?              @db.Binary(16)
-  reporterUserId Int
-  reason         MessageReportReason
-  note           String?             @db.VarChar(500)
+  threadId        Bytes?              @db.Binary(16)
+  messageId       Bytes?              @db.Binary(16)
+  reporterUserId  Int
+  reason          MessageReportReason
+  note            String?             @db.VarChar(500)
   // Amped Messages (#2 r4). Set on reports filed against the new tables; threadId stays
   // for reports filed before the switch. bodySnapshotEnc keeps the reported text after unsend.
-  conversationId  Bytes?             @db.Binary(16)
-  directMessageId Bytes?             @db.Binary(16)
-  bodySnapshotEnc String?            @db.Text
+  conversationId  Bytes?              @db.Binary(16)
+  directMessageId Bytes?              @db.Binary(16)
+  bodySnapshotEnc String?             @db.Text
   // Set when an admin closes the report
-  resolvedAt     DateTime?
-  createdAt      DateTime            @default(now())
+  resolvedAt      DateTime?
+  createdAt       DateTime            @default(now())
 
   thread   MessageThread? @relation(fields: [threadId], references: [id], onDelete: Cascade)
-  reporter User          @relation(fields: [reporterUserId], references: [id], onDelete: Cascade)
+  reporter User           @relation(fields: [reporterUserId], references: [id], onDelete: Cascade)
 
   @@index([threadId])
   @@index([createdAt])
@@ -1894,6 +2174,12 @@ enum NotificationKind {
   MESSAGE
   REQUEST
   BROADCAST
+  // MB-1 (CK-D3): renewal readiness and past due reminders, groupKey renewal:{membershipId}
+  MEMBERSHIP_RENEWAL
+  // C12: a creator gave this account a promoter code, groupKey promoter:{codeId}
+  PROMOTER_CODE
+  // FL-6: new gated content from a creator, groupKey content:{creatorUserId}, refId = ContentItem.id
+  CONTENT
 }
 
 // One bell row per thing to see. Repeats collapse into the unseen row for the same
@@ -1944,7 +2230,7 @@ enum NotificationJobStatus {
 // Push and email reminder jobs, claimed by the notification loop (Redis lock, one instance).
 model NotificationJob {
   id        Bytes                 @id @db.Binary(16)
-  // push | email
+  // push | email | digest (Fan Library daily email, FL-6)
   channel   String                @db.VarChar(8)
   userId    Int
   payload   Json
@@ -2111,6 +2397,11 @@ model CheckoutIntent {
   via           String?   @db.VarChar(32)
   // Where the fan tapped Buy, for the phone funnel
   source        String    @db.VarChar(16)
+  // The store policy version the sheet showed (CK-5, store policy 3.6). Set at the first quote;
+  // moved to the live version only when the fan accepts a changed policy
+  storePolicyVersionId Bytes? @map("store_policy_version_id") @db.Binary(16)
+  // AB-2: the RNS name a service offer (the Identity tab check) is bought for
+  rnsName              String?   @map("rns_name") @db.VarChar(64)
   expiresAt     DateTime  @map("expires_at")
   claimedAt     DateTime? @map("claimed_at")
   createdAt     DateTime  @default(now()) @map("created_at")
@@ -2123,4 +2414,564 @@ model CheckoutIntent {
   @@index([creatorUserId, createdAt])
   @@index([expiresAt])
   @@map("checkout_intents")
+}
+
+// ----------------------------------------------------------------------------
+// Adult content review and Safety (Build Board #28, docs/features/adult-content-review.md
+// section 10, PR R1). Admin only tables: never exported to the client. Kept 3 years
+// (SafetyCase, SafetyEvent, Strike); TakedownRequest contact fields are erased 1 year
+// after close; release records follow counsel's schedule (section 10, Retention).
+// ----------------------------------------------------------------------------
+
+model CreatorAdultProfile {
+  id               Bytes     @id @db.Binary(16)
+  userId           Int       @unique @map("user_id")
+  enabledAt        DateTime? @map("enabled_at")
+  policyVersion    String?   @map("policy_version") @db.VarChar(16)
+  // 2257 custodian of records: encrypted at rest, never public
+  custodianName    String?   @map("custodian_name") @db.Text
+  // Encrypted at rest, given only on lawful request
+  custodianAddress String?   @map("custodian_address") @db.Text
+  disabledAt       DateTime? @map("disabled_at")
+  // Admin user id; null when the creator turned 18+ off
+  disabledBy       Int?      @map("disabled_by")
+  disabledReason   String?   @map("disabled_reason") @db.VarChar(255)
+  createdAt        DateTime  @default(now()) @map("created_at")
+
+  @@map("creator_adult_profiles")
+}
+
+// One row is one release: one performer with one creator (SP-Q36). A re sign after
+// withdrawal or a required version is a new row.
+model AppearingPerson {
+  id                 Bytes     @id @db.Binary(16)
+  creatorUserId      Int       @map("creator_user_id")
+  // Set when the invite is accepted
+  personUserId       Int?      @map("person_user_id")
+  displayName        String    @map("display_name") @db.VarChar(80)
+  inviteHash         String?   @unique @map("invite_hash") @db.Char(64)
+  inviteExpires      DateTime? @map("invite_expires")
+  releaseVersion     String?   @map("release_version") @db.VarChar(16)
+  // Typed legal name, encrypted at rest
+  releaseName        String?   @map("release_name") @db.Text
+  // surfaces, otherPlatforms, faceShown, tagAllowed, payment kind, fixed amount, bps
+  releaseOptions     Json?     @map("release_options")
+  idGivenConfirmedAt DateTime? @map("id_given_confirmed_at")
+  releaseAt          DateTime? @map("release_at")
+  releaseText        String?   @map("release_text") @db.Text
+  releaseHash        String?   @map("release_hash") @db.Char(64)
+  checkReference     String?   @map("check_reference") @db.VarChar(64)
+  checkDate          DateTime? @map("check_date")
+  // Ready only when set
+  creatorSignedAt    DateTime? @map("creator_signed_at")
+  withdrawnAt        DateTime? @map("withdrawn_at")
+  createdAt          DateTime  @default(now()) @map("created_at")
+
+  @@index([creatorUserId])
+  @@index([personUserId])
+  @@map("appearing_people")
+}
+
+model ContentItemPerson {
+  contentItemId   Bytes @map("content_item_id") @db.Binary(16)
+  personId        Bytes @map("person_id") @db.Binary(16)
+  // The AppearingPerson row (signed release) that covers this person, set at tagging
+  releaseId       Bytes @map("release_id") @db.Binary(16)
+  // Recording dates for this item, listed as covered content
+  productionDates Json  @map("production_dates")
+
+  @@id([contentItemId, personId])
+  @@map("content_item_people")
+}
+
+enum SafetyCaseType {
+  CHILD_SAFETY
+  TAKE_IT_DOWN
+  AGE_RESULT
+  ADULT_REVIEW
+  CLASSIFIER_HOLD
+  STORE_POLICY
+  REPORT
+  APPEAL
+  ADULT_SETUP
+  COPYRIGHT
+}
+
+enum SafetyCaseState {
+  OPEN
+  CLAIMED
+  WAITING_CREATOR
+  DECIDED
+  CLOSED
+}
+
+model SafetyCase {
+  id                   Bytes           @id @db.Binary(16)
+  // SC-2026-000123 (CN- for copyright notices)
+  number               String          @unique @db.VarChar(20)
+  type                 SafetyCaseType
+  // 0 critical, 1 high, 2 normal
+  severity             Int
+  state                SafetyCaseState @default(OPEN)
+  contentItemId        Bytes?          @map("content_item_id") @db.Binary(16)
+  offerId              Bytes?          @map("offer_id") @db.Binary(16)
+  storePolicyVersionId Bytes?          @map("store_policy_version_id") @db.Binary(16)
+  creatorUserId        Int?            @map("creator_user_id")
+  requestId            Bytes?          @map("request_id") @db.Binary(16)
+  // Appeals
+  parentCaseId         Bytes?          @map("parent_case_id") @db.Binary(16)
+  assigneeId           Int?            @map("assignee_id")
+  claimedAt            DateTime?       @map("claimed_at")
+  dueAt                DateTime        @map("due_at")
+  // clear | label_clear | needs_change | removed | escalated | upheld | reversed | not_valid | kept | policy_removed
+  outcome              String?         @db.VarChar(24)
+  reasonCode           String?         @map("reason_code") @db.VarChar(32)
+  decidedById          Int?            @map("decided_by_id")
+  decidedAt            DateTime?       @map("decided_at")
+  createdAt            DateTime        @default(now()) @map("created_at")
+
+  @@index([state, dueAt])
+  @@index([creatorUserId, createdAt])
+  @@index([contentItemId])
+  @@map("safety_cases")
+}
+
+// Append only audit log: nothing updates or deletes a row
+model SafetyEvent {
+  id        Bytes    @id @db.Binary(16)
+  caseId    Bytes?   @map("case_id") @db.Binary(16)
+  // null for the system
+  actorId   Int?     @map("actor_id")
+  // claim | reveal | decide | strike | suspend_request | suspend_approve | contact_reveal | setting_change | export | case_open | evidence_preserved | alert_sent | hash_block | hash_unblock ...
+  action    String   @db.VarChar(32)
+  detail    Json?
+  note      String?  @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([caseId, createdAt])
+  @@index([actorId, createdAt])
+  @@map("safety_events")
+}
+
+model TakedownRequest {
+  id                  Bytes     @id @db.Binary(16)
+  // TD-2026-000123, CN- for copyright, CC- for counter notices
+  number              String    @unique @db.VarChar(20)
+  // ncii | copyright | counter
+  kind                String    @default("ncii") @db.VarChar(12)
+  // A counter notice points at its copyright notice
+  counterOfId         Bytes?    @map("counter_of_id") @db.Binary(16)
+  statusKeyHash       String    @map("status_key_hash") @db.Char(64)
+  // self | agent
+  relationship        String    @db.VarChar(16)
+  agentDetail         String?   @map("agent_detail") @db.VarChar(160)
+  // Encrypted
+  contactEmail        String    @map("contact_email") @db.Text
+  contactPhone        String?   @map("contact_phone") @db.Text
+  signature           String    @db.Text
+  statement           String?   @db.Text
+  workDescription     String?   @map("work_description") @db.Text
+  // Encrypted, copyright and counter only
+  postalAddress       String?   @map("postal_address") @db.Text
+  jurisdictionConsent Boolean?  @map("jurisdiction_consent")
+  // [{ url, publicId? }]
+  locations           Json
+  receivedAt          DateTime  @default(now()) @map("received_at")
+  // receivedAt + 48 hours (ncii)
+  dueAt               DateTime  @map("due_at")
+  // Counter notice: received + 10 and 14 business days
+  restoreFrom         DateTime? @map("restore_from")
+  restoreBy           DateTime? @map("restore_by")
+  suitFiledAt         DateTime? @map("suit_filed_at")
+  suitReference       String?   @map("suit_reference") @db.VarChar(120)
+  closedAt            DateTime? @map("closed_at")
+  // removed | not_valid | withdrawn
+  outcome             String?   @db.VarChar(16)
+
+  @@index([closedAt, dueAt])
+  @@index([kind, closedAt])
+  @@map("takedown_requests")
+}
+
+model Strike {
+  id         Bytes     @id @db.Binary(16)
+  userId     Int       @map("user_id")
+  caseId     Bytes     @map("case_id") @db.Binary(16)
+  reasonCode String    @map("reason_code") @db.VarChar(32)
+  createdAt  DateTime  @default(now()) @map("created_at")
+  reversedAt DateTime? @map("reversed_at")
+
+  @@index([userId, createdAt])
+  @@map("strikes")
+}
+
+/// A promoter code (content PR 12, C12; content spec 3.9 Promoters). A creator gives an
+/// Amped.Bio account a share of 1% to 30% (the payment settings bound it) on every product
+/// and the plan, or on chosen ones. Store links carry ?via={code}; the API adds a promoter row
+/// to the split when the code is active, in scope and not the buyer's own. A code is never
+/// deleted: Purchase and Membership keep its id. Ended is final.
+model PromoterCode {
+  id             Bytes     @id @db.Binary(16)
+  creatorUserId  Int       @map("creator_user_id")
+  promoterUserId Int       @map("promoter_user_id")
+  // Uppercase letters and digits, 4 to 16, unique across Amped.Bio
+  code           String    @unique @db.VarChar(16)
+  bps            Int
+  // "all", or an array of Offer and MembershipPlan ids as hex
+  scope          Json
+  // active | paused | ended
+  status         String    @default("active") @db.VarChar(12)
+  // creator | refunds (refunds above promoter_refund_pause_rate in 30 days)
+  pausedReason   String?   @map("paused_reason") @db.VarChar(12)
+  expiresAt      DateTime? @map("expires_at")
+  endedAt        DateTime? @map("ended_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  creator  User @relation("PromoterCodeCreator", fields: [creatorUserId], references: [id], onDelete: Cascade)
+  promoter User @relation("PromoterCodePromoter", fields: [promoterUserId], references: [id], onDelete: Cascade)
+
+  @@index([creatorUserId, status])
+  @@index([promoterUserId])
+  @@map("promoter_codes")
+}
+
+/// One AmpedPay payment (PAY-2, docs/features/ampedpay.md, content spec 3.9). The id is the
+/// on chain paymentRef, left padded to 32 bytes. Offers arrive with store PR 9 (offerId).
+model Purchase {
+  id               Bytes     @id @db.Binary(16)
+  checkoutIntentId Bytes?    @map("checkout_intent_id") @db.Binary(16)
+  buyerUserId      Int?      @map("buyer_user_id")
+  creatorUserId    Int?      @map("creator_user_id")
+  // content (offers replace it with store PR 9)
+  targetType       String    @map("target_type") @db.VarChar(16)
+  targetId         String    @map("target_id") @db.VarChar(64)
+  offerId          Bytes?    @map("offer_id") @db.Binary(16)
+  promoterCodeId   Bytes?    @map("promoter_code_id") @db.Binary(16)
+  chainId          Int       @map("chain_id")
+  payer            String    @db.VarChar(42)
+  creatorAddress   String    @map("creator_address") @db.VarChar(42)
+  // USDC units, 6 decimals. fee is the platform share
+  amount           BigInt
+  fee              BigInt
+  // EIP-712 hash of the signed split table; also the payer's authorization nonce
+  splitHash        String    @map("split_hash") @db.Char(66)
+  // The signed table: { recipients: [{ to, bps, role }], validBefore, signature }
+  split            Json
+  // prepared | submitting | submitted | confirmed_soft | confirmed | refunded | failed | expired
+  status           String    @default("prepared") @db.VarChar(16)
+  failureCode      String?   @map("failure_code") @db.VarChar(64)
+  txHash           String?   @map("tx_hash") @db.VarChar(66)
+  blockNumber      BigInt?   @map("block_number")
+  blockHash        String?   @map("block_hash") @db.VarChar(66)
+  gasUsed          BigInt?   @map("gas_used")
+  gasCostWei       BigInt?   @map("gas_cost_wei")
+  // Null is lifetime access. Memberships set it
+  accessUntil      DateTime? @map("access_until")
+  softConfirmedAt  DateTime? @map("soft_confirmed_at")
+  confirmedAt      DateTime? @map("confirmed_at")
+  refundedAt       DateTime? @map("refunded_at")
+  // C10: the creator approved a refund and the relayer sent it; cleared if sending failed
+  refundRequestedAt DateTime? @map("refund_requested_at")
+  refundTxHash     String?   @map("refund_tx_hash") @db.VarChar(66)
+  // C10: the creator's live store policy when the sale was prepared (store policy 3.6)
+  storePolicyVersionId Bytes? @map("store_policy_version_id") @db.Binary(16)
+  // AB-1: the business seller of a merchant offer; the Console and Partner API read by it
+  merchantId       Bytes?    @map("merchant_id") @db.Binary(16)
+  // AB-2: external fulfillment progress (paid | started | in_review | verified | not_passed)
+  fulfillmentState String?   @map("fulfillment_state") @db.VarChar(16)
+  // AB-2: the RNS name the Identity tab check was bought for
+  rnsName          String?   @map("rns_name") @db.VarChar(64)
+  receiptSentAt    DateTime? @map("receipt_sent_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  buyer   User? @relation("PurchaseBuyer", fields: [buyerUserId], references: [id], onDelete: SetNull)
+  creator User? @relation("PurchaseCreator", fields: [creatorUserId], references: [id], onDelete: SetNull)
+
+  @@unique([chainId, splitHash])
+  @@index([buyerUserId, targetType, targetId, status])
+  @@index([creatorUserId, createdAt])
+  @@index([status, updatedAt])
+  @@index([txHash])
+  @@index([refundTxHash])
+  @@index([merchantId, createdAt])
+  @@index([promoterCodeId])
+  @@index([checkoutIntentId])
+  @@map("purchases")
+}
+
+// ================ Memberships core (MB-1, Build Board #25 and #51) ================
+// One plan per creator (memberships decision 6). Amounts in USDC units. A new amount bumps
+// version, so members keep the terms they joined with (planRef = plan id and version).
+model MembershipPlan {
+  id                Bytes    @id @db.Binary(16)
+  creatorUserId     Int      @unique @map("creator_user_id")
+  name              String   @db.VarChar(40)
+  description       String?  @db.VarChar(280)
+  // string[], up to 6 of 80 characters
+  benefits          Json
+  amountEvery30Days BigInt   @map("amount_every_30_days")
+  // null = every 30 days only
+  amountYearly      BigInt?  @map("amount_yearly")
+  // draft | active | paused
+  status            String   @default("draft") @db.VarChar(12)
+  version           Int      @default(1)
+  showMemberCount   Boolean  @default(true) @map("show_member_count")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  creator     User         @relation(fields: [creatorUserId], references: [id], onDelete: Cascade)
+  memberships Membership[]
+
+  @@map("membership_plans")
+}
+
+// One row per join. A fan who rejoins after an end gets a new row. subscriptionRef on chain
+// is this id, left padded (membershipRef in @repo/web3).
+model Membership {
+  id                   Bytes     @id @db.Binary(16)
+  planId               Bytes     @map("plan_id") @db.Binary(16)
+  planVersion          Int       @map("plan_version")
+  fanUserId            Int?      @map("fan_user_id")
+  creatorUserId        Int?      @map("creator_user_id")
+  // every_30_days | yearly
+  interval             String    @db.VarChar(16)
+  // prepared | joining | active | past_due | canceled | ended | failed
+  status               String    @default("prepared") @db.VarChar(12)
+  chainId              Int       @map("chain_id")
+  member               String    @db.VarChar(42)
+  creatorAddress       String    @map("creator_address") @db.VarChar(42)
+  // USDC units per period, frozen at join; fee is the platform share of one period
+  pricePerPeriod       BigInt    @map("price_per_period")
+  fee                  BigInt
+  periodSeconds        Int       @map("period_seconds")
+  // The signed table: { recipients, validBefore, planRef, splitSignature }
+  joinTable            Json      @map("join_table")
+  joinHash             String    @map("join_hash") @db.Char(66)
+  // The allowance the join permit asked for
+  permitValue          BigInt    @map("permit_value")
+  joinTxHash           String?   @map("join_tx_hash") @db.VarChar(66)
+  chargeCount          Int       @default(0) @map("charge_count")
+  currentPeriodStart   DateTime? @map("current_period_start")
+  // Access runs to here; the next charge is due here
+  currentPeriodEnd     DateTime? @map("current_period_end")
+  lastChargeTxHash     String?   @map("last_charge_tx_hash") @db.VarChar(66)
+  // Readiness: the check 3 days before a charge found the wallet short
+  notReadyAt           DateTime? @map("not_ready_at")
+  pastDueSince         DateTime? @map("past_due_since")
+  // The last grace day a reminder went out for (1, 3 or 6)
+  lastReminderDay      Int?      @map("last_reminder_day")
+  // Seller pass lapsed: renewals wait (identity checks 5.4)
+  renewalPausedAt      DateTime? @map("renewal_paused_at")
+  canceledAt           DateTime? @map("canceled_at")
+  endedAt              DateTime? @map("ended_at")
+  // member_canceled | past_due | seller_lapsed | plan_removed | account_deleted
+  endReason            String?   @map("end_reason") @db.VarChar(20)
+  endTxHash            String?   @map("end_tx_hash") @db.VarChar(66)
+  failureCode          String?   @map("failure_code") @db.VarChar(64)
+  // The store policy the fan agreed to at join (store policy 3.6)
+  storePolicyVersionId Bytes?    @map("store_policy_version_id") @db.Binary(16)
+  checkoutIntentId     Bytes?    @map("checkout_intent_id") @db.Binary(16)
+  // C12: the promoter code attributed at join. Its row is in joinTable and pays every renewal
+  promoterCodeId       Bytes?    @map("promoter_code_id") @db.Binary(16)
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+
+  // A deleted creator ends every membership (account deletion calls endByPlatform first)
+  plan    MembershipPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  fan     User?          @relation("MembershipFan", fields: [fanUserId], references: [id], onDelete: SetNull)
+  creator User?          @relation("MembershipCreator", fields: [creatorUserId], references: [id], onDelete: SetNull)
+
+  @@unique([chainId, joinHash])
+  @@index([promoterCodeId])
+  @@index([fanUserId, status])
+  @@index([creatorUserId, status, createdAt])
+  @@index([planId, status])
+  @@index([status, currentPeriodEnd])
+  @@map("memberships")
+}
+
+// ---------------------------------------------------------------------------------------------
+// Authbase storefront (Build Board #66, AB-1; docs/features/authbase-storefront.md 3.2, 3.8, 3.10)
+// A business seller on AmpedPay. Authbase is the first. Approved by two admins after a business
+// check (M1). Its payout wallet changes only through propose, second Owner approval and a 24 hour
+// wait (M2). Its fee is set through the two person rule (M3: Authbase 2,000 bps).
+// ---------------------------------------------------------------------------------------------
+
+model Merchant {
+  id               Bytes     @id @db.Binary(16) // UUIDv7
+  slug             String    @unique @db.VarChar(40)
+  name             String    @db.VarChar(80)
+  // pending | active | suspended
+  status           String    @default("pending") @db.VarChar(12)
+  // Platform share on this merchant's sales, inside the contract's MAX_MERCHANT_FEE_BPS
+  feeBps           Int       @default(2000) @map("fee_bps")
+  // { registration, beneficialOwners, sanctionsScreen, notes } as recorded by the admin
+  businessCheck    Json?     @map("business_check")
+  storePolicyUrl   String?   @map("store_policy_url") @db.VarChar(500)
+  returnUrl        String?   @map("return_url") @db.VarChar(500)
+  approvedAt       DateTime? @map("approved_at")
+  suspendedAt      DateTime? @map("suspended_at")
+  createdById      Int       @map("created_by_id")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  members       MerchantMember[]
+  payoutWallets MerchantPayoutWallet[]
+  auditLog      MerchantAuditLog[]
+  offers        Offer[]
+
+  @@index([status])
+  @@map("merchants")
+}
+
+model MerchantMember {
+  id         Bytes    @id @db.Binary(16) // UUIDv7
+  merchantId Bytes    @map("merchant_id") @db.Binary(16)
+  userId     Int      @map("user_id")
+  // owner | finance | developer | viewer
+  role       String   @db.VarChar(12)
+  addedById  Int      @map("added_by_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  merchant Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+
+  @@unique([merchantId, userId])
+  @@index([userId])
+  @@map("merchant_members")
+}
+
+model MerchantPayoutWallet {
+  id               Bytes     @id @db.Binary(16) // UUIDv7
+  merchantId       Bytes     @map("merchant_id") @db.Binary(16)
+  address          String    @db.VarChar(42)
+  // proposed | approved | effective | replaced | rejected | cancelled
+  status           String    @db.VarChar(12)
+  // The signed proof of control: EOA or ERC-1271 signature over the proof message
+  proofMessage     String    @map("proof_message") @db.VarChar(500)
+  proofSignature   String    @map("proof_signature") @db.Text
+  proposedById     Int       @map("proposed_by_id")
+  approvedById     Int?      @map("approved_by_id")
+  rejectedById     Int?      @map("rejected_by_id")
+  // approvedAt + 24 hours; the payments worker makes it effective then
+  effectiveAt      DateTime? @map("effective_at")
+  approvedAt       DateTime? @map("approved_at")
+  replacedAt       DateTime? @map("replaced_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  merchant Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+
+  @@index([merchantId, status])
+  @@index([status, effectiveAt])
+  @@map("merchant_payout_wallets")
+}
+
+model MerchantAuditLog {
+  id         Bytes    @id @db.Binary(16) // UUIDv7
+  merchantId Bytes    @map("merchant_id") @db.Binary(16)
+  // Amped.Bio user id; 0 for the system (the worker)
+  actorId    Int      @map("actor_id")
+  action     String   @db.VarChar(48)
+  detail     Json?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  merchant Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+
+  @@index([merchantId, createdAt])
+  @@map("merchant_audit_log")
+}
+
+// Partner API (Build Board #66, AB-4; docs/features/authbase-storefront.md 3.9, partner spec 8 and 9)
+model MerchantApiKey {
+  id          Bytes     @id @db.Binary(16) // UUIDv7
+  merchantId  Bytes     @map("merchant_id") @db.Binary(16)
+  name        String    @db.VarChar(60)
+  // test | live
+  mode        String    @db.VarChar(8)
+  // The first 16 characters, shown in the Console (ab_test_1a2b3c4d)
+  prefix      String    @db.VarChar(16)
+  // sha256 of the full key; the key itself is shown once and never stored
+  keyHash     String    @unique @map("key_hash") @db.Char(64)
+  createdById Int       @map("created_by_id")
+  lastUsedAt  DateTime? @map("last_used_at")
+  revokedAt   DateTime? @map("revoked_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  @@index([merchantId])
+  @@map("merchant_api_keys")
+}
+
+model WebhookEndpoint {
+  id           Bytes     @id @db.Binary(16) // UUIDv7
+  merchantId   Bytes     @map("merchant_id") @db.Binary(16)
+  url          String    @db.VarChar(500)
+  // Encrypted with MERCHANT_SECRET_BOX_KEY; signing needs the plain secret
+  secretBox    String    @map("secret_box") @db.Text
+  events       Json
+  // active | disabled
+  status       String    @default("active") @db.VarChar(12)
+  createdById  Int       @map("created_by_id")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  @@index([merchantId, status])
+  @@map("webhook_endpoints")
+}
+
+model WebhookDelivery {
+  id            Bytes     @id @db.Binary(16) // UUIDv7, also the event_id
+  endpointId    Bytes     @map("endpoint_id") @db.Binary(16)
+  merchantId    Bytes     @map("merchant_id") @db.Binary(16)
+  eventId       String    @map("event_id") @db.VarChar(40)
+  type          String    @db.VarChar(32)
+  orderRef      String?   @map("order_ref") @db.VarChar(40)
+  payload       Json
+  attempt       Int       @default(0)
+  // pending | delivered | failed
+  status        String    @default("pending") @db.VarChar(12)
+  nextAttemptAt DateTime  @map("next_attempt_at")
+  claimedUntil  DateTime? @map("claimed_until")
+  responseCode  Int?      @map("response_code")
+  lastError     String?   @map("last_error") @db.VarChar(255)
+  deliveredAt   DateTime? @map("delivered_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  @@index([status, nextAttemptAt])
+  @@index([merchantId, createdAt])
+  @@map("webhook_deliveries")
+}
+
+model PartnerIdempotencyKey {
+  id         Bytes    @id @db.Binary(16) // UUIDv7
+  merchantId Bytes    @map("merchant_id") @db.Binary(16)
+  key        String   @db.VarChar(80)
+  route      String   @db.VarChar(80)
+  status     Int
+  response   Json
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@unique([merchantId, key])
+  @@map("partner_idempotency_keys")
+}
+
+// Seller tier override (Build Board #66, AB-6; docs/features/authbase-storefront.md 3.2b, M10).
+// Creators need an Enhanced check to sell; an admin can allow a named creator to sell with
+// Standard until a date. Ends at endsAt or when the Authbase verification ends, whichever is first.
+model SellerOverride {
+  id               Bytes     @id @db.Binary(16) // UUIDv7
+  userId           Int       @map("user_id")
+  reason           String    @db.VarChar(500)
+  endsAt           DateTime  @map("ends_at")
+  createdById      Int       @map("created_by_id")
+  revokedAt        DateTime? @map("revoked_at")
+  revokedById      Int?      @map("revoked_by_id")
+  reminderSentAt   DateTime? @map("reminder_sent_at")
+  endedNoticeAt    DateTime? @map("ended_notice_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+
+  @@index([userId, endsAt])
+  @@index([endsAt])
+  @@map("seller_overrides")
 }

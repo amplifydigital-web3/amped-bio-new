@@ -4,7 +4,7 @@
  * Pure helpers, the keyboard map, the copy rules, and the provider's progress
  * writes and URL refresh against a fake media element.
  */
-import { act, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import {
   CONTENT_PROGRESS,
@@ -13,6 +13,7 @@ import {
   normalizeWebVtt,
 } from "@repo/constants";
 import {
+  AccessEndedError,
   MediaPlayer,
   MiniPlayer,
   PLAYER_COPY,
@@ -208,9 +209,13 @@ describe("player copy", () => {
   it("has no dashes and no banned money words", () => {
     const strings: string[] = [];
     for (const value of Object.values(PLAYER_COPY)) {
-      strings.push(
-        typeof value === "function" ? (value as (a: never) => string)("8:12" as never) : value
-      );
+      if (typeof value === "function") {
+        strings.push((value as (a: never, b: never) => string)("8:12" as never, 12 as never));
+      } else if (Array.isArray(value)) {
+        for (const pair of value) strings.push(...pair);
+      } else {
+        strings.push(value as string);
+      }
     }
     for (const text of strings) {
       expect(DASHES.test(text), text).toBe(false);
@@ -416,6 +421,46 @@ describe("PlayerProvider", () => {
     expect(api.state.error).toBe("expired");
   });
 
+  it("stops with Access ended when a refresh is refused (Fan Library FL-6)", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
+    const resolve = vi
+      .fn()
+      .mockResolvedValueOnce({ kind: "audio", src: "https://m/1", expiresAt: Date.now() + 120_000 })
+      .mockRejectedValueOnce(new AccessEndedError());
+    let api!: PlayerApi;
+    render(
+      <PlayerProvider>
+        <Probe onApi={value => (api = value)} />
+        <MediaPlayer item={audioItem} resolve={resolve} />
+      </PlayerProvider>
+    );
+    await act(async () => {
+      await api.load(audioItem, resolve, { autoplay: true });
+    });
+    expect(api.state.playing).toBe(true);
+    await act(async () => {
+      vi.advanceTimersByTime(60_000);
+    });
+    expect(api.state.error).toBe("ended");
+    expect(api.state.playing).toBe(false);
+    expect(screen.getByText(PLAYER_COPY.endedTitle)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: PLAYER_COPY.retry })).toBeNull();
+  });
+
+  it("shows Access ended, not a retry, when the first load is refused", async () => {
+    const resolve = vi.fn().mockRejectedValue(new AccessEndedError());
+    let api!: PlayerApi;
+    render(
+      <PlayerProvider>
+        <Probe onApi={value => (api = value)} />
+      </PlayerProvider>
+    );
+    await act(async () => {
+      await api.load(audioItem, resolve, { autoplay: true });
+    });
+    expect(api.state.error).toBe("ended");
+  });
+
   it("drops the pending URL refresh when the provider goes away", async () => {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
     const resolve = vi.fn(async () => ({
@@ -441,7 +486,7 @@ describe("PlayerProvider", () => {
     expect(resolve).toHaveBeenCalledTimes(1);
   });
 
-  it("shows the mini player once play started and closes it", async () => {
+  it("shows the mini player once play started and a swipe down stops it", async () => {
     const resolve = vi.fn(async () => ({
       kind: "audio" as const,
       src: "https://m/1",
@@ -460,7 +505,13 @@ describe("PlayerProvider", () => {
     });
     expect(screen.getByRole("region", { name: PLAYER_COPY.miniPlayer })).toBeInTheDocument();
     expect(screen.getByText(audioItem.title)).toBeInTheDocument();
-    await act(async () => screen.getByRole("button", { name: PLAYER_COPY.close }).click());
+    // No close button (FL-1): swipe down stops and dismisses
+    expect(screen.queryByRole("button", { name: PLAYER_COPY.close })).toBeNull();
+    const bar = screen.getByRole("region", { name: PLAYER_COPY.miniPlayer });
+    await act(async () => {
+      fireEvent.pointerDown(bar, { pointerId: 1, clientX: 100, clientY: 10 });
+      fireEvent.pointerUp(bar, { pointerId: 1, clientX: 102, clientY: 90 });
+    });
     expect(screen.queryByRole("region", { name: PLAYER_COPY.miniPlayer })).toBeNull();
     expect(api.item).toBeNull();
   });

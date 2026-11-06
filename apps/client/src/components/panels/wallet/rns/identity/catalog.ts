@@ -137,5 +137,15 @@ const authbaseSsoUrl = (returnTo: string): string | undefined => {
 /** The Authbase ID check (103 I18). */
 export const AUTHBASE_VERIFY_URL = authbaseSsoUrl("/verify");
 
+/**
+ * AB-3 (spec 3.6): the paid order handoff. Authbase signs the user in with Amped.Bio, finds the
+ * paid order, skips its own payment step and runs the check. Only the order ref travels; Authbase
+ * checks the order belongs to the signed in account and the wallet that paid.
+ */
+export function authbaseVerifyUrl(orderRef: string): string | undefined {
+  if (!/^[0-9a-f]{32}$/.test(orderRef)) return undefined;
+  return authbaseSsoUrl(`/verify?order=${orderRef}`);
+}
+
 /** Where the owner changes what they share with Amped.Bio (104 I14). */
 export const AUTHBASE_CONSENT_URL = authbaseSsoUrl("/profile/consent-manager");

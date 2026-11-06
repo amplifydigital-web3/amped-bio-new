@@ -73,6 +73,97 @@ function isSwitchingNetworksError(error: unknown): boolean {
   return message.includes("is switching networks");
 }
 
+/** Typed data the payment chain signer can sign: any EIP-712 message on Base. */
+export type PaymentChainTypedData = {
+  /** The address that must sign: the live wallet is checked against it twice */
+  account: `0x${string}`;
+  domain: { name: string; version: string; chainId: number; verifyingContract: `0x${string}` };
+  types: Record<string, readonly { name: string; type: string }[]>;
+  primaryType: string;
+  message: Record<string, unknown>;
+};
+
+/**
+ * Signs EIP-712 typed data on the payment chain (USDC wallet spec 3.3). The wallet stays on
+ * Libertas for everything else, so this switches to Base just for the signature and back
+ * after, even when the signer cancels. Used by USDC sends and by store refunds (C10).
+ *
+ * Must have 2: before any wallet prompt, and again after the chain switch, the live signer
+ * must be `account`. After an account switch in one browser the wallet can still be the
+ * previous account's; a signature from it would be for the wrong signer, so nothing is asked.
+ */
+export function usePaymentChainSigner() {
+  const chainId = useChainId();
+  const { switchChainAsync } = useSwitchChain();
+  const { signTypedDataAsync } = useSignTypedData();
+  const { data: walletClient } = useConnectorClient();
+  const { address: accountAddress } = useAccount();
+
+  return useCallback(
+    async (typed: PaymentChainTypedData): Promise<Hex> => {
+      const expected = typed.account;
+      if (!walletClient) throw new WalletDisconnectedError();
+      const before = walletClient.account?.address ?? accountAddress;
+      if (!before) throw new WalletDisconnectedError();
+      if (!sameAddress(before, expected)) {
+        console.warn("[usdc-sign] signer does not match", { expected, live: before });
+        throw new WalletMismatchError(expected, before);
+      }
+      const original = chainId;
+      if (original !== paymentChain.id) {
+        try {
+          await switchChainAsync({ chainId: paymentChain.id });
+        } catch (switchError) {
+          console.error("[usdc-sign] switchChainAsync failed", switchError);
+          throw new ChainSwitchError(switchError);
+        }
+        // Web3Auth resolves the switch before its middleware reports the new chain, and a
+        // signature arriving mid switch is refused. Wait until the wallet reports Base.
+        const deadline = Date.now() + SWITCH_WAIT_MS;
+        while (Date.now() < deadline) {
+          try {
+            const current = await walletClient?.request({ method: "eth_chainId" } as const);
+            if (current && Number.parseInt(current, 16) === paymentChain.id) break;
+          } catch {
+            // keep polling
+          }
+          await new Promise(resolve => setTimeout(resolve, SWITCH_POLL_MS));
+        }
+      }
+      try {
+        // The account can change while the wallet switches chains
+        const after = (await liveAccount(walletClient as unknown as AccountSource)) ?? before;
+        if (!sameAddress(after, expected)) {
+          console.warn("[usdc-sign] signer changed during chain switch", { expected, live: after });
+          throw new WalletMismatchError(expected, after, true);
+        }
+        for (let attempt = 0; ; attempt++) {
+          try {
+            return await signTypedDataAsync({
+              // Name the signer so a wallet holding another key refuses
+              account: expected,
+              domain: typed.domain,
+              types: typed.types,
+              primaryType: typed.primaryType,
+              message: typed.message,
+            } as unknown as Parameters<typeof signTypedDataAsync>[0]);
+          } catch (error) {
+            if (attempt >= SIGN_RETRIES || !isSwitchingNetworksError(error)) throw error;
+            await new Promise(resolve => setTimeout(resolve, SWITCH_POLL_MS * (attempt + 1)));
+          }
+        }
+      } finally {
+        if (original !== paymentChain.id) {
+          await switchChainAsync({ chainId: original }).catch(backError => {
+            console.warn("[usdc-sign] switch back failed", backError);
+          });
+        }
+      }
+    },
+    [chainId, switchChainAsync, signTypedDataAsync, walletClient, accountAddress]
+  );
+}
+
 /**
  * Signs a USDC transfer authorization on the payment chain (spec 3.3). The
  * wallet stays on Libertas for everything else, so this switches to Base just

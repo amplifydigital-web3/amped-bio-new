@@ -8,12 +8,17 @@ import { registerMessagingOutboxHandlers } from "./services/messaging/delivery";
 import { registerGroupOutboxHandlers, startGroupChecks } from "./services/telegram/groups";
 import { startUsdcIndexer } from "./services/usdc";
 import { startPaymentsAdminIndexer } from "./services/payments/indexer";
+import { startPaymentsWorker } from "./services/payments/paymentsWorker";
+import { startMembershipRenewals } from "./services/memberships/renewals";
 import { startContentSweeper } from "./services/content/state";
+import { startEdgeSync } from "./services/content/edge";
 import { startOnrampTokenPurge } from "./services/onramp/sessions";
 import { startRnsExpirySweeper } from "./services/rnsExpiry";
+import { startSellerOverrideSweeper } from "./services/identity/sellerOverride";
 import { startCheckoutIntentPurge } from "./services/checkout/intents";
 import { getGeoIpReader } from "./services/analytics/geoipDatabase";
 import { startFeatureFlagRefresh } from "./services/featureFlags";
+import { startAccessNightly } from "./services/access/nightly";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
@@ -45,14 +50,21 @@ startUsdcIndexer();
 // AmpedPay admin (Build Board #50): mark Safe changes applied from the contract's events.
 // No-op until AMPEDPAY_ADDRESS is set.
 startPaymentsAdminIndexer();
+startPaymentsWorker();
+startMembershipRenewals();
 // Content system (Build Board #20): fail uploads left unfinished for 24 hours and release their bytes.
 startContentSweeper();
+startEdgeSync();
 // Buy USDC: delete expired Coinbase userAuthTokens after their 60 day life
 startOnrampTokenPurge();
 // RNS name expiry emails: an hourly sweep, one email per name and stage
 startRnsExpirySweeper();
+// AB-6: seller override reminders and end notices (Build Board #66)
+startSellerOverrideSweeper();
 // Mobile checkout (Build Board #49): delete checkout intents 30 days after they end
 startCheckoutIntentPurge();
+// Access gating (Build Board #21, G6): nightly leak scan and the 25 month access event purge
+startAccessNightly();
 
 // Analytics location: open (or download) GeoLite2 City at boot so the first
 // visits are located and a missing license key shows in the startup log.

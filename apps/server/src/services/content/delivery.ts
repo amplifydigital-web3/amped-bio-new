@@ -10,7 +10,7 @@
  *   images, covers         public 24 h rounded up to the hour   private 5 min
  *   documents              public 1 h                            private 5 min
  *   audio, waveform, VTT   public 24 h rounded up to the hour   private duration + 10 min, 4 h max
- *   Stream token           public duration + 30 min, 6 h max    private duration + 10 min, 4 h max
+ *   Stream token           duration + 10 min, 4 h max, public and private (takedown TD3)
  *   downloads              2 min; R2 files single use
  *   previews (C8)          1 h for the blur, clip, audio preview and preview pages
  *
@@ -97,11 +97,9 @@ export function deliveryExpiry(
           : nowSec + Math.min(durationSec + 10 * MINUTE, 4 * HOUR);
       break;
     case "stream":
-      exp =
-        nowSec +
-        (access === "public"
-          ? Math.min(durationSec + 30 * MINUTE, 6 * HOUR)
-          : Math.min(durationSec + 10 * MINUTE, 4 * HOUR));
+      // Takedown TD3 (content-takedown.md): public matches private, so a video
+      // hidden or unpublished stops within 4 hours even for a copied token
+      exp = nowSec + Math.min(durationSec + 10 * MINUTE, 4 * HOUR);
       break;
     case "download":
       exp = nowSec + 2 * MINUTE;
@@ -135,7 +133,14 @@ class Signer {
     const exp = deliveryExpiry(kind, this.access, this.item.durationMs, this.now);
     this.note(exp);
     const token = signMediaToken(
-      { k: asset.r2Key, r: asset.role.toLowerCase(), exp, dl: 0 },
+      {
+        k: asset.r2Key,
+        r: asset.role.toLowerCase(),
+        exp,
+        dl: 0,
+        // Public class (takedown TD2): the gateway refuses it once the item goes private
+        ...(this.access === "public" ? { p: 1 as const } : {}),
+      },
       undefined,
       this.now
     );
@@ -384,6 +389,27 @@ export function buildLockedCard(
   };
 }
 
+/**
+ * A store product's cover (C9): the item's COVER rendition, never the media itself. An image
+ * item has no separate cover, so it shows its blur. Signed with the public image lifetime.
+ */
+export function buildProductCover(
+  item: Item,
+  assets: Asset[],
+  now: Date = new Date()
+): ContentImageSet | null {
+  const signer = new Signer(item, "public", now);
+  if (fromDbKind(item.kind) !== "image") {
+    const cover = imageSet(signer, assets, "COVER");
+    if (cover) return cover;
+  }
+  const blur = signer.r2(
+    assets.find(asset => asset.role === "BLUR"),
+    "image"
+  );
+  return blur ? { src: blur, srcSet: "", width: null, height: null } : null;
+}
+
 /** Preview tokens live 1 hour (content spec 3.6). */
 const PREVIEW_SECONDS = HOUR;
 
@@ -472,7 +498,9 @@ export const CARD_ASSET_ROLES = ["COVER", "RENDITION", "BLUR"] as const;
 export async function buildDownload(
   item: Item,
   assets: Asset[],
-  now: Date = new Date()
+  now: Date = new Date(),
+  /** Fan Library FL-5: the grant id the download record keeps */
+  jti: string = newDownloadJti()
 ): Promise<ContentDownload> {
   if (!item.allowDownload) throw new DeliveryError("no_download");
   const signer = new Signer(item, "private", now);
@@ -497,7 +525,7 @@ export async function buildDownload(
   const ext = original.r2Key.split(".").pop() ?? "";
   const fileName = downloadFileName(item.title, ext);
   const token = signMediaToken(
-    { k: original.r2Key, r: "original", exp, dl: 1, fn: fileName, j: newDownloadJti() },
+    { k: original.r2Key, r: "original", exp, dl: 1, fn: fileName, j: jti },
     undefined,
     now
   );

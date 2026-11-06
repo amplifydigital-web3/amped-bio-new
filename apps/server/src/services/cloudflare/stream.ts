@@ -164,6 +164,21 @@ export function updateStreamVideo(uid: string, meta: Record<string, string>): Pr
   });
 }
 
+/**
+ * Takedown (content-takedown.md TD1): a closed list stops browser playback of a
+ * hidden video within a minute, since Stream cannot revoke a single token.
+ * Restoring puts the configured origins back.
+ */
+export const STREAM_CLOSED_ORIGINS = ["takedown.invalid"];
+
+export function setStreamAllowedOrigins(uid: string, origins: string[]): Promise<StreamVideo> {
+  return streamJson<StreamVideo>(`/${uid}`, {
+    method: "POST",
+    // requireSignedURLs is sent again so this edit can never open a video to unsigned playback
+    body: JSON.stringify({ allowedOrigins: origins, requireSignedURLs: true }),
+  });
+}
+
 export async function deleteStreamVideo(uid: string): Promise<void> {
   const response = await fetch(accountUrl(`/${uid}`), {
     method: "DELETE",

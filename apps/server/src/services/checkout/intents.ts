@@ -20,6 +20,8 @@ import {
 } from "@repo/constants";
 import { TRPCError } from "@trpc/server";
 import { uuidv7 } from "../../utils/uuid-v7";
+import { storeIsPublic } from "../store/settings";
+import { isFeatureOn } from "../featureFlags";
 
 export const intentIdToHex = (id: Buffer | Uint8Array) => Buffer.from(id).toString("hex");
 export const hexToIntentId = (hex: string) => Buffer.from(hex, "hex");
@@ -36,9 +38,21 @@ export type CheckoutItem = { title: string; creatorHandle: string; creatorName: 
 export type CheckoutSheetExtra = {
   publicId: string;
   kind: string;
+  /** Where Open goes after payment, on the landing host */
+  path: string;
+  /** The product's amount (C9); null for a content target, which uses the checkout amount */
+  amountUnits: bigint | null;
+  /** A product's access period in days (C9); null keeps it in the Library */
+  accessPeriodDays: number | null;
   creatorImage: string | null;
   creatorImageFileId: number | null;
-  creatorThemeId: string | null;
+  creatorThemeId: number | null;
+  /**
+   * AB-1: the business seller of a merchant offer (hex id). Quote and prepare then run
+   * checkMerchant and pay the merchant's payout wallet as the merchant row (M1, M11).
+   * Null for a creator's sale.
+   */
+  merchantId: string | null;
 };
 
 /**
@@ -49,6 +63,7 @@ export type CheckoutSheetExtra = {
 export async function resolveTarget(
   target: CheckoutStartInput["target"]
 ): Promise<{ creatorUserId: number; item: CheckoutItem; extra: CheckoutSheetExtra } | null> {
+  if (target.type === "offer") return resolveOffer(target.id);
   if (target.type !== "content") return null;
   const item = await prisma.contentItem.findUnique({
     where: { publicId: target.id },
@@ -61,18 +76,7 @@ export async function resolveTarget(
       moderationState: true,
       adult: true,
       deletedAt: true,
-      user: {
-        select: {
-          id: true,
-          handle: true,
-          name: true,
-          block: true,
-          page_status: true,
-          image: true,
-          image_file_id: true,
-          theme: true,
-        },
-      },
+      user: { select: CREATOR_SELECT },
     },
   });
   if (
@@ -82,23 +86,167 @@ export async function resolveTarget(
     item.moderationState !== "CLEAR" ||
     item.adult ||
     item.deletedAt !== null ||
-    item.user.block !== "no" ||
-    item.user.page_status !== "PUBLISHED" ||
-    !item.user.handle
+    !creatorSells(item.user)
   ) {
     return null;
   }
   return {
     creatorUserId: item.user.id,
-    item: { title: item.title, creatorHandle: item.user.handle, creatorName: item.user.name },
+    item: { title: item.title, creatorHandle: item.user.handle!, creatorName: item.user.name },
     extra: {
       publicId: item.publicId ?? target.id,
       kind: String(item.kind ?? "file"),
-      creatorImage: item.user.image ?? null,
-      creatorImageFileId: item.user.image_file_id ?? null,
-      creatorThemeId: item.user.theme ?? null,
+      path: `/${item.user.handle}/c/${item.publicId ?? target.id}`,
+      amountUnits: null,
+      accessPeriodDays: null,
+      merchantId: null,
+      ...creatorExtra(item.user),
     },
   };
+}
+
+const CREATOR_SELECT = {
+  id: true,
+  handle: true,
+  name: true,
+  block: true,
+  page_status: true,
+  image: true,
+  image_file_id: true,
+  theme: true,
+} as const;
+
+type CreatorRow = {
+  id: number;
+  handle: string | null;
+  name: string;
+  block: string;
+  page_status: string;
+  image: string | null;
+  image_file_id: number | null;
+  theme: number | null;
+};
+
+function creatorSells(user: CreatorRow): boolean {
+  return user.block === "no" && user.page_status === "PUBLISHED" && Boolean(user.handle);
+}
+
+function creatorExtra(user: CreatorRow) {
+  return {
+    creatorImage: user.image ?? null,
+    creatorImageFileId: user.image_file_id ?? null,
+    creatorThemeId: user.theme ?? null,
+  };
+}
+
+/**
+ * A store product (C9): active, not 18+, every item still sellable, in a store that is live
+ * with store sales on. The amount is the product's.
+ */
+async function resolveOffer(idHex: string) {
+  if (!/^[0-9a-f]{32}$/.test(idHex)) return null;
+  const offer = await prisma.offer.findUnique({
+    where: { id: Buffer.from(idHex, "hex") },
+    select: {
+      slug: true,
+      title: true,
+      kind: true,
+      status: true,
+      adult: true,
+      amountUnits: true,
+      accessPeriodDays: true,
+      merchantId: true,
+      fulfillment: true,
+      merchant: { select: { slug: true, name: true } },
+      creator: { select: { ...CREATOR_SELECT, storeSettings: { select: { status: true } } } },
+      items: {
+        select: {
+          contentItem: {
+            select: {
+              status: true,
+              publishState: true,
+              moderationState: true,
+              adult: true,
+              deletedAt: true,
+            },
+          },
+        },
+      },
+    },
+  });
+  if (!offer) return null;
+  // AB-2: a merchant's service offer. The merchant gate (checkMerchant) runs in quote and
+  // prepare; the creator store rules do not apply. Sold only while the storefront flag is on
+  if (offer.merchantId) {
+    if (
+      offer.status !== "active" ||
+      offer.adult ||
+      offer.fulfillment !== "external" ||
+      !offer.merchant ||
+      !isFeatureOn("authbaseStorefront")
+    ) {
+      return null;
+    }
+    return {
+      creatorUserId: offer.creator.id,
+      item: {
+        title: offer.title,
+        creatorHandle: offer.merchant.slug,
+        creatorName: offer.merchant.name,
+      },
+      extra: {
+        publicId: offer.slug,
+        kind: "service",
+        path: "/wallet?tab=rns",
+        amountUnits: offer.amountUnits,
+        accessPeriodDays: offer.accessPeriodDays,
+        merchantId: Buffer.from(offer.merchantId).toString("hex"),
+        ...creatorExtra(offer.creator),
+      },
+    };
+  }
+  if (
+    offer.status !== "active" ||
+    offer.adult ||
+    !creatorSells(offer.creator) ||
+    !storeIsPublic(offer.creator.storeSettings) ||
+    offer.items.length === 0 ||
+    offer.items.some(
+      ({ contentItem: c }) =>
+        c.adult ||
+        c.status !== "READY" ||
+        c.publishState !== "PUBLISHED" ||
+        c.moderationState !== "CLEAR" ||
+        c.deletedAt !== null
+    )
+  ) {
+    return null;
+  }
+  return {
+    creatorUserId: offer.creator.id,
+    item: {
+      title: offer.title,
+      creatorHandle: offer.creator.handle!,
+      creatorName: offer.creator.name,
+    },
+    extra: {
+      publicId: offer.slug,
+      kind: offer.kind,
+      path: `/${offer.creator.handle}/store/${offer.slug}`,
+      amountUnits: offer.amountUnits,
+      accessPeriodDays: offer.accessPeriodDays,
+      merchantId: offer.merchantId ? Buffer.from(offer.merchantId).toString("hex") : null,
+      ...creatorExtra(offer.creator),
+    },
+  };
+}
+
+/** The stored target of an intent. */
+export function targetOf(row: {
+  targetType: string;
+  targetId: string;
+}): CheckoutStartInput["target"] {
+  return { type: row.targetType === "offer" ? "offer" : "content", id: row.targetId };
 }
 
 export async function startIntent(viewerUserId: number | null, input: CheckoutStartInput) {
@@ -126,6 +274,8 @@ export async function startIntent(viewerUserId: number | null, input: CheckoutSt
       claimedAt: viewerUserId !== null ? now : null,
       via: input.via ?? null,
       source: input.source,
+      // AB-2: the name a service offer is for; ignored for every other target
+      rnsName: resolved.extra.merchantId ? (input.rnsName ?? null) : null,
       status: "open",
       expiresAt: new Date(now.getTime() + CHECKOUT_INTENT_TTL_MS),
     },
@@ -206,8 +356,7 @@ export async function getIntent(viewerUserId: number | null, idHex: string) {
     }
   }
 
-  const resolved =
-    status === "expired" ? null : await resolveTarget({ type: "content", id: row.targetId });
+  const resolved = status === "expired" ? null : await resolveTarget(targetOf(row));
   return {
     id: intentIdToHex(row.id),
     kind: row.kind,
@@ -236,7 +385,7 @@ export async function resumableIntent(viewerUserId: number) {
   });
   // Skip an intent whose item stopped being for sale, so an older one still shows
   for (const row of rows) {
-    const resolved = await resolveTarget({ type: "content", id: row.targetId });
+    const resolved = await resolveTarget(targetOf(row));
     if (!resolved) continue;
     const hex = intentIdToHex(row.id);
     return { id: hex, title: resolved.item.title, payPath: checkoutPayPath(hex) };

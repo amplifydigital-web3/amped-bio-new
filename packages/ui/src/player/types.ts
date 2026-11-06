@@ -36,6 +36,33 @@ export interface PlayerItem {
   chapters?: PlayerChapter[] | null;
   /** Where the mini player's expand goes */
   href?: string | null;
+  /**
+   * The creator who owns the item (their handle). Autoplay never leaves the
+   * owner of the item that just ended (Fan Library decision D, FL-1).
+   */
+  ownerId?: string | null;
+  /** The one access label the item shows (a plan name, Purchased, Pool fans) */
+  label?: string | null;
+}
+
+/**
+ * An item the player may play later: in the queue the viewer built, or in the
+ * up next list the page offers. `canOpen` is the server's answer for this
+ * viewer. The player never queues or plays an entry the viewer can not open.
+ */
+export interface QueueEntry {
+  item: PlayerItem;
+  resolve: SourceResolver;
+  canOpen: boolean;
+}
+
+/** Sleep timer choices (spec 3.5, board m7): off, end of this item, or minutes. */
+export type SleepChoice = "off" | "end" | 15 | 30 | 60;
+
+export interface SleepTimer {
+  choice: SleepChoice;
+  /** Unix ms when play pauses, for the minute choices. */
+  endsAt: number | null;
 }
 
 export type PlayerSource =
@@ -43,6 +70,11 @@ export type PlayerSource =
       kind: "video";
       /** Signed HLS manifest */
       hls: string;
+      /**
+       * Fan Library FL-5: a progressive MP4 to play instead of HLS, such as an
+       * offline copy the service worker serves at /downloads/{publicId}
+       */
+      mp4?: string;
       poster?: string | null;
       captions?: PlayerCaption[];
       /** Unix ms when the URLs stop working. Refreshed a minute before. */
@@ -78,7 +110,11 @@ export interface PlayerState {
   /** Playback has started at least once for the current item */
   started: boolean;
   loading: boolean;
-  error: "load" | "expired" | null;
+  /**
+   * load: the item did not load; expired: a refresh failed for another reason;
+   * ended: the server refused the fan (Fan Library FL-6, Access ended)
+   */
+  error: "load" | "expired" | "ended" | null;
   currentMs: number;
   durationMs: number | null;
   bufferedMs: number;

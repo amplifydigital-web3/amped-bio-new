@@ -26,6 +26,11 @@ export function ampedPayAddress(): Address | null {
   return configuredAddress(env.AMPEDPAY_ADDRESS);
 }
 
+/** AmpedMemberships (PAY-3), or null before it is deployed (MB-1). */
+export function ampedMembershipsAddress(): Address | null {
+  return configuredAddress(env.AMPEDMEMBERSHIPS_ADDRESS);
+}
+
 export function safeAddress(): Address | null {
   return configuredAddress(env.AMPEDPAY_SAFE);
 }

@@ -385,11 +385,21 @@ describe("getReadUrl through open (3.3)", () => {
   });
 
   it("runs the 18+ check before the rule", async () => {
+    // 18+ opens to anyone but the owner only with the adultContent flag (A1)
+    __setFeatureFlagOverridesForTests({ accessGating: true, adultContent: true });
     db.state.follows.add(FAN);
     const item = addItem({ adult: true, accessRuleId: addRule("follower", {}) });
     const refused = await content(FAN).getReadUrl({ publicId: item.publicId });
     expect(refused.decision?.reason).toBe("age_check_required");
     expect(refused.decision?.hint).toEqual({ action: "verify_age" });
+  });
+
+  it("answers not found for 18+ while the adultContent flag is off (A1)", async () => {
+    db.state.follows.add(FAN);
+    const item = addItem({ adult: true, accessRuleId: addRule("follower", {}) });
+    await expect(content(FAN).getReadUrl({ publicId: item.publicId })).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
   });
 
   it("answers NOT_FOUND for a missing or unavailable item", async () => {
@@ -431,6 +441,7 @@ describe("getPreview (3.3)", () => {
   });
 
   it("shows no media to a viewer who has not passed the 18+ check", async () => {
+    __setFeatureFlagOverridesForTests({ accessGating: true, adultContent: true });
     const item = addItem({ adult: true, accessRuleId: addRule("follower", {}) });
     const preview = await content(FAN).getPreview({ publicId: item.publicId });
     expect(preview).toMatchObject({ blur: null, clip: null, audio: null, pages: [] });
@@ -558,18 +569,26 @@ describe("content.update access (3.5)", () => {
     await expect(
       content(OWNER).update({
         publicId: item.publicId,
-        access: { kind: "member", params: { planId: 1 } } as never,
+        access: { kind: "reward_points", params: { programId: 1, minPoints: 5 } } as never,
       })
     ).rejects.toMatchObject({ code: "BAD_REQUEST" });
-    const paid = addRule("paid", { offerId: "a".repeat(32) }, "Paid");
+    // member is live from G5; reward points is still later
+    const points = addRule("reward_points", { programId: 1, minPoints: 5 }, "Points");
     await expect(
-      content(OWNER).update({ publicId: item.publicId, access: { ruleId: db.hex(paid) } })
+      content(OWNER).update({ publicId: item.publicId, access: { ruleId: db.hex(points) } })
     ).rejects.toMatchObject({ code: "BAD_REQUEST" });
     const other = addRule("follower", {}, "Theirs");
     db.rules.get(db.hex(other))!.ownerUserId = 99;
     await expect(
       content(OWNER).update({ publicId: item.publicId, access: { ruleId: db.hex(other) } })
     ).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
+
+  it("attaches a saved Paid rule (G4)", async () => {
+    const item = addItem();
+    const paid = addRule("paid", { offerId: "a".repeat(32) }, "Paid");
+    await content(OWNER).update({ publicId: item.publicId, access: { ruleId: db.hex(paid) } });
+    expect(db.hex(item.accessRuleId!)).toBe(db.hex(paid));
   });
 
   it("keeps a saved rule and an inline rule another item uses", async () => {
@@ -610,12 +629,12 @@ describe("owner and moderation BLOCKED (ownerCanOpen)", () => {
       available: false,
       ownerCanOpen: false,
     });
-    await expect(
-      content(OWNER).getReadUrl({ publicId: blocked.publicId })
-    ).rejects.toMatchObject({ code: "NOT_FOUND" });
-    await expect(
-      content(OWNER).getPreview({ publicId: blocked.publicId })
-    ).rejects.toMatchObject({ code: "NOT_FOUND" });
+    await expect(content(OWNER).getReadUrl({ publicId: blocked.publicId })).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
+    await expect(content(OWNER).getPreview({ publicId: blocked.publicId })).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
     expect(await progress(OWNER).set({ publicId: blocked.publicId, positionMs: 5000 })).toEqual({
       saved: false,
     });
@@ -624,8 +643,7 @@ describe("owner and moderation BLOCKED (ownerCanOpen)", () => {
 
   it("keeps the owner out when a served asset failed its scan", async () => {
     const item = addItem();
-    db.assets.find(a => a.contentItemId === item.id && a.role === "COVER")!.scanStatus =
-      "INFECTED";
+    db.assets.find(a => a.contentItemId === item.id && a.role === "COVER")!.scanStatus = "INFECTED";
     expect((await contentResolver.get(item.publicId))!.ownerCanOpen).toBe(false);
     expect(await progress(OWNER).set({ publicId: item.publicId, positionMs: 5000 })).toEqual({
       saved: false,

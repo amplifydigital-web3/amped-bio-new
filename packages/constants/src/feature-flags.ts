@@ -104,6 +104,30 @@ export const FEATURE_FLAGS = {
     default: false,
     env: { client: "VITE_SHOW_THEME_V2", landing: "NEXT_PUBLIC_SHOW_THEME_V2" },
   },
+  themeShowcase: {
+    label: "Theme showcase",
+    description:
+      "Theme Engine v2 phase 3: WebGL scenes and the other showcase engines run on creator pages and in the editor. Off, a WebGL scene shows its still poster.",
+    scope: "public",
+    default: false,
+    env: {},
+  },
+  fontCatalog: {
+    label: "Font catalog",
+    description:
+      "The Text row font catalog: about 1,900 Google Fonts families, a Name font and a Body font, weight, italics and width and optical size sliders. Needs Theme v2. Staging only until font delivery ships, because catalog fonts still load from Google.",
+    scope: "public",
+    default: false,
+    env: {},
+  },
+  fontDelivery: {
+    label: "Font delivery",
+    description:
+      "Fonts load from Amped's own media host (decision 2): the API mirrors each stylesheet from Google Fonts to R2, and no visitor's browser contacts Google. Off keeps the Google Fonts link. Needs MEDIA_GATEWAY_ORIGIN and R2 on the API and the media gateway's fonts route.",
+    scope: "public",
+    default: false,
+    env: {},
+  },
   homeConversionCopy: {
     label: "Home conversion copy",
     description:
@@ -196,6 +220,22 @@ export const FEATURE_FLAGS = {
     default: false,
     env: { client: "VITE_CONTENT" },
   },
+  fanLibrary: {
+    label: "Fan Library",
+    description:
+      "Fan Library (Build Board #26): up next and the queue on public item pages, and the Library pages as they ship (FL-1 to FL-7).",
+    scope: "public",
+    default: false,
+    env: {},
+  },
+  libraryDigest: {
+    label: "Fan Library daily email",
+    description:
+      "Fan Library (FL-6): one email a day per creator with their new items, to followers who chose Email me updates. Needs BULK_FOOTER_ADDRESS (CAN-SPAM postal address) and counsel sign off on the digest as commercial email.",
+    scope: "server",
+    default: false,
+    env: {},
+  },
   contentUploads: {
     label: "Content uploads",
     description:
@@ -233,6 +273,14 @@ export const FEATURE_FLAGS = {
     default: false,
     env: { server: "PAYMENTS_ENABLED" },
   },
+  storeSales: {
+    label: "Store sales",
+    description:
+      "Creator stores and product pages are public and take payments. Off: a store renders for its owner in preview only (store catalog 2).",
+    scope: "public",
+    default: false,
+    env: {},
+  },
   accessGating: {
     label: "Access gating",
     description:
@@ -240,6 +288,51 @@ export const FEATURE_FLAGS = {
     scope: "public",
     default: false,
     env: { server: "ACCESS_GATING_ENABLED" },
+  },
+  adultContent: {
+    label: "18+ content",
+    description:
+      "18+ items open to fans who pass the Over 18 check: the Adult items card, the 18+ shelf and item pages, and publishing 18+ by creators who pass Over 18 and verified seller. Keep off until the safety queue, adult setup and review before publish ship (#28 R1 to R5).",
+    scope: "public",
+    default: false,
+    env: {},
+  },
+  themeSharing: {
+    label: "Theme sharing",
+    description:
+      "Theme Engine v2 phase 4: saved looks with history, share links and the amped.bio/t page, and the rebuilt Themes tab. Off, the share link page returns 404.",
+    scope: "public",
+    default: false,
+    // A new flag: no environment fallback (AGENTS.md, feature flags)
+    env: {},
+  },
+  // Authbase storefront (Build Board #66, AB-2): the Identity tab sells Authbase checks for USDC
+  authbaseStorefront: {
+    label: "Authbase storefront",
+    description:
+      "The RNS Identity tab sells Authbase checks for USDC with Buy now, and checkout accepts merchant service offers. Off keeps the Verify with Authbase link.",
+    scope: "public",
+    default: false,
+    env: {},
+  },
+  // Authbase storefront (Build Board #66, AB-4): /partners/v1 and merchant webhooks
+  partnerApi: {
+    label: "Partner API",
+    description:
+      "Merchants (Authbase) can call /partners/v1 with an API key, and Amped.Bio sends them signed order webhooks.",
+    scope: "server",
+    default: false,
+    env: {},
+  },
+  // Authbase storefront (Build Board #66, AB-6, M10): turn on after Rob sets the overrides for
+  // creators selling today with Standard (open question 8)
+  sellerRequiresEnhanced: {
+    label: "Sellers need Enhanced",
+    description:
+      "Creators need an Enhanced Authbase check to sell and get paid. An admin can allow a named creator to sell with Standard until a date (Users, Seller check).",
+    scope: "server",
+    default: false,
+    env: {},
   },
 } as const satisfies Record<string, FeatureFlagDefinition>;
 

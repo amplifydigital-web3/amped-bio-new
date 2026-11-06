@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import { Palette, Search, SearchX, X } from "lucide-react";
-import { Button, Chip, EmptyState, ErrorCard, Skeleton, trpc } from "@repo/ui";
+import { Button, Chip, EmptyState, ErrorCard, Skeleton, trpc, trpcClient } from "@repo/ui";
 import { TELEGRAM_LINK, type Collection, type MarketplaceTheme } from "@repo/constants";
 import { useEditor } from "@/contexts/EditorContext";
 import { useCollections } from "@/hooks/useCollections";
@@ -10,6 +10,21 @@ import { PHONE_QUERY, useMediaQuery } from "@/hooks/useMediaQuery";
 import { useThemeActions } from "../kit/useThemeActions";
 import { toast } from "@/components/ui/toast";
 import { ThemeCard } from "./ThemeCard";
+import { isFeatureOn } from "../../../../config/featureFlags";
+import {
+  CurrentLookCard,
+  MyLooksShelf,
+  SharedWithMe,
+  ThemeOfTheWeek,
+} from "../looks/LooksSections";
+import { LOOKS_COPY, isHeavy, rememberShared } from "../looks/looksLook";
+
+// TE-4c (boards 04, 11): the rebuilt tab with looks and sharing
+const themeSharingOn = isFeatureOn("themeSharing");
+
+/** Collections Light only (board 04): heavy themes drop out of every grid. */
+const LightOnlyContext = createContext(false);
+const SHARE_SLUG = /^[a-z2-7]{8}$/;
 
 // Screen Review 032. Themes tab: the current theme, collection chips, search,
 // and a grid of theme cards. One card can be selected at a time; selecting it
@@ -97,7 +112,8 @@ function useCollectionThemes(collection: Collection | undefined, enabled: boolea
   };
 }
 
-function matches(theme: MarketplaceTheme, q: string) {
+function matches(theme: MarketplaceTheme, q: string, lightOnly = false) {
+  if (lightOnly && isHeavy(theme.theme)) return false;
   if (!q) return true;
   const needle = q.toLowerCase();
   return (
@@ -263,13 +279,14 @@ function CollectionSection({
   mobile: boolean;
 }) {
   const [ref, inView] = useInView<HTMLElement>();
+  const lightOnly = useContext(LightOnlyContext);
   const { themes, loading, error, retry } = useCollectionThemes(collection, inView);
   const showSkeleton = useDelayedFlag(loading || !inView, SKELETON_DELAY_MS);
-  const visible = themes.filter(t => matches(t, query));
+  const visible = themes.filter(t => matches(t, query, lightOnly));
   const total = collection.isServer && !themes.length ? collection.themeCount : visible.length;
 
-  // A search hides sections without matches once they have loaded
-  if (query && !loading && inView && !error && visible.length === 0) return null;
+  // A search or Light only hides sections without matches once they have loaded
+  if ((query || lightOnly) && !loading && inView && !error && visible.length === 0) return null;
 
   return (
     <section ref={ref} aria-labelledby={`collection-${collection.id}`} className="space-y-[13px]">
@@ -325,9 +342,10 @@ function CollectionView({
   onClearSearch: () => void;
   mobile: boolean;
 }) {
+  const lightOnly = useContext(LightOnlyContext);
   const { themes, loading, error, retry } = useCollectionThemes(collection, true);
   const showSkeleton = useDelayedFlag(loading, SKELETON_DELAY_MS);
-  const visible = themes.filter(t => matches(t, query));
+  const visible = themes.filter(t => matches(t, query, lightOnly));
 
   let body: React.ReactNode;
   if (error) {
@@ -390,7 +408,17 @@ function CollectionView({
   );
 }
 
-export function ThemesTab({ onEditStyle }: { onEditStyle: () => void }) {
+export function ThemesTab({
+  onEditStyle,
+  onJump,
+  onImport,
+}: {
+  onEditStyle: () => void;
+  /** TE-4c: a Layers chip opens its row on Style or Motion */
+  onJump?: (tab: "style" | "motion") => void;
+  /** TE-4c: My looks Import file uses the panel's file input */
+  onImport?: () => void;
+}) {
   const { collections, isLoading, error } = useCollections();
   const { setPreviewOverride } = useEditor();
   const mobile = useMediaQuery(PHONE_QUERY);
@@ -406,6 +434,42 @@ export function ThemesTab({ onEditStyle }: { onEditStyle: () => void }) {
   }, [input]);
 
   const [selected, setSelected] = useState<MarketplaceTheme | null>(null);
+  const [lightOnly, setLightOnly] = useState(false);
+  const [sharedVersion, setSharedVersion] = useState(0);
+
+  // TE-4c: ?look=<slug> from the link page's Try it in your editor. The look
+  // joins Shared with me and shows in the preview, not applied.
+  const lookParam = params.get("look");
+  useEffect(() => {
+    if (!themeSharingOn || !lookParam) return;
+    const slug = lookParam.trim().toLowerCase();
+    setParams(
+      current => {
+        const next = new URLSearchParams(current);
+        next.delete("look");
+        return next;
+      },
+      { replace: true }
+    );
+    if (!SHARE_SLUG.test(slug)) return;
+    trpcClient.theme.bySlug
+      .query({ slug })
+      .then(look => {
+        rememberShared({
+          slug,
+          name: look.name,
+          author: look.author,
+          openedAt: new Date().toISOString(),
+        });
+        setSharedVersion(v => v + 1);
+        setPreviewOverride({
+          config: look.config,
+          label: `Previewing ${look.name}. Not applied yet.`,
+        });
+      })
+      .catch(() => toast.add({ type: "error", title: "That share link no longer opens." }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lookParam]);
 
   const pin = (card: MarketplaceTheme | null) => {
     setSelected(card);
@@ -456,114 +520,136 @@ export function ThemesTab({ onEditStyle }: { onEditStyle: () => void }) {
   const showSkeleton = useDelayedFlag(isLoading, SKELETON_DELAY_MS);
 
   return (
-    <div className="font-prism" onPointerLeave={restorePinned}>
-      <CurrentTheme onEditStyle={onEditStyle} />
-
-      <div
-        role="radiogroup"
-        aria-label="Collections"
-        className="-mx-4 mb-[13px] flex gap-2 overflow-x-auto px-4 py-1 [scrollbar-width:none] md:-mx-6 md:px-6"
-      >
-        {chips.map(chip => {
-          const isSelected = chip.id === (active ? active.id : "");
-          return (
-            <Chip
-              key={chip.id || "all"}
-              role="radio"
-              selected={isSelected}
-              tabIndex={isSelected ? 0 : -1}
-              onClick={() => setCollection(chip.id)}
-              onKeyDown={event => {
-                const index = chips.indexOf(chip);
-                const step = event.key === "ArrowRight" ? 1 : event.key === "ArrowLeft" ? -1 : 0;
-                if (!step) return;
-                event.preventDefault();
-                const next = chips[(index + step + chips.length) % chips.length];
-                setCollection(next.id);
-                const group = event.currentTarget.parentElement;
-                requestAnimationFrame(() =>
-                  group?.querySelector<HTMLElement>("[aria-checked=true]")?.focus()
-                );
-              }}
-            >
-              {chip.name}
-            </Chip>
-          );
-        })}
-      </div>
-
-      <div className="prism-well mb-[21px] flex h-touch items-center gap-2 px-3">
-        <Search aria-hidden className="h-[21px] w-[21px] shrink-0 text-prism-ink-3" />
-        <input
-          type="search"
-          value={input}
-          onChange={event => setInput(event.target.value)}
-          onKeyDown={event => {
-            if (event.key === "Escape" && input) {
-              event.stopPropagation();
-              setInput("");
-            }
-          }}
-          aria-label="Search themes"
-          placeholder="Search by name or tag"
-          className="min-w-0 flex-1 bg-transparent text-prism-body text-prism-ink outline-none placeholder:text-prism-ink-3 [&::-webkit-search-cancel-button]:hidden"
-        />
-        {input && (
-          <button
-            type="button"
-            aria-label="Clear search"
-            onClick={() => setInput("")}
-            className="prism-focus flex h-[34px] w-[34px] items-center justify-center rounded-full"
-          >
-            <X aria-hidden className="h-4 w-4 text-prism-ink-2" />
-          </button>
+    <LightOnlyContext.Provider value={themeSharingOn && lightOnly}>
+      <div className="font-prism" onPointerLeave={restorePinned}>
+        {themeSharingOn ? (
+          <>
+            <CurrentLookCard onJump={onJump ?? (() => onEditStyle())} />
+            <MyLooksShelf onImport={onImport ?? (() => undefined)} mobile={mobile} />
+            <SharedWithMe version={sharedVersion} />
+            <ThemeOfTheWeek />
+            <h3 className="mb-[13px] text-prism-eyebrow uppercase text-prism-ink-2">Collections</h3>
+          </>
+        ) : (
+          <CurrentTheme onEditStyle={onEditStyle} />
         )}
-      </div>
 
-      {isLoading && !collections.length ? (
-        showSkeleton ? (
-          <CardSkeletons count={mobile ? 4 : 6} />
-        ) : null
-      ) : error && !collections.length ? (
-        <ErrorCard
-          title="Themes did not load"
-          retryLabel="Retry"
-          onRetry={() => location.reload()}
-        />
-      ) : active ? (
-        <CollectionView
-          collection={active}
-          query={query}
-          selectedId={selected?.id ?? null}
-          onSelect={pin}
-          onBrowseAll={() => setCollection("")}
-          onClearSearch={() => setInput("")}
-          mobile={mobile}
-        />
-      ) : (
-        <AllCollections
-          collections={collections}
-          query={query}
-          selectedId={selected?.id ?? null}
-          onSelect={pin}
-          onSeeAll={setCollection}
-          onClearSearch={() => setInput("")}
-          mobile={mobile}
-        />
-      )}
-
-      <p className="mt-[34px] text-prism-meta text-prism-ink-2">
-        Missing a style you want?{" "}
-        <a
-          href={TELEGRAM_LINK}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="prism-focus font-semibold text-prism-nav underline-offset-2 hover:underline"
+        <div
+          role="radiogroup"
+          aria-label="Collections"
+          className="-mx-4 mb-[13px] flex gap-2 overflow-x-auto px-4 py-1 [scrollbar-width:none] md:-mx-6 md:px-6"
         >
-          Suggest a collection
-        </a>
-      </p>
-    </div>
+          {chips.map(chip => {
+            const isSelected = chip.id === (active ? active.id : "");
+            return (
+              <Chip
+                key={chip.id || "all"}
+                role="radio"
+                selected={isSelected}
+                tabIndex={isSelected ? 0 : -1}
+                onClick={() => setCollection(chip.id)}
+                onKeyDown={event => {
+                  const index = chips.indexOf(chip);
+                  const step = event.key === "ArrowRight" ? 1 : event.key === "ArrowLeft" ? -1 : 0;
+                  if (!step) return;
+                  event.preventDefault();
+                  const next = chips[(index + step + chips.length) % chips.length];
+                  setCollection(next.id);
+                  const group = event.currentTarget.parentElement;
+                  requestAnimationFrame(() =>
+                    group?.querySelector<HTMLElement>("[aria-checked=true]")?.focus()
+                  );
+                }}
+              >
+                {chip.name}
+              </Chip>
+            );
+          })}
+          {themeSharingOn && (
+            <Chip
+              aria-pressed={lightOnly}
+              selected={lightOnly}
+              onClick={() => setLightOnly(on => !on)}
+              className="ml-auto shrink-0"
+            >
+              {LOOKS_COPY.lightOnly}
+            </Chip>
+          )}
+        </div>
+
+        <div className="prism-well mb-[21px] flex h-touch items-center gap-2 px-3">
+          <Search aria-hidden className="h-[21px] w-[21px] shrink-0 text-prism-ink-3" />
+          <input
+            type="search"
+            value={input}
+            onChange={event => setInput(event.target.value)}
+            onKeyDown={event => {
+              if (event.key === "Escape" && input) {
+                event.stopPropagation();
+                setInput("");
+              }
+            }}
+            aria-label="Search themes"
+            placeholder="Search by name or tag"
+            className="min-w-0 flex-1 bg-transparent text-prism-body text-prism-ink outline-none placeholder:text-prism-ink-3 [&::-webkit-search-cancel-button]:hidden"
+          />
+          {input && (
+            <button
+              type="button"
+              aria-label="Clear search"
+              onClick={() => setInput("")}
+              className="prism-focus flex h-[34px] w-[34px] items-center justify-center rounded-full"
+            >
+              <X aria-hidden className="h-4 w-4 text-prism-ink-2" />
+            </button>
+          )}
+        </div>
+
+        {isLoading && !collections.length ? (
+          showSkeleton ? (
+            <CardSkeletons count={mobile ? 4 : 6} />
+          ) : null
+        ) : error && !collections.length ? (
+          <ErrorCard
+            title="Themes did not load"
+            retryLabel="Retry"
+            onRetry={() => location.reload()}
+          />
+        ) : active ? (
+          <CollectionView
+            collection={active}
+            query={query}
+            selectedId={selected?.id ?? null}
+            onSelect={pin}
+            onBrowseAll={() => setCollection("")}
+            onClearSearch={() => setInput("")}
+            mobile={mobile}
+          />
+        ) : (
+          <AllCollections
+            collections={collections}
+            query={query}
+            selectedId={selected?.id ?? null}
+            onSelect={pin}
+            onSeeAll={setCollection}
+            onClearSearch={() => setInput("")}
+            mobile={mobile}
+          />
+        )}
+
+        <p className="mt-[34px] text-prism-meta text-prism-ink-2">
+          Missing a style you want?{" "}
+          <a
+            href={TELEGRAM_LINK}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="prism-focus font-semibold text-prism-nav underline-offset-2 hover:underline"
+          >
+            Suggest a collection
+          </a>
+        </p>
+      </div>
+    </LightOnlyContext.Provider>
   );
 }
 

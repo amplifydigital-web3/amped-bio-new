@@ -12,6 +12,8 @@ import { prisma } from "@repo/database";
 import {
   ACCESS_RULE_SUMMARIES,
   LIVE_ACCESS_RULE_KINDS,
+  formatUsdcUnits,
+  MEMBERSHIP_LIMITS,
   STAKE_ACCESS_RULE_KINDS,
   type AccessDecision,
   type AccessReason,
@@ -29,7 +31,7 @@ import { trustedEmailWhere } from "../../utils/verificationGrace";
 import { chainStakeWei, followState, loadPool, mirrorStakeWei } from "./facts";
 import { stakeKindsAllowed } from "./allowlist";
 import { hexToId, idToHex, loadRule, type LoadedRule } from "./rules";
-import type { Gate, Resolver, Viewer } from "./types";
+import type { Gate, MembershipReader, PaymentVerifier, Resolver, Viewer } from "./types";
 
 type Intent = "render" | "open";
 export type CheckOptions = {
@@ -49,6 +51,22 @@ export function registerResolver(type: AccessResourceType, resolver: Resolver) {
 /** For tests only. */
 export function clearResolvers() {
   resolvers.clear();
+}
+
+// ── Payment verifier (spec 3.7, G4) ─────────────────────────────
+// Without one, `paid` refuses with kind_unavailable (default deny).
+let paymentVerifier: PaymentVerifier | null = null;
+
+export function registerPaymentVerifier(verifier: PaymentVerifier | null) {
+  paymentVerifier = verifier;
+}
+
+// ── Membership reader (spec 3.7, G5) ────────────────────────────
+// Without one, `member` refuses with kind_unavailable (default deny).
+let membershipReader: MembershipReader | null = null;
+
+export function registerMembershipReader(reader: MembershipReader | null) {
+  membershipReader = reader;
 }
 
 // ── Decisions ────────────────────────────────────────────────────
@@ -121,6 +139,87 @@ async function stakeWei(
   }
 }
 
+/**
+ * `paid` (spec 3.3, decision 5, G4). A final purchase passes with ok. A purchase on its
+ * first chain confirmation passes with purchase_pending: access is open while the sheet
+ * reads "Confirming payment". A purchase sent but not on chain refuses with
+ * purchase_pending and no action, so the fan is never asked to pay twice. Reorg,
+ * failure and refund close access, because the verifier reads the row every time.
+ *
+ * Buyers keep access when the seller check lapses or the product is paused (spec 3.4).
+ * A new sale needs an active product and a seller who passes the seller check now.
+ */
+async function evaluatePaid(
+  rule: LoadedRule,
+  owner: Owner,
+  viewer: Viewer & { userId: number },
+  intent: Intent
+): Promise<AccessDecision> {
+  if (!paymentVerifier) return refuse("kind_unavailable", { action: "unavailable" }, rule);
+  const offerId = rule.params.offerId as string;
+  const offer = await paymentVerifier.offer(offerId);
+  // Only the owner's own product counts, like the owner's own pool
+  if (!offer || offer.ownerUserId !== owner.id) {
+    return refuse("kind_unavailable", { action: "unavailable" }, rule);
+  }
+  const state = await paymentVerifier.verifyPurchase(viewer.userId, offerId);
+  if (state === "purchased") return allow("ok", rule);
+  if (state === "confirming") return allow("purchase_pending", rule);
+  if (state === "pending") return refuse("purchase_pending", { action: "none" }, rule);
+  if (offer.status !== "active") return refuse("not_purchased", { action: "unavailable" }, rule);
+  // Seller precondition (spec 3.4): open re-runs it fresh, render may use the cached row
+  const seller = await checkIdentity(owner.id, "seller", { fresh: intent === "open" });
+  if (!seller.pass) return refuse("kind_unavailable", { action: "unavailable" }, rule);
+  return refuse(
+    "not_purchased",
+    { action: "buy", offerId, priceDisplay: formatUsdcUnits(offer.amountUnits) },
+    rule
+  );
+}
+
+/**
+ * `member` (spec 3.3, G5; memberships amendment, mobile checkout D7). A member through
+ * the paid period passes, and a canceled member keeps access to the period end. A past
+ * due member keeps access for the 7 day grace, with reason membership_past_due so the
+ * sheet can say why. After that, or after an end, the fan sees Rejoin
+ * (membership_ended); a fan who never joined sees Join (not_member).
+ *
+ * Members keep access when the seller check lapses or the plan pauses (spec 3.4). A new
+ * join needs an active plan and a seller who passes now. Never cached: the renewal job
+ * and the payments indexer change the row, and the reader reads it every time.
+ */
+async function evaluateMember(
+  rule: LoadedRule,
+  owner: Owner,
+  viewer: Viewer & { userId: number },
+  intent: Intent
+): Promise<AccessDecision> {
+  if (!membershipReader) return refuse("kind_unavailable", { action: "unavailable" }, rule);
+  const planId = rule.params.planId as string;
+  const plan = await membershipReader.plan(planId);
+  // Only the owner's own plan counts
+  if (!plan || plan.ownerUserId !== owner.id) {
+    return refuse("kind_unavailable", { action: "unavailable" }, rule);
+  }
+  const state = await membershipReader.membership(viewer.userId, owner.id);
+  if (state === "active") return allow("ok", rule);
+  if (state === "grace") return allow("membership_past_due", rule);
+  const reason = state === "ended" ? "membership_ended" : "not_member";
+  if (plan.status !== "active") return refuse(reason, { action: "unavailable" }, rule);
+  const seller = await checkIdentity(owner.id, "seller", { fresh: intent === "open" });
+  if (!seller.pass) return refuse("kind_unavailable", { action: "unavailable" }, rule);
+  return refuse(
+    reason,
+    {
+      action: "join_membership",
+      planId,
+      priceMonthlyDisplay: formatUsdcUnits(plan.amountEvery30Days),
+      pastDue: false,
+    },
+    rule
+  );
+}
+
 /** One leaf rule. Combinators call this for each leaf (depth 1). */
 async function evaluateLeaf(
   rule: LoadedRule,
@@ -137,6 +236,9 @@ async function evaluateLeaf(
   }
   if (viewer.userId === null) return refuse("not_signed_in", { action: "sign_in" }, rule);
   const signedIn = viewer as Viewer & { userId: number };
+
+  if (rule.kind === "paid") return evaluatePaid(rule, owner, signedIn, intent);
+  if (rule.kind === "member") return evaluateMember(rule, owner, signedIn, intent);
 
   if (rule.kind === "follower") {
     const state = await followState(owner.id, signedIn.userId);
@@ -468,13 +570,18 @@ export async function open<T>(
 
 /**
  * Users who pass a leaf rule for the owner, a page at a time, for broadcast
- * audiences and the Telegram group sweep (G2). Reads the mirror and Follow
+ * audiences (messaging M9), the Telegram group sweep and Library fan out. Reads the mirror and Follow
  * tables; it never grants. Combinators are not supported here yet.
+ *
+ * `stakeAllowlist: false` is for broadcast audiences only. The counsel pilot
+ * allowlist governs access to gated items. A broadcast to pool stakers opens
+ * nothing, and pool broadcasts were open to every pool owner before M9.
  */
 export async function eligibleUserIds(
   rule: { kind: AccessRuleKind; params: Record<string, unknown> },
   ownerUserId: number,
-  page: { cursor?: number | null; limit?: number } = {}
+  page: { cursor?: number | null; limit?: number } = {},
+  options: { stakeAllowlist?: boolean } = {}
 ): Promise<{ userIds: number[]; nextCursor: number | null }> {
   const limit = Math.min(Math.max(page.limit ?? 500, 1), 1000);
   const after = page.cursor ?? 0;
@@ -493,7 +600,9 @@ export async function eligibleUserIds(
     userIds = rows.map(row => row.follower_id);
   } else if ((STAKE_ACCESS_RULE_KINDS as readonly string[]).includes(rule.kind)) {
     // Same pilot allowlist as check(): a stake audience is empty outside it
-    if (!(await stakeKindsAllowed(ownerUserId))) return { userIds: [], nextCursor: null };
+    if (options.stakeAllowlist !== false && !(await stakeKindsAllowed(ownerUserId))) {
+      return { userIds: [], nextCursor: null };
+    }
     const poolId = rule.params.poolId as number;
     const pool = await loadPool(poolId);
     if (!pool || pool.ownerUserId !== ownerUserId) return { userIds: [], nextCursor: null };
@@ -509,6 +618,34 @@ export async function eligibleUserIds(
       .map(row => row.userWallet.userId);
     const last = rows.at(-1)?.userWallet.userId ?? null;
     return { userIds, nextCursor: rows.length === limit ? last : null };
+  } else if (rule.kind === "member") {
+    // G5: members with access now (active, canceled inside the period, past due in grace)
+    if (!membershipReader) return { userIds: [], nextCursor: null };
+    const plan = await membershipReader.plan(rule.params.planId as string);
+    if (!plan || plan.ownerUserId !== ownerUserId) return { userIds: [], nextCursor: null };
+    const now = new Date();
+    const graceStart = new Date(now.getTime() - MEMBERSHIP_LIMITS.graceDays * 86_400_000);
+    // Same window as accessUntil (MB-1): an active row only counts through its period
+    // end plus one keeper tick, so a lapsed row never stays in a broadcast audience
+    const activeSince = new Date(now.getTime() - MEMBERSHIP_LIMITS.activeLapseMs);
+    const rows = await prisma.membership.findMany({
+      where: {
+        planId: hexToId(rule.params.planId as string),
+        creatorUserId: ownerUserId,
+        fanUserId: { gt: after },
+        fan: { block: "no" },
+        OR: [
+          { status: "active", currentPeriodEnd: { gt: activeSince } },
+          { status: "canceled", currentPeriodEnd: { gt: now } },
+          { status: "past_due", pastDueSince: { gt: graceStart } },
+        ],
+      },
+      orderBy: { fanUserId: "asc" },
+      distinct: ["fanUserId"],
+      take: limit,
+      select: { fanUserId: true },
+    });
+    userIds = rows.map(row => row.fanUserId).filter((id): id is number => id !== null);
   } else {
     throw new Error(`eligibleUserIds does not support ${rule.kind}`);
   }

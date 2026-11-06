@@ -6,8 +6,10 @@ import {
   Landmark,
   LayoutDashboard,
   Megaphone,
+  Store,
   MessageCircle,
   Palette,
+  ShieldCheck,
   ToggleRight,
   Users,
   type LucideIcon,
@@ -23,7 +25,10 @@ import {
 // Build Board #50, spec docs/features/ampedpay.md 3.8) after USDC. ndau conversions were
 // removed from the admin: they are processed manually through the support
 // portal. Feature flags (site_settings) sit in Access after OAuth clients.
-export type AdminGroup = "start" | "content" | "money" | "access";
+// Safety (Build Board #28, adult content review 8 and 8.8, PR R1) sits between
+// Content and Money with one destination, Review. Moderators and safety leads see
+// it; admin alone does not.
+export type AdminGroup = "start" | "content" | "safety" | "money" | "access";
 
 export interface AdminDestination {
   id: string;
@@ -41,16 +46,19 @@ export interface AdminDestination {
   roles?: AdminRole[];
 }
 
-export type AdminRole = "admin" | "moderator";
+export type AdminRole = "admin" | "moderator" | "safety_lead";
+
+const ADMIN_ROLES: readonly AdminRole[] = ["admin", "moderator", "safety_lead"];
 
 export const GROUP_LABELS: Record<AdminGroup, string | null> = {
   start: null,
   content: "Content",
+  safety: "Safety",
   money: "Money",
   access: "Access",
 };
 
-export const GROUP_ORDER: AdminGroup[] = ["start", "content", "money", "access"];
+export const GROUP_ORDER: AdminGroup[] = ["start", "content", "safety", "money", "access"];
 
 export const ADMIN_DESTINATIONS: AdminDestination[] = [
   {
@@ -116,6 +124,17 @@ export const ADMIN_DESTINATIONS: AdminDestination[] = [
     roles: ["admin", "moderator"],
   },
   {
+    id: "safety",
+    path: "/safety",
+    label: "Review",
+    title: "Review",
+    icon: ShieldCheck,
+    group: "safety",
+    shortcut: "KeyR",
+    dock: true,
+    roles: ["moderator", "safety_lead"],
+  },
+  {
     id: "pools",
     path: "/pools",
     label: "Pools",
@@ -123,7 +142,8 @@ export const ADMIN_DESTINATIONS: AdminDestination[] = [
     icon: Coins,
     group: "money",
     shortcut: "KeyP",
-    dock: true,
+    // Phone dock: Dashboard, Users, Review, USDC, More (8, QA AD-Q36)
+    dock: false,
   },
   {
     id: "money",
@@ -141,6 +161,16 @@ export const ADMIN_DESTINATIONS: AdminDestination[] = [
     label: "Payments",
     title: "Payments",
     icon: Landmark,
+    group: "money",
+    dock: false,
+  },
+  // Business sellers on AmpedPay, Authbase first (Build Board #66, AB-1, board a1)
+  {
+    id: "merchants",
+    path: "/merchants",
+    label: "Merchants",
+    title: "Merchants",
+    icon: Store,
     group: "money",
     dock: false,
   },
@@ -170,7 +200,7 @@ export function rolesOf(role: string | null | undefined): AdminRole[] {
   return (role ?? "")
     .split(",")
     .map(r => r.trim())
-    .filter((r): r is AdminRole => r === "admin" || r === "moderator");
+    .filter((r): r is AdminRole => (ADMIN_ROLES as readonly string[]).includes(r));
 }
 
 /** Destinations this account may open, in rail order. */
@@ -179,10 +209,15 @@ export function destinationsFor(role: string | null | undefined): AdminDestinati
   return ADMIN_DESTINATIONS.filter(item => (item.roles ?? ["admin"]).some(r => roles.includes(r)));
 }
 
-/** True for an account that holds moderator but not admin. */
+/** True for an account that holds moderator or safety_lead but not admin. */
 export function isModeratorOnly(role: string | null | undefined) {
   const roles = rolesOf(role);
-  return roles.includes("moderator") && !roles.includes("admin");
+  return roles.length > 0 && !roles.includes("admin");
+}
+
+/** Where a non admin lands: the first destination their roles open. */
+export function homeFor(role: string | null | undefined): string {
+  return destinationsFor(role)[0]?.path ?? "/";
 }
 
 /** The destination for a path; nested paths (/themes/new) belong to their parent. */

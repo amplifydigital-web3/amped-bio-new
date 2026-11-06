@@ -4,6 +4,7 @@ import { TRPCError } from "@trpc/server";
 import { getFileUrl } from "../../utils/fileUrlResolver";
 import { PaginationSchema, UserFilterSchema, UserSearchSchema, UserUpdateSchema } from "./schemas";
 import { prisma } from "@repo/database";
+import { hideCreator } from "../../services/content/edge";
 
 export const usersRouter = router({
   getUsers: adminProcedure
@@ -435,6 +436,17 @@ export const usersRouter = router({
           block: true,
         },
       });
+
+      // Suspend and reinstate move every item of the creator at the edge (takedown 4.6)
+      // A failed mark heals at the daily reconcile, so it never fails the update
+      if (data.block !== undefined) {
+        await hideCreator(id).catch(error =>
+          console.error(
+            "[content] edge mark failed",
+            error instanceof Error ? error.message : error
+          )
+        );
+      }
 
       return updatedUser;
     } catch {

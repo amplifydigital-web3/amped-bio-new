@@ -1,4 +1,4 @@
-import { type Hex, keccak256, stringToHex, toHex } from "viem";
+import { type Address, type Hex, bytesToHex, keccak256, pad, stringToHex, toHex } from "viem";
 import { base, baseSepolia } from "viem/chains";
 
 export { AMPEDPAY_ABI } from "./abis/ampedpay";
@@ -111,3 +111,73 @@ export function safeAppUrl(chainId: number, safe: string, safeTxHash?: string | 
     ? `https://app.safe.global/transactions/tx?safe=${id}&id=multisig_${safe}_${safeTxHash}`
     : `https://app.safe.global/home?safe=${id}`;
 }
+
+// ---------------------------------------------------------------- payments (PAY-2)
+
+/** Recipient roles in a split table (spec 3.2). */
+/** Recipient roles. merchant (M11) takes the creator's place on a business seller's sale. */
+export const SPLIT_ROLES = {
+  creator: 0,
+  platform: 1,
+  promoter: 2,
+  partner: 3,
+  merchant: 4,
+} as const;
+export type SplitRole = (typeof SPLIT_ROLES)[keyof typeof SPLIT_ROLES];
+
+/** The contract's EIP-712 domain: name AmpedPay, version 1 (constants, part of the audit). */
+export function ampedPayDomain(chainId: number, verifyingContract: Address) {
+  return { name: "AmpedPay", version: "1", chainId, verifyingContract } as const;
+}
+
+/** EIP-712 types of a split table. Field order matches SPLIT_TYPEHASH in AmpedPay.sol. */
+export const SPLIT_TABLE_TYPES = {
+  SplitTable: [
+    { name: "paymentRef", type: "bytes32" },
+    { name: "payer", type: "address" },
+    { name: "amount", type: "uint256" },
+    { name: "recipients", type: "Recipient[]" },
+    { name: "validBefore", type: "uint64" },
+  ],
+  Recipient: [
+    { name: "to", type: "address" },
+    { name: "bps", type: "uint16" },
+    { name: "role", type: "uint8" },
+  ],
+} as const;
+
+/**
+ * EIP-3009 ReceiveWithAuthorization. The fan signs it for the total with `to` set to AmpedPay
+ * and the split hash as nonce, so the authorization only pays that one split (spec 3.2).
+ */
+export const RECEIVE_WITH_AUTHORIZATION_TYPES = {
+  ReceiveWithAuthorization: [
+    { name: "from", type: "address" },
+    { name: "to", type: "address" },
+    { name: "value", type: "uint256" },
+    { name: "validAfter", type: "uint256" },
+    { name: "validBefore", type: "uint256" },
+    { name: "nonce", type: "bytes32" },
+  ],
+} as const;
+
+/** A Purchase id (16 bytes, UUID v7) as the bytes32 paymentRef: left padded with zeros. */
+export function purchasePaymentRef(id: Uint8Array | string): Hex {
+  const hex: Hex = typeof id === "string" ? `0x${id.replace(/^0x/, "")}` : bytesToHex(id);
+  return pad(hex, { size: 32 });
+}
+
+/** The Purchase id (32 hex characters) inside a paymentRef, or null for a ref Amped.Bio did not mint. */
+export function purchaseIdFromPaymentRef(ref: Hex): string | null {
+  const body = ref.toLowerCase().replace(/^0x/, "");
+  if (body.length !== 64 || !/^0{32}[0-9a-f]{32}$/.test(body)) return null;
+  return body.slice(32);
+}
+
+/** EIP-712 types of a creator's refund approval. Matches REFUND_TYPEHASH in AmpedPay.sol (C10). */
+export const REFUND_TYPES = {
+  Refund: [
+    { name: "paymentRef", type: "bytes32" },
+    { name: "deadline", type: "uint64" },
+  ],
+} as const;

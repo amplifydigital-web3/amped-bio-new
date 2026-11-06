@@ -71,11 +71,31 @@ const db = vi.hoisted(() => {
       upsert: vi.fn(async ({ create }: any) => {
         if (!hashes.some(hash => hash.sha256 === create.sha256)) hashes.push(create);
       }),
+      create: vi.fn(async ({ data }: any) => {
+        hashes.push({ ...data });
+        return data;
+      }),
+      update: vi.fn(async ({ where, data }: any) =>
+        Object.assign(hashes.find(hash => hash.sha256 === where.sha256)!, data)
+      ),
+    },
+    safetyEvent: { create: vi.fn(async ({ data }: any) => data) },
+    creatorAdultProfile: {
+      findUnique: vi.fn(async ({ where }: any) =>
+        where.userId === 7 && adultOn.value ? { enabledAt: new Date(), disabledAt: null } : null
+      ),
     },
     $transaction: vi.fn(async (fn: any) => fn(prisma)),
   };
   return { prisma, items, assets, hashes };
 });
+
+const adultOn = vi.hoisted(() => ({ value: false }));
+const safety = vi.hoisted(() => ({
+  onCsamMatch: vi.fn(async () => {}),
+  onReviewHold: vi.fn(async () => {}),
+}));
+vi.mock("../services/safety/intake", () => safety);
 
 const quota = vi.hoisted(() => ({
   releaseBytes: vi.fn(async () => {}),
@@ -137,6 +157,8 @@ beforeEach(() => {
   cf.publishContentJob.mockResolvedValue(undefined);
   quota.releaseBytes.mockClear();
   quota.commitBytes.mockClear();
+  safety.onCsamMatch.mockClear();
+  safety.onReviewHold.mockClear();
 });
 
 describe("processor callback", () => {
@@ -178,6 +200,58 @@ describe("processor callback", () => {
     expect(item).toMatchObject({ status: "READY", moderationState: "HELD" });
   });
 
+  it("holds a file of a creator with 18+ on for review at READY (#28 R7)", async () => {
+    adultOn.value = true;
+    const item = seed({ kind: "FILE" });
+    await applyProcessorCallback({ ...base, step: "done", outcome: "ok" });
+    expect(item).toMatchObject({
+      status: "READY",
+      moderationState: "HELD",
+      moderationReason: "adult_file_review",
+    });
+    expect(safety.onReviewHold).toHaveBeenCalledWith(expect.anything(), "adult_file_review");
+    adultOn.value = false;
+    const other = seed({ kind: "FILE" });
+    await applyProcessorCallback({ ...base, step: "done", outcome: "ok" });
+    expect(other.moderationState).toBe("CLEAR");
+  });
+
+  it("stores explicitAt when the classifier finds a held or labeled item explicit (#28 F1)", async () => {
+    const held = seed();
+    await applyProcessorCallback({
+      ...base,
+      step: "classifier",
+      outcome: "held",
+      reason: "mock:explicit",
+      explicit: true,
+    });
+    expect(held.explicitAt).toBeInstanceOf(Date);
+
+    db.items.length = 0;
+    const labeled = seed({ adult: true });
+    await applyProcessorCallback({ ...base, step: "classifier", outcome: "ok", explicit: true });
+    expect(labeled.explicitAt).toBeInstanceOf(Date);
+    expect(labeled.moderationState).toBe("PENDING");
+
+    db.items.length = 0;
+    const clean = seed();
+    await applyProcessorCallback({ ...base, step: "classifier", outcome: "ok" });
+    expect(clean.explicitAt ?? null).toBeNull();
+  });
+
+  it("holds an explicit item whose 18+ label came off mid-processing (#28 F1)", async () => {
+    // The job was queued with the label on, so the classifier still reports explicit
+    const item = seed({ adult: false });
+    await applyProcessorCallback({ ...base, step: "classifier", outcome: "ok", explicit: true });
+    expect(item).toMatchObject({
+      explicitAt: expect.any(Date),
+      moderationState: "HELD",
+      moderationReason: "adult_label_removed",
+    });
+    await applyProcessorCallback({ ...base, step: "done", outcome: "ok" });
+    expect(item).toMatchObject({ status: "READY", moderationState: "HELD" });
+  });
+
   it("fails an item and releases its bytes", async () => {
     const item = seed();
     await applyProcessorCallback({
@@ -209,15 +283,51 @@ describe("processor callback", () => {
     expect(quota.releaseBytes).toHaveBeenCalledTimes(1);
   });
 
-  it("never stores a CSAM match hash in the blocklist table", async () => {
-    seed();
+  it("opens a child safety case for a CSAM match and blocks its hash for good (#28 R1)", async () => {
+    const item = seed();
     await applyProcessorCallback({
       ...base,
       step: "csam",
       outcome: "blocked",
+      reason: "csam_match",
       sha256: "c".repeat(64),
     });
-    expect(db.hashes).toHaveLength(0);
+    expect(item).toMatchObject({ status: "BLOCKED", moderationReason: "csam_match" });
+    expect(db.hashes).toMatchObject([{ sha256: "c".repeat(64), reason: "csam" }]);
+    expect(safety.onCsamMatch).toHaveBeenCalledWith(
+      expect.objectContaining({ publicId: "abcdefghijklmnop" }),
+      "csam_match"
+    );
+  });
+
+  it("still opens the child safety case when the blocklist write fails (#28 R1)", async () => {
+    const item = seed();
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+    // The item is already BLOCKED here, so a thrown error would make the retry a no-op
+    // and the child safety case, evidence copy and alert would never run
+    db.prisma.blockedContentHash.findUnique.mockRejectedValueOnce(new Error("db down"));
+    expect(
+      await applyProcessorCallback({
+        ...base,
+        step: "csam",
+        outcome: "blocked",
+        reason: "csam_match",
+        sha256: "d".repeat(64),
+      })
+    ).toBe("applied");
+    expect(item).toMatchObject({ status: "BLOCKED", moderationReason: "csam_match" });
+    expect(safety.onCsamMatch).toHaveBeenCalledTimes(1);
+    expect(errors).toHaveBeenCalledWith("[safety] ALERT hash block failed", expect.anything());
+    errors.mockRestore();
+  });
+
+  it("opens a Classifier hold case when the classifier holds an item (#28 R1)", async () => {
+    seed();
+    await applyProcessorCallback({ ...base, step: "classifier", outcome: "held", reason: "x" });
+    expect(safety.onReviewHold).toHaveBeenCalledWith(
+      expect.objectContaining({ publicId: "abcdefghijklmnop" }),
+      "classifier_hold"
+    );
   });
 
   it("upserts assets by role, variant and language", async () => {

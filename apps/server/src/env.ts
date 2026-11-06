@@ -189,6 +189,26 @@ const envSchema = z.object({
   // Identity checks (Build Board #47): where an under 18 review case alert goes
   // until the Safety queue ships (identity checks spec 4.5). Empty logs a warning.
   SAFETY_ALERT_EMAIL: z.string().default(""),
+  // Safety (Build Board #28, adult content review 8.5, PR R1). Child safety alerts go
+  // by SMS through a Twilio Messaging Service (Q8, Rob 3 Nov). Empty: SMS is skipped
+  // and logged; the email still goes.
+  TWILIO_ACCOUNT_SID: z.string().default(""),
+  TWILIO_AUTH_TOKEN: z.string().default(""),
+  TWILIO_MESSAGING_SERVICE_SID: z.string().default(""),
+  // The admin origin for case links in alerts (https://admin.amped.bio)
+  ADMIN_URL: z.string().default(""),
+  // Evidence bucket (8.5, content system 3.11): its own R2 token, Object Read and Write on
+  // EVIDENCE_R2_BUCKET only, bucket lock retention 1 year (REPORT Act 2024). Never shared
+  // with the content token; no URL or token for it ever leaves the server.
+  EVIDENCE_R2_ACCESS_KEY_ID: z.string().default(""),
+  EVIDENCE_R2_SECRET_ACCESS_KEY: z.string().default(""),
+  EVIDENCE_R2_BUCKET: z.string().default("amped-evidence"),
+  // Encrypts custodian, release names and request contacts at rest (section 10).
+  // Falls back to BETTER_AUTH_SECRET when empty.
+  SAFETY_DATA_SECRET: z.string().default(""),
+  // The company postal address for commercial email footers (CAN-SPAM; bulk email AC-Q11).
+  // The Fan Library daily email (FL-6) sends nothing while it is empty.
+  BULK_FOOTER_ADDRESS: z.string().default(""),
   // Mobile checkout (Build Board #49, CK-1): the checkout router answers only when true
   CHECKOUT_ENABLED: boolSchema(false),
 
@@ -299,6 +319,8 @@ const envSchema = z.object({
   ONRAMP_DOMAIN: z.string().default(""),
   // Key for the stored Coinbase userAuthToken (AES-256-GCM). Falls back to BETTER_AUTH_SECRET.
   ONRAMP_DATA_KEY: z.string().default(""),
+  // Authbase storefront (Build Board #66, AB-4): encrypts merchant webhook secrets at rest
+  MERCHANT_SECRET_BOX_KEY: z.string().default(""),
   // AmpedPay (Build Board #50), spec docs/features/ampedpay.md 3.3 and 6.1. Master switch for
   // payments. While false the admin Payments pages still show and change every setting, so
   // values are ready before launch; fans see nothing.
@@ -307,6 +329,9 @@ const envSchema = z.object({
   // contract is deployed (PAY-1 on Base Sepolia). The admin shows "Not deployed" until then.
   AMPEDPAY_ADDRESS: z.string().default(""),
   AMPEDPAY_SAFE: z.string().default(""),
+  // AmpedMemberships proxy (PAY-3 deploy output, MB-1). Empty until deployed: joins refuse
+  // with paused and the renewal job does nothing.
+  AMPEDMEMBERSHIPS_ADDRESS: z.string().default(""),
   // PAY-A2: Coinbase Server Wallet accounts by name (Build Board #53, B3). The pauser may only
   // call pause() on AmpedPay; the Safe proposer is a Safe delegate that signs proposals and
   // nothing else; the split signer is shown on Overview and used by PAY-2.
@@ -350,6 +375,15 @@ const envSchema = z.object({
   // Stream customer code for thumbnail URLs (customer-{code}.cloudflarestream.com). Optional:
   // read from the video when empty
   CF_STREAM_CUSTOMER_CODE: z.string().default(""),
+  // Content takedown (C7a, content-takedown.md 4.9). The TAKEDOWN KV namespace id the
+  // media gateway reads (takedown, takedown-staging) and a token with Workers KV
+  // Storage Edit on that account. Without both, edge sync logs an alert and waits.
+  CF_TAKEDOWN_NAMESPACE_ID: z.string().default(""),
+  CF_KV_API_TOKEN: z.string().default(""),
+  // Zone id of amped.bio (holds both media hosts) and a token with Zone Cache Purge.
+  // Optional: purge is cleanup only; the KV key already stops delivery.
+  CF_MEDIA_ZONE_ID: z.string().default(""),
+  CF_CACHE_PURGE_TOKEN: z.string().default(""),
   // Per kind upload limits in MB (spec 3.2)
   UPLOAD_LIMIT_CONTENT_VIDEO_MB: numSchema(2048),
   UPLOAD_LIMIT_CONTENT_AUDIO_MB: numSchema(500),

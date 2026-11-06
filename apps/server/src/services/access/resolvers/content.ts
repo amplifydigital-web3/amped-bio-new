@@ -1,6 +1,7 @@
 import { prisma } from "@repo/database";
 import { contentPublicIdSchema } from "@repo/constants";
 import { ownerCanOpen, servedAssetsClean } from "../../content/access";
+import { adultOpen } from "../../content/adult";
 import type { Gate, Resolver } from "../types";
 
 /**
@@ -25,6 +26,7 @@ export const contentResolver: Resolver = {
         publishState: true,
         moderationState: true,
         deletedAt: true,
+        hiddenAt: true,
       },
     });
     if (!item) return null;
@@ -34,7 +36,10 @@ export const contentResolver: Resolver = {
       ownerOpens &&
       item.publishState === "PUBLISHED" &&
       item.moderationState === "CLEAR" &&
-      item.deletedAt === null;
+      item.deletedAt === null &&
+      // 18+ is unavailable to everyone but the owner while the adultContent flag
+      // is off (identity checks 4.4). When on, the engine's age step decides.
+      (!item.adult || adultOpen());
     if (ownerOpens) {
       const assets = await prisma.contentAsset.findMany({
         where: { contentItemId: item.id },

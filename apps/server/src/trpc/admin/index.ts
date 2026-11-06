@@ -15,10 +15,14 @@ import { telegramAdminRouter } from "./telegram";
 import { messagingAdminRouter } from "./messaging";
 import { moneyAdminRouter } from "./money";
 import { paymentsAdminRouter } from "./payments";
+import { merchantsAdminRouter } from "./merchants";
+import { sellerChecksAdminRouter } from "./sellerChecks";
 
 export const adminRouter = router({
   // User Management
   users: usersRouter,
+  // Seller tier override (Build Board #66, AB-6, board a2)
+  sellerChecks: sellerChecksAdminRouter,
 
   // Block Management & Statistics
   blocks: blocksRouter,
@@ -63,4 +67,6 @@ export const adminRouter = router({
 
   // AmpedPay settings, two person changes and the change log (Build Board #50)
   payments: paymentsAdminRouter,
+  // Business sellers on AmpedPay: Authbase first (Build Board #66, AB-1)
+  merchants: merchantsAdminRouter,
 });

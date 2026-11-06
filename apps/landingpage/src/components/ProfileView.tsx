@@ -34,7 +34,9 @@ import { TelegramMessageBlock } from "@/components/blocks/TelegramMessageBlock";
 import { MessageBlock } from "@/components/blocks/MessageBlock";
 import { TelegramGroupBlock } from "@/components/blocks/TelegramGroupBlock";
 import { ContentBlock } from "@/components/content/ContentBlock";
-import { GatedBlock } from "@/components/blocks/GatedBlock";
+import { StoreBlock } from "@/components/store/StoreBlock";
+import { GatedBlock, stakeNoticeBlockId } from "@/components/blocks/GatedBlock";
+import { StakeNotices } from "@/components/content/gating";
 import { usePageDecisions } from "@/components/content/gating";
 import { FollowContext } from "@/components/follow/FollowContext";
 import { useReferralHandler } from "@/hooks/useReferralHandler";
@@ -62,6 +64,7 @@ import {
 import { TrackingConsentBanner, type ConsentChoice } from "@/components/TrackingConsentBanner";
 import { getContainerStyle, getHeroEffectStyle, isHTML, LOOPING_HERO_EFFECTS } from "@/lib/styles";
 import { CREATOR_FOCUS, CreatorButton } from "@/components/blocks/frame";
+import { AdultItemsCard } from "@/components/content/adult";
 import { useFollow } from "@/components/follow/useFollow";
 import {
   FirstFollowSheet,
@@ -189,6 +192,10 @@ export function ProfileView({
   const [blocks, setBlocks] = useState<BlockType[]>(initialData?.blocks ?? []);
   const [theme, setTheme] = useState<Theme | null>(initialData?.theme ?? null);
   const [contentCards, setContentCards] = useState(initialData?.contentCards ?? {});
+  // Identity checks 4.4: one "Adult items" card, no title, cover or count
+  const [hasAdult, setHasAdult] = useState(initialData?.hasAdult ?? false);
+  const [fontLinks, setFontLinks] = useState<string[] | null>(initialData?.fonts ?? null);
+  const [storeBlock, setStoreBlock] = useState(initialData?.storeBlock ?? null);
   const [hasCreatorPool, setHasCreatorPool] = useState(initialData?.hasCreatorPool ?? false);
   const [creatorPoolAddress, setCreatorPoolAddress] = useState(
     initialData?.creatorPoolAddress ?? null
@@ -225,6 +232,10 @@ export function ProfileView({
   const messagesOn = useFeatureFlag("messages");
   // Theme Engine v2 (#28): the shared CreatorPage shell, staging first
   const themeV2 = useFeatureFlag("themeV2");
+  // Theme Engine v2 phase 3 (TE-3a): showcase engines, staging first
+  const themeShowcase = useFeatureFlag("themeShowcase");
+  // Theme Engine v2 fonts (2b): catalog faces load only while fontCatalog is on
+  const fontCatalogOn = useFeatureFlag("fontCatalog");
 
   // Pause motion (041 I02): read the remembered choice once on the client
   useEffect(() => {
@@ -339,6 +350,9 @@ export function ProfileView({
           setCreatorPoolAddress(data.creatorPoolAddress);
           setTrackingPixels(data.trackingPixels);
           setContentCards(data.contentCards);
+          setHasAdult(data.hasAdult);
+          setFontLinks(data.fonts);
+          setStoreBlock(data.storeBlock);
         }
       } catch {
         if (normalizedHandle === DEFAULT_HANDLE) {
@@ -437,17 +451,25 @@ export function ProfileView({
       className={CREATOR_FOCUS}
     />
   ) : null;
+  // GQ2-2: the stake notice shows once on the page, under the first block behind a
+  // stake rule, before any tap or refusal (decision D2: one block per section)
+  const firstStakeBlockId = stakeNoticeBlockId(renderable);
   const blockList = renderable.map(block => (
     <ErrorBoundary key={block.id} fallback={null} context={{ blockId: block.id, type: block.type }}>
       {block.gated ? (
-        <GatedBlock
-          block={block}
-          theme={themeConfig as any}
-          handle={normalizedHandle}
-          decision={blockDecision(String(block.id), "block")}
-          autoOpen={unlockId === block.id}
-          onChanged={blockDecision.refresh}
-        />
+        <>
+          <GatedBlock
+            block={block}
+            theme={themeConfig as any}
+            handle={normalizedHandle}
+            decision={blockDecision(String(block.id), "block")}
+            autoOpen={unlockId === block.id}
+            onChanged={blockDecision.refresh}
+          />
+          {block.id === firstStakeBlockId && (
+            <StakeNotices className="mt-[8px] w-full" style={{ color: fontColor }} />
+          )}
+        </>
       ) : block.type === "link" ? (
         <CreatorButton
           theme={themeConfig}
@@ -536,11 +558,19 @@ export function ProfileView({
           handle={normalizedHandle}
           creatorName={profile.name || null}
         />
+      ) : block.type === "store" ? (
+        // Store block (st10): public stores only, from getHandle
+        <StoreBlock block={block} theme={themeConfig} store={storeBlock} />
       ) : (
         <TextBlock block={block as any} theme={themeConfig as any} />
       )}
     </ErrorBoundary>
   ));
+  if (hasAdult) {
+    blockList.push(
+      <AdultItemsCard key="adult-items" handle={normalizedHandle} theme={themeConfig} />
+    );
+  }
   const footerEl = (
     <footer className="mt-[34px] flex flex-col items-center" style={textStyle}>
       <div className="flex items-center gap-[13px]">
@@ -596,6 +626,25 @@ export function ProfileView({
           )}
         >
           Privacy Policy
+        </a>
+        {/* Adult content review 7.2 and 7.5 (R3): linked from every page footer */}
+        <a
+          href="/takedown"
+          className={cn(
+            "inline-flex min-h-[44px] items-center px-1 text-[13px] leading-[16px] underline-offset-2 hover:underline",
+            CREATOR_FOCUS
+          )}
+        >
+          Take It Down
+        </a>
+        <a
+          href="/copyright"
+          className={cn(
+            "inline-flex min-h-[44px] items-center px-1 text-[13px] leading-[16px] underline-offset-2 hover:underline",
+            CREATOR_FOCUS
+          )}
+        >
+          Copyright
         </a>
       </div>
     </footer>
@@ -697,13 +746,16 @@ export function ProfileView({
       profile={{ name: profile.name, photo, bio: profile.bio }}
       nameExtras={nameExtras}
       identity={identityChip}
-      blocks={renderable.length > 0 ? blockList : null}
+      blocks={blockList.length > 0 ? blockList : null}
       footer={footerEl}
       frame={frameLayer}
       videoRef={videoRef}
       bottomPadding={`calc(89px + env(safe-area-inset-bottom, 0px) + ${cardShowing ? cardHeight + 13 : 0}px)`}
       entranceKey={normalizedHandle}
       device={weakDevice ? "weak" : undefined}
+      showcase={themeShowcase}
+      loadFonts={fontCatalogOn}
+      fontLinks={fontCatalogOn ? fontLinks : null}
     />
   ) : (
     <div
@@ -814,7 +866,7 @@ export function ProfileView({
           </header>
 
           {/* 040 I12: blocks 13 apart; blocks add no margins of their own */}
-          {renderable.length > 0 && (
+          {blockList.length > 0 && (
             <div className="mt-[34px] flex flex-col gap-[13px]">{blockList}</div>
           )}
 
