@@ -42,7 +42,7 @@ The `adultContent` flag definition is copied byte for byte from A1 (#496), so th
 - **Release text.** The text shown and hashed is a filled summary that names the version and the options. The counsel approved performer release (`docs/legal/performer-release.md`) should move into constants, so the full text is what the person scrolls and what gets hashed.
 - **Locked surfaces.** The surfaces row in the item editor is not drawn yet. The server already refuses a surface a release excludes.
 - **Notices and appeals (5.4).** The creator item states and the Inbox notices are R5.
-- **Privacy notice (14a).** Add the release and custodian data, and bump `CONSENT_POLICY_VERSION` (counsel).
+- **Privacy notice (14a).** Added in review: the release and custodian data in policy sections 2, 7, 10 and 11, `privacy-parameters.md`, and `CONSENT_POLICY_VERSION` at `2026-11c`.
 
 ## Tests
 

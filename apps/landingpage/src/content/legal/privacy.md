@@ -35,6 +35,8 @@ When you create an account and build your page, we collect:
 - **Messages to us:** what you send to support.
 - **Reports you send:** the item, the reason, what you write, and your account when you are signed in, so we can review the report and stop repeat false reports. Creators never see who reported their item. If the report is "This shows a child", we also record the report for our child safety records.
 - **Take It Down requests and copyright notices:** your name, postal address, email, phone if you give it, your typed signature, the links and the statements you make. We encrypt your contact details at rest. We email you a status link with its own key, which is the only way to open that status page; keep it. If a copyright notice disables an item, the creator sees your name and email, as copyright law requires, but never your postal address or phone. If you send a counter notice, we send your name, postal address and phone to the person who sent the notice, as copyright law requires. A Take It Down requester is never named to the creator.
+- **18+ creator setup:** if you turn on 18+ content, the custodian of records you name (name and address). We encrypt both at rest and give them only on a lawful request. We also keep the Adult Content Policy version you accepted and when you turned 18+ on or off.
+- **Performer releases:** if you appear in someone's 18+ content, the display name the creator gave you, the full legal name you type to sign (encrypted at rest), the options you chose, the filled release text and its hash, the time you signed and the time the creator countersigned, and the Over 18 result we received when you signed. We never store a copy of your ID; you confirm you gave it to the creator. A creator's release list shows the display name and status, never your legal name.
 - **Your Library:** when you are signed in, the items you save to your Library and when you saved them, and when you last opened each followed creator's section of your Library, so we can show what is new. Only you see them. Creators do not see what you saved or when you visited.
 - **Message notifications:** when you get a message on Amped.Bio, we add it to the bell in the app. If you allow notifications on a device, your browser gives us a push address for that device (a web address at your browser's push service and two keys that encrypt what we send) and the browser details it reports. We store them to notify you on that device. If a message is still unread after 30 minutes, we may email you a reminder that names the sender but never includes the message text. We store whether notifications and reminder emails are on, and which reminders we sent.
 - **New items from creators:** when a creator you follow, or whose pool you stake in, posts an item you can open, we may add it to the bell in the app. If you chose Email me updates when you followed a creator, we may send you at most one email a day listing that creator's new items you can open. We store whether these alerts are on, for every creator or for one, and which emails we sent.
@@ -145,6 +147,7 @@ We do not sell your personal information. We do not use it for our own advertisi
 | Screen addresses against sanctions and risk lists | Wallet addresses, the vendor's result | Legal obligation and legitimate interests |
 | Written summaries for creators | Page totals, top sources, devices, visitor counts and up to 10 link names | Legitimate interests |
 | Review reports, Take It Down requests and copyright notices, and remove content | Reports and their text, the notice details and statements, the items, decisions and the account or address that sent a report | Legal obligation, legitimate interests, safety |
+| Check 18+ creator setup and performer releases, and keep the records the law requires | Your Over 18 and seller check results, the accepted policy version, the custodian name and address, the people who appear, their release options, the filled release, both signature times and the check result at signing | Contract, legal obligation, consent |
 | Meet legal duties and handle disputes | Any of the above as needed | Legal obligation, legitimate interests |
 
 ## 8. Who we share information with
@@ -220,6 +223,7 @@ Creator pages and the public site set nothing in your browser until you choose, 
 | Under 18 reviews (that an age check showed under 18, and how we decided) | 5 years |
 | Reports you send (the item, the reason, the text and your account) | 2 years, or while the Safety case they opened is open |
 | Take It Down requests and copyright notices (name, contact, signature, links, statements and decisions) | 3 years after the request closes. The postal address and phone are erased 1 year after it closes |
+| Performer releases and 18+ creator setup (release text and hash, options, signature times, the Over 18 result at signing, the typed legal name and the custodian name and address) | While any item with that person exists, then 7 years. Kept when an account closes, as the record keeping law requires |
 
 On chain records on the Revolution Network and Base are permanent. We cannot delete them.
 
@@ -234,6 +238,7 @@ On chain records on the Revolution Network and Base are permanent. We cannot del
 - Turn off message notifications or message reminder emails in Account settings, under Messages, or turn off reminder emails from the link in any reminder email. You can also block notifications for Amped.Bio in your browser or device settings.
 - Turn off alerts for new items in Account settings, under Messages, or for one creator in their Library section. Turn off a creator's daily email in their Library section or from the link in the email.
 - Turn on two factor sign in.
+- Withdraw consent for a release you signed, in Account, under Appearing in. The items it covers are hidden at once, and the creator must take them off sale everywhere.
 - Close your account by writing to privacy@amped.bio from the email on your account.
 
 **Your rights.** Depending on where you live, you can ask to access, correct, delete or export your information, object to or limit how we use it, and withdraw consent at any time. Withdrawing consent does not affect what we did before. In some US states you can also opt out of the sale or sharing of personal information and of targeted advertising. We honor Global Privacy Control signals as that opt out. We will not treat you differently for using your rights.
