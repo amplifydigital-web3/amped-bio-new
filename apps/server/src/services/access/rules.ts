@@ -145,6 +145,18 @@ async function toStoredParams(
       }
       return { offerId: input.params.offerId };
     }
+    case "member": {
+      // G5: only the owner's own plan. A draft or paused plan is allowed: items can be
+      // gated before the plan takes members, and nobody passes until someone joins
+      const plan = await db.membershipPlan.findUnique({
+        where: { id: hexToId(input.params.planId) },
+        select: { creatorUserId: true },
+      });
+      if (!plan || plan.creatorUserId !== ownerUserId) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Set up your membership first." });
+      }
+      return { planId: input.params.planId };
+    }
     case "any":
     case "all": {
       // 2 to 4 leaves, depth 1, all the owner's own

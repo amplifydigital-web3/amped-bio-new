@@ -17,12 +17,13 @@ export const ACCESS_RULE_KINDS = [
 ] as const;
 export type AccessRuleKind = (typeof ACCESS_RULE_KINDS)[number];
 
-// paid joined in G4; member joins in G5
+// paid joined in G4; member joined in G5
 export const LIVE_ACCESS_RULE_KINDS = [
   "follower",
   "pool_member",
   "stake_min",
   "paid",
+  "member",
   "any",
   "all",
 ] as const;
@@ -81,7 +82,8 @@ export type UnlockHint =
   // never a one tap stake
   | { action: "view_pool"; poolId: number }
   | { action: "buy"; offerId: string; priceDisplay: string }
-  | { action: "join_membership"; planId: number; priceMonthlyDisplay: string; pastDue: boolean }
+  // G5: planId is the MembershipPlan id as hex (content spec 3.18, UUID keys)
+  | { action: "join_membership"; planId: string; priceMonthlyDisplay: string; pastDue: boolean }
   | { action: "unavailable" };
 
 export type AccessDecision = {
@@ -117,7 +119,8 @@ export const ACCESS_RULE_PARAMS = {
   pool_member: z.object({ poolId: z.number().int().positive() }).strict(),
   stake_min: z.object({ poolId: z.number().int().positive(), minWei: weiString }).strict(),
   paid: z.object({ offerId: uuidHex }).strict(),
-  member: z.object({ planId: z.number().int().positive() }).strict(),
+  // G5: the creator's MembershipPlan id as hex (content spec 3.18 moved plans to UUID keys)
+  member: z.object({ planId: uuidHex }).strict(),
   any: z.object({ ruleIds: z.array(uuidHex).min(2).max(4) }).strict(),
   all: z.object({ ruleIds: z.array(uuidHex).min(2).max(4) }).strict(),
   reward_points: z
@@ -143,6 +146,7 @@ export const accessRuleInputSchema = z.discriminatedUnion("kind", [
   }),
   // One of the creator's own products (store PR 9). Checked on the server (G4)
   z.object({ kind: z.literal("paid"), params: ACCESS_RULE_PARAMS.paid }),
+  z.object({ kind: z.literal("member"), params: ACCESS_RULE_PARAMS.member }),
   z.object({ kind: z.literal("any"), params: ACCESS_RULE_PARAMS.any }),
   z.object({ kind: z.literal("all"), params: ACCESS_RULE_PARAMS.all }),
 ]);
