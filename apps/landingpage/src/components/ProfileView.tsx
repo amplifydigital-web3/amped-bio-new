@@ -35,7 +35,8 @@ import { MessageBlock } from "@/components/blocks/MessageBlock";
 import { TelegramGroupBlock } from "@/components/blocks/TelegramGroupBlock";
 import { ContentBlock } from "@/components/content/ContentBlock";
 import { StoreBlock } from "@/components/store/StoreBlock";
-import { GatedBlock } from "@/components/blocks/GatedBlock";
+import { GatedBlock, stakeNoticeBlockId } from "@/components/blocks/GatedBlock";
+import { StakeNotices } from "@/components/content/gating";
 import { usePageDecisions } from "@/components/content/gating";
 import { FollowContext } from "@/components/follow/FollowContext";
 import { useReferralHandler } from "@/hooks/useReferralHandler";
@@ -446,17 +447,25 @@ export function ProfileView({
       className={CREATOR_FOCUS}
     />
   ) : null;
+  // GQ2-2: the stake notice shows once on the page, under the first block behind a
+  // stake rule, before any tap or refusal (decision D2: one block per section)
+  const firstStakeBlockId = stakeNoticeBlockId(renderable);
   const blockList = renderable.map(block => (
     <ErrorBoundary key={block.id} fallback={null} context={{ blockId: block.id, type: block.type }}>
       {block.gated ? (
-        <GatedBlock
-          block={block}
-          theme={themeConfig as any}
-          handle={normalizedHandle}
-          decision={blockDecision(String(block.id), "block")}
-          autoOpen={unlockId === block.id}
-          onChanged={blockDecision.refresh}
-        />
+        <>
+          <GatedBlock
+            block={block}
+            theme={themeConfig as any}
+            handle={normalizedHandle}
+            decision={blockDecision(String(block.id), "block")}
+            autoOpen={unlockId === block.id}
+            onChanged={blockDecision.refresh}
+          />
+          {block.id === firstStakeBlockId && (
+            <StakeNotices className="mt-[8px] w-full" style={{ color: fontColor }} />
+          )}
+        </>
       ) : block.type === "link" ? (
         <CreatorButton
           theme={themeConfig}

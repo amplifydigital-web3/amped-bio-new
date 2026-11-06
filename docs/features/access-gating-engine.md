@@ -399,6 +399,7 @@ Lagging (90 days after paid goes live): share of creators with any paid or membe
 
 ## Revision log
 
+- 2026-11-05: GQ2-2 closed (`fix/stake-notices`). Decision D2 approved by Rob and counsel: one `TESTNET_NOTICE` and `ACCESS_STAKE_DISCLOSURE` block per page section that shows a locked stake item, before any tap or refusal. Bio blocks under the first stake block, once per content block, above the feed, and in the locked item page server HTML.
 - 2026-11-04: G2 retired. Messaging rules stay outside the engine (Rob, 2 Nov), Telegram groups go in messaging M8, and broadcast audiences use `eligibleUserIds` in messaging M9, so nothing is left for G2. Resource types `dm` and `telegram_group` stay reserved with no resolver. P0 item 4, acceptance 13, the build plan, the sequence and the data model note updated. No code change.
 - 2026-11-03: Flags in site_settings. `accessGating` is a feature flag (#421) and the stake allowlist is the `access_stake_kinds_allowlist` site setting. `VITE_ACCESS_GATING` is dropped.
 - 2026-11-03: QA fix pass (rows 365 to 368, 370). 3.10 deltas 7 to 11: rules and stats move to People, Access; totals only; empty, loading and flag off states; block row actions; unlock sheet frames per hint. 3.11: the required minimum shows only in the `stake_below_min` step; the disclosure is `ACCESS_STAKE_DISCLOSURE`. G6 scope updated.

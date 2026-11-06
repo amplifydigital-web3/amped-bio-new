@@ -47,11 +47,14 @@ vi.mock("@/lib/trpc", () => ({
       report: { mutate: vi.fn() },
     },
     follow: { follow: { mutate: mocks.follow } },
+    access: { checkPage: { query: vi.fn(async () => ({})) } },
   },
 }));
 vi.mock("./PdfViewer", () => ({ PdfViewer: () => <div data-testid="pdf" /> }));
 
+import { renderToString } from "react-dom/server";
 import { ContentBlock } from "./ContentBlock";
+import { FeedPageView } from "./FeedPageView";
 import { ItemPageView } from "./ItemPageView";
 import { SITE_CONTENT_COPY } from "./copy";
 
@@ -197,5 +200,76 @@ describe("gate copy (content gating 4.3)", () => {
     ]) {
       expect(findComplianceTerms(text, ACCESS_BANNED_TERMS), text).toEqual([]);
     }
+  });
+});
+
+describe("stake notice before any tap or refusal (GQ2-2, decision D2)", () => {
+  const contentBlock = (cards: ContentCard[]) => (
+    <ContentBlock
+      block={
+        {
+          id: 1,
+          type: "content",
+          order: 0,
+          config: { layout: "grid", publicIds: cards.map(card => card.publicId) },
+        } as any
+      }
+      theme={undefined}
+      cards={Object.fromEntries(cards.map(card => [card.publicId, card]))}
+      handle="maya"
+      creatorName="Maya Lin"
+    />
+  );
+
+  it("shows one notice for a content block with stake cards, in order", () => {
+    render(
+      contentBlock([lockedCard("a", stake), lockedCard("b", stake), lockedCard("c", follower)])
+    );
+    expect(screen.getAllByText(TESTNET_NOTICE)).toHaveLength(1);
+    const notice = screen.getByText(TESTNET_NOTICE);
+    const disclosure = screen.getByText(ACCESS_STAKE_DISCLOSURE);
+    expect(
+      notice.compareDocumentPosition(disclosure) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+  });
+
+  it("shows no notice when no card is behind a stake rule", () => {
+    render(contentBlock([lockedCard("a", follower)]));
+    expect(screen.queryByText(TESTNET_NOTICE)).toBeNull();
+    expect(screen.queryByText(ACCESS_STAKE_DISCLOSURE)).toBeNull();
+  });
+
+  it("puts the notice in the locked item page's server HTML", () => {
+    const html = renderToString(<ItemPageView item={lockedItem(stake)} />);
+    expect(html).toContain(TESTNET_NOTICE);
+    expect(html).toContain(ACCESS_STAKE_DISCLOSURE.replace(/'/g, "&#x27;"));
+    expect(renderToString(<ItemPageView item={lockedItem(follower)} />)).not.toContain(
+      TESTNET_NOTICE
+    );
+  });
+
+  it("shows the item page notice while checking, and only once after a refusal", async () => {
+    let answer: (value: unknown) => void = () => {};
+    mocks.readUrl.mockReturnValue(new Promise(resolve => (answer = resolve)));
+    render(<ItemPageView item={lockedItem(stake)} />);
+    expect(screen.getAllByText(TESTNET_NOTICE)).toHaveLength(1);
+    answer({
+      decision: decision({ reason: "not_pool_member", hint: { action: "view_pool", poolId: 5 } }),
+      playback: null,
+      download: null,
+    });
+    expect(await screen.findByRole("link", { name: "Go to the pool" })).toBeInTheDocument();
+    expect(screen.getAllByText(TESTNET_NOTICE)).toHaveLength(1);
+  });
+
+  it("shows one notice above the creator feed when a card is behind a stake rule", () => {
+    const initial = {
+      creator: { handle: "maya", name: "Maya Lin", image: null },
+      items: [lockedCard("a", stake), lockedCard("b", stake)],
+      nextCursor: null,
+    } as any;
+    render(<FeedPageView initial={initial} kind={null} />);
+    expect(screen.getAllByText(TESTNET_NOTICE)).toHaveLength(1);
+    expect(screen.getByText(ACCESS_STAKE_DISCLOSURE)).toBeInTheDocument();
   });
 });

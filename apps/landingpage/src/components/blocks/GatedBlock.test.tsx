@@ -25,7 +25,7 @@ vi.mock("@/components/blocks/MediaBlock", () => ({
   MediaBlock: ({ block }: any) => <div data-testid="media">{block.config.url}</div>,
 }));
 
-import { GatedBlock, goHref } from "./GatedBlock";
+import { GatedBlock, goHref, stakeNoticeBlockId } from "./GatedBlock";
 
 const theme = {} as any;
 const refused = (over: Partial<AccessDecision> = {}): AccessDecision => ({
@@ -158,5 +158,16 @@ describe("GatedBlock", () => {
       />
     );
     expect(await screen.findByTestId("media")).toHaveTextContent("https://youtube.com/watch?v=x");
+  });
+});
+
+describe("stake notice on the page (GQ2-2, decision D2)", () => {
+  it("sits under the first block behind a stake rule, once per page", () => {
+    const follower = { ...locked("link", { label: "VIP" }), id: 1 };
+    const stakeA = { ...locked("text", { label: "" }, true), id: 2 };
+    const stakeB = { ...locked("media", { label: "Clip" }, true), id: 3 };
+    expect(stakeNoticeBlockId([follower, stakeA, stakeB])).toBe(2);
+    expect(stakeNoticeBlockId([follower])).toBeNull();
+    expect(stakeNoticeBlockId([{ id: 9, gated: false }])).toBeNull();
   });
 });
