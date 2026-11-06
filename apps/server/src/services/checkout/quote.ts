@@ -270,11 +270,14 @@ export async function quoteIntent(viewerUserId: number, idHex: string): Promise<
   // Paid is terminal: it never reads ready again, so the sheet cannot offer Pay twice
   if (status === "paid") state = "paid";
   else if (settings.paymentsPaused) state = "paused";
-  else if (merchant) {
-    if (!merchant.pass) state = "seller";
-  } else if (!wallet || (settings.pilotOnly && !settings.pilotCreators.includes(handle)))
+  else if (merchant && !merchant.pass) state = "seller";
+  else if (
+    !merchant &&
+    (!wallet || (settings.pilotOnly && !settings.pilotCreators.includes(handle)))
+  )
     state = "seller";
-  else if (!(await sellerPasses(resolved.creatorUserId))) state = "seller";
+  else if (!merchant && !(await sellerPasses(resolved.creatorUserId))) state = "seller";
+  // The daily limit applies to every seller, merchant offers included: prepare enforces it too
   else if (countedToday >= settings.purchasesPerDayPerAccount) state = "limit";
 
   return {

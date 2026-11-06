@@ -56,7 +56,12 @@ vi.mock("@repo/database", () => ({
     },
     purchase: {
       findUnique: vi.fn(async () => state.purchase),
+      findMany: vi.fn(async () => (state.purchase ? [state.purchase] : [])),
       update: vi.fn(async ({ data }: { data: object }) => Object.assign(state.purchase!, data)),
+      updateMany: vi.fn(async ({ data }: { data: object }) => {
+        Object.assign(state.purchase!, data);
+        return { count: 1 };
+      }),
     },
     offer: { findMany: vi.fn(async () => state.offers) },
   },
@@ -70,6 +75,7 @@ import {
   emitMerchantEvent,
   nextDelayMs,
   setWebhookPosterForTests,
+  setWebhookResolverForTests,
   signWebhook,
   verifyWebhook,
 } from "../services/partners/webhooks";
@@ -115,6 +121,7 @@ beforeEach(() => {
   };
   Object.assign(env, { APP_ENV: "staging", MERCHANT_SECRET_BOX_KEY: "test-key" });
   setWebhookPosterForTests(null);
+  setWebhookResolverForTests(async () => [{ address: "93.184.216.34", family: 4 }]);
 });
 
 describe("API keys", () => {
@@ -205,6 +212,37 @@ describe("delivery", () => {
     await expect(
       addEndpoint({ merchantId: MERCHANT, actorId: 1, url: "https://localhost/x" })
     ).rejects.toThrow("public");
+    // Every private and metadata range in IPv4, IPv6 and IPv4-mapped form (WS-4)
+    for (const url of [
+      "https://127.0.0.1/x",
+      "https://172.16.0.1/x",
+      "https://100.64.0.1/x",
+      "https://169.254.169.254/latest/meta-data",
+      "https://[::1]/x",
+      "https://[fd00::1]/x",
+      "https://[::ffff:169.254.169.254]/x",
+    ]) {
+      await expect(addEndpoint({ merchantId: MERCHANT, actorId: 1, url })).rejects.toThrow(
+        "public"
+      );
+    }
+  });
+
+  it("does not deliver to a name that resolves inside the network (SSRF)", async () => {
+    await addEndpoint({
+      merchantId: MERCHANT,
+      actorId: 1,
+      url: "https://hooks.merchant.test/amped",
+    });
+    const now = new Date("2026-11-05T12:00:00Z");
+    await emitMerchantEvent(MERCHANT, "order.paid", { order: { order_ref: "ab" } }, now);
+    // The record was public when the endpoint was added and points inside now
+    setWebhookResolverForTests(async () => [{ address: "10.0.0.5", family: 4 }]);
+    const posted = vi.fn(async () => ({ status: 200 }));
+    setWebhookPosterForTests(posted);
+    await deliverDueWebhooks(now);
+    expect(posted).not.toHaveBeenCalled();
+    expect(state.deliveries[0]).toMatchObject({ status: "failed", lastError: "blocked_host" });
   });
 });
 

@@ -77,7 +77,7 @@ function OfferCard({
       <div className="mt-[21px] space-y-3 border-t border-prism-line pt-3">
         <p className="text-prism-ink">
           <span className="text-[34px] font-bold leading-[34px] tabular-nums">
-            ${usdcDollars(offer.amountUnits)}
+            {usdcDollars(offer.amountUnits)}
           </span>{" "}
           <span className="font-bold text-prism-ink-2">USDC</span>
         </p>
