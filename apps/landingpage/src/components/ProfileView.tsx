@@ -64,6 +64,7 @@ import {
 import { TrackingConsentBanner, type ConsentChoice } from "@/components/TrackingConsentBanner";
 import { getContainerStyle, getHeroEffectStyle, isHTML, LOOPING_HERO_EFFECTS } from "@/lib/styles";
 import { CREATOR_FOCUS, CreatorButton } from "@/components/blocks/frame";
+import { AdultItemsCard } from "@/components/content/adult";
 import { useFollow } from "@/components/follow/useFollow";
 import {
   FirstFollowSheet,
@@ -191,6 +192,8 @@ export function ProfileView({
   const [blocks, setBlocks] = useState<BlockType[]>(initialData?.blocks ?? []);
   const [theme, setTheme] = useState<Theme | null>(initialData?.theme ?? null);
   const [contentCards, setContentCards] = useState(initialData?.contentCards ?? {});
+  // Identity checks 4.4: one "Adult items" card, no title, cover or count
+  const [hasAdult, setHasAdult] = useState(initialData?.hasAdult ?? false);
   const [fontLinks, setFontLinks] = useState<string[] | null>(initialData?.fonts ?? null);
   const [storeBlock, setStoreBlock] = useState(initialData?.storeBlock ?? null);
   const [hasCreatorPool, setHasCreatorPool] = useState(initialData?.hasCreatorPool ?? false);
@@ -347,6 +350,7 @@ export function ProfileView({
           setCreatorPoolAddress(data.creatorPoolAddress);
           setTrackingPixels(data.trackingPixels);
           setContentCards(data.contentCards);
+          setHasAdult(data.hasAdult);
           setFontLinks(data.fonts);
           setStoreBlock(data.storeBlock);
         }
@@ -562,6 +566,11 @@ export function ProfileView({
       )}
     </ErrorBoundary>
   ));
+  if (hasAdult) {
+    blockList.push(
+      <AdultItemsCard key="adult-items" handle={normalizedHandle} theme={themeConfig} />
+    );
+  }
   const footerEl = (
     <footer className="mt-[34px] flex flex-col items-center" style={textStyle}>
       <div className="flex items-center gap-[13px]">
@@ -718,7 +727,7 @@ export function ProfileView({
       profile={{ name: profile.name, photo, bio: profile.bio }}
       nameExtras={nameExtras}
       identity={identityChip}
-      blocks={renderable.length > 0 ? blockList : null}
+      blocks={blockList.length > 0 ? blockList : null}
       footer={footerEl}
       frame={frameLayer}
       videoRef={videoRef}
@@ -838,7 +847,7 @@ export function ProfileView({
           </header>
 
           {/* 040 I12: blocks 13 apart; blocks add no margins of their own */}
-          {renderable.length > 0 && (
+          {blockList.length > 0 && (
             <div className="mt-[34px] flex flex-col gap-[13px]">{blockList}</div>
           )}
 

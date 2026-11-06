@@ -385,11 +385,21 @@ describe("getReadUrl through open (3.3)", () => {
   });
 
   it("runs the 18+ check before the rule", async () => {
+    // 18+ opens to anyone but the owner only with the adultContent flag (A1)
+    __setFeatureFlagOverridesForTests({ accessGating: true, adultContent: true });
     db.state.follows.add(FAN);
     const item = addItem({ adult: true, accessRuleId: addRule("follower", {}) });
     const refused = await content(FAN).getReadUrl({ publicId: item.publicId });
     expect(refused.decision?.reason).toBe("age_check_required");
     expect(refused.decision?.hint).toEqual({ action: "verify_age" });
+  });
+
+  it("answers not found for 18+ while the adultContent flag is off (A1)", async () => {
+    db.state.follows.add(FAN);
+    const item = addItem({ adult: true, accessRuleId: addRule("follower", {}) });
+    await expect(content(FAN).getReadUrl({ publicId: item.publicId })).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
   });
 
   it("answers NOT_FOUND for a missing or unavailable item", async () => {
@@ -431,6 +441,7 @@ describe("getPreview (3.3)", () => {
   });
 
   it("shows no media to a viewer who has not passed the 18+ check", async () => {
+    __setFeatureFlagOverridesForTests({ accessGating: true, adultContent: true });
     const item = addItem({ adult: true, accessRuleId: addRule("follower", {}) });
     const preview = await content(FAN).getPreview({ publicId: item.publicId });
     expect(preview).toMatchObject({ blur: null, clip: null, audio: null, pages: [] });
