@@ -80,11 +80,17 @@ const db = vi.hoisted(() => {
       ),
     },
     safetyEvent: { create: vi.fn(async ({ data }: any) => data) },
+    creatorAdultProfile: {
+      findUnique: vi.fn(async ({ where }: any) =>
+        where.userId === 7 && adultOn.value ? { enabledAt: new Date(), disabledAt: null } : null
+      ),
+    },
     $transaction: vi.fn(async (fn: any) => fn(prisma)),
   };
   return { prisma, items, assets, hashes };
 });
 
+const adultOn = vi.hoisted(() => ({ value: false }));
 const safety = vi.hoisted(() => ({
   onCsamMatch: vi.fn(async () => {}),
   onReviewHold: vi.fn(async () => {}),
@@ -192,6 +198,22 @@ describe("processor callback", () => {
     expect(item.moderationState).toBe("HELD");
     await applyProcessorCallback({ ...base, step: "done", outcome: "ok" });
     expect(item).toMatchObject({ status: "READY", moderationState: "HELD" });
+  });
+
+  it("holds a file of a creator with 18+ on for review at READY (#28 R7)", async () => {
+    adultOn.value = true;
+    const item = seed({ kind: "FILE" });
+    await applyProcessorCallback({ ...base, step: "done", outcome: "ok" });
+    expect(item).toMatchObject({
+      status: "READY",
+      moderationState: "HELD",
+      moderationReason: "adult_file_review",
+    });
+    expect(safety.onReviewHold).toHaveBeenCalledWith(expect.anything(), "adult_file_review");
+    adultOn.value = false;
+    const other = seed({ kind: "FILE" });
+    await applyProcessorCallback({ ...base, step: "done", outcome: "ok" });
+    expect(other.moderationState).toBe("CLEAR");
   });
 
   it("stores explicitAt when the classifier finds a held or labeled item explicit (#28 F1)", async () => {
