@@ -17,6 +17,20 @@ To inspect the server that is running, read that file instead of asking for a pa
 - Both servers: `grep -E '"source":"@repo/(auth-)?server#dev"' logs/dev-full.log`
 - Live tail: `tail -f logs/dev-full.log`
 
+## PRODUCTION DATA - READ-ONLY prod-cli
+
+To answer questions about production data, use the local `prod-cli/` tool when it exists. It is gitignored, lives outside the pnpm workspace and connects only with the read-only credentials in `read_only_db_credentials.cfg` at the repo root (also gitignored). Never create, edit or print that credentials file.
+
+```bash
+pnpm --dir prod-cli install --ignore-workspace   # once
+pnpm --dir prod-cli cli help
+pnpm --dir prod-cli cli check-prod-env
+pnpm --dir prod-cli cli user --user <id|handle|email>
+pnpm --dir prod-cli cli query --sql "SELECT ..."
+```
+
+It only runs single SELECT/SHOW/DESCRIBE/EXPLAIN/WITH statements in a read-only session. Never try to work around that to write to production. Follow `docs/legal/privacy-parameters.md`: never query visitor level analytics (`analytics_events`), message text or secrets (password hashes, sessions, OAuth tokens), and never paste its output into commits, PRs or issues.
+
 ## BRANCHES AND ENVIRONMENTS
 
 The `development` branch is the staging environment. Work merged or pushed to `development` is deployed to staging, so treat it as shared, non-production infrastructure:
