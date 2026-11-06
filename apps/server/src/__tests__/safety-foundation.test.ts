@@ -241,6 +241,17 @@ describe("hash blocklist", () => {
     expect(await findBlockedHash("c".repeat(64))).not.toBeNull();
   });
 
+  it("escalates a removable row to csam and never downgrades it again", async () => {
+    await blockHash({ sha256: "d".repeat(64), reason: "malware" });
+    const escalated = await blockHash({ sha256: "d".repeat(64), reason: "csam" });
+    expect(escalated.reason).toBe("csam");
+    const later = await blockHash({ sha256: "d".repeat(64), reason: "policy" });
+    expect(later.reason).toBe("csam");
+    await expect(unblockHash(db.state.hashes[0]!.id, 4, "reason")).rejects.toBeInstanceOf(
+      BlocklistError
+    );
+  });
+
   it("matches near copies by perceptual hash within the threshold", async () => {
     expect(phashDistance("ff00", "ff01")).toBe(1);
     expect(phashDistance("ff00", "ff")).toBe(Number.POSITIVE_INFINITY);
